@@ -29,14 +29,12 @@ public class Session {
     private final Random random;
     private final Keys keys;
 
-    public Session(String ap) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public Session(String ap) throws IOException {
         String host;
         int port;
         int pos = ap.indexOf(':');
         host = ap.substring(0, pos);
         port = Integer.parseInt(ap.substring(pos + 1, ap.length()));
-
-        LOGGER.info("Connecting to " + host + " on port " + port);
 
         socket = new Socket(host, port);
         out = new DataOutputStream(socket.getOutputStream());
@@ -45,6 +43,10 @@ public class Session {
         random = new SecureRandom();
         keys = Keys.generate(random);
 
+        LOGGER.info("Created connection to " + host + " on port " + port);
+    }
+
+    public void connect() throws IOException, InvalidKeyException, NoSuchAlgorithmException {
         ByteArrayOutputStream initClientPacket = new ByteArrayOutputStream();
         clientHello(initClientPacket);
 
@@ -55,10 +57,10 @@ public class Session {
 
         while (in.available() > 0) { // Shouldn't be any
             int b = in.read();
-            System.out.println(b);
+            System.out.println(b); // FIXME: Testing
         }
 
-        LOGGER.info("Connection successful!");
+        LOGGER.info("Connected successfully!");
     }
 
     public void authenticate(String username, Authentication.AuthenticationType type, ByteString authData) throws IOException {

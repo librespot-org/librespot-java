@@ -23,6 +23,7 @@ public class Main {
             public void onResult(@NotNull List<String> result) {
                 try {
                     Session session = new Session(result.get(ThreadLocalRandom.current().nextInt(result.size())));
+                    session.connect();
                     session.authenticate(args[0], Authentication.AuthenticationType.AUTHENTICATION_USER_PASS, ByteString.copyFromUtf8(args[1]));
                 } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
                     e.printStackTrace();
