@@ -2,11 +2,12 @@ package org.librespot.spotify.crypto;
 
 /**
  * Implementation of the Shannon stream-cipher.
- * <p>
+ *
  * Based on original reference implementation in C.
  *
  * @author Felix Bruns <felixbruns@web.de>
  */
+@SuppressWarnings("ALL")
 public class Shannon {
     /*
      * Fold is how many register cycles need to be performed after combining the

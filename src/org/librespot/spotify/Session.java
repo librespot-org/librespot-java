@@ -2,168 +2,209 @@ package org.librespot.spotify;
 
 import com.google.protobuf.ByteString;
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.crypto.Keys;
+import org.librespot.spotify.crypto.ChiperPair;
+import org.librespot.spotify.crypto.DiffieHellman;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Random;
-import java.util.logging.Logger;
+import java.util.UUID;
 
 /**
  * @author Gianlu
  */
-public class Session {
-    private static final Logger LOGGER = Logger.getLogger(Session.class.getSimpleName());
+public class Session implements AutoCloseable {
     private final Socket socket;
+    private final DiffieHellman keys;
+    private final SecureRandom random;
     private final DataInputStream in;
     private final DataOutputStream out;
-    private final Random random;
-    private final Keys keys;
+    private final String deviceId;
+    private ChiperPair chiperPair;
 
-    public Session(String ap) throws IOException {
-        String host;
-        int port;
-        int pos = ap.indexOf(':');
-        host = ap.substring(0, pos);
-        port = Integer.parseInt(ap.substring(pos + 1, ap.length()));
+    private Session(Socket socket) throws IOException {
+        this.socket = socket; // FIXME: Timeout needed
+        this.random = new SecureRandom();
+        this.keys = new DiffieHellman(random);
 
-        socket = new Socket(host, port);
-        out = new DataOutputStream(socket.getOutputStream());
-        in = new DataInputStream(socket.getInputStream());
+        this.in = new DataInputStream(socket.getInputStream());
+        this.out = new DataOutputStream(socket.getOutputStream());
 
-        random = new SecureRandom();
-        keys = Keys.generate(random);
-
-        LOGGER.info("Created connection to " + host + " on port " + port);
+        this.deviceId = UUID.randomUUID().toString();
     }
 
-    public void connect() throws IOException, InvalidKeyException, NoSuchAlgorithmException {
-        ByteArrayOutputStream initClientPacket = new ByteArrayOutputStream();
-        clientHello(initClientPacket);
-
-        ByteArrayOutputStream initServerPacket = new ByteArrayOutputStream();
-        Keyexchange.APResponseMessage apResponse = readApResponse(initServerPacket);
-        byte[] challenge = keys.solveChallenge(apResponse.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray(), initClientPacket.toByteArray(), initServerPacket.toByteArray());
-        sendClientPlaintext(challenge);
-
-        while (in.available() > 0) { // Shouldn't be any
-            int b = in.read();
-            System.out.println(b); // FIXME: Testing
-        }
-
-        LOGGER.info("Connected successfully!");
+    @NotNull
+    public static Session create() throws IOException {
+        return new Session(ApResolver.getSocketFromRandomAccessPoint());
     }
 
-    public void authenticate(String username, Authentication.AuthenticationType type, ByteString authData) throws IOException {
-        LOGGER.info("Trying to authenticate with " + type);
+    public void connect() throws IOException, GeneralSecurityException {
+        Accumulator acc = new Accumulator();
 
-        Authentication.ClientResponseEncrypted auth = Authentication.ClientResponseEncrypted.newBuilder()
-                .setLoginCredentials(Authentication.LoginCredentials.newBuilder()
-                        .setUsername(username)
-                        .setTyp(type)
-                        .setAuthData(authData)
+        // Send ClientHello
+
+        byte[] nonce = new byte[0x10];
+        random.nextBytes(nonce);
+
+        Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
+                .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
+                        .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
+                        .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
+                        .setVersion(0x10800000000L)
                         .build())
-                .setSystemInfo(Authentication.SystemInfo.newBuilder()
-                        .setOs(Authentication.Os.OS_WINDOWS)
-                        .setCpuFamily(Authentication.CpuFamily.CPU_UNKNOWN)
+                .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
+                .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
+                        .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello.newBuilder()
+                                .setGc(ByteString.copyFrom(keys.publicKeyArray()))
+                                .setServerKeysKnown(1)
+                                .build())
                         .build())
+                .setClientNonce(ByteString.copyFrom(nonce))
+                .setPadding(ByteString.copyFrom(new byte[]{0x1e}))
                 .build();
 
-        sendCmd(0xab, auth.toByteArray());
+        byte[] clientHelloBytes = clientHello.toByteArray();
+        int length = 2 + 4 + clientHelloBytes.length;
+        out.writeByte(0);
+        out.writeByte(4);
+        out.writeInt(length);
+        out.write(clientHelloBytes);
 
-        DataInputStream headerIn = keys.shannonPair.readHeader(in);
-        byte cmd = headerIn.readByte();
-        int length = headerIn.readShort();
-        System.out.println("HEADER: " + cmd + ", " + length);
-        byte[] payload = keys.shannonPair.readPayload(length, in);
-        System.out.println("PAYLOAD: " + Arrays.toString(payload));
+        acc.writeByte(0);
+        acc.writeByte(4);
+        acc.writeInt(length);
+        acc.write(clientHelloBytes);
 
-        System.out.println("END");
-    }
 
-    private void sendCmd(int cmd, byte[] data) throws IOException {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        DataOutputStream packet = new DataOutputStream(stream);
-        packet.writeByte(cmd);
-        packet.writeShort(data.length);
-        packet.write(data);
+        // Read APResponseMessage
 
-        byte[] enc = keys.shannonPair.encode(stream.toByteArray());
-        out.write(enc);
-    }
+        length = in.readInt();
+        acc.writeInt(length);
+        byte[] buffer = new byte[length - 4];
+        if (in.read(buffer) != buffer.length) throw new IOException("Couldn't read APResponseMessage!");
+        acc.write(buffer);
+        acc.dump();
 
-    private void sendClientPlaintext(byte[] challenge) throws IOException {
-        Keyexchange.ClientResponsePlaintext plaintext = Keyexchange.ClientResponsePlaintext.newBuilder()
+        Keyexchange.APResponseMessage apResponseMessage = Keyexchange.APResponseMessage.parseFrom(buffer);
+        keys.computeSharedKey(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray());
+
+
+        // Solve challenge
+
+        ByteArrayOutputStream data = new ByteArrayOutputStream(0x64);
+
+        Mac mac = Mac.getInstance("HmacSHA1");
+        mac.init(new SecretKeySpec(keys.sharedKeyArray(), "HmacSHA1"));
+        for (int i = 1; i < 6; i++) {
+            mac.update(acc.array());
+            mac.update(new byte[]{(byte) i});
+            data.write(mac.doFinal());
+            mac.reset();
+        }
+
+        byte[] dataArray = data.toByteArray();
+        mac = Mac.getInstance("HmacSHA1");
+        mac.init(new SecretKeySpec(Arrays.copyOfRange(dataArray, 0, 0x14), "HmacSHA1"));
+        mac.update(acc.array());
+
+        byte[] challenge = mac.doFinal();
+        Keyexchange.ClientResponsePlaintext clientResponsePlaintext = Keyexchange.ClientResponsePlaintext.newBuilder()
                 .setLoginCryptoResponse(Keyexchange.LoginCryptoResponseUnion.newBuilder()
                         .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanResponse.newBuilder()
                                 .setHmac(ByteString.copyFrom(challenge))
                                 .build())
                         .build())
-                .setPowResponse(Keyexchange.PoWResponseUnion.newBuilder().build())
-                .setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder().build())
+                .setPowResponse(Keyexchange.PoWResponseUnion.newBuilder()
+                        .build())
+                .setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder()
+                        .build())
                 .build();
 
-        byte[] plaintextBytes = plaintext.toByteArray();
-        out.writeInt(plaintextBytes.length + 4);
-        out.write(plaintextBytes);
+        byte[] clientResponsePlaintextBytes = clientResponsePlaintext.toByteArray();
+        length = 4 + clientResponsePlaintextBytes.length;
+        out.writeInt(length);
+        out.write(clientResponsePlaintextBytes);
+
+        // TODO: Check for error
+
+
+        // Init Shannon chiper
+
+        chiperPair = new ChiperPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
+                Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
     }
 
     @NotNull
-    private Keyexchange.APResponseMessage readApResponse(@NotNull ByteArrayOutputStream initServerPacket) throws IOException {
-        int length = in.readInt();
-
-        byte[] resp = new byte[length - 4];
-        Utils.readChecked(in, resp);
-
-        DataOutputStream packet = new DataOutputStream(initServerPacket);
-        packet.writeInt(length);
-        packet.write(resp);
-
-        return Keyexchange.APResponseMessage.parseFrom(resp);
+    public Authentication.APWelcome authenticateUserPass(@NotNull String username, @NotNull String password) throws SpotifyAuthenticationException, GeneralSecurityException, IOException {
+        return authenticate(Authentication.LoginCredentials.newBuilder()
+                .setUsername(username)
+                .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
+                .setAuthData(ByteString.copyFromUtf8(password))
+                .build());
     }
 
-    private void clientHello(@NotNull ByteArrayOutputStream initClientPacket) throws IOException {
-        byte[] clientNonCe = new byte[16];
-        random.nextBytes(clientNonCe);
+    @NotNull
+    public Authentication.APWelcome authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+        if (chiperPair == null) throw new IllegalStateException("Connection not established!");
 
-        Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
-                .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
-                        .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(0x10800000000L)
-                        .setProduct(Keyexchange.Product.PRODUCT_PARTNER).build())
-                .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
-                .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
-                        .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello.newBuilder()
-                                .setServerKeysKnown(1)
-                                .setGc(ByteString.copyFrom(keys.publicKeyArray()))
-                                .build())
+        Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
+                .setLoginCredentials(credentials)
+                .setSystemInfo(Authentication.SystemInfo.newBuilder()
+                        .setOs(Authentication.Os.OS_UNKNOWN)
+                        .setCpuFamily(Authentication.CpuFamily.CPU_UNKNOWN)
+                        .setSystemInformationString(Version.systemInfoString())
+                        .setDeviceId(deviceId)
                         .build())
-                .setClientNonce(ByteString.copyFrom(clientNonCe))
-                .setPadding(ByteString.copyFrom(new byte[]{0x1e}))
+                .setVersionString(Version.versionString())
                 .build();
 
-        byte[] payload = clientHello.toByteArray();
-        int length = 6 + payload.length;
+        chiperPair.sendEncoded(out, (byte) 0xab, clientResponseEncrypted.toByteArray());
 
-        out.writeByte(0);
-        out.writeByte(4);
-        out.writeInt(length);
-        out.write(payload);
-        out.flush();
+        ChiperPair.Payload payload = chiperPair.receiveEncoded(in);
+        if (payload.cmd == (byte) 0xac) {
+            return Authentication.APWelcome.parseFrom(payload.payload);
+        } else if (payload.cmd == (byte) 0xad) {
+            throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(payload.payload));
+        } else {
+            throw new IllegalStateException("Unknown CMD: " + payload.cmd);
+        }
+    }
 
-        DataOutputStream packet = new DataOutputStream(initClientPacket);
-        packet.writeByte(0);
-        packet.writeByte(4);
-        packet.writeInt(length);
-        packet.write(payload);
+    @Override
+    public void close() throws Exception {
+        socket.close();
+    }
+
+    public static class SpotifyAuthenticationException extends Exception {
+        private SpotifyAuthenticationException(Keyexchange.APLoginFailed loginFailed) {
+            super(loginFailed.getErrorCode().name());
+        }
+    }
+
+    private static class Accumulator extends DataOutputStream {
+        private byte[] bytes;
+
+        Accumulator() {
+            super(new ByteArrayOutputStream());
+        }
+
+        void dump() throws IOException {
+            bytes = ((ByteArrayOutputStream) this.out).toByteArray();
+            close();
+        }
+
+        @NotNull
+        byte[] array() {
+            return bytes;
+        }
     }
 }
