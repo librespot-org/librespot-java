@@ -98,7 +98,8 @@ public class ChiperPair {
         AuthFailure(0xad),
         MercuryReq(0xb2),
         MercurySub(0xb3),
-        MercuryUnsub(0xb4);
+        MercuryUnsub(0xb4),
+        UnknownData_AllZeros(0x1f);
 
         public final byte val;
 

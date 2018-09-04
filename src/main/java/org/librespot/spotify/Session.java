@@ -16,6 +16,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -260,26 +261,34 @@ public class Session implements AutoCloseable {
                     ChiperPair.Packet packet = chiperPair.receiveEncoded(in);
                     ChiperPair.PacketType cmd = ChiperPair.PacketType.parse(packet.cmd);
                     if (cmd == null) {
-                        LOGGER.info("Skipping 0x" + Integer.toHexString(packet.cmd));
+                        LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
                         continue;
                     }
 
-                    LOGGER.info("Handling " + cmd.name());
                     switch (cmd) {
                         case Ping:
                             send(ChiperPair.PacketType.Pong, packet.payload);
+                            LOGGER.trace("Handled Ping");
                             break;
                         case PongAck:
+                            LOGGER.trace("Handled PongAck");
                             break;
                         case CountryCode:
-                            LOGGER.info("Country: " + new String(packet.payload));
+                            LOGGER.info("Received CountryCode: " + new String(packet.payload));
+                            break;
+                        case LicenseVersion:
+                            ByteBuffer licenseVersion = ByteBuffer.wrap(packet.payload);
+                            short id = licenseVersion.getShort();
+                            byte[] buffer = new byte[licenseVersion.get()];
+                            licenseVersion.get(buffer);
+                            LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
                             break;
                         default:
-
+                            LOGGER.info("Skipping " + cmd.name());
                             break;
                     }
-                } catch (IOException | GeneralSecurityException | NegativeArraySizeException e) {
-                    e.printStackTrace(); // FIXME
+                } catch (IOException | GeneralSecurityException ex) {
+                    LOGGER.warn("Failed handling packet!", ex);
                 }
             }
         }
