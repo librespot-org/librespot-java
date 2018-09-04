@@ -14,15 +14,18 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
  */
 public class Session implements AutoCloseable {
+    private static final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(1);
     private final Socket socket;
     private final DiffieHellman keys;
     private final SecureRandom random;
@@ -32,7 +35,8 @@ public class Session implements AutoCloseable {
     private ChiperPair chiperPair;
 
     private Session(Socket socket) throws IOException {
-        this.socket = socket; // FIXME: Timeout needed
+        this.socket = socket;
+        this.socket.setSoTimeout(TIMEOUT);
         this.random = new SecureRandom();
         this.keys = new DiffieHellman(random);
 
@@ -47,7 +51,7 @@ public class Session implements AutoCloseable {
         return new Session(ApResolver.getSocketFromRandomAccessPoint());
     }
 
-    public void connect() throws IOException, GeneralSecurityException {
+    public void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         Accumulator acc = new Accumulator();
 
         // Send ClientHello
@@ -134,8 +138,17 @@ public class Session implements AutoCloseable {
         out.writeInt(length);
         out.write(clientResponsePlaintextBytes);
 
-        // TODO: Check for error
-
+        try {
+            byte[] scrap = new byte[4];
+            if (in.read(scrap) == scrap.length) {
+                length = (scrap[0] << 24) | (scrap[1] << 16) | (scrap[2] << 8) | (scrap[3] & 0xFF);
+                byte[] payload = new byte[length - 4];
+                if (in.read(payload) != payload.length) throw new IOException("Couldn't read APLoginFailed!");
+                Keyexchange.APLoginFailed failed = Keyexchange.APResponseMessage.parseFrom(payload).getLoginFailed();
+                throw new SpotifyAuthenticationException(failed);
+            }
+        } catch (SocketTimeoutException ignored) {
+        }
 
         // Init Shannon chiper
 
