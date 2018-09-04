@@ -150,6 +150,7 @@ public class Session implements AutoCloseable {
         } catch (SocketTimeoutException ignored) {
         }
 
+
         // Init Shannon chiper
 
         chiperPair = new ChiperPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
