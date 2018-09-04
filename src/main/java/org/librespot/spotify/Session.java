@@ -1,6 +1,7 @@
 package org.librespot.spotify;
 
 import com.google.protobuf.ByteString;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.crypto.ChiperPair;
 import org.librespot.spotify.crypto.DiffieHellman;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class Session implements AutoCloseable {
     private static final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(1);
+    private static final Logger LOGGER = Logger.getLogger(Session.class);
     private final Socket socket;
     private final DiffieHellman keys;
     private final SecureRandom random;
@@ -44,6 +46,8 @@ public class Session implements AutoCloseable {
         this.out = new DataOutputStream(socket.getOutputStream());
 
         this.deviceId = UUID.randomUUID().toString();
+
+        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s} ", deviceId, socket.getInetAddress()));
     }
 
     @NotNull
@@ -155,6 +159,8 @@ public class Session implements AutoCloseable {
 
         chiperPair = new ChiperPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
                 Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
+
+        LOGGER.info("Connected successfully!");
     }
 
     @NotNull

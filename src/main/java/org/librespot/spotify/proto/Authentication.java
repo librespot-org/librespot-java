@@ -3074,21 +3074,6 @@ public final class Authentication {
             /**
              * <code>required .LoginCredentials login_credentials = 10;</code>
              */
-            public Builder setLoginCredentials(
-                    Authentication.LoginCredentials.Builder builderForValue) {
-                if (loginCredentialsBuilder_ == null) {
-                    loginCredentials_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    loginCredentialsBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>required .LoginCredentials login_credentials = 10;</code>
-             */
             public Builder setLoginCredentials(Authentication.LoginCredentials value) {
                 if (loginCredentialsBuilder_ == null) {
                     if (value == null) {
@@ -3098,6 +3083,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     loginCredentialsBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>required .LoginCredentials login_credentials = 10;</code>
+             */
+            public Builder setLoginCredentials(
+                    Authentication.LoginCredentials.Builder builderForValue) {
+                if (loginCredentialsBuilder_ == null) {
+                    loginCredentials_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    loginCredentialsBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -3236,21 +3236,6 @@ public final class Authentication {
             /**
              * <code>optional .FingerprintResponseUnion fingerprint_response = 30;</code>
              */
-            public Builder setFingerprintResponse(
-                    Authentication.FingerprintResponseUnion.Builder builderForValue) {
-                if (fingerprintResponseBuilder_ == null) {
-                    fingerprintResponse_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    fingerprintResponseBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .FingerprintResponseUnion fingerprint_response = 30;</code>
-             */
             public Builder setFingerprintResponse(Authentication.FingerprintResponseUnion value) {
                 if (fingerprintResponseBuilder_ == null) {
                     if (value == null) {
@@ -3260,6 +3245,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     fingerprintResponseBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .FingerprintResponseUnion fingerprint_response = 30;</code>
+             */
+            public Builder setFingerprintResponse(
+                    Authentication.FingerprintResponseUnion.Builder builderForValue) {
+                if (fingerprintResponseBuilder_ == null) {
+                    fingerprintResponse_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    fingerprintResponseBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -3359,21 +3359,6 @@ public final class Authentication {
             /**
              * <code>optional .PeerTicketUnion peer_ticket = 40;</code>
              */
-            public Builder setPeerTicket(
-                    Authentication.PeerTicketUnion.Builder builderForValue) {
-                if (peerTicketBuilder_ == null) {
-                    peerTicket_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    peerTicketBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .PeerTicketUnion peer_ticket = 40;</code>
-             */
             public Builder setPeerTicket(Authentication.PeerTicketUnion value) {
                 if (peerTicketBuilder_ == null) {
                     if (value == null) {
@@ -3383,6 +3368,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     peerTicketBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .PeerTicketUnion peer_ticket = 40;</code>
+             */
+            public Builder setPeerTicket(
+                    Authentication.PeerTicketUnion.Builder builderForValue) {
+                if (peerTicketBuilder_ == null) {
+                    peerTicket_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    peerTicketBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -3482,21 +3482,6 @@ public final class Authentication {
             /**
              * <code>required .SystemInfo system_info = 50;</code>
              */
-            public Builder setSystemInfo(
-                    Authentication.SystemInfo.Builder builderForValue) {
-                if (systemInfoBuilder_ == null) {
-                    systemInfo_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    systemInfoBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>required .SystemInfo system_info = 50;</code>
-             */
             public Builder setSystemInfo(Authentication.SystemInfo value) {
                 if (systemInfoBuilder_ == null) {
                     if (value == null) {
@@ -3506,6 +3491,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     systemInfoBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>required .SystemInfo system_info = 50;</code>
+             */
+            public Builder setSystemInfo(
+                    Authentication.SystemInfo.Builder builderForValue) {
+                if (systemInfoBuilder_ == null) {
+                    systemInfo_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    systemInfoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -3765,21 +3765,6 @@ public final class Authentication {
             /**
              * <code>optional .LibspotifyAppKey appkey = 80;</code>
              */
-            public Builder setAppkey(
-                    Authentication.LibspotifyAppKey.Builder builderForValue) {
-                if (appkeyBuilder_ == null) {
-                    appkey_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    appkeyBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000080;
-                return this;
-            }
-
-            /**
-             * <code>optional .LibspotifyAppKey appkey = 80;</code>
-             */
             public Builder setAppkey(Authentication.LibspotifyAppKey value) {
                 if (appkeyBuilder_ == null) {
                     if (value == null) {
@@ -3789,6 +3774,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     appkeyBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000080;
+                return this;
+            }
+
+            /**
+             * <code>optional .LibspotifyAppKey appkey = 80;</code>
+             */
+            public Builder setAppkey(
+                    Authentication.LibspotifyAppKey.Builder builderForValue) {
+                if (appkeyBuilder_ == null) {
+                    appkey_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    appkeyBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000080;
                 return this;
@@ -3888,21 +3888,6 @@ public final class Authentication {
             /**
              * <code>optional .ClientInfo client_info = 90;</code>
              */
-            public Builder setClientInfo(
-                    Authentication.ClientInfo.Builder builderForValue) {
-                if (clientInfoBuilder_ == null) {
-                    clientInfo_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    clientInfoBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000100;
-                return this;
-            }
-
-            /**
-             * <code>optional .ClientInfo client_info = 90;</code>
-             */
             public Builder setClientInfo(Authentication.ClientInfo value) {
                 if (clientInfoBuilder_ == null) {
                     if (value == null) {
@@ -3912,6 +3897,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     clientInfoBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000100;
+                return this;
+            }
+
+            /**
+             * <code>optional .ClientInfo client_info = 90;</code>
+             */
+            public Builder setClientInfo(
+                    Authentication.ClientInfo.Builder builderForValue) {
+                if (clientInfoBuilder_ == null) {
+                    clientInfo_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    clientInfoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000100;
                 return this;
@@ -5411,21 +5411,6 @@ public final class Authentication {
             /**
              * <code>optional .FingerprintGrainResponse grain = 10;</code>
              */
-            public Builder setGrain(
-                    Authentication.FingerprintGrainResponse.Builder builderForValue) {
-                if (grainBuilder_ == null) {
-                    grain_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    grainBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .FingerprintGrainResponse grain = 10;</code>
-             */
             public Builder setGrain(Authentication.FingerprintGrainResponse value) {
                 if (grainBuilder_ == null) {
                     if (value == null) {
@@ -5435,6 +5420,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     grainBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .FingerprintGrainResponse grain = 10;</code>
+             */
+            public Builder setGrain(
+                    Authentication.FingerprintGrainResponse.Builder builderForValue) {
+                if (grainBuilder_ == null) {
+                    grain_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    grainBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -5534,21 +5534,6 @@ public final class Authentication {
             /**
              * <code>optional .FingerprintHmacRipemdResponse hmac_ripemd = 20;</code>
              */
-            public Builder setHmacRipemd(
-                    Authentication.FingerprintHmacRipemdResponse.Builder builderForValue) {
-                if (hmacRipemdBuilder_ == null) {
-                    hmacRipemd_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    hmacRipemdBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .FingerprintHmacRipemdResponse hmac_ripemd = 20;</code>
-             */
             public Builder setHmacRipemd(Authentication.FingerprintHmacRipemdResponse value) {
                 if (hmacRipemdBuilder_ == null) {
                     if (value == null) {
@@ -5558,6 +5543,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     hmacRipemdBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .FingerprintHmacRipemdResponse hmac_ripemd = 20;</code>
+             */
+            public Builder setHmacRipemd(
+                    Authentication.FingerprintHmacRipemdResponse.Builder builderForValue) {
+                if (hmacRipemdBuilder_ == null) {
+                    hmacRipemd_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    hmacRipemdBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -7339,21 +7339,6 @@ public final class Authentication {
             /**
              * <code>optional .PeerTicketPublicKey public_key = 10;</code>
              */
-            public Builder setPublicKey(
-                    Authentication.PeerTicketPublicKey.Builder builderForValue) {
-                if (publicKeyBuilder_ == null) {
-                    publicKey_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    publicKeyBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .PeerTicketPublicKey public_key = 10;</code>
-             */
             public Builder setPublicKey(Authentication.PeerTicketPublicKey value) {
                 if (publicKeyBuilder_ == null) {
                     if (value == null) {
@@ -7363,6 +7348,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     publicKeyBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .PeerTicketPublicKey public_key = 10;</code>
+             */
+            public Builder setPublicKey(
+                    Authentication.PeerTicketPublicKey.Builder builderForValue) {
+                if (publicKeyBuilder_ == null) {
+                    publicKey_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    publicKeyBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -7462,21 +7462,6 @@ public final class Authentication {
             /**
              * <code>optional .PeerTicketOld old_ticket = 20;</code>
              */
-            public Builder setOldTicket(
-                    Authentication.PeerTicketOld.Builder builderForValue) {
-                if (oldTicketBuilder_ == null) {
-                    oldTicket_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    oldTicketBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .PeerTicketOld old_ticket = 20;</code>
-             */
             public Builder setOldTicket(Authentication.PeerTicketOld value) {
                 if (oldTicketBuilder_ == null) {
                     if (value == null) {
@@ -7486,6 +7471,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     oldTicketBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .PeerTicketOld old_ticket = 20;</code>
+             */
+            public Builder setOldTicket(
+                    Authentication.PeerTicketOld.Builder builderForValue) {
+                if (oldTicketBuilder_ == null) {
+                    oldTicket_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    oldTicketBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -11868,21 +11868,6 @@ public final class Authentication {
             /**
              * <code>optional .ClientInfoFacebook fb = 2;</code>
              */
-            public Builder setFb(
-                    Authentication.ClientInfoFacebook.Builder builderForValue) {
-                if (fbBuilder_ == null) {
-                    fb_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    fbBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .ClientInfoFacebook fb = 2;</code>
-             */
             public Builder setFb(Authentication.ClientInfoFacebook value) {
                 if (fbBuilder_ == null) {
                     if (value == null) {
@@ -11892,6 +11877,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     fbBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .ClientInfoFacebook fb = 2;</code>
+             */
+            public Builder setFb(
+                    Authentication.ClientInfoFacebook.Builder builderForValue) {
+                if (fbBuilder_ == null) {
+                    fb_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    fbBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -13912,21 +13912,6 @@ public final class Authentication {
             /**
              * <code>optional .AccountInfo account_info = 60;</code>
              */
-            public Builder setAccountInfo(
-                    Authentication.AccountInfo.Builder builderForValue) {
-                if (accountInfoBuilder_ == null) {
-                    accountInfo_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    accountInfoBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000040;
-                return this;
-            }
-
-            /**
-             * <code>optional .AccountInfo account_info = 60;</code>
-             */
             public Builder setAccountInfo(Authentication.AccountInfo value) {
                 if (accountInfoBuilder_ == null) {
                     if (value == null) {
@@ -13936,6 +13921,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     accountInfoBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000040;
+                return this;
+            }
+
+            /**
+             * <code>optional .AccountInfo account_info = 60;</code>
+             */
+            public Builder setAccountInfo(
+                    Authentication.AccountInfo.Builder builderForValue) {
+                if (accountInfoBuilder_ == null) {
+                    accountInfo_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    accountInfoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000040;
                 return this;
@@ -14035,21 +14035,6 @@ public final class Authentication {
             /**
              * <code>optional .AccountInfoFacebook fb = 70;</code>
              */
-            public Builder setFb(
-                    Authentication.AccountInfoFacebook.Builder builderForValue) {
-                if (fbBuilder_ == null) {
-                    fb_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    fbBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000080;
-                return this;
-            }
-
-            /**
-             * <code>optional .AccountInfoFacebook fb = 70;</code>
-             */
             public Builder setFb(Authentication.AccountInfoFacebook value) {
                 if (fbBuilder_ == null) {
                     if (value == null) {
@@ -14059,6 +14044,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     fbBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000080;
+                return this;
+            }
+
+            /**
+             * <code>optional .AccountInfoFacebook fb = 70;</code>
+             */
+            public Builder setFb(
+                    Authentication.AccountInfoFacebook.Builder builderForValue) {
+                if (fbBuilder_ == null) {
+                    fb_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    fbBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000080;
                 return this;
@@ -14750,21 +14750,6 @@ public final class Authentication {
             /**
              * <code>optional .AccountInfoSpotify spotify = 1;</code>
              */
-            public Builder setSpotify(
-                    Authentication.AccountInfoSpotify.Builder builderForValue) {
-                if (spotifyBuilder_ == null) {
-                    spotify_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    spotifyBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .AccountInfoSpotify spotify = 1;</code>
-             */
             public Builder setSpotify(Authentication.AccountInfoSpotify value) {
                 if (spotifyBuilder_ == null) {
                     if (value == null) {
@@ -14774,6 +14759,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     spotifyBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .AccountInfoSpotify spotify = 1;</code>
+             */
+            public Builder setSpotify(
+                    Authentication.AccountInfoSpotify.Builder builderForValue) {
+                if (spotifyBuilder_ == null) {
+                    spotify_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    spotifyBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -14873,21 +14873,6 @@ public final class Authentication {
             /**
              * <code>optional .AccountInfoFacebook facebook = 2;</code>
              */
-            public Builder setFacebook(
-                    Authentication.AccountInfoFacebook.Builder builderForValue) {
-                if (facebookBuilder_ == null) {
-                    facebook_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    facebookBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .AccountInfoFacebook facebook = 2;</code>
-             */
             public Builder setFacebook(Authentication.AccountInfoFacebook value) {
                 if (facebookBuilder_ == null) {
                     if (value == null) {
@@ -14897,6 +14882,21 @@ public final class Authentication {
                     onChanged();
                 } else {
                     facebookBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .AccountInfoFacebook facebook = 2;</code>
+             */
+            public Builder setFacebook(
+                    Authentication.AccountInfoFacebook.Builder builderForValue) {
+                if (facebookBuilder_ == null) {
+                    facebook_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    facebookBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
