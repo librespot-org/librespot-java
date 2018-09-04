@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
  * @author Gianlu
  */
 public class Session implements AutoCloseable {
-    private static final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(1);
     private static final Logger LOGGER = Logger.getLogger(Session.class);
     private final Socket socket;
     private final DiffieHellman keys;
@@ -35,10 +34,11 @@ public class Session implements AutoCloseable {
     private final DataOutputStream out;
     private final String deviceId;
     private ChiperPair chiperPair;
+    private Receiver receiver;
+    private Authentication.APWelcome apWelcome = null;
 
     private Session(Socket socket) throws IOException {
         this.socket = socket;
-        this.socket.setSoTimeout(TIMEOUT);
         this.random = new SecureRandom();
         this.keys = new DiffieHellman(random);
 
@@ -144,6 +144,7 @@ public class Session implements AutoCloseable {
 
         try {
             byte[] scrap = new byte[4];
+            socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(1));
             if (in.read(scrap) == scrap.length) {
                 length = (scrap[0] << 24) | (scrap[1] << 16) | (scrap[2] << 8) | (scrap[3] & 0xFF);
                 byte[] payload = new byte[length - 4];
@@ -152,6 +153,8 @@ public class Session implements AutoCloseable {
                 throw new SpotifyAuthenticationException(failed);
             }
         } catch (SocketTimeoutException ignored) {
+        } finally {
+            socket.setSoTimeout(0);
         }
 
 
@@ -187,21 +190,33 @@ public class Session implements AutoCloseable {
                 .setVersionString(Version.versionString())
                 .build();
 
-        chiperPair.sendEncoded(out, (byte) 0xab, clientResponseEncrypted.toByteArray());
+        send(ChiperPair.PacketType.Login, clientResponseEncrypted.toByteArray());
 
-        ChiperPair.Payload payload = chiperPair.receiveEncoded(in);
-        if (payload.cmd == (byte) 0xac) {
-            return Authentication.APWelcome.parseFrom(payload.payload);
-        } else if (payload.cmd == (byte) 0xad) {
-            throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(payload.payload));
+        ChiperPair.Packet packet = chiperPair.receiveEncoded(in);
+        if (packet.type() == ChiperPair.PacketType.APWelcome) {
+            apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
+            receiver = new Receiver();
+            new Thread(receiver).start();
+            return apWelcome;
+        } else if (packet.type() == ChiperPair.PacketType.AuthFailure) {
+            throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
-            throw new IllegalStateException("Unknown CMD: " + payload.cmd);
+            throw new IllegalStateException("Unknown CMD 0x" + Integer.toHexString(packet.cmd));
         }
     }
 
     @Override
     public void close() throws Exception {
+        receiver.stop();
         socket.close();
+    }
+
+    public boolean isAuthenticated() {
+        return apWelcome != null;
+    }
+
+    public void send(ChiperPair.PacketType cmd, byte[] payload) throws IOException {
+        chiperPair.sendEncoded(out, cmd.val, payload);
     }
 
     public static class SpotifyAuthenticationException extends Exception {
@@ -225,6 +240,48 @@ public class Session implements AutoCloseable {
         @NotNull
         byte[] array() {
             return bytes;
+        }
+    }
+
+    private class Receiver implements Runnable {
+        private volatile boolean shouldStop = false;
+
+        private Receiver() {
+        }
+
+        void stop() {
+            shouldStop = true;
+        }
+
+        @Override
+        public void run() {
+            while (!shouldStop) {
+                try {
+                    ChiperPair.Packet packet = chiperPair.receiveEncoded(in);
+                    ChiperPair.PacketType cmd = ChiperPair.PacketType.parse(packet.cmd);
+                    if (cmd == null) {
+                        LOGGER.info("Skipping 0x" + Integer.toHexString(packet.cmd));
+                        continue;
+                    }
+
+                    LOGGER.info("Handling " + cmd.name());
+                    switch (cmd) {
+                        case Ping:
+                            send(ChiperPair.PacketType.Pong, packet.payload);
+                            break;
+                        case PongAck:
+                            break;
+                        case CountryCode:
+                            LOGGER.info("Country: " + new String(packet.payload));
+                            break;
+                        default:
+
+                            break;
+                    }
+                } catch (IOException | GeneralSecurityException | NegativeArraySizeException e) {
+                    e.printStackTrace(); // FIXME
+                }
+            }
         }
     }
 }
