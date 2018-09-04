@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.crypto.ChiperPair;
 import org.librespot.spotify.crypto.DiffieHellman;
+import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
 
@@ -149,7 +150,10 @@ public class Session implements AutoCloseable {
             if (in.read(scrap) == scrap.length) {
                 length = (scrap[0] << 24) | (scrap[1] << 16) | (scrap[2] << 8) | (scrap[3] & 0xFF);
                 byte[] payload = new byte[length - 4];
-                if (in.read(payload) != payload.length) throw new IOException("Couldn't read APLoginFailed!");
+                int read;
+                if ((read = in.read(payload)) != payload.length)
+                    throw new EOSException(payload.length, read);
+
                 Keyexchange.APLoginFailed failed = Keyexchange.APResponseMessage.parseFrom(payload).getLoginFailed();
                 throw new SpotifyAuthenticationException(failed);
             }
@@ -191,15 +195,15 @@ public class Session implements AutoCloseable {
                 .setVersionString(Version.versionString())
                 .build();
 
-        send(ChiperPair.PacketType.Login, clientResponseEncrypted.toByteArray());
+        send(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
-        ChiperPair.Packet packet = chiperPair.receiveEncoded(in);
-        if (packet.type() == ChiperPair.PacketType.APWelcome) {
+        Packet packet = chiperPair.receiveEncoded(in);
+        if (packet.type() == Packet.Type.APWelcome) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
             receiver = new Receiver();
             new Thread(receiver).start();
             return apWelcome;
-        } else if (packet.type() == ChiperPair.PacketType.AuthFailure) {
+        } else if (packet.type() == Packet.Type.AuthFailure) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
             throw new IllegalStateException("Unknown CMD 0x" + Integer.toHexString(packet.cmd));
@@ -216,7 +220,7 @@ public class Session implements AutoCloseable {
         return apWelcome != null;
     }
 
-    public void send(ChiperPair.PacketType cmd, byte[] payload) throws IOException {
+    public void send(Packet.Type cmd, byte[] payload) throws IOException {
         chiperPair.sendEncoded(out, cmd.val, payload);
     }
 
@@ -244,6 +248,12 @@ public class Session implements AutoCloseable {
         }
     }
 
+    public static class EOSException extends IOException {
+        public EOSException(int expected, int read) {
+            super("Expected " + expected + " bytes, but only " + read + " available.");
+        }
+    }
+
     private class Receiver implements Runnable {
         private volatile boolean shouldStop = false;
 
@@ -258,8 +268,8 @@ public class Session implements AutoCloseable {
         public void run() {
             while (!shouldStop) {
                 try {
-                    ChiperPair.Packet packet = chiperPair.receiveEncoded(in);
-                    ChiperPair.PacketType cmd = ChiperPair.PacketType.parse(packet.cmd);
+                    Packet packet = chiperPair.receiveEncoded(in);
+                    Packet.Type cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
                         LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
                         continue;
@@ -267,7 +277,7 @@ public class Session implements AutoCloseable {
 
                     switch (cmd) {
                         case Ping:
-                            send(ChiperPair.PacketType.Pong, packet.payload);
+                            send(Packet.Type.Pong, packet.payload);
                             LOGGER.trace("Handled Ping");
                             break;
                         case PongAck:
