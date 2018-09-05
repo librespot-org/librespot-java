@@ -91,6 +91,7 @@ public class Session implements AutoCloseable {
         out.writeByte(4);
         out.writeInt(length);
         out.write(clientHelloBytes);
+        out.flush();
 
         acc.writeByte(0);
         acc.writeByte(4);
@@ -103,7 +104,7 @@ public class Session implements AutoCloseable {
         length = in.readInt();
         acc.writeInt(length);
         byte[] buffer = new byte[length - 4];
-        if (in.read(buffer) != buffer.length) throw new IOException("Couldn't read APResponseMessage!");
+        in.readFully(buffer);
         acc.write(buffer);
         acc.dump();
 
@@ -146,19 +147,20 @@ public class Session implements AutoCloseable {
         length = 4 + clientResponsePlaintextBytes.length;
         out.writeInt(length);
         out.write(clientResponsePlaintextBytes);
+        out.flush();
 
         try {
             byte[] scrap = new byte[4];
             socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(1));
-            if (in.read(scrap) == scrap.length) {
+            int read = in.read(scrap);
+            if (read == scrap.length) {
                 length = (scrap[0] << 24) | (scrap[1] << 16) | (scrap[2] << 8) | (scrap[3] & 0xFF);
                 byte[] payload = new byte[length - 4];
-                int read;
-                if ((read = in.read(payload)) != payload.length)
-                    throw new EOSException(payload.length, read);
-
+                in.readFully(payload);
                 Keyexchange.APLoginFailed failed = Keyexchange.APResponseMessage.parseFrom(payload).getLoginFailed();
                 throw new SpotifyAuthenticationException(failed);
+            } else if (read > 0) {
+                throw new IllegalStateException("Read unknown data!");
             }
         } catch (SocketTimeoutException ignored) {
         } finally {
@@ -277,8 +279,8 @@ public class Session implements AutoCloseable {
 
         @Override
         public void run() {
-            while (!shouldStop) {
-                try {
+            try {
+                while (!shouldStop) {
                     Packet packet = chiperPair.receiveEncoded(in);
                     Packet.Type cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
@@ -311,9 +313,9 @@ public class Session implements AutoCloseable {
                             LOGGER.info("Skipping " + cmd.name());
                             break;
                     }
-                } catch (IOException | GeneralSecurityException ex) {
-                    LOGGER.warn("Failed handling packet!", ex);
                 }
+            } catch (IOException | GeneralSecurityException ex) {
+                LOGGER.fatal("Failed handling packet!", ex);
             }
         }
     }

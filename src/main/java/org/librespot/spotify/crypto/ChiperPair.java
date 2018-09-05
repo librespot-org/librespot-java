@@ -2,10 +2,9 @@ package org.librespot.spotify.crypto;
 
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.Utils;
-import org.librespot.spotify.connection.Session;
 
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
@@ -15,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Gianlu
  */
-public class ChiperPair { // FIXME: We have a synchronization issue (data corruption)
+public class ChiperPair {
     private final Shannon sendChiper;
     private final Shannon recvChiper;
     private final AtomicInteger sendNonce;
@@ -47,28 +46,26 @@ public class ChiperPair { // FIXME: We have a synchronization issue (data corrup
 
         out.write(bytes);
         out.write(mac);
+        out.flush();
     }
 
     @NotNull
-    public synchronized Packet receiveEncoded(InputStream in) throws IOException, GeneralSecurityException {
+    public synchronized Packet receiveEncoded(DataInputStream in) throws IOException, GeneralSecurityException {
         recvChiper.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
 
-        int read;
         byte[] headerBytes = new byte[3];
-        if ((read = in.read(headerBytes)) != headerBytes.length)
-            throw new Session.EOSException(headerBytes.length, read);
+        in.readFully(headerBytes);
         recvChiper.decrypt(headerBytes);
 
         byte cmd = headerBytes[0];
         short payloadLength = (short) ((headerBytes[1] << 8) | (headerBytes[2] & 0xFF));
 
         byte[] payloadBytes = new byte[payloadLength];
-        if ((read = in.read(payloadBytes)) != payloadBytes.length)
-            throw new Session.EOSException(payloadBytes.length, read);
+        in.readFully(payloadBytes);
         recvChiper.decrypt(payloadBytes);
 
         byte[] mac = new byte[4];
-        if ((read = in.read(mac)) != mac.length) throw new Session.EOSException(mac.length, read);
+        in.readFully(mac);
 
         byte[] expectedMac = new byte[4];
         recvChiper.finish(expectedMac);
