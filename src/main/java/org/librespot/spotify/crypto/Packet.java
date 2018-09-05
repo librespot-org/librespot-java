@@ -43,6 +43,7 @@ public class Packet {
         MercuryReq(0xb2),
         MercurySub(0xb3),
         MercuryUnsub(0xb4),
+        MercuryUnknown(0xb5), // TODO: What's this? See mercury.go:260
         UnknownData_AllZeros(0x1f);
 
         public final byte val;

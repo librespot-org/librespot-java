@@ -3,6 +3,7 @@
 
 package org.librespot.spotify.proto;
 
+@SuppressWarnings("ALL")
 public final class Keyexchange {
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_ClientHello_descriptor;

@@ -1,8 +1,10 @@
-package org.librespot.spotify;
+package org.librespot.spotify.connection;
 
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.ApResolver;
+import org.librespot.spotify.Version;
 import org.librespot.spotify.crypto.ChiperPair;
 import org.librespot.spotify.crypto.DiffieHellman;
 import org.librespot.spotify.crypto.Packet;
@@ -38,6 +40,7 @@ public class Session implements AutoCloseable {
     private ChiperPair chiperPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
+    private MercuryClient mercuryClient;
 
     private Session(Socket socket) throws IOException {
         this.socket = socket;
@@ -200,8 +203,7 @@ public class Session implements AutoCloseable {
         Packet packet = chiperPair.receiveEncoded(in);
         if (packet.type() == Packet.Type.APWelcome) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
-            receiver = new Receiver();
-            new Thread(receiver).start();
+            authenticatedSuccessfully();
             return apWelcome;
         } else if (packet.type() == Packet.Type.AuthFailure) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
@@ -210,18 +212,27 @@ public class Session implements AutoCloseable {
         }
     }
 
+    private void authenticatedSuccessfully() {
+        mercuryClient = new MercuryClient(this);
+
+        receiver = new Receiver();
+        new Thread(receiver).start();
+    }
+
     @Override
     public void close() throws Exception {
         receiver.stop();
         socket.close();
     }
 
-    public boolean isAuthenticated() {
-        return apWelcome != null;
-    }
-
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
         chiperPair.sendEncoded(out, cmd.val, payload);
+    }
+
+    @NotNull
+    public MercuryClient mercury() {
+        if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
+        return mercuryClient;
     }
 
     public static class SpotifyAuthenticationException extends Exception {
@@ -292,6 +303,9 @@ public class Session implements AutoCloseable {
                             byte[] buffer = new byte[licenseVersion.get()];
                             licenseVersion.get(buffer);
                             LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                            break;
+                        case MercuryReq:
+                            mercuryClient.handle(packet);
                             break;
                         default:
                             LOGGER.info("Skipping " + cmd.name());

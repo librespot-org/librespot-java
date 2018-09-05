@@ -3,6 +3,7 @@
 
 package org.librespot.spotify.proto;
 
+@SuppressWarnings("ALL")
 public final class Authentication {
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_ClientResponseEncrypted_descriptor;

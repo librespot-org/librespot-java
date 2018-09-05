@@ -1,8 +1,8 @@
 package org.librespot.spotify.crypto;
 
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.Session;
 import org.librespot.spotify.Utils;
+import org.librespot.spotify.connection.Session;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,29 +10,29 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Gianlu
  */
-public class ChiperPair {
+public class ChiperPair { // FIXME: We have a synchronization issue (data corruption)
     private final Shannon sendChiper;
     private final Shannon recvChiper;
-    private int sendNonce;
-    private int recvNonce;
+    private final AtomicInteger sendNonce;
+    private final AtomicInteger recvNonce;
 
     public ChiperPair(byte[] sendKey, byte[] recvKey) {
         sendChiper = new Shannon();
         sendChiper.key(sendKey);
-        sendNonce = 0;
+        sendNonce = new AtomicInteger(0);
 
         recvChiper = new Shannon();
         recvChiper.key(recvKey);
-        recvNonce = 0;
+        recvNonce = new AtomicInteger(0);
     }
 
-    public void sendEncoded(OutputStream out, byte cmd, byte[] payload) throws IOException {
-        sendChiper.nonce(Utils.toByteArray(sendNonce));
-        sendNonce++;
+    public synchronized void sendEncoded(OutputStream out, byte cmd, byte[] payload) throws IOException {
+        sendChiper.nonce(Utils.toByteArray(sendNonce.getAndIncrement()));
 
         ByteBuffer buffer = ByteBuffer.allocate(1 + 2 + payload.length);
         buffer.put(cmd)
@@ -50,9 +50,8 @@ public class ChiperPair {
     }
 
     @NotNull
-    public Packet receiveEncoded(InputStream in) throws IOException, GeneralSecurityException {
-        recvChiper.nonce(Utils.toByteArray(recvNonce));
-        recvNonce++;
+    public synchronized Packet receiveEncoded(InputStream in) throws IOException, GeneralSecurityException {
+        recvChiper.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
 
         int read;
         byte[] headerBytes = new byte[3];
