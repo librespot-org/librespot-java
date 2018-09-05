@@ -30,7 +30,6 @@ public final class MercuryRequests {
 
     @NotNull
     public static GeneralMercuryRequest<Metadata.Track> getTrack(@NotNull TrackId id) {
-        return new GeneralMercuryRequest<>(id.getMercuryUri(),
-                MercuryClient.Method.GET, EMPTY_PAYLOAD, METADATA_4_TRACK_PROCESSOR);
+        return new GeneralMercuryRequest<>(id.getMercuryUri(), MercuryClient.Method.GET, EMPTY_PAYLOAD, METADATA_4_TRACK_PROCESSOR);
     }
 }
