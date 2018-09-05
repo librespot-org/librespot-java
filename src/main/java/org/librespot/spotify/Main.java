@@ -1,9 +1,12 @@
 package org.librespot.spotify;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.connection.MercuryClient;
-import org.librespot.spotify.connection.Session;
+import org.librespot.spotify.mercury.MercuryClient;
+import org.librespot.spotify.mercury.MercuryRequests;
+import org.librespot.spotify.mercury.OnResult;
+import org.librespot.spotify.mercury.model.PlaylistId;
+import org.librespot.spotify.mercury.model.TrackId;
+import org.librespot.spotify.proto.Metadata;
 import org.librespot.spotify.proto.Playlist4Changes;
 
 import java.io.IOException;
@@ -20,17 +23,41 @@ public class Main {
         session.authenticateUserPass(args[0], args[1]);
 
         MercuryClient client = session.mercury();
-        client.send(String.format("hm://playlist/user/%s/rootlist", args[0]), MercuryClient.Method.GET, new byte[0][], new MercuryClient.Callback() {
+        client.request(MercuryRequests.getRootPlaylists(args[0]), new OnResult<Playlist4Changes.SelectedListContent>() {
             @Override
-            public void response(MercuryClient.@NotNull Response response) {
-                System.out.println(response);
+            public void result(Playlist4Changes.@NotNull SelectedListContent result) {
+                System.out.println(result);
 
-                try {
-                    Playlist4Changes.SelectedListContent list = Playlist4Changes.SelectedListContent.parseFrom(response.payload[0]);
-                    System.out.println(list);
-                } catch (InvalidProtocolBufferException e) {
-                    e.printStackTrace();
-                }
+                PlaylistId id = new PlaylistId(result.getContents().getItems(0));
+                client.request(MercuryRequests.getPlaylist(id), new OnResult<Playlist4Changes.SelectedListContent>() {
+                    @Override
+                    public void result(Playlist4Changes.@NotNull SelectedListContent result) {
+                        System.out.println(result);
+
+                        TrackId id = new TrackId(result.getContents().getItems(0));
+                        client.request(MercuryRequests.getTrack(id), new OnResult<Metadata.Track>() {
+                            @Override
+                            public void result(Metadata.@NotNull Track result) {
+                                System.out.println(result);
+                            }
+
+                            @Override
+                            public void failed(@NotNull Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void failed(@NotNull Exception ex) {
+                        ex.printStackTrace();
+                    }
+                });
+            }
+
+            @Override
+            public void failed(@NotNull Exception ex) {
+                ex.printStackTrace();
             }
         });
     }

@@ -1,8 +1,9 @@
-package org.librespot.spotify.connection;
+package org.librespot.spotify.mercury;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Session;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Mercury;
 
@@ -24,11 +25,26 @@ public class MercuryClient {
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Integer, Callback> callbacks = new ConcurrentHashMap<>();
 
-    MercuryClient(@NotNull Session session) {
+    public MercuryClient(@NotNull Session session) {
         this.session = session;
     }
 
+    public <M> void request(@NotNull GeneralMercuryRequest<M> request, @NotNull OnResult<M> listener) {
+        try {
+            send(request.uri, request.method, request.payload, response -> {
+                if (response.statusCode >= 200 && response.statusCode < 300)
+                    listener.result(request.processor.process(response));
+                else
+                    listener.failed(new MercuryException(response.statusCode));
+            });
+        } catch (IOException ex) {
+            listener.failed(ex);
+        }
+    }
+
     public void send(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload, @NotNull Callback callback) throws IOException {
+        LOGGER.trace(String.format("Send Mercury request, uri: %s, method: %s", uri, method.name));
+
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
 
@@ -98,6 +114,7 @@ public class MercuryClient {
         }
 
         Mercury.Header header = Mercury.Header.parseFrom(payloadParts[0]);
+
         Callback callback = callbacks.remove(seq);
         if (callback != null) {
             callback.response(new Response(header, payloadParts));
@@ -144,15 +161,23 @@ public class MercuryClient {
     }
 
     public interface Callback {
-        void response(@NotNull Response response);
+        void response(@NotNull Response response) throws InvalidProtocolBufferException;
+    }
+
+    public static class MercuryException extends Exception {
+        public MercuryException(int statusCode) {
+            super("Status code: " + statusCode);
+        }
     }
 
     public static class Response {
         public final String uri;
         public final byte[][] payload;
+        public final int statusCode;
 
         private Response(Mercury.Header header, byte[][] payload) {
             this.uri = header.getUri();
+            this.statusCode = header.getStatusCode();
             this.payload = Arrays.copyOfRange(payload, 1, payload.length);
         }
     }

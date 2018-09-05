@@ -1,13 +1,12 @@
-package org.librespot.spotify.connection;
+package org.librespot.spotify;
 
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.ApResolver;
-import org.librespot.spotify.Version;
 import org.librespot.spotify.crypto.ChiperPair;
 import org.librespot.spotify.crypto.DiffieHellman;
 import org.librespot.spotify.crypto.Packet;
+import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
 
@@ -215,6 +214,8 @@ public class Session implements AutoCloseable {
     }
 
     private void authenticatedSuccessfully() {
+        LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
+
         mercuryClient = new MercuryClient(this);
 
         receiver = new Receiver();
@@ -258,12 +259,6 @@ public class Session implements AutoCloseable {
         @NotNull
         byte[] array() {
             return bytes;
-        }
-    }
-
-    public static class EOSException extends IOException {
-        public EOSException(int expected, int read) {
-            super("Expected " + expected + " bytes, but only " + read + " available.");
         }
     }
 
