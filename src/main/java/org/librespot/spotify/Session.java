@@ -23,6 +23,8 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,6 +38,7 @@ public class Session implements AutoCloseable {
     private final DataInputStream in;
     private final DataOutputStream out;
     private final String deviceId;
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private ChiperPair chiperPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
@@ -57,6 +60,20 @@ public class Session implements AutoCloseable {
     @NotNull
     public static Session create() throws IOException {
         return new Session(ApResolver.getSocketFromRandomAccessPoint());
+    }
+
+    public void connectAsync(OnSuccess listener) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    connect();
+                    listener.success();
+                } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+                    listener.failed(ex);
+                }
+            }
+        });
     }
 
     public void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
@@ -184,6 +201,27 @@ public class Session implements AutoCloseable {
                 .build());
     }
 
+    public void authenticateUserPassAsync(@NotNull String username, @NotNull String password, OnResult<Authentication.APWelcome> listener) {
+        authenticateAsync(Authentication.LoginCredentials.newBuilder()
+                .setUsername(username)
+                .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
+                .setAuthData(ByteString.copyFromUtf8(password))
+                .build(), listener);
+    }
+
+    public void authenticateAsync(@NotNull Authentication.LoginCredentials credentials, OnResult<Authentication.APWelcome> listener) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    listener.result(authenticate(credentials));
+                } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+                    listener.failed(ex);
+                }
+            }
+        });
+    }
+
     @NotNull
     public Authentication.APWelcome authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (chiperPair == null) throw new IllegalStateException("Connection not established!");
@@ -236,6 +274,18 @@ public class Session implements AutoCloseable {
     public MercuryClient mercury() {
         if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
         return mercuryClient;
+    }
+
+    public interface OnResult<R> {
+        void result(@NotNull R result);
+
+        void failed(@NotNull Exception ex);
+    }
+
+    public interface OnSuccess {
+        void success();
+
+        void failed(@NotNull Exception ex);
     }
 
     public static class SpotifyAuthenticationException extends Exception {
