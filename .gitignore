@@ -2,3 +2,4 @@
 out/
 target/
 *iml
+conf.json

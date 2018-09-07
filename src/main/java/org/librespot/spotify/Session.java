@@ -68,7 +68,7 @@ public class Session implements AutoCloseable {
     }
 
     private static void callSuccess(TextGUI gui, OnSuccess listener) {
-        gui.getGUIThread().invokeLater(() -> listener.success());
+        gui.getGUIThread().invokeLater(listener::success);
     }
 
     private static void callFailed(TextGUI gui, Exception ex, OnResult<?> listener) {
@@ -80,15 +80,12 @@ public class Session implements AutoCloseable {
     }
 
     public void connectAsync(TextGUI gui, OnSuccess listener) {
-        executorService.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    connect();
-                    callSuccess(gui, listener);
-                } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                    callFailed(gui, ex, listener);
-                }
+        executorService.execute(() -> {
+            try {
+                connect();
+                callSuccess(gui, listener);
+            } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+                callFailed(gui, ex, listener);
             }
         });
     }
@@ -227,14 +224,11 @@ public class Session implements AutoCloseable {
     }
 
     public void authenticateAsync(@NotNull Authentication.LoginCredentials credentials, TextGUI gui, OnResult<Authentication.APWelcome> listener) {
-        executorService.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    callResult(gui, authenticate(credentials), listener);
-                } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                    callFailed(gui, ex, listener);
-                }
+        executorService.execute(() -> {
+            try {
+                callResult(gui, authenticate(credentials), listener);
+            } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+                callFailed(gui, ex, listener);
             }
         });
     }

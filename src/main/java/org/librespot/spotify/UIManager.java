@@ -75,13 +75,15 @@ public class UIManager {
         ex.printStackTrace(); // TODO: Create error dialog AND TEST IT
     }
 
-    private void doLogin(@NotNull String username, @NotNull String password) {
+    private void doLogin(@NotNull String username, @NotNull String password, boolean save) {
         Window dialog = createDialog(null, "Authenticating...");
 
         session.authenticateUserPassAsync(username, password, gui, new Session.OnResult<Authentication.APWelcome>() {
             @Override
             public void result(Authentication.@NotNull APWelcome result) {
                 dialog.close();
+
+                if (save) Configuration.get().saveLogin(username, password);
             }
 
             @Override
@@ -101,7 +103,19 @@ public class UIManager {
         SpotifyWindowHolder() {
             super(new BasicWindow());
 
-            Panel panel = new Panel(new GridLayout(1));
+            Panel panel = new Panel(new GridLayout(2));
+
+            ActionListBox playlists = new ActionListBox();
+            panel.addComponent(playlists);
+            playlists.addItem("test1", null);
+            playlists.addItem("test2", null);
+            playlists.addItem("test3", null);
+            playlists.addItem("test4", null);
+            playlists.addItem("test5", null);
+            playlists.addItem("test6", null);
+            playlists.addItem("test7", null);
+
+
             panel.addComponent(new Label("This is the main Spotify panel!"));
 
             // TODO: Main Spotify panel
@@ -124,12 +138,11 @@ public class UIManager {
             super(new BasicWindow());
 
             Panel panel = new Panel(new GridLayout(2));
-            // panel.setPreferredSize(new TerminalSize(50, 7));
 
             panel.addComponent(new Label("librespot-java").addStyle(SGR.BOLD),
                     GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
 
-            panel.addComponent(new EmptySpace(new TerminalSize(1, 1)), GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
+            panel.addComponent(new EmptySpace(TerminalSize.ONE), GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
 
             panel.addComponent(new Label("Username"), GridLayout.createHorizontallyEndAlignedLayoutData(1));
             final TextBox username = new TextBox(new TerminalSize(20, 1));
@@ -139,7 +152,12 @@ public class UIManager {
             final TextBox password = new TextBox(new TerminalSize(20, 1)).setMask('*');
             panel.addComponent(password);
 
-            panel.addComponent(new EmptySpace(new TerminalSize(1, 1)), GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
+            panel.addComponent(new EmptySpace(TerminalSize.ONE), GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
+
+            final CheckBox rememberMe = new CheckBox("Remember me");
+            panel.addComponent(rememberMe, GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
+
+            panel.addComponent(new EmptySpace(TerminalSize.ONE), GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
 
             Button login = new Button("Login!", () -> {
                 String userStr = username.getText();
@@ -148,9 +166,16 @@ public class UIManager {
                 String passwdStr = password.getText();
                 if (passwdStr.isEmpty()) throw new IllegalArgumentException("Password must not be empty!");
 
-                doLogin(userStr, passwdStr);
+                doLogin(userStr, passwdStr, rememberMe.isChecked());
             });
             panel.addComponent(login, GridLayout.createLayoutData(GridLayout.Alignment.CENTER, GridLayout.Alignment.FILL, true, false, 2, 1));
+
+            Configuration.Login savedLogin = Configuration.get().getSavedLogin();
+            if (savedLogin != null) {
+                username.setText(savedLogin.username);
+                password.setText(savedLogin.password);
+                rememberMe.setChecked(true);
+            }
 
             window.setHints(Collections.singleton(Window.Hint.CENTERED));
             window.setComponent(panel);
