@@ -15,7 +15,6 @@ import org.librespot.spotify.proto.Authentication;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
@@ -32,7 +31,6 @@ public class UIManager {
         terminal = new DefaultTerminalFactory().setInitialTerminalSize(new TerminalSize(100, 40)).createTerminal();
         screen = new TerminalScreen(terminal);
         gui = new MultiWindowTextGUI(new SeparateTextGUIThread.Factory(), screen, new DefaultWindowManager(), null, new EmptySpace(TextColor.ANSI.BLUE));
-        ((AsynchronousTextGUIThread) gui.getGUIThread()).start();
 
         loginWindow = new LoginWindowHolder();
         spotifyWindow = new SpotifyWindowHolder();
@@ -51,12 +49,12 @@ public class UIManager {
 
     public void main() throws IOException {
         screen.startScreen();
+        ((AsynchronousTextGUIThread) gui.getGUIThread()).start();
 
         session = Session.create();
 
         Window dialog = createDialog(null, "Connecting to Spotify servers...");
-        AtomicReference<Exception> atomicEx = new AtomicReference<>();
-        session.connectAsync(new Session.OnSuccess() {
+        session.connectAsync(gui, new Session.OnSuccess() {
             @Override
             public void success() {
                 dialog.close();
@@ -64,37 +62,23 @@ public class UIManager {
 
             @Override
             public void failed(@NotNull Exception ex) {
-                synchronized (atomicEx) {
-                    atomicEx.set(ex);
-                }
-
                 dialog.close();
+                showErrorDialog(ex);
             }
         });
 
         gui.addWindowAndWait(dialog);
-
-        synchronized (atomicEx) {
-            Exception ex = atomicEx.get();
-            if (ex != null) {
-                showErrorDialog(ex);
-                return;
-            }
-        }
-
-        gui.removeWindow(dialog);
         gui.addWindowAndWait(loginWindow.window);
     }
 
     private void showErrorDialog(@NotNull Exception ex) {
-        ex.printStackTrace(); // TODO: Create error dialog
+        ex.printStackTrace(); // TODO: Create error dialog AND TEST IT
     }
 
     private void doLogin(@NotNull String username, @NotNull String password) {
         Window dialog = createDialog(null, "Authenticating...");
 
-        AtomicReference<Exception> atomicEx = new AtomicReference<>();
-        session.authenticateUserPassAsync(username, password, new Session.OnResult<Authentication.APWelcome>() {
+        session.authenticateUserPassAsync(username, password, gui, new Session.OnResult<Authentication.APWelcome>() {
             @Override
             public void result(Authentication.@NotNull APWelcome result) {
                 dialog.close();
@@ -102,27 +86,15 @@ public class UIManager {
 
             @Override
             public void failed(@NotNull Exception ex) {
-                synchronized (atomicEx) {
-                    atomicEx.set(ex);
-                }
-
                 dialog.close();
+                showErrorDialog(ex);
             }
         });
 
         gui.removeWindow(loginWindow.window);
         gui.addWindowAndWait(dialog);
 
-        synchronized (atomicEx) {
-            Exception ex = atomicEx.get();
-            if (ex != null) {
-                showErrorDialog(ex);
-                return;
-            }
-        }
-
-        gui.removeWindow(dialog);
-        gui.addWindowAndWait(spotifyWindow.window); // FIXME: Not disaplying
+        gui.addWindowAndWait(spotifyWindow.window);
     }
 
     private class SpotifyWindowHolder extends WindowHolder {

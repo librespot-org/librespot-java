@@ -1,6 +1,7 @@
 package org.librespot.spotify;
 
 import com.google.protobuf.ByteString;
+import com.googlecode.lanterna.gui2.TextGUI;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.crypto.ChiperPair;
@@ -62,15 +63,31 @@ public class Session implements AutoCloseable {
         return new Session(ApResolver.getSocketFromRandomAccessPoint());
     }
 
-    public void connectAsync(OnSuccess listener) {
+    private static <R> void callResult(TextGUI gui, R result, OnResult<R> listener) {
+        gui.getGUIThread().invokeLater(() -> listener.result(result));
+    }
+
+    private static void callSuccess(TextGUI gui, OnSuccess listener) {
+        gui.getGUIThread().invokeLater(() -> listener.success());
+    }
+
+    private static void callFailed(TextGUI gui, Exception ex, OnResult<?> listener) {
+        gui.getGUIThread().invokeLater(() -> listener.failed(ex));
+    }
+
+    private static void callFailed(TextGUI gui, Exception ex, OnSuccess listener) {
+        gui.getGUIThread().invokeLater(() -> listener.failed(ex));
+    }
+
+    public void connectAsync(TextGUI gui, OnSuccess listener) {
         executorService.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     connect();
-                    listener.success();
+                    callSuccess(gui, listener);
                 } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                    listener.failed(ex);
+                    callFailed(gui, ex, listener);
                 }
             }
         });
@@ -201,22 +218,22 @@ public class Session implements AutoCloseable {
                 .build());
     }
 
-    public void authenticateUserPassAsync(@NotNull String username, @NotNull String password, OnResult<Authentication.APWelcome> listener) {
+    public void authenticateUserPassAsync(@NotNull String username, @NotNull String password, TextGUI gui, OnResult<Authentication.APWelcome> listener) {
         authenticateAsync(Authentication.LoginCredentials.newBuilder()
                 .setUsername(username)
                 .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
                 .setAuthData(ByteString.copyFromUtf8(password))
-                .build(), listener);
+                .build(), gui, listener);
     }
 
-    public void authenticateAsync(@NotNull Authentication.LoginCredentials credentials, OnResult<Authentication.APWelcome> listener) {
+    public void authenticateAsync(@NotNull Authentication.LoginCredentials credentials, TextGUI gui, OnResult<Authentication.APWelcome> listener) {
         executorService.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    listener.result(authenticate(credentials));
+                    callResult(gui, authenticate(credentials), listener);
                 } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                    listener.failed(ex);
+                    callFailed(gui, ex, listener);
                 }
             }
         });
