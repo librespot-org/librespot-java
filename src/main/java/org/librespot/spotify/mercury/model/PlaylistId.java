@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
  */
 public class PlaylistId implements SpotifyId {
     private static final Pattern PATTERN = Pattern.compile("spotify:user:(.*):playlist:(.{22})");
-    private final String username;
-    private final String playlistId;
+    public final String username;
+    public final String playlistId;
 
     public PlaylistId(@NotNull Playlist4Content.Item item) {
         Matcher matcher = PATTERN.matcher(item.getUri());

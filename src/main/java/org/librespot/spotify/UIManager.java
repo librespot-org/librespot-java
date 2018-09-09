@@ -10,7 +10,13 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.librespot.spotify.mercury.MercuryRequests;
+import org.librespot.spotify.mercury.OnResult;
+import org.librespot.spotify.mercury.model.PlaylistId;
+import org.librespot.spotify.mercury.model.TrackId;
 import org.librespot.spotify.proto.Authentication;
+import org.librespot.spotify.proto.Playlist4Changes;
+import org.librespot.spotify.proto.Playlist4Content;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -96,32 +102,83 @@ public class UIManager {
         gui.removeWindow(loginWindow.window);
         gui.addWindowAndWait(dialog);
 
+        spotifyWindow.populatePlaylists();
         gui.addWindowAndWait(spotifyWindow.window);
     }
 
     private class SpotifyWindowHolder extends WindowHolder {
+        private final ActionListBox playlists;
+        private final ActionListBox songs;
+
         SpotifyWindowHolder() {
             super(new BasicWindow());
 
             Panel panel = new Panel(new GridLayout(2));
 
-            ActionListBox playlists = new ActionListBox();
+            playlists = new ActionListBox(new TerminalSize(15, 30));
+            playlists.withBorder(Borders.singleLine("Playlists")); // FIXME
             panel.addComponent(playlists);
-            playlists.addItem("test1", null);
-            playlists.addItem("test2", null);
-            playlists.addItem("test3", null);
-            playlists.addItem("test4", null);
-            playlists.addItem("test5", null);
-            playlists.addItem("test6", null);
-            playlists.addItem("test7", null);
 
-
-            panel.addComponent(new Label("This is the main Spotify panel!"));
-
-            // TODO: Main Spotify panel
+            songs = new ActionListBox(new TerminalSize(20, 20));
+            songs.withBorder(Borders.singleLine("Songs")); // FIXME
+            panel.addComponent(songs);
 
             window.setHints(Collections.singleton(Window.Hint.CENTERED));
             window.setComponent(panel);
+        }
+
+        private void populatePlaylists() {
+            session.mercury().request(MercuryRequests.getRootPlaylists(session.apWelcome().getCanonicalUsername()), gui, new OnResult<Playlist4Changes.SelectedListContent>() {
+                @Override
+                public void result(Playlist4Changes.@NotNull SelectedListContent result) {
+                    Playlist4Content.ListItems items = result.getContents();
+                    for (int i = 0; i < items.getItemsCount(); i++) {
+                        Playlist4Content.Item item = items.getItems(i);
+                        PlaylistId id = new PlaylistId(item);
+                        playlists.addItem(id.username + "/" + id.playlistId, new PlaylistAction(id));
+                    }
+
+                    playlists.takeFocus();
+                }
+
+                @Override
+                public void failed(@NotNull Exception ex) {
+                    showErrorDialog(ex);
+                }
+            });
+        }
+
+        private class PlaylistAction implements Runnable {
+            private final PlaylistId id;
+
+            PlaylistAction(PlaylistId id) {
+                this.id = id;
+            }
+
+            @Override
+            public void run() {
+                songs.clearItems();
+
+                session.mercury().request(MercuryRequests.getPlaylist(id), gui, new OnResult<Playlist4Changes.SelectedListContent>() {
+                    @Override
+                    public void result(Playlist4Changes.@NotNull SelectedListContent result) {
+                        Playlist4Content.ListItems items = result.getContents();
+                        for (int i = 0; i < items.getItemsCount(); i++) {
+                            Playlist4Content.Item item = items.getItems(i);
+                            TrackId trackId = new TrackId(item);
+                            songs.addItem(trackId.id, () -> {
+                            });
+                        }
+
+                        songs.takeFocus();
+                    }
+
+                    @Override
+                    public void failed(@NotNull Exception ex) {
+                        showErrorDialog(ex);
+                    }
+                });
+            }
         }
     }
 

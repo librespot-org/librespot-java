@@ -287,6 +287,12 @@ public class Session implements AutoCloseable {
         return mercuryClient;
     }
 
+    @NotNull
+    public Authentication.APWelcome apWelcome() {
+        if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");
+        return apWelcome;
+    }
+
     public interface OnResult<R> {
         void result(@NotNull R result);
 

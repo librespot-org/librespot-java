@@ -14,18 +14,18 @@ import java.util.regex.Pattern;
 public class TrackId implements SpotifyId {
     private static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
-    private final String trackId;
+    public final String id;
     private final String hexId;
 
     public TrackId(@NotNull Playlist4Content.Item item) {
         Matcher matcher = PATTERN.matcher(item.getUri());
         if (matcher.find()) {
-            trackId = matcher.group(1);
+            id = matcher.group(1);
         } else {
             throw new IllegalArgumentException("Not a Spotify track ID: " + item.getUri());
         }
 
-        hexId = Utils.bytesToHex(BASE62.decode(trackId.getBytes()));
+        hexId = Utils.bytesToHex(BASE62.decode(id.getBytes()));
     }
 
     @Override
