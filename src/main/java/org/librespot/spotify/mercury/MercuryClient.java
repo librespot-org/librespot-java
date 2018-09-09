@@ -1,10 +1,8 @@
 package org.librespot.spotify.mercury;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.googlecode.lanterna.gui2.TextGUI;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.librespot.spotify.Session;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Mercury;
@@ -31,34 +29,16 @@ public class MercuryClient {
         this.session = session;
     }
 
-    private static void callFailed(@NotNull TextGUI gui, Exception ex, OnResult<?> listener) {
-        gui.getGUIThread().invokeLater(() -> listener.failed(ex));
-    }
-
-    private static <M> void callResult(@NotNull TextGUI gui, M result, OnResult<M> listener) {
-        gui.getGUIThread().invokeLater(() -> listener.result(result));
-    }
-
     public <M> void request(@NotNull GeneralMercuryRequest<M> request, @NotNull OnResult<M> listener) {
-        request(request, null, listener);
-    }
-
-    public <M> void request(@NotNull GeneralMercuryRequest<M> request, @Nullable TextGUI gui, @NotNull OnResult<M> listener) {
         try {
             send(request.uri, request.method, request.payload, response -> {
-                if (response.statusCode >= 200 && response.statusCode < 300) {
-                    M result = request.processor.process(response);
-                    if (gui == null) listener.result(result);
-                    else callResult(gui, result, listener);
-                } else {
-                    MercuryException ex = new MercuryException(response.statusCode);
-                    if (gui == null) listener.failed(ex);
-                    else callFailed(gui, ex, listener);
-                }
+                if (response.statusCode >= 200 && response.statusCode < 300)
+                    listener.result(request.processor.process(response));
+                else
+                    listener.failed(new MercuryException(response.statusCode));
             });
         } catch (IOException ex) {
-            if (gui == null) listener.failed(ex);
-            else callFailed(gui, ex, listener);
+            listener.failed(ex);
         }
     }
 

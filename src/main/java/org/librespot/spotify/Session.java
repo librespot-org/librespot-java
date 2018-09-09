@@ -1,7 +1,6 @@
 package org.librespot.spotify;
 
 import com.google.protobuf.ByteString;
-import com.googlecode.lanterna.gui2.TextGUI;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.crypto.ChiperPair;
@@ -24,8 +23,6 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -39,7 +36,6 @@ public class Session implements AutoCloseable {
     private final DataInputStream in;
     private final DataOutputStream out;
     private final String deviceId;
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private ChiperPair chiperPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
@@ -61,33 +57,6 @@ public class Session implements AutoCloseable {
     @NotNull
     public static Session create() throws IOException {
         return new Session(ApResolver.getSocketFromRandomAccessPoint());
-    }
-
-    private static <R> void callResult(TextGUI gui, R result, OnResult<R> listener) {
-        gui.getGUIThread().invokeLater(() -> listener.result(result));
-    }
-
-    private static void callSuccess(TextGUI gui, OnSuccess listener) {
-        gui.getGUIThread().invokeLater(listener::success);
-    }
-
-    private static void callFailed(TextGUI gui, Exception ex, OnResult<?> listener) {
-        gui.getGUIThread().invokeLater(() -> listener.failed(ex));
-    }
-
-    private static void callFailed(TextGUI gui, Exception ex, OnSuccess listener) {
-        gui.getGUIThread().invokeLater(() -> listener.failed(ex));
-    }
-
-    public void connectAsync(TextGUI gui, OnSuccess listener) {
-        executorService.execute(() -> {
-            try {
-                connect();
-                callSuccess(gui, listener);
-            } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                callFailed(gui, ex, listener);
-            }
-        });
     }
 
     public void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
@@ -215,24 +184,6 @@ public class Session implements AutoCloseable {
                 .build());
     }
 
-    public void authenticateUserPassAsync(@NotNull String username, @NotNull String password, TextGUI gui, OnResult<Authentication.APWelcome> listener) {
-        authenticateAsync(Authentication.LoginCredentials.newBuilder()
-                .setUsername(username)
-                .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
-                .setAuthData(ByteString.copyFromUtf8(password))
-                .build(), gui, listener);
-    }
-
-    public void authenticateAsync(@NotNull Authentication.LoginCredentials credentials, TextGUI gui, OnResult<Authentication.APWelcome> listener) {
-        executorService.execute(() -> {
-            try {
-                callResult(gui, authenticate(credentials), listener);
-            } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-                callFailed(gui, ex, listener);
-            }
-        });
-    }
-
     @NotNull
     public Authentication.APWelcome authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (chiperPair == null) throw new IllegalStateException("Connection not established!");
@@ -291,18 +242,6 @@ public class Session implements AutoCloseable {
     public Authentication.APWelcome apWelcome() {
         if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");
         return apWelcome;
-    }
-
-    public interface OnResult<R> {
-        void result(@NotNull R result);
-
-        void failed(@NotNull Exception ex);
-    }
-
-    public interface OnSuccess {
-        void success();
-
-        void failed(@NotNull Exception ex);
     }
 
     public static class SpotifyAuthenticationException extends Exception {
