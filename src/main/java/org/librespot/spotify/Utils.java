@@ -13,6 +13,28 @@ public class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     @NotNull
+    public static String[] split(@NotNull String str, char c) {
+        int size = 1;
+        for (int i = 0; i < str.length(); i++) {
+            if (str.charAt(i) == c) size++;
+        }
+
+        String tmp = str;
+        String[] split = new String[size];
+        for (int j = size - 1; j >= 0; j--) {
+            int i = tmp.lastIndexOf(c);
+            if (i == -1) {
+                split[j] = tmp;
+            } else {
+                split[j] = tmp.substring(i + 1, tmp.length());
+                tmp = tmp.substring(0, i);
+            }
+        }
+
+        return split;
+    }
+
+    @NotNull
     public static byte[] toByteArray(@NotNull BigInteger i) {
         byte[] array = i.toByteArray();
         if (array[0] == 0) array = Arrays.copyOfRange(array, 1, array.length);

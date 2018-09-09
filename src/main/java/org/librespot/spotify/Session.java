@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -30,6 +31,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class Session implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
+    private final DeviceType deviceType;
+    private final String deviceName;
     private final Socket socket;
     private final DiffieHellman keys;
     private final SecureRandom random;
@@ -41,7 +44,9 @@ public class Session implements AutoCloseable {
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
 
-    private Session(Socket socket) throws IOException {
+    private Session(DeviceType deviceType, String deviceName, Socket socket) throws IOException {
+        this.deviceType = deviceType;
+        this.deviceName = deviceName;
         this.socket = socket;
         this.random = new SecureRandom();
         this.keys = new DiffieHellman(random);
@@ -55,8 +60,33 @@ public class Session implements AutoCloseable {
     }
 
     @NotNull
-    public static Session create() throws IOException {
-        return new Session(ApResolver.getSocketFromRandomAccessPoint());
+    public static Session create(@NotNull DeviceType deviceType, @NotNull String deviceName) throws IOException {
+        return new Session(deviceType, deviceName, ApResolver.getSocketFromRandomAccessPoint());
+    }
+
+    @NotNull
+    public String deviceName() {
+        return deviceName;
+    }
+
+    @NotNull
+    public DeviceType deviceType() {
+        return deviceType;
+    }
+
+    @NotNull
+    public DiffieHellman keys() {
+        return keys;
+    }
+
+    @NotNull
+    public ZeroconfAuthenticator authenticateZeroconf() throws IOException {
+        return new ZeroconfAuthenticator(this);
+    }
+
+    @NotNull
+    public String deviceId() {
+        return deviceId;
     }
 
     public void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
@@ -242,6 +272,29 @@ public class Session implements AutoCloseable {
     public Authentication.APWelcome apWelcome() {
         if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");
         return apWelcome;
+    }
+
+    @NotNull
+    public Random random() {
+        return random;
+    }
+
+    public enum DeviceType {
+        Unknown(0, "unknown"),
+        Computer(1, "computer"),
+        Tablet(2, "tablet"),
+        Smartphone(3, "smartphone"),
+        Speaker(4, "speaker"),
+        TV(5, "tv"),
+        AVR(6, "avr"),
+        STB(7, "stb"),
+        AudioDongle(8, "audiodongle");
+
+        public final String name;
+
+        DeviceType(int i, String name) {
+            this.name = name;
+        }
     }
 
     public static class SpotifyAuthenticationException extends Exception {

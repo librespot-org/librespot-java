@@ -34,6 +34,13 @@
             <version>0.1.2</version>
         </dependency>
 
+        <!-- Discovery, TODO: Write my own library -->
+        <dependency>
+            <groupId>net.posick</groupId>
+            <artifactId>mdnsjava</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
         <!-- Annotations -->
         <dependency>
             <groupId>org.jetbrains</groupId>
