@@ -10,7 +10,11 @@ import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
 
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.RC2ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -20,8 +24,10 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -212,6 +218,70 @@ public class Session implements AutoCloseable {
                 .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
                 .setAuthData(ByteString.copyFromUtf8(password))
                 .build());
+    }
+
+
+    public void authenticateBlob(@NotNull String username, @NotNull byte[] encryptedBlob) throws GeneralSecurityException {
+        encryptedBlob = Base64.getDecoder().decode(encryptedBlob);
+
+        MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+        sha1.update(deviceId.getBytes());
+        byte[] secret = sha1.digest();
+
+        String secretStr = new String(secret);
+        char[] secretChars = new char[secretStr.length()];
+        secretStr.getChars(0, secretStr.length(), secretChars, 0);
+
+        byte[] pbkdf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1")
+                .generateSecret(new PBEKeySpec(secretChars, username.getBytes(), 0x100, 20 * 8))
+                .getEncoded();
+
+        assert pbkdf.length == 20;
+
+        sha1 = MessageDigest.getInstance("SHA-1");
+        sha1.update(pbkdf);
+
+        ByteBuffer keyBuffer = ByteBuffer.allocate(24);
+        keyBuffer.put(sha1.digest())
+                .putInt(20);
+        byte[] key = keyBuffer.array();
+
+
+        Cipher aes = Cipher.getInstance("AES/ECB/NoPadding");
+        aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new RC2ParameterSpec(192));
+        byte[] decryptedBlob = aes.doFinal(encryptedBlob);
+
+        assert decryptedBlob.length == encryptedBlob.length;
+
+        int l = decryptedBlob.length;
+        for (int i = 0; i < l - 0x10; i++) {
+            decryptedBlob[l - i - 1] ^= decryptedBlob[l - i - 0x11];
+        }
+
+        ByteBuffer blob = ByteBuffer.wrap(decryptedBlob);
+        blob.get();
+        int len = readIntBlob(blob);
+        System.out.println("LEN: " + len);
+        blob.get(new byte[len]);
+        blob.get();
+
+        Authentication.AuthenticationType type = Authentication.AuthenticationType.forNumber(readIntBlob(blob));
+        System.out.println("TYPE: " + type);
+        blob.get();
+
+        len = readIntBlob(blob);
+        System.out.println("LEN: " + len);
+        byte[] authData = new byte[len];
+        blob.get(authData);
+
+        System.out.println("GOT HERE");
+    }
+
+    private int readIntBlob(ByteBuffer buffer) {
+        int lo = buffer.get();
+        if ((lo & 0x80) == 0) return lo;
+        int hi = buffer.get();
+        return lo & 0x7f | hi << 7;
     }
 
     @NotNull
