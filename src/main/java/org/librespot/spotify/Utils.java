@@ -14,6 +14,8 @@ public class Utils {
 
     @NotNull
     public static String[] split(@NotNull String str, char c) {
+        if (str.isEmpty()) return new String[0];
+
         int size = 1;
         for (int i = 0; i < str.length(); i++) {
             if (str.charAt(i) == c) size++;

@@ -1,0 +1,4 @@
+[submodule "mdnsjava"]
+	path = mdnsjava
+	url = https://github.com/devgianlu/mdnsjava
+	branch = master

@@ -39,23 +39,19 @@ public class ZeroconfAuthenticator implements Closeable {
 
     private final HttpRunner runner;
     private final Session session;
-    private final int port;
     private final MulticastDNSService mDnsService;
     private final ServiceInstance spotifyConnectService;
 
     public ZeroconfAuthenticator(Session session) throws IOException {
         this.session = session;
-        this.runner = new HttpRunner();
         this.mDnsService = new MulticastDNSService();
-        this.port = session.random().nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
 
+        int port = session.random().nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+        this.runner = new HttpRunner(port);
         new Thread(runner).start();
 
-        this.spotifyConnectService = mDnsService.register(new ServiceInstance(
-                new ServiceName("librespot-java._spotify-connect._tcp.local."),
-                0, 0, port, new Name("local."),
-                new InetAddress[]{InetAddress.getLocalHost()},
-                "VERSION=1.0", "CPath=/"));
+        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), new InetAddress[]{InetAddress.getLocalHost()}, "VERSION=1.0", "CPath=/");
+        spotifyConnectService = mDnsService.register(service);
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
 
@@ -84,9 +80,8 @@ public class ZeroconfAuthenticator implements Closeable {
     @Override
     public void close() throws IOException {
         mDnsService.unregister(spotifyConnectService);
-
-        runner.close();
         mDnsService.close();
+        runner.close();
     }
 
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
@@ -108,6 +103,7 @@ public class ZeroconfAuthenticator implements Closeable {
         out.write(EOL);
         out.write(info.toString().getBytes());
         out.flush();
+        out.close();
     }
 
     private void handleAddUser() {
@@ -118,9 +114,9 @@ public class ZeroconfAuthenticator implements Closeable {
         private final ServerSocket serverSocket;
         private volatile boolean shouldStop = false;
 
-        HttpRunner() throws IOException {
+        HttpRunner(int port) throws IOException {
             serverSocket = new ServerSocket(port);
-            LOGGER.info("HTTP server started successfully!");
+            LOGGER.info(String.format("HTTP server started successfully on port %d!", port));
         }
 
         @Override
@@ -141,6 +137,7 @@ public class ZeroconfAuthenticator implements Closeable {
             String[] requestLine = Utils.split(readLine(in), ' ');
             if (requestLine.length != 3) {
                 LOGGER.warn("Unexpected request line: " + Arrays.toString(requestLine));
+                socket.close();
                 return;
             }
 
@@ -161,10 +158,12 @@ public class ZeroconfAuthenticator implements Closeable {
                         break;
                     default:
                         LOGGER.warn("Unknown action: " + action);
+                        socket.close();
                         break;
                 }
             } else {
                 LOGGER.warn("Unknown path: " + path);
+                socket.close();
             }
         }
 

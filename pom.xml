@@ -16,6 +16,34 @@
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
+    <build>
+        <finalName>librespot-java</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <archive>
+                                <manifest>
+                                    <mainClass>org.librespot.spotify.Main</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <!-- Data -->
         <dependency>
@@ -34,7 +62,7 @@
             <version>0.1.2</version>
         </dependency>
 
-        <!-- Discovery, TODO: Write my own library -->
+        <!-- mDNS -->
         <dependency>
             <groupId>net.posick</groupId>
             <artifactId>mdnsjava</artifactId>
