@@ -13,16 +13,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
-import java.security.Permission;
-import java.security.PermissionCollection;
 import java.util.*;
 
 /**
@@ -51,7 +47,7 @@ public class ZeroconfAuthenticator implements Closeable {
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("spotifyError", 0);
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("statusString", "ERROR-OK");
 
-        removeCryptographyRestrictions();
+        Utils.removeCryptographyRestrictions();
     }
 
     private final HttpRunner runner;
@@ -73,56 +69,6 @@ public class ZeroconfAuthenticator implements Closeable {
             throw new IOException("Failed registering SpotifyConnect service!");
 
         LOGGER.info("SpotifyConnect service registered successfully!");
-    }
-
-    private static void removeCryptographyRestrictions() {
-        if (!isRestrictedCryptography()) {
-            LOGGER.info("Cryptography restrictions removal not needed.");
-            return;
-        }
-
-        /*
-         * Do the following, but with reflection to bypass access checks:
-         *
-         * JceSecurity.isRestricted = false;
-         * JceSecurity.defaultPolicy.perms.clear();
-         * JceSecurity.defaultPolicy.add(CryptoAllPermission.INSTANCE);
-         */
-
-        try {
-            Class<?> jceSecurity = Class.forName("javax.crypto.JceSecurity");
-            Field isRestrictedField = jceSecurity.getDeclaredField("isRestricted");
-            isRestrictedField.setAccessible(true);
-            Field modifiersField = Field.class.getDeclaredField("modifiers");
-            modifiersField.setAccessible(true);
-            modifiersField.setInt(isRestrictedField, isRestrictedField.getModifiers() & ~Modifier.FINAL);
-            isRestrictedField.set(null, false);
-
-            Field defaultPolicyField = jceSecurity.getDeclaredField("defaultPolicy");
-            defaultPolicyField.setAccessible(true);
-            PermissionCollection defaultPolicy = (PermissionCollection) defaultPolicyField.get(null);
-
-            Class<?> cryptoPermissions = Class.forName("javax.crypto.CryptoPermissions");
-            Field perms = cryptoPermissions.getDeclaredField("perms");
-            perms.setAccessible(true);
-            ((Map<?, ?>) perms.get(defaultPolicy)).clear();
-
-            Class<?> cryptoAllPermission = Class.forName("javax.crypto.CryptoAllPermission");
-            Field instance = cryptoAllPermission.getDeclaredField("INSTANCE");
-            instance.setAccessible(true);
-            defaultPolicy.add((Permission) instance.get(null));
-
-            LOGGER.info("Successfully removed cryptography restrictions.");
-        } catch (Exception ex) {
-            LOGGER.warn("Failed to remove cryptography restrictions!", ex);
-        }
-    }
-
-    private static boolean isRestrictedCryptography() {
-        // This matches Oracle Java 7 and 8, but not Java 9 or OpenJDK.
-        String name = System.getProperty("java.runtime.name");
-        String ver = System.getProperty("java.version");
-        return name != null && name.equals("Java(TM) SE Runtime Environment") && ver != null && (ver.startsWith("1.7") || ver.startsWith("1.8"));
     }
 
     @NotNull
@@ -191,6 +137,12 @@ public class ZeroconfAuthenticator implements Closeable {
             return;
         }
 
+        System.out.println("USERNAME: " + username);
+        System.out.println("BLOB: " + blobStr);
+        System.out.println("CLIENT_KEY: " + clientKeyStr);
+        System.out.println("DEVICE_ID: " + session.deviceId());
+        System.out.println("PRIVATE_KEY: " + Base64.getEncoder().encodeToString(Utils.toByteArray(session.keys().privateKey())));
+
         session.keys().computeSharedKey(Base64.getDecoder().decode(clientKeyStr));
 
         byte[] blobBytes = Base64.getDecoder().decode(blobStr);
@@ -222,11 +174,11 @@ public class ZeroconfAuthenticator implements Closeable {
             return;
         }
 
-        // FIXME: Below here, anything could be wrong
-
         Cipher aes = Cipher.getInstance("AES/CTR/NoPadding");
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
+
+        System.out.println("DECRYPTED: " + new String(decrypted));
 
         String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
 

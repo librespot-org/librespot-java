@@ -1,16 +1,73 @@
 package org.librespot.spotify;
 
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.security.Permission;
+import java.security.PermissionCollection;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * @author Gianlu
  */
 public class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    public static void removeCryptographyRestrictions() {
+        if (!isRestrictedCryptography()) {
+            LOGGER.info("Cryptography restrictions removal not needed.");
+            return;
+        }
+
+        /*
+         * Do the following, but with reflection to bypass access checks:
+         *
+         * JceSecurity.isRestricted = false;
+         * JceSecurity.defaultPolicy.perms.clear();
+         * JceSecurity.defaultPolicy.add(CryptoAllPermission.INSTANCE);
+         */
+
+        try {
+            Class<?> jceSecurity = Class.forName("javax.crypto.JceSecurity");
+            Field isRestrictedField = jceSecurity.getDeclaredField("isRestricted");
+            isRestrictedField.setAccessible(true);
+            Field modifiersField = Field.class.getDeclaredField("modifiers");
+            modifiersField.setAccessible(true);
+            modifiersField.setInt(isRestrictedField, isRestrictedField.getModifiers() & ~Modifier.FINAL);
+            isRestrictedField.set(null, false);
+
+            Field defaultPolicyField = jceSecurity.getDeclaredField("defaultPolicy");
+            defaultPolicyField.setAccessible(true);
+            PermissionCollection defaultPolicy = (PermissionCollection) defaultPolicyField.get(null);
+
+            Class<?> cryptoPermissions = Class.forName("javax.crypto.CryptoPermissions");
+            Field perms = cryptoPermissions.getDeclaredField("perms");
+            perms.setAccessible(true);
+            ((Map<?, ?>) perms.get(defaultPolicy)).clear();
+
+            Class<?> cryptoAllPermission = Class.forName("javax.crypto.CryptoAllPermission");
+            Field instance = cryptoAllPermission.getDeclaredField("INSTANCE");
+            instance.setAccessible(true);
+            defaultPolicy.add((Permission) instance.get(null));
+
+            LOGGER.info("Successfully removed cryptography restrictions.");
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to remove cryptography restrictions!", ex);
+        }
+    }
+
+    private static boolean isRestrictedCryptography() {
+        // This matches Oracle Java 7 and 8, but not Java 9 or OpenJDK.
+        String name = System.getProperty("java.runtime.name");
+        String ver = System.getProperty("java.version");
+        return name != null && name.equals("Java(TM) SE Runtime Environment") && ver != null && (ver.startsWith("1.7") || ver.startsWith("1.8"));
+    }
 
     @NotNull
     public static String[] split(@NotNull String str, char c) {
