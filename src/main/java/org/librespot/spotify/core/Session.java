@@ -434,7 +434,6 @@ public class Session implements AutoCloseable {
                         case MercuryUnsub:
                         case MercurySubEvent:
                         case MercuryReq:
-                            LOGGER.trace("Handling " + cmd.name());
                             mercuryClient.handle(packet);
                             break;
                         default:

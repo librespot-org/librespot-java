@@ -130,6 +130,8 @@ public class MercuryClient {
         byte flags = payload.get();
         short parts = payload.getShort();
 
+        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d",  packet.type(), seq, parts));
+
         byte[][] payloadParts = new byte[parts][];
         for (int i = 0; i < parts; i++) {
             /*
