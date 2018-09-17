@@ -1,5 +1,6 @@
 package org.librespot.spotify.crypto;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -17,6 +18,10 @@ public class Packet {
     @Nullable
     public Type type() {
         return Type.parse(cmd);
+    }
+
+    public boolean is(@NotNull Type type) {
+        return type() == type;
     }
 
     public enum Type {
@@ -43,7 +48,7 @@ public class Packet {
         MercuryReq(0xb2),
         MercurySub(0xb3),
         MercuryUnsub(0xb4),
-        MercuryUnknown(0xb5), // TODO: What's this? See mercury.go:260
+        MercurySubEvent(0xb5),
         UnknownData_AllZeros(0x1f);
 
         public final byte val;

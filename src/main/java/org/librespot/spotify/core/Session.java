@@ -196,10 +196,10 @@ public class Session implements AutoCloseable {
         send(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
         Packet packet = chiperPair.receiveEncoded(in);
-        if (packet.type() == Packet.Type.APWelcome) {
+        if (packet.is(Packet.Type.APWelcome)) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
             authenticatedSuccessfully();
-        } else if (packet.type() == Packet.Type.AuthFailure) {
+        } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
             throw new IllegalStateException("Unknown CMD 0x" + Integer.toHexString(packet.cmd));
@@ -237,6 +237,16 @@ public class Session implements AutoCloseable {
         return apWelcome;
     }
 
+    @NotNull
+    public String deviceId() {
+        return inner.deviceId;
+    }
+
+    @NotNull
+    public DeviceType deviceType() {
+        return inner.deviceType;
+    }
+
     public enum DeviceType {
         Unknown(0, "unknown"),
         Computer(1, "computer"),
@@ -248,9 +258,11 @@ public class Session implements AutoCloseable {
         STB(7, "stb"),
         AudioDongle(8, "audiodongle");
 
+        public final int val;
         public final String name;
 
-        DeviceType(int i, String name) {
+        DeviceType(int val, String name) {
+            this.val = val;
             this.name = name;
         }
     }
@@ -418,7 +430,11 @@ public class Session implements AutoCloseable {
                             licenseVersion.get(buffer);
                             LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
                             break;
+                        case MercurySub:
+                        case MercuryUnsub:
+                        case MercurySubEvent:
                         case MercuryReq:
+                            LOGGER.trace("Handling " + cmd.name());
                             mercuryClient.handle(packet);
                             break;
                         default:
