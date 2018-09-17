@@ -1,4 +1,4 @@
-package org.librespot.spotify;
+package org.librespot.spotify.core;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;

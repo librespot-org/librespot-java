@@ -1,4 +1,4 @@
-package org.librespot.spotify;
+package org.librespot.spotify.core;
 
 import com.google.gson.JsonObject;
 import net.posick.mDNS.MulticastDNSService;
@@ -6,6 +6,10 @@ import net.posick.mDNS.ServiceInstance;
 import net.posick.mDNS.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Utils;
+import org.librespot.spotify.Version;
+import org.librespot.spotify.crypto.DiffieHellman;
+import org.librespot.spotify.proto.Authentication;
 import org.xbill.DNS.Name;
 
 import javax.crypto.Cipher;
@@ -20,6 +24,7 @@ import java.net.URLDecoder;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
@@ -51,15 +56,18 @@ public class ZeroconfAuthenticator implements Closeable {
     }
 
     private final HttpRunner runner;
-    private final Session session;
     private final MulticastDNSService mDnsService;
     private final ServiceInstance spotifyConnectService;
+    private final AtomicReference<Authentication.LoginCredentials> authenticationLock = new AtomicReference<>(null);
+    private final Session.Inner session;
+    private final DiffieHellman keys;
 
-    public ZeroconfAuthenticator(Session session) throws IOException {
+    ZeroconfAuthenticator(Session.Inner session) throws IOException {
         this.session = session;
+        this.keys = new DiffieHellman(session.random);
         this.mDnsService = new MulticastDNSService();
 
-        int port = session.random().nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+        int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         this.runner = new HttpRunner(port);
         new Thread(runner).start();
 
@@ -93,16 +101,18 @@ public class ZeroconfAuthenticator implements Closeable {
     @Override
     public void close() throws IOException {
         mDnsService.unregister(spotifyConnectService);
+        LOGGER.trace("SpotifyConnect service unregistered successfully.");
+
         mDnsService.close();
         runner.close();
     }
 
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("deviceID", session.deviceId());
-        info.addProperty("remoteName", session.deviceName());
-        info.addProperty("publicKey", Base64.getEncoder().encodeToString(session.keys().publicKeyArray()));
-        info.addProperty("deviceType", session.deviceType().name.toUpperCase());
+        info.addProperty("deviceID", session.deviceId);
+        info.addProperty("remoteName", session.deviceName);
+        info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
+        info.addProperty("deviceType", session.deviceType.name.toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -137,13 +147,7 @@ public class ZeroconfAuthenticator implements Closeable {
             return;
         }
 
-        System.out.println("USERNAME: " + username);
-        System.out.println("BLOB: " + blobStr);
-        System.out.println("CLIENT_KEY: " + clientKeyStr);
-        System.out.println("DEVICE_ID: " + session.deviceId());
-        System.out.println("PRIVATE_KEY: " + Base64.getEncoder().encodeToString(Utils.toByteArray(session.keys().privateKey())));
-
-        session.keys().computeSharedKey(Base64.getDecoder().decode(clientKeyStr));
+        keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr));
 
         byte[] blobBytes = Base64.getDecoder().decode(blobStr);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
@@ -151,7 +155,7 @@ public class ZeroconfAuthenticator implements Closeable {
         byte[] checksum = Arrays.copyOfRange(blobBytes, blobBytes.length - 20, blobBytes.length);
 
         MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-        sha1.update(session.keys().sharedKeyArray());
+        sha1.update(keys.sharedKeyArray());
         byte[] baseKey = Arrays.copyOfRange(sha1.digest(), 0, 16);
 
         Mac hmac = Mac.getInstance("HmacSHA1");
@@ -178,8 +182,6 @@ public class ZeroconfAuthenticator implements Closeable {
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
 
-        System.out.println("DECRYPTED: " + new String(decrypted));
-
         String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
 
         out.write(httpVersion.getBytes());
@@ -194,7 +196,19 @@ public class ZeroconfAuthenticator implements Closeable {
         out.write(resp.getBytes());
         out.flush();
 
-        session.authenticateBlob(username, decrypted);
+        Authentication.LoginCredentials credentials = session.decryptBlob(username, decrypted);
+        synchronized (authenticationLock) {
+            authenticationLock.set(credentials);
+            authenticationLock.notifyAll();
+        }
+    }
+
+    @NotNull
+    Authentication.LoginCredentials lockUntilCredentials() throws InterruptedException {
+        synchronized (authenticationLock) {
+            authenticationLock.wait();
+            return authenticationLock.get();
+        }
     }
 
     private class HttpRunner implements Runnable, Closeable {

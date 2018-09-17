@@ -3,7 +3,7 @@ package org.librespot.spotify.mercury;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.Session;
+import org.librespot.spotify.core.Session;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Mercury;
 
