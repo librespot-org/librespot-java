@@ -3,12 +3,16 @@ package org.librespot.spotify.spirc;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.librespot.spotify.Version;
+import org.librespot.spotify.core.Session;
 import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.mercury.SubListener;
 import org.librespot.spotify.proto.Spirc;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -16,28 +20,32 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class SpotifyIrc {
     private static final Logger LOGGER = Logger.getLogger(SpotifyIrc.class);
-    private final MercuryClient mercury;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final String uri;
+    private final Session session;
+    private final SpircListener internalListener;
     private Spirc.DeviceState deviceState;
 
-    public SpotifyIrc(@NotNull MercuryClient mercury) throws IOException, InterruptedException, IrcException, MercuryClient.PubSubException {
-        this.mercury = mercury;
-        this.uri = String.format("hm://remote/3/user/%s/", mercury.username());
+    public SpotifyIrc(@NotNull Session session) throws IOException, IrcException, MercuryClient.PubSubException {
+        this.session = session;
 
-        initializeState();
+        this.uri = String.format("hm://remote/3/user/%s/", session.apWelcome().getCanonicalUsername());
 
-        mercury.subscribe(uri, new SpircListener() {
-            @Override
-            public void frame(Spirc.@NotNull Frame frame) {
-                System.out.println("FRAME: " + frame.getTyp());
-            }
-        });
+        initializeDeviceState();
+        session.mercury().subscribe(uri, internalListener = new SpircListener());
 
         send(Spirc.MessageType.kMessageTypeHello);
     }
 
-    private void initializeState() {
+    public void deviceStateUpdated() {
+        try {
+            sendNotify();
+        } catch (IOException | IrcException ex) {
+            LOGGER.fatal("Failed notifying device state changed!", ex);
+        }
+    }
+
+    private void initializeDeviceState() {
         deviceState = Spirc.DeviceState.newBuilder()
                 .setCanPlay(true)
                 .setIsActive(false)
@@ -49,7 +57,7 @@ public class SpotifyIrc {
                         .build())
                 .addCapabilities(Spirc.Capability.newBuilder()
                         .setTyp(Spirc.CapabilityType.kDeviceType)
-                        .addIntValue(mercury.deviceType().val)
+                        .addIntValue(session.deviceType().val)
                         .build())
                 .addCapabilities(Spirc.Capability.newBuilder()
                         .setTyp(Spirc.CapabilityType.kGaiaEqConnectId)
@@ -88,24 +96,56 @@ public class SpotifyIrc {
                 .build();
     }
 
-    public synchronized void send(@NotNull Spirc.MessageType type) throws IOException, InterruptedException, IrcException {
+    public synchronized void send(@NotNull Spirc.MessageType type) throws IOException, IrcException {
+        send(type, Spirc.Frame.newBuilder());
+    }
+
+    public synchronized void send(@NotNull Spirc.MessageType type, @NotNull Spirc.Frame.Builder builder) throws IOException, IrcException {
         LOGGER.trace("Send frame, type: " + type);
 
-        Spirc.Frame frame = Spirc.Frame.newBuilder()
+        Spirc.Frame frame = builder
                 .setVersion(1)
                 .setTyp(type)
                 .setSeqNr(seqHolder.getAndIncrement())
-                .setIdent(mercury.deviceId())
+                .setIdent(session.deviceId())
                 .setProtocolVersion("2.0.0")
                 .setDeviceState(deviceState)
                 .setStateUpdateId(System.currentTimeMillis())
                 .build();
 
-        MercuryClient.Response response = mercury.sendSync(uri, MercuryClient.Method.SEND, new byte[][]{frame.toByteArray()});
+        MercuryClient.Response response = session.mercury().sendSync(uri, MercuryClient.Method.SEND, new byte[][]{frame.toByteArray()});
         if (response.statusCode == 200) {
             LOGGER.trace("Frame sent successfully, type: " + type);
         } else {
             throw new IrcException(response);
+        }
+    }
+
+    private void sendNotify() throws IOException, IrcException {
+        sendNotify(null);
+    }
+
+    private void sendNotify(@Nullable String recipient) throws IOException, IrcException {
+        if (recipient == null) send(Spirc.MessageType.kMessageTypeNotify);
+        else send(Spirc.MessageType.kMessageTypeNotify, Spirc.Frame.newBuilder().addRecipient(recipient));
+    }
+
+    /**
+     * @return Whether the frame should be dispatched further
+     */
+    private boolean handleFrame(@NotNull Spirc.Frame frame) throws IOException, IrcException {
+        switch (frame.getTyp()) {
+            case kMessageTypeHello:
+                sendNotify(frame.getIdent());
+                return false;
+        }
+
+        return true;
+    }
+
+    public void addListener(@NotNull FrameListener listener) {
+        synchronized (internalListener.listeners) {
+            internalListener.listeners.add(listener);
         }
     }
 
@@ -115,16 +155,32 @@ public class SpotifyIrc {
         }
     }
 
-    private abstract static class SpircListener implements SubListener {
-
-        public abstract void frame(@NotNull Spirc.Frame frame);
+    private final class SpircListener implements SubListener {
+        private final Set<FrameListener> listeners = new HashSet<>();
 
         @Override
         public final void event(MercuryClient.@NotNull Response resp) {
+            String ident = session.deviceId();
+
             try {
-                frame(Spirc.Frame.parseFrom(resp.payload[0]));
+                Spirc.Frame frame = Spirc.Frame.parseFrom(resp.payload[0]);
+                if (ident.equals(frame.getIdent()) || (frame.getRecipientCount() > 0 && !frame.getRecipientList().contains(ident))) {
+                    LOGGER.trace(String.format("Skipping message, not for us, ident: %s, recipients: %s", frame.getIdent(), frame.getRecipientList()));
+                    return;
+                }
+
+                LOGGER.trace(String.format("Handling frame, type: %s, ident: %s", frame.getTyp(), frame.getIdent()));
+
+                if (handleFrame(frame)) {
+                    synchronized (listeners) {
+                        for (FrameListener listener : listeners)
+                            listener.frame(frame);
+                    }
+                }
             } catch (InvalidProtocolBufferException ex) {
-                LOGGER.fatal("Couldn't create Frame!", ex);
+                LOGGER.fatal("Couldn't create frame!", ex);
+            } catch (IOException | IrcException ex) {
+                LOGGER.fatal("Failed handling frame!", ex);
             }
         }
     }

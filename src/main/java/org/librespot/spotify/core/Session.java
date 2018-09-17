@@ -11,6 +11,7 @@ import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
+import org.librespot.spotify.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -44,6 +45,7 @@ public class Session implements AutoCloseable {
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
+    private SpotifyIrc spirc;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -179,7 +181,7 @@ public class Session implements AutoCloseable {
         LOGGER.info("Connected successfully!");
     }
 
-    private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+    private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
         if (chiperPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
@@ -199,6 +201,8 @@ public class Session implements AutoCloseable {
         if (packet.is(Packet.Type.APWelcome)) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
             mercuryClient = new MercuryClient(this);
+            spirc = new SpotifyIrc(this);
+
             receiver = new Receiver();
             new Thread(receiver).start();
 
@@ -214,6 +218,12 @@ public class Session implements AutoCloseable {
     public void close() throws Exception {
         receiver.stop();
         socket.close();
+
+        receiver = null;
+        mercuryClient = null;
+        spirc = null;
+        apWelcome = null;
+        chiperPair = null;
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
@@ -224,6 +234,12 @@ public class Session implements AutoCloseable {
     public MercuryClient mercury() {
         if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
         return mercuryClient;
+    }
+
+    @NotNull
+    public SpotifyIrc spirc() {
+        if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
+        return spirc;
     }
 
     @NotNull
@@ -352,7 +368,7 @@ public class Session implements AutoCloseable {
         }
 
         @NotNull
-        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
             if (loginCredentials == null) throw new IllegalStateException("Missing credentials!");
 
             Session session = new Session(inner, ApResolver.getSocketFromRandomAccessPoint());

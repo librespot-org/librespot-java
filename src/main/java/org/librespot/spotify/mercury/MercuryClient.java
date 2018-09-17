@@ -49,7 +49,7 @@ public class MercuryClient {
         }
     }
 
-    public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, InterruptedException, PubSubException {
+    public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
         Response response = sendSync(uri, Method.SUB, new byte[0][0]);
         if (response.statusCode != 200) throw new PubSubException(response);
 
@@ -66,7 +66,7 @@ public class MercuryClient {
     }
 
     @NotNull
-    public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload) throws IOException, InterruptedException {
+    public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload) throws IOException {
         final AtomicReference<Response> reference = new AtomicReference<>(null);
         send(uri, method, payload, response -> {
             synchronized (reference) {
@@ -76,8 +76,12 @@ public class MercuryClient {
         });
 
         synchronized (reference) {
-            reference.wait();
-            return reference.get();
+            try {
+                reference.wait();
+                return reference.get();
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            }
         }
     }
 
@@ -130,7 +134,7 @@ public class MercuryClient {
         byte flags = payload.get();
         short parts = payload.getShort();
 
-        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d",  packet.type(), seq, parts));
+        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d", packet.type(), seq, parts));
 
         byte[][] payloadParts = new byte[parts][];
         for (int i = 0; i < parts; i++) {
@@ -185,16 +189,6 @@ public class MercuryClient {
         }
     }
 
-    @NotNull
-    public String deviceId() {
-        return session.deviceId();
-    }
-
-    @NotNull
-    public Session.DeviceType deviceType() {
-        return session.deviceType();
-    }
-
     public enum Method {
         GET("GET"),
         SEND("SEND"),
@@ -205,15 +199,6 @@ public class MercuryClient {
 
         Method(String name) {
             this.name = name;
-        }
-
-        @NotNull
-        public static Method parse(String method) {
-            for (Method m : values())
-                if (m.name.equals(method))
-                    return m;
-
-            throw new IllegalStateException("Unknown method: " + method);
         }
 
         @NotNull
