@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class Session implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
-    final DiffieHellman keys;
+    private final DiffieHellman keys;
     private final Socket socket;
     private final DataInputStream in;
     private final DataOutputStream out;
@@ -198,21 +198,16 @@ public class Session implements AutoCloseable {
         Packet packet = chiperPair.receiveEncoded(in);
         if (packet.is(Packet.Type.APWelcome)) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
-            authenticatedSuccessfully();
+            mercuryClient = new MercuryClient(this);
+            receiver = new Receiver();
+            new Thread(receiver).start();
+
+            LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
             throw new IllegalStateException("Unknown CMD 0x" + Integer.toHexString(packet.cmd));
         }
-    }
-
-    private void authenticatedSuccessfully() {
-        LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
-
-        mercuryClient = new MercuryClient(this);
-
-        receiver = new Receiver();
-        new Thread(receiver).start();
     }
 
     @Override

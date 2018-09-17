@@ -30,47 +30,51 @@ public class ChiperPair {
         recvNonce = new AtomicInteger(0);
     }
 
-    public synchronized void sendEncoded(OutputStream out, byte cmd, byte[] payload) throws IOException {
-        sendChiper.nonce(Utils.toByteArray(sendNonce.getAndIncrement()));
+    public void sendEncoded(OutputStream out, byte cmd, byte[] payload) throws IOException {
+        synchronized (sendChiper) {
+            sendChiper.nonce(Utils.toByteArray(sendNonce.getAndIncrement()));
 
-        ByteBuffer buffer = ByteBuffer.allocate(1 + 2 + payload.length);
-        buffer.put(cmd)
-                .putShort((short) payload.length)
-                .put(payload);
+            ByteBuffer buffer = ByteBuffer.allocate(1 + 2 + payload.length);
+            buffer.put(cmd)
+                    .putShort((short) payload.length)
+                    .put(payload);
 
-        byte[] bytes = buffer.array();
-        sendChiper.encrypt(bytes);
+            byte[] bytes = buffer.array();
+            sendChiper.encrypt(bytes);
 
-        byte[] mac = new byte[4];
-        sendChiper.finish(mac);
+            byte[] mac = new byte[4];
+            sendChiper.finish(mac);
 
-        out.write(bytes);
-        out.write(mac);
-        out.flush();
+            out.write(bytes);
+            out.write(mac);
+            out.flush();
+        }
     }
 
     @NotNull
-    public synchronized Packet receiveEncoded(DataInputStream in) throws IOException, GeneralSecurityException {
-        recvChiper.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
+    public Packet receiveEncoded(DataInputStream in) throws IOException, GeneralSecurityException {
+        synchronized (recvChiper) {
+            recvChiper.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
 
-        byte[] headerBytes = new byte[3];
-        in.readFully(headerBytes);
-        recvChiper.decrypt(headerBytes);
+            byte[] headerBytes = new byte[3];
+            in.readFully(headerBytes);
+            recvChiper.decrypt(headerBytes);
 
-        byte cmd = headerBytes[0];
-        short payloadLength = (short) ((headerBytes[1] << 8) | (headerBytes[2] & 0xFF));
+            byte cmd = headerBytes[0];
+            short payloadLength = (short) ((headerBytes[1] << 8) | (headerBytes[2] & 0xFF));
 
-        byte[] payloadBytes = new byte[payloadLength];
-        in.readFully(payloadBytes);
-        recvChiper.decrypt(payloadBytes);
+            byte[] payloadBytes = new byte[payloadLength];
+            in.readFully(payloadBytes);
+            recvChiper.decrypt(payloadBytes);
 
-        byte[] mac = new byte[4];
-        in.readFully(mac);
+            byte[] mac = new byte[4];
+            in.readFully(mac);
 
-        byte[] expectedMac = new byte[4];
-        recvChiper.finish(expectedMac);
-        if (!Arrays.equals(mac, expectedMac)) throw new GeneralSecurityException("MACs don't match!");
+            byte[] expectedMac = new byte[4];
+            recvChiper.finish(expectedMac);
+            if (!Arrays.equals(mac, expectedMac)) throw new GeneralSecurityException("MACs don't match!");
 
-        return new Packet(cmd, payloadBytes);
+            return new Packet(cmd, payloadBytes);
+        }
     }
 }
