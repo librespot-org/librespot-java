@@ -24,29 +24,21 @@ public class SpotifyIrc {
     private final String uri;
     private final Session session;
     private final SpircListener internalListener;
-    private Spirc.DeviceState deviceState;
+    private final Spirc.DeviceState.Builder deviceState;
 
     public SpotifyIrc(@NotNull Session session) throws IOException, IrcException, MercuryClient.PubSubException {
         this.session = session;
-
         this.uri = String.format("hm://remote/3/user/%s/", session.apWelcome().getCanonicalUsername());
+        this.deviceState = initializeDeviceState();
 
-        initializeDeviceState();
         session.mercury().subscribe(uri, internalListener = new SpircListener());
 
         send(Spirc.MessageType.kMessageTypeHello);
     }
 
-    public void deviceStateUpdated() {
-        try {
-            sendNotify();
-        } catch (IOException | IrcException ex) {
-            LOGGER.fatal("Failed notifying device state changed!", ex);
-        }
-    }
-
-    private void initializeDeviceState() {
-        deviceState = Spirc.DeviceState.newBuilder()
+    @NotNull
+    private Spirc.DeviceState.Builder initializeDeviceState() {
+        return Spirc.DeviceState.newBuilder()
                 .setCanPlay(true)
                 .setIsActive(false)
                 .setVolume(0)
@@ -92,8 +84,7 @@ public class SpotifyIrc {
                         .addStringValue("audio/track")
                         .addStringValue("local")
                         .addStringValue("track")
-                        .build())
-                .build();
+                        .build());
     }
 
     public synchronized void send(@NotNull Spirc.MessageType type) throws IOException, IrcException {
@@ -149,6 +140,19 @@ public class SpotifyIrc {
         }
     }
 
+    @NotNull
+    public Spirc.DeviceState.Builder deviceState() {
+        return deviceState;
+    }
+
+    public void deviceStateUpdated() {
+        try {
+            sendNotify();
+        } catch (IOException | IrcException ex) {
+            LOGGER.fatal("Failed notifying device state changed!", ex);
+        }
+    }
+
     public static class IrcException extends Exception {
         private IrcException(MercuryClient.Response response) {
             super(String.format("status: %d", response.statusCode));
@@ -172,10 +176,8 @@ public class SpotifyIrc {
                 LOGGER.trace(String.format("Handling frame, type: %s, ident: %s", frame.getTyp(), frame.getIdent()));
 
                 if (handleFrame(frame)) {
-                    synchronized (listeners) {
-                        for (FrameListener listener : listeners)
-                            listener.frame(frame);
-                    }
+                    for (FrameListener listener : listeners)
+                        listener.frame(frame);
                 }
             } catch (InvalidProtocolBufferException ex) {
                 LOGGER.fatal("Couldn't create frame!", ex);

@@ -13,22 +13,28 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
  */
-public class MercuryClient {
+public class MercuryClient implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
     private final Session session;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
+    private final BlockingQueue<Packet> packetsQueue = new LinkedBlockingQueue<>();
+    private final Looper looper;
 
     public MercuryClient(@NotNull Session session) {
         this.session = session;
+
+        this.looper = new Looper();
+        new Thread(looper).start();
     }
 
     @NotNull
@@ -36,17 +42,11 @@ public class MercuryClient {
         return session.apWelcome().getCanonicalUsername();
     }
 
-    public <M> void request(@NotNull GeneralMercuryRequest<M> request, @NotNull OnResult<M> listener) {
-        try {
-            send(request.uri, request.method, request.payload, response -> {
-                if (response.statusCode >= 200 && response.statusCode < 300)
-                    listener.result(request.processor.process(response));
-                else
-                    listener.failed(new MercuryException(response));
-            });
-        } catch (IOException ex) {
-            listener.failed(ex);
-        }
+    @NotNull
+    public <M> M requestSync(@NotNull GeneralMercuryRequest<M> request) throws IOException, MercuryException {
+        Response response = sendSync(request.uri, request.method, request.payload);
+        if (response.statusCode >= 200 && response.statusCode < 300) return request.processor.process(response);
+        else throw new MercuryException(response);
     }
 
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
@@ -67,7 +67,7 @@ public class MercuryClient {
 
     @NotNull
     public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload) throws IOException {
-        final AtomicReference<Response> reference = new AtomicReference<>(null);
+        AtomicReference<Response> reference = new AtomicReference<>(null);
         send(uri, method, payload, response -> {
             synchronized (reference) {
                 reference.set(response);
@@ -116,77 +116,19 @@ public class MercuryClient {
             out.write(part);
         }
 
-        callbacks.put((long) seq, callback);
-
         Packet.Type cmd = method.command();
         session.send(cmd, bytesOut.toByteArray());
+
+        callbacks.put((long) seq, callback);
     }
 
-    public void handle(@NotNull Packet packet) throws InvalidProtocolBufferException {
-        ByteBuffer payload = ByteBuffer.wrap(packet.payload);
-        int seqLength = payload.getShort();
-        long seq;
-        if (seqLength == 2) seq = payload.getShort();
-        else if (seqLength == 4) seq = payload.getInt();
-        else if (seqLength == 8) seq = payload.getLong();
-        else throw new IllegalArgumentException("Unknown seq length: " + seqLength);
+    public void handle(@NotNull Packet packet) {
+        packetsQueue.add(packet);
+    }
 
-        byte flags = payload.get();
-        short parts = payload.getShort();
-
-        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d", packet.type(), seq, parts));
-
-        byte[][] payloadParts = new byte[parts][];
-        for (int i = 0; i < parts; i++) {
-            /*
-            part, err := parsePart(reader)
-		    if err != nil {
-			    fmt.Println("read part")
-			    return nil, err
-		    }
-
-		    if pending.partial != nil {
-			    part = append(pending.partial, part...)
-			    pending.partial = nil
-		    }
-
-		    if i == count-1 && (flags == 2) {
-			    pending.partial = part
-		    } else {
-			    pending.parts = append(pending.parts, part)
-		    }
-             */
-
-            short size = payload.getShort();
-            byte[] buffer = new byte[size];
-            payload.get(buffer);
-            payloadParts[i] = buffer;
-        }
-
-        Mercury.Header header = Mercury.Header.parseFrom(payloadParts[0]);
-        Response resp = new Response(header, payloadParts);
-
-        if (packet.is(Packet.Type.MercurySubEvent)) {
-            boolean dispatched = false;
-            for (InternalSubListener sub : subscriptions) {
-                if (sub.matches(header.getUri())) {
-                    sub.dispatch(resp);
-                    dispatched = true;
-                }
-            }
-
-            if (!dispatched)
-                LOGGER.warn(String.format("Couldn't dispatch Mercury sub event, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
-        } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub)) {
-            Callback callback = callbacks.remove(seq);
-            if (callback != null) {
-                callback.response(resp);
-            } else {
-                LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
-            }
-        } else {
-            LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
-        }
+    @Override
+    public void close() {
+        looper.stop();
     }
 
     public enum Method {
@@ -218,7 +160,7 @@ public class MercuryClient {
     }
 
     public interface Callback {
-        void response(@NotNull Response response) throws InvalidProtocolBufferException;
+        void response(@NotNull Response response);
     }
 
     public static class PubSubException extends MercuryException {
@@ -240,7 +182,7 @@ public class MercuryClient {
             return uri.startsWith(this.uri);
         }
 
-        synchronized void dispatch(@NotNull Response resp) {
+        void dispatch(@NotNull Response resp) {
             listener.event(resp);
         }
     }
@@ -260,6 +202,101 @@ public class MercuryClient {
             this.uri = header.getUri();
             this.statusCode = header.getStatusCode();
             this.payload = Arrays.copyOfRange(payload, 1, payload.length);
+        }
+    }
+
+    private class Looper implements Runnable {
+        private volatile boolean shouldStop = false;
+
+        void stop() {
+            shouldStop = true;
+        }
+
+        private void handle(@NotNull Packet packet) throws InvalidProtocolBufferException {
+            ByteBuffer payload = ByteBuffer.wrap(packet.payload);
+            int seqLength = payload.getShort();
+            long seq;
+            if (seqLength == 2) seq = payload.getShort();
+            else if (seqLength == 4) seq = payload.getInt();
+            else if (seqLength == 8) seq = payload.getLong();
+            else throw new IllegalArgumentException("Unknown seq length: " + seqLength);
+
+            byte flags = payload.get();
+            short parts = payload.getShort();
+
+            LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d", packet.type(), seq, parts));
+
+            byte[][] payloadParts = new byte[parts][];
+            for (int i = 0; i < parts; i++) {
+            /*
+            part, err := parsePart(reader)
+		    if err != nil {
+			    fmt.Println("read part")
+			    return nil, err
+		    }
+
+		    if pending.partial != nil {
+			    part = append(pending.partial, part...)
+			    pending.partial = nil
+		    }
+
+		    if i == count-1 && (flags == 2) {
+			    pending.partial = part
+		    } else {
+			    pending.parts = append(pending.parts, part)
+		    }
+             */
+
+                short size = payload.getShort();
+                byte[] buffer = new byte[size];
+                payload.get(buffer);
+                payloadParts[i] = buffer;
+            }
+
+            Mercury.Header header = Mercury.Header.parseFrom(payloadParts[0]);
+            Response resp = new Response(header, payloadParts);
+
+            if (packet.is(Packet.Type.MercurySubEvent)) {
+                boolean dispatched = false;
+                for (InternalSubListener sub : subscriptions) {
+                    if (sub.matches(header.getUri())) {
+                        dispatch(sub, resp);
+                        dispatched = true;
+                    }
+                }
+
+                if (!dispatched)
+                    LOGGER.warn(String.format("Couldn't dispatch Mercury sub event, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
+            } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub)) {
+                Callback callback = callbacks.remove(seq);
+                if (callback != null) {
+                    call(callback, resp);
+                } else {
+                    LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
+                }
+            } else {
+                LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
+            }
+        }
+
+        private void call(Callback callback, Response resp) {
+            executorService.execute(() -> callback.response(resp));
+        }
+
+        private void dispatch(InternalSubListener listener, Response resp) {
+            executorService.execute(() -> listener.dispatch(resp));
+        }
+
+        @Override
+        public void run() {
+            while (!shouldStop) {
+                try {
+                    Packet packet = packetsQueue.take();
+                    handle(packet);
+                } catch (InterruptedException | InvalidProtocolBufferException ex) {
+                    LOGGER.fatal("Failed handling packet!", ex);
+                }
+            }
         }
     }
 }

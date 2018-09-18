@@ -14,25 +14,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Gianlu
  */
-public class ChiperPair {
-    private final Shannon sendChiper;
-    private final Shannon recvChiper;
+public class CipherPair {
+    private final Shannon sendCipher;
+    private final Shannon recvCipher;
     private final AtomicInteger sendNonce;
     private final AtomicInteger recvNonce;
 
-    public ChiperPair(byte[] sendKey, byte[] recvKey) {
-        sendChiper = new Shannon();
-        sendChiper.key(sendKey);
+    public CipherPair(byte[] sendKey, byte[] recvKey) {
+        sendCipher = new Shannon();
+        sendCipher.key(sendKey);
         sendNonce = new AtomicInteger(0);
 
-        recvChiper = new Shannon();
-        recvChiper.key(recvKey);
+        recvCipher = new Shannon();
+        recvCipher.key(recvKey);
         recvNonce = new AtomicInteger(0);
     }
 
     public void sendEncoded(OutputStream out, byte cmd, byte[] payload) throws IOException {
-        synchronized (sendChiper) {
-            sendChiper.nonce(Utils.toByteArray(sendNonce.getAndIncrement()));
+        synchronized (sendCipher) {
+            sendCipher.nonce(Utils.toByteArray(sendNonce.getAndIncrement()));
 
             ByteBuffer buffer = ByteBuffer.allocate(1 + 2 + payload.length);
             buffer.put(cmd)
@@ -40,10 +40,10 @@ public class ChiperPair {
                     .put(payload);
 
             byte[] bytes = buffer.array();
-            sendChiper.encrypt(bytes);
+            sendCipher.encrypt(bytes);
 
             byte[] mac = new byte[4];
-            sendChiper.finish(mac);
+            sendCipher.finish(mac);
 
             out.write(bytes);
             out.write(mac);
@@ -53,25 +53,25 @@ public class ChiperPair {
 
     @NotNull
     public Packet receiveEncoded(DataInputStream in) throws IOException, GeneralSecurityException {
-        synchronized (recvChiper) {
-            recvChiper.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
+        synchronized (recvCipher) {
+            recvCipher.nonce(Utils.toByteArray(recvNonce.getAndIncrement()));
 
             byte[] headerBytes = new byte[3];
             in.readFully(headerBytes);
-            recvChiper.decrypt(headerBytes);
+            recvCipher.decrypt(headerBytes);
 
             byte cmd = headerBytes[0];
             short payloadLength = (short) ((headerBytes[1] << 8) | (headerBytes[2] & 0xFF));
 
             byte[] payloadBytes = new byte[payloadLength];
             in.readFully(payloadBytes);
-            recvChiper.decrypt(payloadBytes);
+            recvCipher.decrypt(payloadBytes);
 
             byte[] mac = new byte[4];
             in.readFully(mac);
 
             byte[] expectedMac = new byte[4];
-            recvChiper.finish(expectedMac);
+            recvCipher.finish(expectedMac);
             if (!Arrays.equals(mac, expectedMac)) throw new GeneralSecurityException("MACs don't match!");
 
             return new Packet(cmd, payloadBytes);

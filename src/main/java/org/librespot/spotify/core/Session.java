@@ -4,11 +4,12 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.Version;
-import org.librespot.spotify.crypto.ChiperPair;
+import org.librespot.spotify.crypto.CipherPair;
 import org.librespot.spotify.crypto.DiffieHellman;
 import org.librespot.spotify.crypto.PBKDF2;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.mercury.MercuryClient;
+import org.librespot.spotify.player.Player;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
 import org.librespot.spotify.spirc.SpotifyIrc;
@@ -41,11 +42,12 @@ public class Session implements AutoCloseable {
     private final DataInputStream in;
     private final DataOutputStream out;
     private final Inner inner;
-    private ChiperPair chiperPair;
+    private CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
     private SpotifyIrc spirc;
+    private Player player;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -173,16 +175,16 @@ public class Session implements AutoCloseable {
         }
 
 
-        // Init Shannon chiper
+        // Init Shannon cipher
 
-        chiperPair = new ChiperPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
+        cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
                 Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
 
         LOGGER.info("Connected successfully!");
     }
 
     private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
-        if (chiperPair == null) throw new IllegalStateException("Connection not established!");
+        if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
                 .setLoginCredentials(credentials)
@@ -197,14 +199,15 @@ public class Session implements AutoCloseable {
 
         send(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
-        Packet packet = chiperPair.receiveEncoded(in);
+        Packet packet = cipherPair.receiveEncoded(in);
         if (packet.is(Packet.Type.APWelcome)) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
             mercuryClient = new MercuryClient(this);
-            spirc = new SpotifyIrc(this);
-
             receiver = new Receiver();
             new Thread(receiver).start();
+
+            spirc = new SpotifyIrc(this);
+            player = new Player(this);
 
             LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
         } else if (packet.is(Packet.Type.AuthFailure)) {
@@ -220,14 +223,18 @@ public class Session implements AutoCloseable {
         socket.close();
 
         receiver = null;
+        mercuryClient.close();
         mercuryClient = null;
+        player = null;
         spirc = null;
         apWelcome = null;
-        chiperPair = null;
+        cipherPair = null;
+
+        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, socket.getInetAddress()));
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
-        chiperPair.sendEncoded(out, cmd.val, payload);
+        cipherPair.sendEncoded(out, cmd.val, payload);
     }
 
     @NotNull
@@ -240,6 +247,12 @@ public class Session implements AutoCloseable {
     public SpotifyIrc spirc() {
         if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
         return spirc;
+    }
+
+    @NotNull
+    public Player player() {
+        if (player == null) throw new IllegalStateException("Session isn't authenticated!");
+        return player;
     }
 
     @NotNull
@@ -282,7 +295,6 @@ public class Session implements AutoCloseable {
         final DeviceType deviceType;
         final String deviceName;
         final SecureRandom random;
-
         final String deviceId;
 
         private Inner(DeviceType deviceType, String deviceName) {
@@ -346,10 +358,12 @@ public class Session implements AutoCloseable {
             this.inner = new Inner(deviceType, deviceName);
         }
 
-        public Builder zeroconf() throws InterruptedException, IOException {
+        public Builder zeroconf() throws IOException {
             try (ZeroconfAuthenticator authenticator = new ZeroconfAuthenticator(inner)) {
                 loginCredentials = authenticator.lockUntilCredentials();
                 return this;
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
             }
         }
 
@@ -416,7 +430,7 @@ public class Session implements AutoCloseable {
         public void run() {
             try {
                 while (!shouldStop) {
-                    Packet packet = chiperPair.receiveEncoded(in);
+                    Packet packet = cipherPair.receiveEncoded(in);
                     Packet.Type cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
                         LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
