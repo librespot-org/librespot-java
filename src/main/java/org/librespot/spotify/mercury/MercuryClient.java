@@ -3,6 +3,7 @@ package org.librespot.spotify.mercury;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Utils;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Mercury;
@@ -75,14 +76,7 @@ public class MercuryClient implements AutoCloseable {
             }
         });
 
-        synchronized (reference) {
-            try {
-                reference.wait();
-                return reference.get();
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
+        return Utils.wait(reference);
     }
 
     public void send(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload, @NotNull Callback callback) throws IOException {
@@ -228,24 +222,24 @@ public class MercuryClient implements AutoCloseable {
 
             byte[][] payloadParts = new byte[parts][];
             for (int i = 0; i < parts; i++) {
-            /*
-            part, err := parsePart(reader)
-		    if err != nil {
-			    fmt.Println("read part")
-			    return nil, err
-		    }
+                /*
+                part, err := parsePart(reader)
+                if err != nil {
+                    fmt.Println("read part")
+                    return nil, err
+                }
 
-		    if pending.partial != nil {
-			    part = append(pending.partial, part...)
-			    pending.partial = nil
-		    }
+                if pending.partial != nil {
+                    part = append(pending.partial, part...)
+                    pending.partial = nil
+                }
 
-		    if i == count-1 && (flags == 2) {
-			    pending.partial = part
-		    } else {
-			    pending.parts = append(pending.parts, part)
-		    }
-             */
+                if i == count-1 && (flags == 2) {
+                    pending.partial = part
+                } else {
+                    pending.parts = append(pending.parts, part)
+                }
+                */
 
                 short size = payload.getShort();
                 byte[] buffer = new byte[size];

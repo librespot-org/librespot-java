@@ -2,6 +2,7 @@ package org.librespot.spotify.player;
 
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
+import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.mercury.MercuryRequests;
 import org.librespot.spotify.mercury.model.TrackId;
@@ -10,7 +11,10 @@ import org.librespot.spotify.proto.Spirc;
 import org.librespot.spotify.spirc.FrameListener;
 import org.librespot.spotify.spirc.SpotifyIrc;
 
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Mixer;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * @author Gianlu
@@ -19,11 +23,15 @@ public class Player implements FrameListener {
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
+    private final Mixer mixer;
+    private final AudioKeyManager keyManager;
 
     public Player(@NotNull Session session) {
         this.session = session;
+        this.keyManager = new AudioKeyManager(session);
         this.spirc = session.spirc();
         this.state = initState();
+        this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
 
         spirc.addListener(this);
     }
@@ -52,8 +60,11 @@ public class Player implements FrameListener {
 
         try {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
-            System.out.println(track);
-        } catch (IOException | MercuryClient.MercuryException ex) {
+            System.out.println("TRACK: " + track.getName());
+
+            byte[] key = keyManager.getAudioKey(track, track.getFile(0));
+            System.out.println("KEY: " + Arrays.toString(key));
+        } catch (IOException | MercuryClient.MercuryException | AudioKeyManager.KeyErrorException ex) {
             ex.printStackTrace();
         }
     }
@@ -82,5 +93,11 @@ public class Player implements FrameListener {
         }
 
         spirc.deviceStateUpdated();
+    }
+
+    public void handle(@NotNull Packet packet) {
+        if (packet.is(Packet.Type.AesKey) || packet.is(Packet.Type.AesKeyError)) {
+            keyManager.handle(packet);
+        }
     }
 }

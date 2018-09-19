@@ -3,6 +3,7 @@ package org.librespot.spotify;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
@@ -11,6 +12,7 @@ import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
@@ -18,6 +20,18 @@ import java.util.Map;
 public class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    public static <A> A wait(@NotNull AtomicReference<A> ref) throws IOException {
+        synchronized (ref) {
+            try {
+                ref.wait();
+                return ref.get();
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            }
+        }
+    }
 
     public static void removeCryptographyRestrictions() {
         if (!isRestrictedCryptography()) {

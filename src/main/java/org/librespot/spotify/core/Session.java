@@ -461,6 +461,10 @@ public class Session implements AutoCloseable {
                         case MercuryReq:
                             mercuryClient.handle(packet);
                             break;
+                        case AesKey:
+                        case AesKeyError:
+                            player.handle(packet);
+                            break;
                         default:
                             LOGGER.info("Skipping " + cmd.name());
                             break;
