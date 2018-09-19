@@ -463,6 +463,8 @@ public class Session implements AutoCloseable {
                             break;
                         case AesKey:
                         case AesKeyError:
+                        case ChannelError:
+                        case StreamChunkRes:
                             player.handle(packet);
                             break;
                         default:

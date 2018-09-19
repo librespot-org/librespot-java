@@ -1,5 +1,6 @@
 package org.librespot.spotify.player;
 
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.crypto.Packet;
@@ -20,11 +21,13 @@ import java.util.Arrays;
  * @author Gianlu
  */
 public class Player implements FrameListener {
+    private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
     private final Mixer mixer;
     private final AudioKeyManager keyManager;
+    private AudioFile currentFile;
 
     public Player(@NotNull Session session) {
         this.session = session;
@@ -61,9 +64,11 @@ public class Player implements FrameListener {
         try {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
             System.out.println("TRACK: " + track.getName());
-
             byte[] key = keyManager.getAudioKey(track, track.getFile(0));
             System.out.println("KEY: " + Arrays.toString(key));
+
+            currentFile = new AudioFile(session, track);
+            currentFile.open();
         } catch (IOException | MercuryClient.MercuryException | AudioKeyManager.KeyErrorException ex) {
             ex.printStackTrace();
         }
@@ -98,6 +103,14 @@ public class Player implements FrameListener {
     public void handle(@NotNull Packet packet) {
         if (packet.is(Packet.Type.AesKey) || packet.is(Packet.Type.AesKeyError)) {
             keyManager.handle(packet);
+        } else if (packet.is(Packet.Type.ChannelError) || packet.is(Packet.Type.StreamChunkRes)) {
+            if (currentFile != null) {
+                currentFile.handle(packet);
+            } else {
+                LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
+            }
+        } else {
+            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
         }
     }
 }

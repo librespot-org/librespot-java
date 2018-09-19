@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 public class Packet {
     public final byte cmd;
     public final byte[] payload;
+    private Type type = null;
 
     Packet(byte cmd, byte[] payload) {
         this.cmd = cmd;
@@ -17,7 +18,8 @@ public class Packet {
 
     @Nullable
     public Type type() {
-        return Type.parse(cmd);
+        if (type == null) type = Type.parse(cmd);
+        return type;
     }
 
     public boolean is(@NotNull Type type) {
