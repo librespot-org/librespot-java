@@ -68,7 +68,7 @@ public class Player implements FrameListener {
 
             currentFile = new AudioFile(session, file);
             currentFile.open();
-        } catch (IOException | MercuryClient.MercuryException | AudioKeyManager.KeyErrorException ex) {
+        } catch (IOException | MercuryClient.MercuryException ex) {
             ex.printStackTrace();
         }
     }

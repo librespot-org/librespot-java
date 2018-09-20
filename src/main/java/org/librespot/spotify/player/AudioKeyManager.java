@@ -30,7 +30,7 @@ public class AudioKeyManager extends PacketsManager {
         super(session);
     }
 
-    byte[] getAudioKey(Metadata.Track track, Metadata.AudioFile file) throws IOException, KeyErrorException {
+    byte[] getAudioKey(Metadata.Track track, Metadata.AudioFile file) throws IOException {
         int seq;
         synchronized (seqHolder) {
             seq = seqHolder.getAndIncrement();
@@ -45,32 +45,14 @@ public class AudioKeyManager extends PacketsManager {
         session.send(Packet.Type.RequestKey, out.toByteArray());
 
         AtomicReference<byte[]> ref = new AtomicReference<>();
-        callbacks.put(seq, new Callback() {
-            @Override
-            public void key(byte[] key) {
-                synchronized (ref) {
-                    ref.set(key);
-                    ref.notifyAll();
-                }
-            }
-
-            @Override
-            public void error(byte[] err) {
-                synchronized (ref) {
-                    ref.set(err);
-                    ref.notifyAll();
-                }
+        callbacks.put(seq, key -> {
+            synchronized (ref) {
+                ref.set(key);
+                ref.notifyAll();
             }
         });
 
-        byte[] result = Utils.wait(ref);
-        if (result.length == 16) {
-            return result;
-        } else if (result.length == 2) {
-            throw new KeyErrorException(result);
-        } else {
-            throw new IllegalStateException("Unknown payload: " + Utils.bytesToHex(result));
-        }
+        return Utils.wait(ref);
     }
 
     @Override
@@ -89,9 +71,8 @@ public class AudioKeyManager extends PacketsManager {
             payload.get(key);
             callback.key(key);
         } else if (packet.is(Packet.Type.AesKeyError)) {
-            byte[] err = new byte[2];
-            payload.get(err);
-            callback.error(err);
+            short code = payload.getShort();
+            LOGGER.fatal(String.format("Audio key error, code: %d, length: %d", code, packet.payload.length));
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length: %d", packet.type(), packet.payload.length));
         }
@@ -104,13 +85,5 @@ public class AudioKeyManager extends PacketsManager {
 
     private interface Callback {
         void key(byte[] key);
-
-        void error(byte[] err);
-    }
-
-    static class KeyErrorException extends Exception {
-        KeyErrorException(byte[] err) {
-            super("Error bytes: " + Utils.bytesToHex(err));
-        }
     }
 }
