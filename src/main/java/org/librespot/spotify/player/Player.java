@@ -14,7 +14,7 @@ import org.librespot.spotify.spirc.SpotifyIrc;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Mixer;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
+import java.io.InputStream;
 import java.util.Arrays;
 
 /**
@@ -56,7 +56,7 @@ public class Player implements FrameListener {
         }
     }
 
-    private void loadTrack(boolean play) { // TODO
+    private void loadTrack(boolean play) {
         Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
 
         try {
@@ -69,7 +69,16 @@ public class Player implements FrameListener {
 
             currentFile = new AudioFile(session, file, key);
             currentFile.open();
-        } catch (IOException | MercuryClient.MercuryException | GeneralSecurityException ex) {
+
+            InputStream in = currentFile.stream();
+
+            NormalizationData normalizationData = NormalizationData.read(in);
+            System.out.println("NORM: " + normalizationData);
+
+            if (in.skip(0xa7) != 0xa7) throw new IOException();
+
+            // TODO
+        } catch (IOException | MercuryClient.MercuryException ex) {
             ex.printStackTrace();
         }
     }

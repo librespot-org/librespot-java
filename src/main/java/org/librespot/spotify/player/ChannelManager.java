@@ -33,7 +33,7 @@ public class ChannelManager extends PacketsManager {
         int start = index * OUR_CHUNK_SIZE;
         int end = (index + 1) * OUR_CHUNK_SIZE;
 
-        Channel channel = new Channel(file);
+        Channel channel = new Channel(file, index);
         channels.put(channel.id, channel);
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -81,10 +81,12 @@ public class ChannelManager extends PacketsManager {
     public class Channel {
         public final short id;
         private final AudioFile file;
+        private final int chunkIndex;
         private volatile boolean header = true;
 
-        private Channel(@NotNull AudioFile file) {
+        private Channel(@NotNull AudioFile file, int chunkIndex) {
             this.file = file;
+            this.chunkIndex = chunkIndex;
             synchronized (seqHolder) {
                 id = (short) seqHolder.getAndIncrement();
             }
@@ -114,7 +116,7 @@ public class ChannelManager extends PacketsManager {
             } else {
                 byte[] bytes = new byte[payload.remaining()];
                 payload.get(bytes);
-                file.write(bytes);
+                file.write(bytes, chunkIndex);
                 file.flush();
             }
         }
