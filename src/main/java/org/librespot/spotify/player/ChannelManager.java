@@ -7,7 +7,9 @@ import org.librespot.spotify.core.PacketsManager;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.crypto.Packet;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ChannelManager extends PacketsManager {
     private static final int CHUNK_SIZE = 0x20000;
+    public static final int OUR_CHUNK_SIZE = CHUNK_SIZE / 4;
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
@@ -26,11 +29,11 @@ public class ChannelManager extends PacketsManager {
         super(session);
     }
 
-    @NotNull Channel requestChunk(ByteString fileId, int index) throws IOException {
-        int start = index * CHUNK_SIZE / 4;
-        int end = (index + 1) * CHUNK_SIZE / 4;
+    void requestChunk(ByteString fileId, int index, AudioFile file) throws IOException {
+        int start = index * OUR_CHUNK_SIZE;
+        int end = (index + 1) * OUR_CHUNK_SIZE;
 
-        Channel channel = new Channel();
+        Channel channel = new Channel(file);
         channels.put(channel.id, channel);
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -48,8 +51,6 @@ public class ChannelManager extends PacketsManager {
         out.writeInt(end);
 
         session.send(Packet.Type.StreamChunk, bytes.toByteArray());
-
-        return channel;
     }
 
     @Override
@@ -63,29 +64,7 @@ public class ChannelManager extends PacketsManager {
                 return;
             }
 
-            // Read header(s)
-
-            while (true) {
-                short headerLength = payload.getShort();
-                if (headerLength > 0) {
-                    byte headerId = payload.get();
-                    byte[] headerData = new byte[headerLength - 1];
-                    payload.get(headerData);
-                } else {
-                    break;
-                }
-            }
-
-            // Read data
-
-            byte[] bytes = new byte[payload.remaining()];
-            payload.get(bytes);
-            channel.write(bytes);
-            channel.flush();
-
-            synchronized (this) {
-                notifyAll();
-            }
+            channel.handle(payload);
         } else if (packet.is(Packet.Type.ChannelError)) {
             short code = payload.getShort();
             LOGGER.fatal(String.format("Stream error, code: %d, length: %d", code, packet.payload.length));
@@ -96,28 +75,48 @@ public class ChannelManager extends PacketsManager {
 
     @Override
     protected void exception(@NotNull Exception ex) {
-
+        LOGGER.fatal("Failed handling packet!", ex);
     }
 
     public class Channel {
         public final short id;
-        private final PipedOutputStream out;
-        private final PipedInputStream in = new PipedInputStream();
+        private final AudioFile file;
+        private volatile boolean header = true;
 
-        private Channel() throws IOException {
+        private Channel(@NotNull AudioFile file) {
+            this.file = file;
             synchronized (seqHolder) {
                 id = (short) seqHolder.getAndIncrement();
             }
-
-            out = new PipedOutputStream(in);
         }
 
-        private void write(byte[] buffer) throws IOException {
-            out.write(buffer);
-        }
+        private void handle(@NotNull ByteBuffer payload) throws IOException {
+            if (payload.remaining() == 0) {
+                if (!header) {
+                    file.finishedChunk();
+                    LOGGER.trace("Read last chunk packet.");
+                    return;
+                }
 
-        private void flush() throws IOException {
-            out.flush();
+                LOGGER.trace("Received empty chunk, skipping.");
+                return;
+            }
+
+            if (header) {
+                short length;
+                while ((length = payload.getShort()) > 0) {
+                    byte headerId = payload.get();
+                    byte[] headerData = new byte[length - 1];
+                    payload.get(headerData);
+                }
+
+                header = false;
+            } else {
+                byte[] bytes = new byte[payload.remaining()];
+                payload.get(bytes);
+                file.write(bytes);
+                file.flush();
+            }
         }
     }
 }

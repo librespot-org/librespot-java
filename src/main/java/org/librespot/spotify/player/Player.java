@@ -14,6 +14,7 @@ import org.librespot.spotify.spirc.SpotifyIrc;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Mixer;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
 /**
@@ -66,9 +67,9 @@ public class Player implements FrameListener {
             byte[] key = session.audioKey().getAudioKey(track, file);
             System.out.println("KEY: " + Arrays.toString(key));
 
-            currentFile = new AudioFile(session, file);
+            currentFile = new AudioFile(session, file, key);
             currentFile.open();
-        } catch (IOException | MercuryClient.MercuryException ex) {
+        } catch (IOException | MercuryClient.MercuryException | GeneralSecurityException ex) {
             ex.printStackTrace();
         }
     }
