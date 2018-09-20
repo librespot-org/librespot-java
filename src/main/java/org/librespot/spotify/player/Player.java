@@ -3,7 +3,6 @@ package org.librespot.spotify.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
-import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.mercury.MercuryRequests;
 import org.librespot.spotify.mercury.model.TrackId;
@@ -26,12 +25,10 @@ public class Player implements FrameListener {
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
     private final Mixer mixer;
-    private final AudioKeyManager keyManager;
     private AudioFile currentFile;
 
     public Player(@NotNull Session session) {
         this.session = session;
-        this.keyManager = new AudioKeyManager(session);
         this.spirc = session.spirc();
         this.state = initState();
         this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
@@ -64,7 +61,7 @@ public class Player implements FrameListener {
         try {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
             System.out.println("TRACK: " + track.getName());
-            byte[] key = keyManager.getAudioKey(track, track.getFile(0));
+            byte[] key = session.audioKey().getAudioKey(track, track.getFile(0));
             System.out.println("KEY: " + Arrays.toString(key));
 
             currentFile = new AudioFile(session, track);
@@ -98,19 +95,5 @@ public class Player implements FrameListener {
         }
 
         spirc.deviceStateUpdated();
-    }
-
-    public void handle(@NotNull Packet packet) {
-        if (packet.is(Packet.Type.AesKey) || packet.is(Packet.Type.AesKeyError)) {
-            keyManager.handle(packet);
-        } else if (packet.is(Packet.Type.ChannelError) || packet.is(Packet.Type.StreamChunkRes)) {
-            if (currentFile != null) {
-                currentFile.handle(packet);
-            } else {
-                LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
-            }
-        } else {
-            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
-        }
     }
 }

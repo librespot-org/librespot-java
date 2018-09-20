@@ -9,6 +9,8 @@ import org.librespot.spotify.crypto.DiffieHellman;
 import org.librespot.spotify.crypto.PBKDF2;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.mercury.MercuryClient;
+import org.librespot.spotify.player.AudioKeyManager;
+import org.librespot.spotify.player.ChannelManager;
 import org.librespot.spotify.player.Player;
 import org.librespot.spotify.proto.Authentication;
 import org.librespot.spotify.proto.Keyexchange;
@@ -30,6 +32,8 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,12 +46,15 @@ public class Session implements AutoCloseable {
     private final DataInputStream in;
     private final DataOutputStream out;
     private final Inner inner;
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
     private SpotifyIrc spirc;
     private Player player;
+    private AudioKeyManager audioKeyManager;
+    private ChannelManager channelManager;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -206,6 +213,8 @@ public class Session implements AutoCloseable {
             receiver = new Receiver();
             new Thread(receiver).start();
 
+            audioKeyManager = new AudioKeyManager(this);
+            channelManager = new ChannelManager(this);
             spirc = new SpotifyIrc(this);
             player = new Player(this);
 
@@ -244,6 +253,18 @@ public class Session implements AutoCloseable {
     }
 
     @NotNull
+    public AudioKeyManager audioKey() {
+        if (audioKeyManager == null) throw new IllegalStateException("Session isn't authenticated!");
+        return audioKeyManager;
+    }
+
+    @NotNull
+    public ChannelManager channel() {
+        if (channelManager == null) throw new IllegalStateException("Session isn't authenticated!");
+        return channelManager;
+    }
+
+    @NotNull
     public SpotifyIrc spirc() {
         if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
         return spirc;
@@ -269,6 +290,11 @@ public class Session implements AutoCloseable {
     @NotNull
     public DeviceType deviceType() {
         return inner.deviceType;
+    }
+
+    @NotNull
+    ExecutorService executor() {
+        return executorService;
     }
 
     public enum DeviceType {
@@ -428,52 +454,61 @@ public class Session implements AutoCloseable {
 
         @Override
         public void run() {
-            try {
-                while (!shouldStop) {
-                    Packet packet = cipherPair.receiveEncoded(in);
-                    Packet.Type cmd = Packet.Type.parse(packet.cmd);
+            while (!shouldStop) {
+                Packet packet;
+                Packet.Type cmd;
+                try {
+                    packet = cipherPair.receiveEncoded(in);
+                    cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
                         LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
                         continue;
                     }
+                } catch (IOException | GeneralSecurityException ex) {
+                    LOGGER.fatal("Failed reading packet!", ex);
+                    return;
+                }
 
-                    switch (cmd) {
-                        case Ping:
+                switch (cmd) {
+                    case Ping:
+                        try {
                             send(Packet.Type.Pong, packet.payload);
                             LOGGER.trace("Handled Ping");
-                            break;
-                        case PongAck:
-                            LOGGER.trace("Handled PongAck");
-                            break;
-                        case CountryCode:
-                            LOGGER.info("Received CountryCode: " + new String(packet.payload));
-                            break;
-                        case LicenseVersion:
-                            ByteBuffer licenseVersion = ByteBuffer.wrap(packet.payload);
-                            short id = licenseVersion.getShort();
-                            byte[] buffer = new byte[licenseVersion.get()];
-                            licenseVersion.get(buffer);
-                            LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
-                            break;
-                        case MercurySub:
-                        case MercuryUnsub:
-                        case MercurySubEvent:
-                        case MercuryReq:
-                            mercuryClient.handle(packet);
-                            break;
-                        case AesKey:
-                        case AesKeyError:
-                        case ChannelError:
-                        case StreamChunkRes:
-                            player.handle(packet);
-                            break;
-                        default:
-                            LOGGER.info("Skipping " + cmd.name());
-                            break;
-                    }
+                        } catch (IOException ex) {
+                            LOGGER.fatal("Failed sending Pong!", ex);
+                        }
+                        break;
+                    case PongAck:
+                        LOGGER.trace("Handled PongAck");
+                        break;
+                    case CountryCode:
+                        LOGGER.info("Received CountryCode: " + new String(packet.payload));
+                        break;
+                    case LicenseVersion:
+                        ByteBuffer licenseVersion = ByteBuffer.wrap(packet.payload);
+                        short id = licenseVersion.getShort();
+                        byte[] buffer = new byte[licenseVersion.get()];
+                        licenseVersion.get(buffer);
+                        LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                        break;
+                    case MercurySub:
+                    case MercuryUnsub:
+                    case MercurySubEvent:
+                    case MercuryReq:
+                        mercuryClient.dispatch(packet);
+                        break;
+                    case AesKey:
+                    case AesKeyError:
+                        audioKeyManager.dispatch(packet);
+                        break;
+                    case ChannelError:
+                    case StreamChunkRes:
+                        channelManager.dispatch(packet);
+                        break;
+                    default:
+                        LOGGER.info("Skipping " + cmd.name());
+                        break;
                 }
-            } catch (IOException | GeneralSecurityException ex) {
-                LOGGER.fatal("Failed handling packet!", ex);
             }
         }
     }

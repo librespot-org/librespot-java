@@ -3,6 +3,7 @@ package org.librespot.spotify.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.Utils;
+import org.librespot.spotify.core.PacketsManager;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.crypto.Packet;
 import org.librespot.spotify.proto.Metadata;
@@ -19,15 +20,14 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-class AudioKeyManager {
+public class AudioKeyManager extends PacketsManager {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
     private static final Logger LOGGER = Logger.getLogger(AudioKeyManager.class);
-    private final Session session;
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
 
-    AudioKeyManager(@NotNull Session session) {
-        this.session = session;
+    public AudioKeyManager(@NotNull Session session) {
+        super(session);
     }
 
     byte[] getAudioKey(Metadata.Track track, Metadata.AudioFile file) throws IOException, KeyErrorException {
@@ -73,7 +73,8 @@ class AudioKeyManager {
         }
     }
 
-    void handle(@NotNull Packet packet) {
+    @Override
+    protected void handle(@NotNull Packet packet) {
         ByteBuffer payload = ByteBuffer.wrap(packet.payload);
         int seq = payload.getInt();
 
@@ -94,6 +95,11 @@ class AudioKeyManager {
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length: %d", packet.type(), packet.payload.length));
         }
+    }
+
+    @Override
+    protected void exception(@NotNull Exception ex) {
+        LOGGER.fatal("Failed handling packet!", ex);
     }
 
     private interface Callback {
