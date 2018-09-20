@@ -61,10 +61,12 @@ public class Player implements FrameListener {
         try {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
             System.out.println("TRACK: " + track.getName());
-            byte[] key = session.audioKey().getAudioKey(track, track.getFile(0));
+
+            Metadata.AudioFile file = track.getFile(0);
+            byte[] key = session.audioKey().getAudioKey(track, file);
             System.out.println("KEY: " + Arrays.toString(key));
 
-            currentFile = new AudioFile(session, track);
+            currentFile = new AudioFile(session, file);
             currentFile.open();
         } catch (IOException | MercuryClient.MercuryException | AudioKeyManager.KeyErrorException ex) {
             ex.printStackTrace();

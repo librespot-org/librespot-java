@@ -28,7 +28,7 @@ public class SpotifyIrc {
 
     public SpotifyIrc(@NotNull Session session) throws IOException, IrcException, MercuryClient.PubSubException {
         this.session = session;
-        this.uri = String.format("hm://remote/3/user/%s/", session.apWelcome().getCanonicalUsername());
+        this.uri = String.format("hm://remote/user/%s/", session.apWelcome().getCanonicalUsername());
         this.deviceState = initializeDeviceState();
 
         session.mercury().subscribe(uri, internalListener = new SpircListener());

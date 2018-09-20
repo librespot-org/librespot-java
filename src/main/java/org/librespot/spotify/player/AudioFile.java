@@ -13,16 +13,16 @@ import java.io.IOException;
  */
 public class AudioFile {
     private static final Logger LOGGER = Logger.getLogger(AudioFile.class);
-    private final ByteString gid;
+    private final ByteString fileId;
     private final Session session;
     private ChannelManager.Channel channel;
 
-    public AudioFile(@NotNull Session session, Metadata.Track track) {
+    public AudioFile(@NotNull Session session, Metadata.AudioFile file) {
         this.session = session;
-        this.gid = track.getGid();
+        this.fileId = file.getFileId();
     }
 
     public void open() throws IOException {
-        channel = session.channel().requestChunk(gid, 0);
+        channel = session.channel().requestChunk(fileId, 0);
     }
 }

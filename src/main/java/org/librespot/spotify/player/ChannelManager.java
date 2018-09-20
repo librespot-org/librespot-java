@@ -26,7 +26,7 @@ public class ChannelManager extends PacketsManager {
         super(session);
     }
 
-    @NotNull Channel requestChunk(ByteString gid, int index) throws IOException {
+    @NotNull Channel requestChunk(ByteString fileId, int index) throws IOException {
         int start = index * CHUNK_SIZE / 4;
         int end = (index + 1) * CHUNK_SIZE / 4;
 
@@ -43,7 +43,7 @@ public class ChannelManager extends PacketsManager {
         out.writeInt(0);
         out.writeInt(0x00009C40);
         out.writeInt(0x00020000);
-        gid.writeTo(out);
+        fileId.writeTo(out);
         out.writeInt(start);
         out.writeInt(end);
 
