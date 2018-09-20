@@ -229,11 +229,19 @@ public class Session implements AutoCloseable {
     @Override
     public void close() throws Exception {
         receiver.stop();
+        receiver = null;
+
         socket.close();
 
-        receiver = null;
         mercuryClient.close();
         mercuryClient = null;
+
+        audioKeyManager.close();
+        audioKeyManager = null;
+
+        channelManager.close();
+        channelManager = null;
+
         player = null;
         spirc = null;
         apWelcome = null;
