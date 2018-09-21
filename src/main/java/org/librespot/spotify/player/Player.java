@@ -1,5 +1,6 @@
 package org.librespot.spotify.player;
 
+import javazoom.spi.vorbis.sampled.file.VorbisAudioFileReader;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
@@ -11,8 +12,7 @@ import org.librespot.spotify.proto.Spirc;
 import org.librespot.spotify.spirc.FrameListener;
 import org.librespot.spotify.spirc.SpotifyIrc;
 
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Mixer;
+import javax.sound.sampled.*;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -78,23 +78,32 @@ public class Player implements FrameListener {
 
             if (in.skip(0xa7) != 0xa7) throw new IOException();
 
+            new Thread(() -> {
+                try {
+                    in.mark(0);
 
-            FileOutputStream out = new FileOutputStream("C:\\Users\\Gianlu\\Desktop\\test.ogg");
+                    FileOutputStream out = new FileOutputStream("C:\\Users\\Gianlu\\Desktop\\test.ogg");
 
-            byte[] buffer = new byte[5634];
-            int read;
-            while ((read = in.read(buffer)) != -1)
-                out.write(buffer, 0, read);
+                    byte[] buffer = new byte[5634];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                        out.flush();
+                    }
 
-            out.close();
+                    System.out.println("ENDED FILE");
+                    out.close();
 
-            /*
-            AudioInputStream audioIn = new VorbisAudioFileReader().getAudioInputStream(in);
+                    in.reset();
 
-            Clip clip = AudioSystem.getClip();
-            clip.open(audioIn);
-            clip.start();
-            */
+                    AudioInputStream audioIn = new VorbisAudioFileReader().getAudioInputStream(in);
+                    Clip clip = AudioSystem.getClip();
+                    clip.open(audioIn);
+                    clip.start();
+                } catch (LineUnavailableException | UnsupportedAudioFileException | IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
         } catch (IOException | MercuryClient.MercuryException ex) {
             ex.printStackTrace();
         }

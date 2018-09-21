@@ -82,9 +82,8 @@ public class ChannelManager extends PacketsManager {
         public final short id;
         private final AudioFile file;
         private final int chunkIndex;
-        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(CHUNK_SIZE);
+        private final ByteBuffer buffer = ByteBuffer.allocate(CHUNK_SIZE);
         private volatile boolean header = true;
-        private int packetsReceived = 0;
 
         private Channel(@NotNull AudioFile file, int chunkIndex) {
             this.file = file;
@@ -98,11 +97,9 @@ public class ChannelManager extends PacketsManager {
             if (payload.remaining() == 0) {
                 if (!header) {
                     synchronized (buffer) {
-                        file.writeChunk(buffer.toByteArray(), chunkIndex);
+                        file.writeChunk(buffer.array(), chunkIndex);
+                        return true;
                     }
-
-                    System.out.println("RECEIVED PACKETS: " + packetsReceived);
-                    return true;
                 }
 
                 LOGGER.trace("Received empty chunk, skipping.");
@@ -122,15 +119,9 @@ public class ChannelManager extends PacketsManager {
             } else {
                 byte[] bytes = new byte[payload.remaining()];
                 payload.get(bytes);
-                System.out.print("WRITING " + bytes.length);
-                System.out.print(" ON " + packetsReceived);
-                System.out.println(" ON INDEX " + chunkIndex);
-
                 synchronized (buffer) {
-                    buffer.write(bytes);
+                    buffer.put(bytes);
                 }
-
-                packetsReceived++;
             }
 
             return false;

@@ -8,6 +8,7 @@ import org.librespot.spotify.proto.Metadata;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
 
@@ -45,11 +46,12 @@ public class AudioFileStreaming implements AudioFile {
         chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
 
-        chunksBuffer = new ChunksBuffer(size, chunks, key);
+        chunksBuffer = new ChunksBuffer(size, chunks);
+        requestChunk(0);
+    }
 
-        for (int i = 0; i < 10; i++) {
-            session.channel().requestChunk(fileId, i, this);
-        }
+    private void requestChunk(int index) throws IOException {
+        session.channel().requestChunk(fileId, index, this);
     }
 
     @Override
@@ -60,5 +62,110 @@ public class AudioFileStreaming implements AudioFile {
 
     @Override
     public void header(byte id, byte[] bytes) {
+    }
+
+    private class ChunksBuffer {
+        private final int size;
+        private final byte[][] buffer;
+        private final boolean[] available;
+        private final boolean[] requested;
+        private final AudioDecrypt audioDecrypt;
+        private final AtomicInteger waitForChunk = new AtomicInteger(-1);
+        private InternalStream internalStream;
+
+        ChunksBuffer(int size, int chunks) {
+            this.size = size;
+            this.buffer = new byte[chunks][CHUNK_SIZE];
+            this.available = new boolean[chunks];
+            this.requested = new boolean[chunks];
+            this.audioDecrypt = new AudioDecrypt(key);
+        }
+
+        void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
+            if (chunk.length != buffer[chunkIndex].length)
+                throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
+
+            audioDecrypt.decryptBlock(chunkIndex, chunk, buffer[chunkIndex]);
+            available[chunkIndex] = true;
+
+            if (chunkIndex == waitForChunk.get()) {
+                synchronized (waitForChunk) {
+                    waitForChunk.set(-1);
+                    waitForChunk.notifyAll();
+                }
+            }
+        }
+
+        private void waitFor(int chunkIndex) throws IOException {
+            synchronized (waitForChunk) {
+                try {
+                    waitForChunk.set(chunkIndex);
+                    waitForChunk.wait();
+                } catch (InterruptedException ex) {
+                    throw new IOException(ex);
+                }
+            }
+        }
+
+        @NotNull
+        InputStream stream() {
+            if (internalStream == null) internalStream = new InternalStream();
+            return internalStream;
+        }
+
+        private class InternalStream extends InputStream {
+            private int pos = 0;
+            private int mark = 0;
+
+            private InternalStream() {
+            }
+
+            @Override
+            public synchronized int available() {
+                return size - pos;
+            }
+
+            @Override
+            public boolean markSupported() {
+                return true;
+            }
+
+            @Override
+            public synchronized void mark(int readAheadLimit) {
+                mark = pos;
+            }
+
+            @Override
+            public synchronized void reset() {
+                pos = mark;
+            }
+
+            @Override
+            public synchronized long skip(long n) {
+                long k = size - pos;
+                if (n < k) k = n < 0 ? 0 : n;
+                pos += k;
+                return k;
+            }
+
+            @Override
+            public synchronized int read() throws IOException {
+                if (pos >= size)
+                    return -1;
+
+                int chunk = pos / CHUNK_SIZE;
+                if (chunk < chunks - 1) {
+                    if (!available[chunk + 1] && !requested[chunk + 1]) {
+                        requestChunk(chunk + 1);
+                        requested[chunk + 1] = true;
+                    }
+                }
+
+                if (!available[chunk])
+                    waitFor(chunk);
+
+                return buffer[chunk][pos++ % CHUNK_SIZE] & 0xff;
+            }
+        }
     }
 }
