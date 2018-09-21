@@ -13,6 +13,7 @@ import org.librespot.spotify.spirc.SpotifyIrc;
 
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Mixer;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -26,7 +27,7 @@ public class Player implements FrameListener {
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
     private final Mixer mixer;
-    private AudioFile currentFile;
+    private AudioFileStreaming currentFile;
 
     public Player(@NotNull Session session) {
         this.session = session;
@@ -67,17 +68,33 @@ public class Player implements FrameListener {
             byte[] key = session.audioKey().getAudioKey(track, file);
             System.out.println("KEY: " + Arrays.toString(key));
 
-            currentFile = new AudioFile(session, file, key);
+            currentFile = new AudioFileStreaming(session, file, key);
             currentFile.open();
 
             InputStream in = currentFile.stream();
 
             NormalizationData normalizationData = NormalizationData.read(in);
-            System.out.println("NORM: " + normalizationData);
+            System.out.println("NORM: " + normalizationData.getFactor());
 
             if (in.skip(0xa7) != 0xa7) throw new IOException();
 
-            // TODO
+
+            FileOutputStream out = new FileOutputStream("C:\\Users\\Gianlu\\Desktop\\test.ogg");
+
+            byte[] buffer = new byte[5634];
+            int read;
+            while ((read = in.read(buffer)) != -1)
+                out.write(buffer, 0, read);
+
+            out.close();
+
+            /*
+            AudioInputStream audioIn = new VorbisAudioFileReader().getAudioInputStream(in);
+
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioIn);
+            clip.start();
+            */
         } catch (IOException | MercuryClient.MercuryException ex) {
             ex.printStackTrace();
         }

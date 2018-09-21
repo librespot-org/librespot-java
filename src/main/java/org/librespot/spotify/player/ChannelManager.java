@@ -19,8 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Gianlu
  */
 public class ChannelManager extends PacketsManager {
-    private static final int CHUNK_SIZE = 0x20000;
-    public static final int OUR_CHUNK_SIZE = CHUNK_SIZE / 4;
+    public static final int CHUNK_SIZE = 0x20000;
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
@@ -30,8 +29,8 @@ public class ChannelManager extends PacketsManager {
     }
 
     void requestChunk(ByteString fileId, int index, AudioFile file) throws IOException {
-        int start = index * OUR_CHUNK_SIZE;
-        int end = (index + 1) * OUR_CHUNK_SIZE;
+        int start = index * CHUNK_SIZE / 4;
+        int end = (index + 1) * CHUNK_SIZE / 4;
 
         Channel channel = new Channel(file, index);
         channels.put(channel.id, channel);
@@ -64,7 +63,8 @@ public class ChannelManager extends PacketsManager {
                 return;
             }
 
-            channel.handle(payload);
+            if (channel.handle(payload))
+                channels.remove(id);
         } else if (packet.is(Packet.Type.ChannelError)) {
             short code = payload.getShort();
             LOGGER.fatal(String.format("Stream error, code: %d, length: %d", code, packet.payload.length));
@@ -82,7 +82,9 @@ public class ChannelManager extends PacketsManager {
         public final short id;
         private final AudioFile file;
         private final int chunkIndex;
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(CHUNK_SIZE);
         private volatile boolean header = true;
+        private int packetsReceived = 0;
 
         private Channel(@NotNull AudioFile file, int chunkIndex) {
             this.file = file;
@@ -92,16 +94,19 @@ public class ChannelManager extends PacketsManager {
             }
         }
 
-        private void handle(@NotNull ByteBuffer payload) throws IOException {
+        private boolean handle(@NotNull ByteBuffer payload) throws IOException {
             if (payload.remaining() == 0) {
                 if (!header) {
-                    file.finishedChunk();
-                    LOGGER.trace("Read last chunk packet.");
-                    return;
+                    synchronized (buffer) {
+                        file.writeChunk(buffer.toByteArray(), chunkIndex);
+                    }
+
+                    System.out.println("RECEIVED PACKETS: " + packetsReceived);
+                    return true;
                 }
 
                 LOGGER.trace("Received empty chunk, skipping.");
-                return;
+                return false;
             }
 
             if (header) {
@@ -110,15 +115,25 @@ public class ChannelManager extends PacketsManager {
                     byte headerId = payload.get();
                     byte[] headerData = new byte[length - 1];
                     payload.get(headerData);
+                    file.header(headerId, headerData);
                 }
 
                 header = false;
             } else {
                 byte[] bytes = new byte[payload.remaining()];
                 payload.get(bytes);
-                file.write(bytes, chunkIndex);
-                file.flush();
+                System.out.print("WRITING " + bytes.length);
+                System.out.print(" ON " + packetsReceived);
+                System.out.println(" ON INDEX " + chunkIndex);
+
+                synchronized (buffer) {
+                    buffer.write(bytes);
+                }
+
+                packetsReceived++;
             }
+
+            return false;
         }
     }
 }
