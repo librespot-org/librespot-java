@@ -18,7 +18,7 @@ public class AudioDecrypt {
         this.secretKeySpec = new SecretKeySpec(key, "AES");
     }
 
-    public void decryptBlock(int chunkIndex, byte[] in, byte[] out) throws IOException {
+    public void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
         int byteBaseOffset = chunkIndex * ChannelManager.CHUNK_SIZE;
 
         // The actual IV is the base IV + index*0x100, where index is the chunk index sized 1024 words (so each 4096 bytes block has its own IV).

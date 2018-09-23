@@ -82,7 +82,7 @@ public class ChannelManager extends PacketsManager {
         public final short id;
         private final AudioFile file;
         private final int chunkIndex;
-        private final ByteBuffer buffer = ByteBuffer.allocate(CHUNK_SIZE);
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(CHUNK_SIZE);
         private volatile boolean header = true;
 
         private Channel(@NotNull AudioFile file, int chunkIndex) {
@@ -97,7 +97,7 @@ public class ChannelManager extends PacketsManager {
             if (payload.remaining() == 0) {
                 if (!header) {
                     synchronized (buffer) {
-                        file.writeChunk(buffer.array(), chunkIndex);
+                        file.writeChunk(buffer.toByteArray(), chunkIndex);
                         return true;
                     }
                 }
@@ -120,7 +120,7 @@ public class ChannelManager extends PacketsManager {
                 byte[] bytes = new byte[payload.remaining()];
                 payload.get(bytes);
                 synchronized (buffer) {
-                    buffer.put(bytes);
+                    buffer.write(bytes);
                 }
             }
 
