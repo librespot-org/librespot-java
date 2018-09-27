@@ -16,7 +16,6 @@ import javax.sound.sampled.*;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 
 /**
  * @author Gianlu
@@ -64,9 +63,9 @@ public class Player implements FrameListener {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
             System.out.println("TRACK: " + track.getName());
 
-            Metadata.AudioFile file = track.getFile(0);
+            Metadata.AudioFile file = track.getFile(2);
             byte[] key = session.audioKey().getAudioKey(track, file);
-            System.out.println("KEY: " + Arrays.toString(key));
+            System.out.println("FILE: " + file.getFormat());
 
             currentFile = new AudioFileStreaming(session, file, key);
             currentFile.open();

@@ -68,7 +68,6 @@ public class AudioFileStreaming implements AudioFile {
         private final int size;
         private final byte[][] buffer;
         private final boolean[] available;
-        private final boolean[] requested;
         private final AudioDecrypt audioDecrypt;
         private final AtomicInteger waitForChunk = new AtomicInteger(-1);
         private InternalStream internalStream;
@@ -76,15 +75,13 @@ public class AudioFileStreaming implements AudioFile {
         ChunksBuffer(int size, int chunks) {
             this.size = size;
             this.buffer = new byte[chunks][CHUNK_SIZE];
-            this.buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
             this.available = new boolean[chunks];
-            this.requested = new boolean[chunks];
             this.audioDecrypt = new AudioDecrypt(key);
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (chunk.length != buffer[chunkIndex].length)
-                throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d", buffer[chunkIndex].length, chunk.length));
+                throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             available[chunkIndex] = true;
@@ -155,13 +152,6 @@ public class AudioFileStreaming implements AudioFile {
                     return -1;
 
                 int chunk = pos / CHUNK_SIZE;
-                if (chunk < chunks - 1) {
-                    if (!available[chunk + 1] && !requested[chunk + 1]) {
-                        requestChunk(chunk + 1);
-                        requested[chunk + 1] = true;
-                    }
-                }
-
                 if (!available[chunk])
                     waitFor(chunk);
 

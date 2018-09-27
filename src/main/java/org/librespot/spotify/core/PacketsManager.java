@@ -26,7 +26,7 @@ public abstract class PacketsManager implements AutoCloseable {
     }
 
     public final void dispatch(@NotNull Packet packet) {
-        queue.add(packet);
+        appendToQueue(packet);
     }
 
     @Override
@@ -34,10 +34,16 @@ public abstract class PacketsManager implements AutoCloseable {
         looper.stop();
     }
 
+    /**
+     * This method can be overridden to process packet synchronously. This MUST not block for a long period of time.
+     */
+    protected void appendToQueue(@NotNull Packet packet) {
+        queue.add(packet);
+    }
+
     protected abstract void handle(@NotNull Packet packet) throws IOException;
 
     protected abstract void exception(@NotNull Exception ex);
-
 
     private static final class LooperException extends Exception {
         private LooperException(Throwable cause) {

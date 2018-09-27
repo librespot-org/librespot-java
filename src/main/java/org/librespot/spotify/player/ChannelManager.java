@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -53,7 +55,12 @@ public class ChannelManager extends PacketsManager {
     }
 
     @Override
-    protected void handle(@NotNull Packet packet) throws IOException {
+    protected void handle(@NotNull Packet packet) {
+        LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
+    }
+
+    @Override
+    protected void appendToQueue(@NotNull Packet packet) {
         ByteBuffer payload = ByteBuffer.wrap(packet.payload);
         if (packet.is(Packet.Type.StreamChunkRes)) {
             short id = payload.getShort();
@@ -63,8 +70,7 @@ public class ChannelManager extends PacketsManager {
                 return;
             }
 
-            if (channel.handle(payload))
-                channels.remove(id);
+            channel.addToQueue(payload);
         } else if (packet.is(Packet.Type.ChannelError)) {
             short code = payload.getShort();
             LOGGER.fatal(String.format("Stream error, code: %d, length: %d", code, packet.payload.length));
@@ -80,6 +86,7 @@ public class ChannelManager extends PacketsManager {
 
     public class Channel {
         public final short id;
+        private final BlockingQueue<ByteBuffer> queue = new LinkedBlockingQueue<>();
         private final AudioFile file;
         private final int chunkIndex;
         private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(CHUNK_SIZE);
@@ -91,8 +98,13 @@ public class ChannelManager extends PacketsManager {
             synchronized (seqHolder) {
                 id = (short) seqHolder.getAndIncrement();
             }
+
+            new Thread(new Handler()).start();
         }
 
+        /**
+         * @return Whether the channel can be closed
+         */
         private boolean handle(@NotNull ByteBuffer payload) throws IOException {
             if (payload.remaining() == 0) {
                 if (!header) {
@@ -125,6 +137,27 @@ public class ChannelManager extends PacketsManager {
             }
 
             return false;
+        }
+
+        private void addToQueue(@NotNull ByteBuffer payload) {
+            queue.add(payload);
+        }
+
+        private class Handler implements Runnable {
+
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        if (handle(queue.take())) {
+                            channels.remove(id);
+                            break;
+                        }
+                    } catch (InterruptedException | IOException ex) {
+                        LOGGER.fatal("Failed handling packet!", ex);
+                    }
+                }
+            }
         }
     }
 }
