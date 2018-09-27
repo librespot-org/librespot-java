@@ -1,5 +1,7 @@
 package org.librespot.spotify.player;
 
+import java.nio.ByteBuffer;
+
 /**
  * @author Gianlu
  */
@@ -18,7 +20,7 @@ class AudioFileFetch implements AudioFile {
     @Override
     public synchronized void header(byte id, byte[] bytes) {
         if (id == 0x3) {
-            size = ((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]);
+            size = ByteBuffer.wrap(bytes).getInt();
             size *= 4;
             notifyAll();
         }

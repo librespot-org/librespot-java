@@ -63,7 +63,7 @@ public class Player implements FrameListener {
             Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
             System.out.println("TRACK: " + track.getName());
 
-            Metadata.AudioFile file = track.getFile(2);
+            Metadata.AudioFile file = track.getFile(1);
             byte[] key = session.audioKey().getAudioKey(track, file);
             System.out.println("FILE: " + file.getFormat());
 
