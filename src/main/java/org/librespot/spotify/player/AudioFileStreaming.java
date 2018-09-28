@@ -169,7 +169,7 @@ public class AudioFileStreaming implements AudioFile {
                         waitFor(chunk);
 
                     int copy = Math.min(buffer[chunk].length - chunkOff, len - i);
-                    System.arraycopy(buffer[chunk], chunkOff, b, off, copy);
+                    System.arraycopy(buffer[chunk], chunkOff, b, off + i, copy);
                     i += copy;
                     pos += copy;
 
