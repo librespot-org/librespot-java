@@ -83,7 +83,7 @@ public class Player implements FrameListener {
 
                     FileOutputStream out = new FileOutputStream("C:\\Users\\Gianlu\\Desktop\\test.ogg");
 
-                    byte[] buffer = new byte[5634];
+                    byte[] buffer = new byte[4096];
                     int read;
                     while ((read = in.read(buffer)) != -1) {
                         out.write(buffer, 0, read);

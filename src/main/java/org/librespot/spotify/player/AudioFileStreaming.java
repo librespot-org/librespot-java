@@ -47,7 +47,9 @@ public class AudioFileStreaming implements AudioFile {
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
 
         chunksBuffer = new ChunksBuffer(size, chunks);
-        requestChunk(0);
+
+        for (int i = 0; i < chunks; i++)
+            requestChunk(i);
     }
 
     private void requestChunk(int index) throws IOException {
@@ -75,6 +77,7 @@ public class AudioFileStreaming implements AudioFile {
         ChunksBuffer(int size, int chunks) {
             this.size = size;
             this.buffer = new byte[chunks][CHUNK_SIZE];
+            this.buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
             this.available = new boolean[chunks];
             this.audioDecrypt = new AudioDecrypt(key);
         }

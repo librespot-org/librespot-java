@@ -1,5 +1,7 @@
 package org.librespot.spotify.player;
 
+import org.librespot.spotify.Utils;
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -12,31 +14,27 @@ import java.security.GeneralSecurityException;
  */
 public class AudioDecrypt {
     private static final byte[] AUDIO_AES_IV = new byte[]{(byte) 0x72, (byte) 0xe0, (byte) 0x67, (byte) 0xfb, (byte) 0xdd, (byte) 0xcb, (byte) 0xcf, (byte) 0x77, (byte) 0xeb, (byte) 0xe8, (byte) 0xbc, (byte) 0x64, (byte) 0x3f, (byte) 0x63, (byte) 0x0d, (byte) 0x93};
+    private final static BigInteger IV_INT = new BigInteger(1, AUDIO_AES_IV);
     private final SecretKeySpec secretKeySpec;
 
     public AudioDecrypt(byte[] key) {
         this.secretKeySpec = new SecretKeySpec(key, "AES");
     }
 
-    public void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
-        int byteBaseOffset = chunkIndex * ChannelManager.CHUNK_SIZE;
+    public synchronized void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
+        int pos = ChannelManager.CHUNK_SIZE * chunkIndex;
 
-        // The actual IV is the base IV + index*0x100, where index is the chunk index sized 1024 words (so each 4096 bytes block has its own IV).
-        BigInteger ivInt = new BigInteger(AUDIO_AES_IV);
-        BigInteger ivDiff = BigInteger.valueOf((byteBaseOffset / 4096) * 0x100);
-        ivInt = ivInt.add(ivDiff);
-
-        ivDiff = BigInteger.valueOf(0x100);
+        if (pos % 16 != 0) throw new IllegalArgumentException("Position not multiple of 16: " + pos);
 
         try {
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, new IvParameterSpec(Utils.toByteArray(IV_INT.add(BigInteger.valueOf(pos / 16)))));
+
             for (int i = 0; i < in.length; i += 4096) {
                 int endBytes = Math.min(i + 4096, in.length);
-
-                Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
-                cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, new IvParameterSpec(ivInt.toByteArray()));
-                System.arraycopy(cipher.doFinal(in, 0, endBytes), 0, out, 0, endBytes);
-
-                ivInt = ivInt.add(ivDiff);
+                int count = cipher.doFinal(in, 0, endBytes, out, 0);
+                if (count != endBytes)
+                    throw new IOException(String.format("Could process all data, actual: %d, expected: %d", count, endBytes));
             }
         } catch (GeneralSecurityException ex) {
             throw new IOException(ex);
