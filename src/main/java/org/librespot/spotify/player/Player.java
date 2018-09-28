@@ -1,6 +1,5 @@
 package org.librespot.spotify.player;
 
-import javazoom.spi.vorbis.sampled.file.VorbisAudioFileReader;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
@@ -95,15 +94,52 @@ public class Player implements FrameListener {
 
                     in.reset();
 
-                    AudioInputStream audioIn = new VorbisAudioFileReader().getAudioInputStream(in);
-                    Clip clip = AudioSystem.getClip();
-                    clip.open(audioIn);
-                    clip.start();
-                } catch (LineUnavailableException | UnsupportedAudioFileException | IOException e) {
+                    playback(in);
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
             }).start();
         } catch (IOException | MercuryClient.MercuryException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void playback(InputStream stream) {
+        try {
+            AudioInputStream in = AudioSystem.getAudioInputStream(stream);
+            if (in != null) {
+                AudioFormat baseFormat = in.getFormat();
+                AudioFormat targetFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, baseFormat.getSampleRate(), 16, baseFormat.getChannels(), baseFormat.getChannels() * 2, baseFormat.getSampleRate(), false);
+                AudioInputStream dataIn = AudioSystem.getAudioInputStream(targetFormat, in);
+
+                byte[] buffer = new byte[4096];
+
+                // get a line from a mixer in the system with the wanted format
+                DataLine.Info info = new DataLine.Info(SourceDataLine.class, targetFormat);
+                SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
+
+                if (line != null) {
+                    line.open();
+
+                    line.start();
+                    int nBytesRead = 0, nBytesWritten = 0;
+                    while (nBytesRead != -1) {
+                        nBytesRead = dataIn.read(buffer, 0, buffer.length);
+                        if (nBytesRead != -1) {
+                            nBytesWritten = line.write(buffer, 0, nBytesRead);
+                        }
+                    }
+
+                    line.drain();
+                    line.stop();
+                    line.close();
+
+                    dataIn.close();
+                }
+
+                in.close();
+            }
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
             ex.printStackTrace();
         }
     }
