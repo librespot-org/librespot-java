@@ -150,6 +150,35 @@ public class AudioFileStreaming implements AudioFile {
             }
 
             @Override
+            public int read(@NotNull byte[] b, int off, int len) throws IOException {
+                if (off < 0 || len < 0 || len > b.length - off) {
+                    throw new IndexOutOfBoundsException();
+                } else if (len == 0) {
+                    return 0;
+                }
+
+                if (pos >= size)
+                    return -1;
+
+                int i = 0;
+                while (true) {
+                    int chunk = pos / CHUNK_SIZE;
+                    int chunkOff = pos % CHUNK_SIZE;
+
+                    if (!available[chunk])
+                        waitFor(chunk);
+
+                    int copy = Math.min(buffer[chunk].length - chunkOff, len - i);
+                    System.arraycopy(buffer[chunk], chunkOff, b, off, copy);
+                    i += copy;
+                    pos += copy;
+
+                    if (i == len || pos >= size)
+                        return i;
+                }
+            }
+
+            @Override
             public synchronized int read() throws IOException {
                 if (pos >= size)
                     return -1;
