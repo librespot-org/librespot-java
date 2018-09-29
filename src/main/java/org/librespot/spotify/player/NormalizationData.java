@@ -42,8 +42,8 @@ public class NormalizationData {
         return new NormalizationData(buffer.getFloat(), buffer.getFloat(), buffer.getFloat(), buffer.getFloat());
     }
 
-    public float getFactor() {
-        float normalisationFactor = (float) Math.pow(10, (track_gain_db /* TODO + config.normalisation_pregain */) / 20);
+    public float getFactor(@NotNull Player.Configuration config) {
+        float normalisationFactor = (float) Math.pow(10, (track_gain_db + config.normalisationPregain) / 20);
         if (normalisationFactor * track_peak > 1) {
             LOGGER.warn("Reducing normalisation factor to prevent clipping. Please add negative pregain to avoid.");
             normalisationFactor = 1 / track_peak;

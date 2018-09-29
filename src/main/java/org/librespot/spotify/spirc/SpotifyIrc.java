@@ -113,12 +113,14 @@ public class SpotifyIrc {
     }
 
     private void sendNotify() throws IOException, IrcException {
-        sendNotify(null);
+        sendNotify(null, null);
     }
 
-    private void sendNotify(@Nullable String recipient) throws IOException, IrcException {
-        if (recipient == null) send(Spirc.MessageType.kMessageTypeNotify);
-        else send(Spirc.MessageType.kMessageTypeNotify, Spirc.Frame.newBuilder().addRecipient(recipient));
+    private void sendNotify(@Nullable String recipient, @Nullable Spirc.Frame.Builder frame) throws IOException, IrcException {
+        if (frame == null) frame = Spirc.Frame.newBuilder();
+
+        if (recipient == null) send(Spirc.MessageType.kMessageTypeNotify, frame);
+        else send(Spirc.MessageType.kMessageTypeNotify, frame.addRecipient(recipient));
     }
 
     /**
@@ -127,7 +129,7 @@ public class SpotifyIrc {
     private boolean handleFrame(@NotNull Spirc.Frame frame) throws IOException, IrcException {
         switch (frame.getTyp()) {
             case kMessageTypeHello:
-                sendNotify(frame.getIdent());
+                sendNotify(frame.getIdent(), null);
                 return false;
         }
 
@@ -145,9 +147,9 @@ public class SpotifyIrc {
         return deviceState;
     }
 
-    public void deviceStateUpdated() {
+    public void deviceStateUpdated(@NotNull Spirc.State.Builder state) {
         try {
-            sendNotify();
+            sendNotify(null, Spirc.Frame.newBuilder().setState(state));
         } catch (IOException | IrcException ex) {
             LOGGER.fatal("Failed notifying device state changed!", ex);
         }

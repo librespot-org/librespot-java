@@ -30,7 +30,7 @@ public class AudioKeyManager extends PacketsManager {
         super(session);
     }
 
-    byte[] getAudioKey(Metadata.Track track, Metadata.AudioFile file) throws IOException {
+    byte[] getAudioKey(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException {
         int seq;
         synchronized (seqHolder) {
             seq = seqHolder.getAndIncrement();

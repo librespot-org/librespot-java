@@ -8,6 +8,8 @@ import org.librespot.spotify.proto.Metadata;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
@@ -20,6 +22,7 @@ public class AudioFileStreaming implements AudioFile {
     private final ByteString fileId;
     private final byte[] key;
     private final Session session;
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
@@ -47,13 +50,22 @@ public class AudioFileStreaming implements AudioFile {
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
 
         chunksBuffer = new ChunksBuffer(size, chunks);
-
-        for (int i = 0; i < chunks; i++)
-            requestChunk(i);
+        requestChunk(0);
     }
 
     private void requestChunk(int index) throws IOException {
         session.channel().requestChunk(fileId, index, this);
+        chunksBuffer.requested[index] = true; // Just to be sure
+    }
+
+    private void requestChunkFromStream(int index) {
+        executorService.submit(() -> {
+            try {
+                requestChunk(index);
+            } catch (IOException ex) {
+                LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+            }
+        });
     }
 
     @Override
@@ -70,6 +82,7 @@ public class AudioFileStreaming implements AudioFile {
         private final int size;
         private final byte[][] buffer;
         private final boolean[] available;
+        private final boolean[] requested;
         private final AudioDecrypt audioDecrypt;
         private final AtomicInteger waitForChunk = new AtomicInteger(-1);
         private InternalStream internalStream;
@@ -79,6 +92,7 @@ public class AudioFileStreaming implements AudioFile {
             this.buffer = new byte[chunks][CHUNK_SIZE];
             this.buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
             this.available = new boolean[chunks];
+            this.requested = new boolean[chunks];
             this.audioDecrypt = new AudioDecrypt(key);
         }
 
@@ -118,6 +132,7 @@ public class AudioFileStreaming implements AudioFile {
             private int pos = 0;
             private int mark = 0;
 
+
             private InternalStream() {
             }
 
@@ -149,6 +164,21 @@ public class AudioFileStreaming implements AudioFile {
                 return k;
             }
 
+            private void checkAvailability(int chunk) throws IOException {
+                if (!requested[chunk]) {
+                    requestChunkFromStream(chunk);
+                    requested[chunk] = true;
+                }
+
+                if (chunk < chunks - 1 && !requested[chunk + 1]) {
+                    requestChunkFromStream(chunk + 1);
+                    requested[chunk + 1] = true;
+                }
+
+                if (!available[chunk])
+                    waitFor(chunk);
+            }
+
             @Override
             public int read(@NotNull byte[] b, int off, int len) throws IOException {
                 if (off < 0 || len < 0 || len > b.length - off) {
@@ -165,8 +195,7 @@ public class AudioFileStreaming implements AudioFile {
                     int chunk = pos / CHUNK_SIZE;
                     int chunkOff = pos % CHUNK_SIZE;
 
-                    if (!available[chunk])
-                        waitFor(chunk);
+                    checkAvailability(chunk);
 
                     int copy = Math.min(buffer[chunk].length - chunkOff, len - i);
                     System.arraycopy(buffer[chunk], chunkOff, b, off + i, copy);
@@ -184,8 +213,7 @@ public class AudioFileStreaming implements AudioFile {
                     return -1;
 
                 int chunk = pos / CHUNK_SIZE;
-                if (!available[chunk])
-                    waitFor(chunk);
+                checkAvailability(chunk);
 
                 return buffer[chunk][pos++ % CHUNK_SIZE] & 0xff;
             }
