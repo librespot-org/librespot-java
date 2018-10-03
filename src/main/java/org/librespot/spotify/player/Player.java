@@ -12,10 +12,8 @@ import org.librespot.spotify.proto.Spirc;
 import org.librespot.spotify.spirc.FrameListener;
 import org.librespot.spotify.spirc.SpotifyIrc;
 
-import javax.sound.sampled.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Gianlu
@@ -25,15 +23,13 @@ public class Player implements FrameListener {
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
-    private final Mixer mixer;
     private final Configuration conf = new Configuration();
-    private PlayerThread playerThread;
+    private PlayerRunner playerRunner;
 
     public Player(@NotNull Session session) {
         this.session = session;
         this.spirc = session.spirc();
         this.state = initState();
-        this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
 
         spirc.addListener(this);
     }
@@ -58,7 +54,7 @@ public class Player implements FrameListener {
                 handlePlay();
                 break;
             case kMessageTypePause:
-                handlePause(); // FIXME
+                handlePause();
                 break;
             case kMessageTypePlayPause:
                 if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) handlePause();
@@ -94,21 +90,22 @@ public class Player implements FrameListener {
         if (in.skip(0xa7) != 0xa7)
             throw new IOException("Couldn't skip 0xa7 bytes!");
 
-        if (playerThread != null) playerThread.stopNow();
-
         try {
-            playerThread = new PlayerThread(audioStreaming, normalizationData);
-            playerThread.start();
+            if (playerRunner != null) playerRunner.stop();
+            playerRunner = new PlayerRunner(audioStreaming, normalizationData, conf);
+            new Thread(playerRunner).start();
 
             if (play) {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-                playerThread.playNow();
+                playerRunner.seek(state.getPositionMs());
+                playerRunner.play();
             } else {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
             }
-        } catch (UnsupportedAudioFileException | LineUnavailableException ex) {
-            LOGGER.fatal("Failed creating player thread!", ex);
+        } catch (PlayerRunner.PlaybackFailedException ex) {
+            LOGGER.fatal("Failed starting playback!", ex);
         }
+
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {
@@ -144,7 +141,7 @@ public class Player implements FrameListener {
 
     private void handlePlay() {
         if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) {
-            if (playerThread != null) playerThread.playNow();
+            if (playerRunner != null) playerRunner.play();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             state.setPositionMeasuredAt(System.currentTimeMillis());
             spirc.deviceStateUpdated(state);
@@ -153,7 +150,7 @@ public class Player implements FrameListener {
 
     private void handlePause() {
         if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) {
-            if (playerThread != null) playerThread.pauseNow();
+            if (playerRunner != null) playerRunner.pause();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
 
             long now = System.currentTimeMillis();
@@ -194,71 +191,6 @@ public class Player implements FrameListener {
         public Configuration() {
             this.preferredQuality = AudioQuality.VORBIS_160;
             this.normalisationPregain = 0;
-        }
-    }
-
-    private class PlayerThread extends Thread {
-        private final AudioInputStream in;
-        private final SourceDataLine line;
-        private final AtomicBoolean paused = new AtomicBoolean(true);
-        private volatile boolean running = true;
-
-        private PlayerThread(@NotNull AudioFileStreaming stream, @NotNull NormalizationData normalizationData) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(stream.stream());
-            AudioFormat baseFormat = audioIn.getFormat();
-            AudioFormat targetFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, baseFormat.getSampleRate(), 16, baseFormat.getChannels(), baseFormat.getChannels() * 2, baseFormat.getSampleRate(), false);
-            this.in = AudioSystem.getAudioInputStream(targetFormat, audioIn);
-
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, targetFormat);
-            this.line = (SourceDataLine) mixer.getLine(info);
-        }
-
-        @Override
-        public void run() {
-            try {
-                line.open();
-
-                byte[] buffer = new byte[4096];
-                while (running) {
-                    synchronized (paused) {
-                        if (paused.get()) {
-                            line.stop();
-                        } else {
-                            line.start();
-
-                            int read;
-                            while ((read = in.read(buffer)) != -1)
-                                line.write(buffer, 0, read);
-                        }
-                    }
-                }
-
-                line.drain();
-                line.stop();
-                line.close();
-
-                in.close();
-            } catch (IOException ex) {
-                LOGGER.warn("Failed closing audio stream!", ex);
-            } catch (LineUnavailableException ex) {
-                LOGGER.fatal("Failed opening line!", ex);
-            }
-        }
-
-        void stopNow() {
-            running = false;
-        }
-
-        void playNow() {
-            synchronized (paused) {
-                paused.set(false);
-            }
-        }
-
-        void pauseNow() {
-            synchronized (paused) {
-                paused.set(true);
-            }
         }
     }
 }

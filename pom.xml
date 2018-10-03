@@ -64,9 +64,9 @@
 
         <!-- Audio -->
         <dependency>
-            <groupId>com.github.trilarion</groupId>
-            <artifactId>vorbis-support</artifactId>
-            <version>1.1.0</version>
+            <groupId>org.jcraft</groupId>
+            <artifactId>jorbis</artifactId>
+            <version>0.0.17</version>
         </dependency>
 
         <!-- mDNS -->
