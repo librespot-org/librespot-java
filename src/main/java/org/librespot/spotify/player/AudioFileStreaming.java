@@ -3,6 +3,7 @@ package org.librespot.spotify.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Utils;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.proto.Metadata;
 
@@ -30,6 +31,11 @@ public class AudioFileStreaming implements AudioFile {
         this.session = session;
         this.fileId = file.getFileId();
         this.key = key;
+    }
+
+    @NotNull
+    public String getFileIdHex() {
+        return Utils.bytesToHex(fileId);
     }
 
     @NotNull

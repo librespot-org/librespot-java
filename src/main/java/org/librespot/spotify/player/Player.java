@@ -102,10 +102,9 @@ public class Player implements FrameListener {
             } else {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
             }
-        } catch (PlayerRunner.PlaybackFailedException ex) {
+        } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
         }
-
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {

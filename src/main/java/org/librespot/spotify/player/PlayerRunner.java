@@ -8,6 +8,7 @@ import com.jcraft.jorbis.Block;
 import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import javax.sound.sampled.*;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
+    private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final StreamState joggStreamState = new StreamState();
@@ -40,7 +42,7 @@ public class PlayerRunner implements Runnable {
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
 
-    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Player.Configuration configuration) throws IOException, PlaybackFailedException {
+    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Player.Configuration configuration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.normalizationFactor = normalizationData.getFactor(configuration);
 
@@ -50,9 +52,17 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
+
+        LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
     }
 
-    private void readHeader() throws IOException, PlaybackFailedException {
+    /**
+     * Reads the body. All "holes" (-1) in data will stop the playback.
+     *
+     * @throws PlayerException if a player exception occurs
+     * @throws IOException     if an I/O exception occurs
+     */
+    private void readHeader() throws IOException, PlayerException {
         boolean finished = false;
         int packet = 1;
 
@@ -60,63 +70,42 @@ public class PlayerRunner implements Runnable {
             count = audioIn.read(buffer, index, BUFFER_SIZE);
             joggSyncState.wrote(count);
 
-            if (packet == 1) {
-                int result = joggSyncState.pageout(joggPage);
-                if (result == -1) {
-                    throw new PlaybackFailedException();
-                } else if (result == 0) {
-                    // Read more
-                } else if (result == 1) {
+            int result = joggSyncState.pageout(joggPage);
+            if (result == -1) {
+                throw new HoleInDataException();
+            } else if (result == 0) {
+                // Read more
+            } else if (result == 1) {
+                if (packet == 1) {
                     joggStreamState.init(joggPage.serialno());
                     joggStreamState.reset();
 
                     jorbisInfo.init();
                     jorbisComment.init();
-
-                    if (joggStreamState.pagein(joggPage) == -1)
-                        throw new PlaybackFailedException();
-
-                    if (joggStreamState.packetout(joggPacket) != 1)
-                        throw new PlaybackFailedException();
-
-                    if (jorbisInfo.synthesis_headerin(jorbisComment, joggPacket) < 0)
-                        throw new PlaybackFailedException();
-
-                    packet++;
                 }
-            } else if (packet == 2 || packet == 3) {
-                int result = joggSyncState.pageout(joggPage);
-                if (result == -1) {
-                    throw new PlaybackFailedException();
-                } else if (result == 0) {
-                    // Read more
-                } else if (result == 1) {
-                    if (joggStreamState.pagein(joggPage) == -1)
-                        throw new PlaybackFailedException();
 
-                    if (joggStreamState.packetout(joggPacket) != 1)
-                        throw new PlaybackFailedException();
+                if (joggStreamState.pagein(joggPage) == -1)
+                    throw new PlayerException();
 
-                    if (jorbisInfo.synthesis_headerin(jorbisComment, joggPacket) < 0)
-                        throw new PlaybackFailedException();
+                if (joggStreamState.packetout(joggPacket) == -1)
+                    throw new HoleInDataException();
 
-                    if (packet == 3) {
-                        finished = true;
-                    } else {
-                        packet++;
-                    }
-                }
+                if (jorbisInfo.synthesis_headerin(jorbisComment, joggPacket) < 0)
+                    throw new NotVorbisException();
+
+                if (packet == 3) finished = true;
+                else packet++;
             }
 
             index = joggSyncState.buffer(BUFFER_SIZE);
             buffer = joggSyncState.data;
 
             if (count == 0 && !finished)
-                throw new PlaybackFailedException();
+                throw new PlayerException();
         }
     }
 
-    private void initializeSound() throws PlaybackFailedException {
+    private void initializeSound() throws PlayerException {
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
         jorbisDspState.synthesis_init(jorbisInfo);
@@ -129,20 +118,26 @@ public class PlayerRunner implements Runnable {
         DataLine.Info datalineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
 
         if (!AudioSystem.isLineSupported(datalineInfo))
-            throw new PlaybackFailedException();
+            throw new PlayerException();
 
         try {
             outputLine = (SourceDataLine) AudioSystem.getLine(datalineInfo);
             outputLine.open(audioFormat);
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
-            throw new PlaybackFailedException(ex);
+            throw new PlayerException(ex);
         }
 
         pcmInfo = new float[1][][];
         pcmIndex = new int[jorbisInfo.channels];
     }
 
-    private void readBody() throws PlaybackFailedException, IOException {
+    /**
+     * Reads the body. All "holes" (-1) are skipped, and the playback continues
+     *
+     * @throws PlayerException if a player exception occurs
+     * @throws IOException     if an I/O exception occurs
+     */
+    private void readBody() throws PlayerException, IOException {
         while (!stopped) {
             if (playing) {
                 outputLine.start();
@@ -152,7 +147,7 @@ public class PlayerRunner implements Runnable {
                     // Read more
                 } else if (result == 1) {
                     if (joggStreamState.pagein(joggPage) == -1)
-                        throw new PlaybackFailedException();
+                        throw new PlayerException();
 
                     if (joggPage.granulepos() == 0)
                         break;
@@ -222,14 +217,16 @@ public class PlayerRunner implements Runnable {
         jorbisDspState.clear();
         jorbisInfo.clear();
         joggSyncState.clear();
+
+        LOGGER.trace("Cleaned up player.");
     }
 
     @Override
     public void run() {
         try {
             readBody();
-        } catch (PlaybackFailedException | IOException e) {
-            e.printStackTrace();
+        } catch (PlayerException | IOException ex) {
+            LOGGER.fatal("Playback failed!", ex);
         }
 
         cleanup();
@@ -251,12 +248,18 @@ public class PlayerRunner implements Runnable {
         stopped = true;
     }
 
-    public static class PlaybackFailedException extends Exception {
+    private static class NotVorbisException extends PlayerException {
+    }
 
-        PlaybackFailedException() {
+    private static class HoleInDataException extends PlayerException {
+    }
+
+    public static class PlayerException extends Exception {
+
+        PlayerException() {
         }
 
-        PlaybackFailedException(Throwable ex) {
+        PlayerException(Throwable ex) {
             super(ex);
         }
     }

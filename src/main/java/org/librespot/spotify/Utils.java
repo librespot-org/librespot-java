@@ -1,5 +1,6 @@
 package org.librespot.spotify;
 
+import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -119,6 +120,11 @@ public class Utils {
         ByteBuffer buffer = ByteBuffer.allocate(4);
         buffer.putInt(i);
         return buffer.array();
+    }
+
+    @NotNull
+    public static String bytesToHex(ByteString bytes) {
+        return bytesToHex(bytes.toByteArray());
     }
 
     @NotNull
