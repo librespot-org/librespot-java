@@ -8,6 +8,7 @@ import org.librespot.spotify.Version;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.mercury.SubListener;
+import org.librespot.spotify.player.PlayerRunner;
 import org.librespot.spotify.proto.Spirc;
 
 import java.io.IOException;
@@ -66,7 +67,7 @@ public class SpotifyIrc {
                         .build())
                 .addCapabilities(Spirc.Capability.newBuilder()
                         .setTyp(Spirc.CapabilityType.kVolumeSteps)
-                        .addIntValue(64)
+                        .addIntValue(PlayerRunner.VOLUME_STEPS)
                         .build())
                 .addCapabilities(Spirc.Capability.newBuilder()
                         .setTyp(Spirc.CapabilityType.kSupportedContexts)

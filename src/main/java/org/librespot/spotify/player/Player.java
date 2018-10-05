@@ -94,6 +94,23 @@ public class Player implements FrameListener, PlayerRunner.Listener {
                 state.setShuffle(frame.getState().getShuffle());
                 handleShuffle();
                 break;
+            case kMessageTypeVolume:
+                spirc.deviceState().setVolume(frame.getVolume());
+                if (playerRunner != null) playerRunner.controller().setVolume(frame.getVolume());
+                stateUpdated();
+                break;
+            case kMessageTypeVolumeDown:
+                if (playerRunner != null) {
+                    spirc.deviceState().setVolume(playerRunner.controller().volumeDown());
+                    stateUpdated();
+                }
+                break;
+            case kMessageTypeVolumeUp:
+                if (playerRunner != null) {
+                    spirc.deviceState().setVolume(playerRunner.controller().volumeUp());
+                    stateUpdated();
+                }
+                break;
         }
     }
 

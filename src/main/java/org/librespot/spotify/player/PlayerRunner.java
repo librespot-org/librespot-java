@@ -19,6 +19,8 @@ import java.io.InputStream;
  * @author Gianlu
  */
 public class PlayerRunner implements Runnable {
+    public static final int VOLUME_STEPS = 64;
+    private static final int VOLUME_STEP = 65536 / VOLUME_STEPS;
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
@@ -33,6 +35,8 @@ public class PlayerRunner implements Runnable {
     private final Packet joggPacket = new Packet();
     private final Page joggPage = new Page();
     private final float normalizationFactor;
+    private final Mixer mixer;
+    private final Controller controller;
     private byte[] buffer;
     private int count;
     private int index;
@@ -47,6 +51,7 @@ public class PlayerRunner implements Runnable {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
+        this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
@@ -54,6 +59,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
+        this.controller = new Controller(outputLine);
 
         LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
     }
@@ -117,13 +123,13 @@ public class PlayerRunner implements Runnable {
         int rate = jorbisInfo.rate;
 
         AudioFormat audioFormat = new AudioFormat((float) rate, 16, channels, true, false);
-        DataLine.Info datalineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
+        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
 
-        if (!AudioSystem.isLineSupported(datalineInfo))
+        if (!mixer.isLineSupported(dataLineInfo))
             throw new PlayerException();
 
         try {
-            outputLine = (SourceDataLine) AudioSystem.getLine(datalineInfo);
+            outputLine = (SourceDataLine) mixer.getLine(dataLineInfo);
             outputLine.open(audioFormat);
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
             throw new PlayerException(ex);
@@ -253,10 +259,82 @@ public class PlayerRunner implements Runnable {
         stopped = true;
     }
 
+    @NotNull
+    public Controller controller() {
+        return controller;
+    }
+
     public interface Listener {
         void endOfTrack();
 
         void playbackError(@NotNull Exception ex);
+    }
+
+    public static class Controller {
+        private final FloatControl masterGain;
+        private final DynamicRange dynamicRange;
+        private int volume = 0;
+
+        Controller(@NotNull Line line) {
+            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+                masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
+                dynamicRange = DynamicRange.get(masterGain);
+            } else {
+                masterGain = null;
+                dynamicRange = null;
+            }
+        }
+
+        private static double map(double x, double in_min, double in_max, double out_min, double out_max) {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
+
+        private float calcLogarithmic(int val) {
+            float normalized = (float) val / 65536f;
+            return (float) map(Math.exp(normalized * dynamicRange.b) * dynamicRange.a,
+                    0, 1, masterGain.getMinimum(), masterGain.getMaximum());
+        }
+
+        public void setVolume(int val) {
+            this.volume = val;
+
+            if (masterGain != null)
+                masterGain.setValue(calcLogarithmic(val));
+        }
+
+        public int volumeDown() {
+            setVolume(volume - VOLUME_STEP);
+            return volume;
+        }
+
+        public int volumeUp() {
+            setVolume(volume + VOLUME_STEP);
+            return volume;
+        }
+
+        private enum DynamicRange {
+            DB_50(0.0031623f, 5.757f), DB_60(0.001f, 6.908f), DB_70(0.00031623f, 8.059f),
+            DB_80(0.0001f, 9.210f), DB_90(0.000031623f, 10.36f), DB_100(0.00001f, 11.51f);
+
+            private final float a;
+            private final float b;
+
+            DynamicRange(float a, float b) {
+                this.a = a;
+                this.b = b;
+            }
+
+            @NotNull
+            public static DynamicRange get(@NotNull FloatControl gain) {
+                int range = (int) (gain.getMaximum() - gain.getMinimum());
+                if (range <= 50) return DB_50;
+                else if (range <= 60) return DB_60;
+                else if (range <= 70) return DB_70;
+                else if (range <= 80) return DB_80;
+                else if (range <= 90) return DB_90;
+                else return DB_100;
+            }
+        }
     }
 
     private static class NotVorbisException extends PlayerException {
