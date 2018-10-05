@@ -24,6 +24,7 @@ public class PlayerRunner implements Runnable {
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
+    private final Listener listener;
     private final StreamState joggStreamState = new StreamState();
     private final DspState jorbisDspState = new DspState();
     private final Block jorbisBlock = new Block(jorbisDspState);
@@ -42,8 +43,9 @@ public class PlayerRunner implements Runnable {
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
 
-    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Player.Configuration configuration) throws IOException, PlayerException {
+    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Player.Configuration configuration, @NotNull Listener listener) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
+        this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
 
         this.joggSyncState.init();
@@ -168,6 +170,9 @@ public class PlayerRunner implements Runnable {
                 index = joggSyncState.buffer(BUFFER_SIZE);
                 buffer = joggSyncState.data;
 
+                if (index == -1)
+                    break;
+
                 count = audioIn.read(buffer, index, BUFFER_SIZE);
                 joggSyncState.wrote(count);
 
@@ -225,11 +230,12 @@ public class PlayerRunner implements Runnable {
     public void run() {
         try {
             readBody();
+            if (!stopped) listener.endOfTrack();
         } catch (PlayerException | IOException ex) {
-            LOGGER.fatal("Playback failed!", ex);
+            if (!stopped) listener.playbackError(ex);
+        } finally {
+            cleanup();
         }
-
-        cleanup();
     }
 
     public void play() {
@@ -240,12 +246,17 @@ public class PlayerRunner implements Runnable {
         playing = false;
     }
 
-    public void seek(int positionMs) {
-        // TODO
+    public void seek(int positionMs) {  // TODO
     }
 
     public void stop() {
         stopped = true;
+    }
+
+    public interface Listener {
+        void endOfTrack();
+
+        void playbackError(@NotNull Exception ex);
     }
 
     private static class NotVorbisException extends PlayerException {

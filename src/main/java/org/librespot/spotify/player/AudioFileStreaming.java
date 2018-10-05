@@ -57,6 +57,7 @@ public class AudioFileStreaming implements AudioFile {
 
         chunksBuffer = new ChunksBuffer(size, chunks);
         requestChunk(0);
+        chunksBuffer.waitFor(0);
     }
 
     private void requestChunk(int index) throws IOException {
@@ -188,7 +189,7 @@ public class AudioFileStreaming implements AudioFile {
             @Override
             public int read(@NotNull byte[] b, int off, int len) throws IOException {
                 if (off < 0 || len < 0 || len > b.length - off) {
-                    throw new IndexOutOfBoundsException();
+                    throw new IndexOutOfBoundsException(String.format("off: %d, len: %d, buffer: %d", off, len, buffer.length));
                 } else if (len == 0) {
                     return 0;
                 }

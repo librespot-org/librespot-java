@@ -3,6 +3,7 @@ package org.librespot.spotify;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.proto.Metadata;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -12,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -137,5 +139,19 @@ public class Utils {
         }
 
         return new String(hexChars);
+    }
+
+    @NotNull
+    public static String toString(List<Metadata.Artist> artists) {
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (Metadata.Artist artist : artists) {
+            if (!first) builder.append(", ");
+            first = false;
+
+            builder.append(artist.getName());
+        }
+
+        return builder.toString();
     }
 }

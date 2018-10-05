@@ -42,6 +42,7 @@ public class SpotifyIrc {
                 .setCanPlay(true)
                 .setIsActive(false)
                 .setVolume(0)
+                .setName(session.deviceName())
                 .setSwVersion(Version.versionString())
                 .addCapabilities(Spirc.Capability.newBuilder()
                         .setTyp(Spirc.CapabilityType.kCanBePlayer)
@@ -123,17 +124,12 @@ public class SpotifyIrc {
         else send(Spirc.MessageType.kMessageTypeNotify, frame.addRecipient(recipient));
     }
 
-    /**
-     * @return Whether the frame should be dispatched further
-     */
-    private boolean handleFrame(@NotNull Spirc.Frame frame) throws IOException, IrcException {
+    private void handleFrame(@NotNull Spirc.Frame frame) throws IOException, IrcException {
         switch (frame.getTyp()) {
             case kMessageTypeHello:
                 sendNotify(frame.getIdent(), null);
-                return false;
+                break;
         }
-
-        return true;
     }
 
     public void addListener(@NotNull FrameListener listener) {
@@ -177,10 +173,9 @@ public class SpotifyIrc {
 
                 LOGGER.trace(String.format("Handling frame, type: %s, ident: %s", frame.getTyp(), frame.getIdent()));
 
-                if (handleFrame(frame)) {
-                    for (FrameListener listener : listeners)
-                        listener.frame(frame);
-                }
+                handleFrame(frame);
+                for (FrameListener listener : listeners)
+                    listener.frame(frame);
             } catch (InvalidProtocolBufferException ex) {
                 LOGGER.fatal("Couldn't create frame!", ex);
             } catch (IOException | IrcException ex) {

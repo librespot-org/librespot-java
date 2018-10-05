@@ -31,6 +31,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -303,6 +304,16 @@ public class Session implements AutoCloseable {
     @NotNull
     ExecutorService executor() {
         return executorService;
+    }
+
+    @NotNull
+    public String deviceName() {
+        return inner.deviceName;
+    }
+
+    @NotNull
+    public Random random() {
+        return inner.random;
     }
 
     public enum DeviceType {
