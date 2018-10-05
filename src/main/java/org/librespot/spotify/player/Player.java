@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -102,12 +103,38 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
     private void handlePrev() {
         if (getPosition() < 3000) {
-            // TODO: Go to previous track
+            List<Spirc.TrackRef> queueTracks = new ArrayList<>();
+
+            Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
+            while (iter.hasNext()) {
+                Spirc.TrackRef track = iter.next();
+                if (track.getQueued()) {
+                    queueTracks.add(track);
+                    iter.remove();
+                }
+            }
+
+            int current = state.getPlayingTrackIndex();
+            int newIndex;
+            if (current > 0) newIndex = current - 1;
+            else if (state.getRepeat()) newIndex = state.getTrackCount() - 1;
+            else newIndex = 0;
+
+            for (int i = 0; i < queueTracks.size(); i++)
+                state.getTrackList().add(newIndex + 1 + i, queueTracks.get(i));
+
+            state.setPlayingTrackIndex(newIndex);
+            state.setPositionMs(0);
+            state.setPositionMeasuredAt(System.currentTimeMillis());
+
+            safeLoadTrack(true, 0);
         } else {
             state.setPositionMs(0);
             state.setPositionMeasuredAt(System.currentTimeMillis());
             if (playerRunner != null) playerRunner.seek(0);
         }
+
+        stateUpdated();
     }
 
     private int getPosition() {
@@ -115,14 +142,18 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         return state.getPositionMs() + diff;
     }
 
+    private void shuffleTracks() {
+        List<Spirc.TrackRef> tracks = state.getTrackList();
+        Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+        for (int i = tracks.size(); i > 2; i--)
+            Collections.swap(tracks, i - 1, session.random().nextInt(i));
+
+        Collections.shuffle(tracks);
+    }
+
     private void handleShuffle() {
         if (state.getShuffle()) {
-            List<Spirc.TrackRef> tracks = state.getTrackList();
-            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
-            for (int i = tracks.size(); i > 2; i--)
-                Collections.swap(tracks, i - 1, session.random().nextInt(i));
-
-            Collections.shuffle(tracks);
+            shuffleTracks();
             stateUpdated();
         }
     }
@@ -137,7 +168,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     private void loadTrack(boolean play, int pos) throws IOException, MercuryClient.MercuryException {
         Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
         Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
-        LOGGER.info(String.format("Loading track, name: '%s', artists: '%s', play: %b", track.getName(), Utils.toString(track.getArtistList()), play));
+        LOGGER.info(String.format("Loading track, name: '%s', artists: '%s', play: %b, pos: %d", track.getName(), Utils.toString(track.getArtistList()), play, pos));
 
         Metadata.AudioFile file = conf.preferredQuality.getFile(track);
         if (file == null) {
@@ -186,6 +217,9 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         state.setContextUri(frame.getState().getContextUri());
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
+
+        if (state.getShuffle())
+            shuffleTracks();
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {
@@ -202,17 +236,21 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             state.setPositionMs(pos);
             state.setPositionMeasuredAt(System.currentTimeMillis());
 
-            try {
-                loadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay, pos);
-            } catch (IOException | MercuryClient.MercuryException ex) {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                LOGGER.fatal("Failed loading track!", ex);
-            }
+            safeLoadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay, pos);
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
         }
 
         stateUpdated();
+    }
+
+    private void safeLoadTrack(boolean play, int pos) {
+        try {
+            loadTrack(play, pos);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            LOGGER.fatal("Failed loading track!", ex);
+        }
     }
 
     private void handlePlay() {
@@ -250,13 +288,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         state.setPositionMs(0);
         state.setPositionMeasuredAt(System.currentTimeMillis());
 
-        try {
-            loadTrack(play, 0);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            LOGGER.fatal("Failed loading track!", ex);
-        }
-
+        safeLoadTrack(play, 0);
         stateUpdated();
     }
 
