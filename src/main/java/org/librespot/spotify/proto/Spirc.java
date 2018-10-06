@@ -97,17 +97,18 @@ public final class Spirc {
                         "kMessageTypeVolumeUp\020 \022\027\n\023kMessageTypeRe" +
                         "place\020!\022\026\n\022kMessageTypeLogout\020\"\022\026\n\022kMess" +
                         "ageTypeAction\020#\022\026\n\022kMessageTypeRename\020$\022" +
-                        "\037\n\032kMessageTypeUpdateMetadata\020\200\001*\241\002\n\016Cap" +
+                        "\037\n\032kMessageTypeUpdateMetadata\020\200\001*\262\002\n\016Cap" +
                         "abilityType\022\026\n\022kSupportedContexts\020\001\022\020\n\014k" +
                         "CanBePlayer\020\002\022\024\n\020kRestrictToLocal\020\003\022\017\n\013k" +
                         "DeviceType\020\004\022\024\n\020kGaiaEqConnectId\020\005\022\023\n\017kS" +
                         "upportsLogout\020\006\022\021\n\rkIsObservable\020\007\022\020\n\014kV" +
                         "olumeSteps\020\010\022\023\n\017kSupportedTypes\020\t\022\020\n\014kCo" +
                         "mmandAcks\020\n\022\023\n\017kSupportsRename\020\013\022\013\n\007kHid" +
-                        "den\020\014\022\027\n\023kSupportsPlaylistV2\020\r\022\014\n\010kUnkno" +
-                        "wn\020\016*d\n\nPlayStatus\022\023\n\017kPlayStatusStop\020\000\022" +
-                        "\023\n\017kPlayStatusPlay\020\001\022\024\n\020kPlayStatusPause" +
-                        "\020\002\022\026\n\022kPlayStatusLoading\020\003"
+                        "den\020\014\022\027\n\023kSupportsPlaylistV2\020\r\022\035\n\031kSuppo" +
+                        "rtsExternalEpisodes\020\016*d\n\nPlayStatus\022\023\n\017k" +
+                        "PlayStatusStop\020\000\022\023\n\017kPlayStatusPlay\020\001\022\024\n" +
+                        "\020kPlayStatusPause\020\002\022\026\n\022kPlayStatusLoadin" +
+                        "g\020\003"
         };
         com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
                 new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -469,7 +470,6 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:MessageType)
     }
-
     /**
      * Protobuf enum {@code CapabilityType}
      */
@@ -528,9 +528,9 @@ public final class Spirc {
          */
         kSupportsPlaylistV2(13),
         /**
-         * <code>kUnknown = 14;</code>
+         * <code>kSupportsExternalEpisodes = 14;</code>
          */
-        kUnknown(14),;
+        kSupportsExternalEpisodes(14),;
 
         /**
          * <code>kSupportedContexts = 1;</code>
@@ -585,9 +585,9 @@ public final class Spirc {
          */
         public static final int kSupportsPlaylistV2_VALUE = 13;
         /**
-         * <code>kUnknown = 14;</code>
+         * <code>kSupportsExternalEpisodes = 14;</code>
          */
-        public static final int kUnknown_VALUE = 14;
+        public static final int kSupportsExternalEpisodes_VALUE = 14;
         private static final com.google.protobuf.Internal.EnumLiteMap<
                 CapabilityType> internalValueMap =
                 new com.google.protobuf.Internal.EnumLiteMap<CapabilityType>() {
@@ -639,7 +639,7 @@ public final class Spirc {
                 case 13:
                     return kSupportsPlaylistV2;
                 case 14:
-                    return kUnknown;
+                    return kSupportsExternalEpisodes;
                 default:
                     return null;
             }
@@ -680,7 +680,6 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:CapabilityType)
     }
-
     /**
      * Protobuf enum {@code PlayStatus}
      */
@@ -791,7 +790,6 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:PlayStatus)
     }
-
     public interface FrameOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Frame)
             com.google.protobuf.MessageOrBuilder {
@@ -996,7 +994,6 @@ public final class Spirc {
          */
         Spirc.MetadataOrBuilder getMetadataOrBuilder();
     }
-
     public interface DeviceStateOrBuilder extends
             // @@protoc_insertion_point(interface_extends:DeviceState)
             com.google.protobuf.MessageOrBuilder {
@@ -1171,7 +1168,6 @@ public final class Spirc {
         Spirc.MetadataOrBuilder getMetadataOrBuilder(
                 int index);
     }
-
     public interface CapabilityOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Capability)
             com.google.protobuf.MessageOrBuilder {
@@ -1223,7 +1219,6 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getStringValueBytes(int index);
     }
-
     public interface GoodbyeOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Goodbye)
             com.google.protobuf.MessageOrBuilder {
@@ -1244,7 +1239,6 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getReasonBytes();
     }
-
     public interface StateOrBuilder extends
             // @@protoc_insertion_point(interface_extends:State)
             com.google.protobuf.MessageOrBuilder {
@@ -1440,7 +1434,6 @@ public final class Spirc {
          */
         Spirc.AdOrBuilder getAdOrBuilder();
     }
-
     public interface TrackRefOrBuilder extends
             // @@protoc_insertion_point(interface_extends:TrackRef)
             com.google.protobuf.MessageOrBuilder {
@@ -1497,7 +1490,6 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getContextBytes();
     }
-
     public interface AdOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Ad)
             com.google.protobuf.MessageOrBuilder {
@@ -1616,7 +1608,6 @@ public final class Spirc {
          */
         com.google.protobuf.ByteString getGid();
     }
-
     public interface MetadataOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Metadata)
             com.google.protobuf.MessageOrBuilder {
@@ -1712,7 +1703,6 @@ public final class Spirc {
         private volatile java.lang.Object newName_;
         private Spirc.Metadata metadata_;
         private byte memoizedIsInitialized = -1;
-
         // Use Frame.newBuilder() to construct.
         private Frame(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
@@ -6390,7 +6380,6 @@ public final class Spirc {
         private Capability(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
-
         private Capability() {
             typ_ = 1;
             intValue_ = java.util.Collections.emptyList();
@@ -7260,12 +7249,10 @@ public final class Spirc {
         private int bitField0_;
         private volatile java.lang.Object reason_;
         private byte memoizedIsInitialized = -1;
-
         // Use Goodbye.newBuilder() to construct.
         private Goodbye(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
-
         private Goodbye() {
             reason_ = "";
         }
@@ -11133,7 +11120,6 @@ public final class Spirc {
         private Ad(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
-
         private Ad() {
             next_ = 0;
             oggFid_ = com.google.protobuf.ByteString.EMPTY;
