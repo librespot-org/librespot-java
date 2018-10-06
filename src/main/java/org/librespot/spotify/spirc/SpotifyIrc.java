@@ -42,7 +42,7 @@ public class SpotifyIrc {
         return Spirc.DeviceState.newBuilder()
                 .setCanPlay(true)
                 .setIsActive(false)
-                .setVolume(0)
+                .setVolume(PlayerRunner.VOLUME_MAX)
                 .setName(session.deviceName())
                 .setSwVersion(Version.versionString())
                 .addCapabilities(Spirc.Capability.newBuilder()

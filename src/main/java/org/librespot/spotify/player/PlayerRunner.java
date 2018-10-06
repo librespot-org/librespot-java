@@ -10,6 +10,7 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.proto.Spirc;
 
 import javax.sound.sampled.*;
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.io.InputStream;
  */
 public class PlayerRunner implements Runnable {
     public static final int VOLUME_STEPS = 64;
+    public static final int VOLUME_MAX = 65536;
     private static final int VOLUME_STEP = 65536 / VOLUME_STEPS;
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
@@ -47,7 +49,8 @@ public class PlayerRunner implements Runnable {
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
 
-    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Player.Configuration configuration, @NotNull Listener listener) throws IOException, PlayerException {
+    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
+                        @NotNull Player.Configuration configuration, @NotNull Listener listener) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
@@ -59,7 +62,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
-        this.controller = new Controller(outputLine);
+        this.controller = new Controller(outputLine, deviceState);
 
         LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
     }
@@ -275,24 +278,26 @@ public class PlayerRunner implements Runnable {
         private final DynamicRange dynamicRange;
         private int volume = 0;
 
-        Controller(@NotNull Line line) {
+        Controller(@NotNull Line line, @NotNull Spirc.DeviceState.Builder deviceState) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                 dynamicRange = DynamicRange.get(masterGain);
+
+                setVolume(deviceState.getVolume());
             } else {
                 masterGain = null;
                 dynamicRange = null;
             }
         }
 
-        private static double map(double x, double in_min, double in_max, double out_min, double out_max) {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        private static double mapLogarithmic(double x, double out_min, double out_max) {
+            return x * (out_max - out_min) / 1 + out_min;
         }
 
         private float calcLogarithmic(int val) {
-            float normalized = (float) val / 65536f;
-            return (float) map(Math.exp(normalized * dynamicRange.b) * dynamicRange.a,
-                    0, 1, masterGain.getMinimum(), masterGain.getMaximum());
+            float normalized = (float) val / VOLUME_MAX;
+            return (float) mapLogarithmic(Math.exp(normalized * dynamicRange.b) * dynamicRange.a,
+                    masterGain.getMinimum(), masterGain.getMaximum());
         }
 
         public void setVolume(int val) {

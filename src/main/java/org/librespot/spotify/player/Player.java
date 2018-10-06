@@ -212,7 +212,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(audioStreaming, normalizationData, conf, this);
+            playerRunner = new PlayerRunner(audioStreaming, normalizationData, spirc.deviceState(), conf, this);
             new Thread(playerRunner).start();
 
             if (play) {
