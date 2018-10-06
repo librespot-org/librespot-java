@@ -275,36 +275,26 @@ public class PlayerRunner implements Runnable {
 
     public static class Controller {
         private final FloatControl masterGain;
-        private final DynamicRange dynamicRange;
         private int volume = 0;
 
         Controller(@NotNull Line line, @NotNull Spirc.DeviceState.Builder deviceState) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-                dynamicRange = DynamicRange.get(masterGain);
-
                 setVolume(deviceState.getVolume());
             } else {
                 masterGain = null;
-                dynamicRange = null;
             }
         }
 
-        private static double mapLogarithmic(double x, double out_min, double out_max) {
-            return x * (out_max - out_min) / 1 + out_min;
-        }
-
-        private float calcLogarithmic(int val) {
-            float normalized = (float) val / VOLUME_MAX;
-            return (float) mapLogarithmic(Math.exp(normalized * dynamicRange.b) * dynamicRange.a,
-                    masterGain.getMinimum(), masterGain.getMaximum());
+        private double calcLogarithmic(int val) {
+            return Math.log10((double) val / VOLUME_MAX) * 20f;
         }
 
         public void setVolume(int val) {
             this.volume = val;
 
             if (masterGain != null)
-                masterGain.setValue(calcLogarithmic(val));
+                masterGain.setValue((float) calcLogarithmic(val));
         }
 
         public int volumeDown() {
@@ -315,30 +305,6 @@ public class PlayerRunner implements Runnable {
         public int volumeUp() {
             setVolume(volume + VOLUME_STEP);
             return volume;
-        }
-
-        private enum DynamicRange {
-            DB_50(0.0031623f, 5.757f), DB_60(0.001f, 6.908f), DB_70(0.00031623f, 8.059f),
-            DB_80(0.0001f, 9.210f), DB_90(0.000031623f, 10.36f), DB_100(0.00001f, 11.51f);
-
-            private final float a;
-            private final float b;
-
-            DynamicRange(float a, float b) {
-                this.a = a;
-                this.b = b;
-            }
-
-            @NotNull
-            public static DynamicRange get(@NotNull FloatControl gain) {
-                int range = (int) (gain.getMaximum() - gain.getMinimum());
-                if (range <= 50) return DB_50;
-                else if (range <= 60) return DB_60;
-                else if (range <= 70) return DB_70;
-                else if (range <= 80) return DB_80;
-                else if (range <= 90) return DB_90;
-                else return DB_100;
-            }
         }
     }
 
