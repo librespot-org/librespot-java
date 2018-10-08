@@ -153,9 +153,8 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             state.setPositionMs(0);
             state.setPositionMeasuredAt(System.currentTimeMillis());
             if (playerRunner != null) playerRunner.seek(0);
+            stateUpdated();
         }
-
-        stateUpdated();
     }
 
     private int getPosition() {
@@ -268,19 +267,23 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             state.setPositionMeasuredAt(System.currentTimeMillis());
 
             safeLoadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay, pos);
-            stateUpdated();
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
         }
     }
 
+    /**
+     * Loads a track without throwing an exception. Also triggers a state update.
+     */
     private void safeLoadTrack(boolean play, int pos) {
         try {
             loadTrack(play, pos);
         } catch (IOException | MercuryClient.MercuryException ex) {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             LOGGER.fatal("Failed loading track!", ex);
+        } finally {
+            stateUpdated();
         }
     }
 
@@ -325,7 +328,6 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         state.setPositionMeasuredAt(System.currentTimeMillis());
 
         safeLoadTrack(play, 0);
-        stateUpdated();
     }
 
     private int consumeQueuedTrack() {
