@@ -120,8 +120,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
     private void handlePrev() {
         if (getPosition() < 3000) {
-            List<Spirc.TrackRef> queueTracks = new ArrayList<>();
+            if (conf.pauseWhenLoading) {
+                handlePause();
+                stateUpdated();
+            }
 
+            List<Spirc.TrackRef> queueTracks = new ArrayList<>();
             Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
             while (iter.hasNext()) {
                 Spirc.TrackRef track = iter.next();
@@ -160,12 +164,17 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     }
 
     private void shuffleTracks() {
-        List<Spirc.TrackRef> tracks = state.getTrackList();
-        Collections.swap(tracks, 0, state.getPlayingTrackIndex());
-        for (int i = tracks.size(); i > 2; i--)
-            Collections.swap(tracks, i - 1, session.random().nextInt(i));
+        List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
+        if (state.getPlayingTrackIndex() != 0) {
+            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+            state.setPlayingTrackIndex(0);
+        }
 
-        Collections.shuffle(tracks);
+        for (int i = tracks.size(); i > 1; i--)
+            Collections.swap(tracks, i - 1, session.random().nextInt(i - 1) + 1);
+
+        state.clearTrack();
+        state.addAllTrack(tracks);
     }
 
     private void handleShuffle() {
@@ -183,6 +192,9 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     }
 
     private void loadTrack(boolean play, int pos) throws IOException, MercuryClient.MercuryException {
+        state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+        stateUpdated();
+
         Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
         Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
         LOGGER.info(String.format("Loading track, name: '%s', artists: '%s', play: %b, pos: %d", track.getName(), Utils.toString(track.getArtistList()), play, pos));
@@ -192,6 +204,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             file = AudioQuality.getAnyVorbisFile(track);
             if (file == null) {
                 LOGGER.fatal(String.format("Couldn't find any Vorbis file, available: %s", AudioQuality.listFormats(track)));
+                state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
                 return;
             } else {
                 LOGGER.warn(String.format("Using %s because preferred %s couldn't be found.", file, conf.preferredQuality));
@@ -216,7 +229,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             new Thread(playerRunner).start();
 
             if (play) {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+                state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
                 playerRunner.seek(pos);
                 playerRunner.play();
             } else {
@@ -224,6 +237,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             }
         } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
         }
     }
 
@@ -254,11 +268,11 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             state.setPositionMeasuredAt(System.currentTimeMillis());
 
             safeLoadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay, pos);
+            stateUpdated();
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
         }
-
-        stateUpdated();
     }
 
     private void safeLoadTrack(boolean play, int pos) {
@@ -294,6 +308,11 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     }
 
     private void handleNext() {
+        if (conf.pauseWhenLoading) {
+            handlePause();
+            stateUpdated();
+        }
+
         int newTrack = consumeQueuedTrack();
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
@@ -323,6 +342,16 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     public void endOfTrack() {
         LOGGER.trace("End of track. Proceeding with next.");
         handleNext();
+    }
+
+    @Override
+    public void playbackReady() {
+        if (state.getStatus() == Spirc.PlayStatus.kPlayStatusLoading) {
+            state.setPositionMs(0);
+            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            stateUpdated();
+        }
     }
 
     @Override
@@ -376,10 +405,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     public static class Configuration {
         public final AudioQuality preferredQuality;
         public final float normalisationPregain;
+        public final boolean pauseWhenLoading;
 
         public Configuration() {
             this.preferredQuality = AudioQuality.VORBIS_160;
             this.normalisationPregain = 0;
+            this.pauseWhenLoading = true;
         }
     }
 }

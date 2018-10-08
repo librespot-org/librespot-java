@@ -48,6 +48,7 @@ public class PlayerRunner implements Runnable {
     private int[] pcmIndex;
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
+    private volatile boolean notifiedPlaybackReady = false;
 
     public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
                         @NotNull Player.Configuration configuration, @NotNull Listener listener) throws IOException, PlayerException {
@@ -222,6 +223,11 @@ public class PlayerRunner implements Runnable {
 
             outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
+
+            if (!notifiedPlaybackReady) {
+                if (listener != null) listener.playbackReady();
+                notifiedPlaybackReady = true;
+            }
         }
     }
 
@@ -269,6 +275,8 @@ public class PlayerRunner implements Runnable {
 
     public interface Listener {
         void endOfTrack();
+
+        void playbackReady();
 
         void playbackError(@NotNull Exception ex);
     }
