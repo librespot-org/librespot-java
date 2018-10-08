@@ -247,9 +247,6 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         state.setContextUri(frame.getState().getContextUri());
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
-
-        if (state.getShuffle())
-            shuffleTracks();
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {
@@ -257,6 +254,11 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             spirc.deviceState()
                     .setIsActive(true)
                     .setBecameActiveAt(System.currentTimeMillis());
+        } else {
+            if (conf.pauseWhenLoading) {
+                handlePause();
+                stateUpdated();
+            }
         }
 
         updatedTracks(frame);
