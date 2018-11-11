@@ -16,7 +16,10 @@ import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
+import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -77,25 +80,6 @@ public class ZeroconfAuthenticator implements Closeable {
             throw new IOException("Failed registering SpotifyConnect service!");
 
         LOGGER.info("SpotifyConnect service registered successfully!");
-    }
-
-    @NotNull
-    private static String readLine(InputStream in) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        boolean lastWasR = false;
-        int read;
-        while ((read = in.read()) != -1) {
-            if (read == '\r') {
-                lastWasR = true;
-                continue;
-            } else if (read == '\n' && lastWasR) {
-                break;
-            }
-
-            buffer.write(read);
-        }
-
-        return buffer.toString();
     }
 
     @Override
@@ -237,7 +221,7 @@ public class ZeroconfAuthenticator implements Closeable {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             OutputStream out = socket.getOutputStream();
 
-            String[] requestLine = Utils.split(readLine(in), ' ');
+            String[] requestLine = Utils.split(Utils.readLine(in), ' ');
             if (requestLine.length != 3) {
                 LOGGER.warn("Unexpected request line: " + Arrays.toString(requestLine));
                 socket.close();
@@ -253,7 +237,7 @@ public class ZeroconfAuthenticator implements Closeable {
                 Map<String, String> headers = new HashMap<>(7);
 
                 String header;
-                while (!(header = readLine(in)).isEmpty()) {
+                while (!(header = Utils.readLine(in)).isEmpty()) {
                     String[] split = Utils.split(header, ':');
                     headers.put(split[0], split[1].trim());
                 }

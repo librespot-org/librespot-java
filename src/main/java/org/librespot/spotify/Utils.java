@@ -5,7 +5,9 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.proto.Metadata;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
@@ -23,6 +25,25 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    @NotNull
+    public static String readLine(@NotNull InputStream in) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        boolean lastWasR = false;
+        int read;
+        while ((read = in.read()) != -1) {
+            if (read == '\r') {
+                lastWasR = true;
+                continue;
+            } else if (read == '\n' && lastWasR) {
+                break;
+            }
+
+            buffer.write(read);
+        }
+
+        return buffer.toString();
+    }
 
     @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     public static <A> A wait(@NotNull AtomicReference<A> ref) throws IOException {

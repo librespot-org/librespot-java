@@ -403,6 +403,15 @@ public class Session implements AutoCloseable {
             this.inner = new Inner(deviceType, deviceName);
         }
 
+        public Builder facebook() throws IOException {
+            try (FacebookAuthenticator authenticator = new FacebookAuthenticator()) {
+                loginCredentials = authenticator.lockUntilCredentials();
+                return this;
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            }
+        }
+
         public Builder zeroconf() throws IOException {
             try (ZeroconfAuthenticator authenticator = new ZeroconfAuthenticator(inner)) {
                 loginCredentials = authenticator.lockUntilCredentials();
