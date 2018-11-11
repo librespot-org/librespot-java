@@ -139,7 +139,6 @@ public class AudioFileStreaming implements AudioFile {
             private int pos = 0;
             private int mark = 0;
 
-
             private InternalStream() {
             }
 

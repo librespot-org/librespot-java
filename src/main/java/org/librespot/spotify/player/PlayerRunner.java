@@ -39,6 +39,7 @@ public class PlayerRunner implements Runnable {
     private final float normalizationFactor;
     private final Mixer mixer;
     private final Controller controller;
+    private final int duration;
     private byte[] buffer;
     private int count;
     private int index;
@@ -51,7 +52,7 @@ public class PlayerRunner implements Runnable {
     private volatile boolean notifiedPlaybackReady = false;
 
     public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
-                        @NotNull Player.Configuration configuration, @NotNull Listener listener) throws IOException, PlayerException {
+                        @NotNull Player.Configuration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
@@ -64,6 +65,9 @@ public class PlayerRunner implements Runnable {
         readHeader();
         initializeSound();
         this.controller = new Controller(outputLine, deviceState);
+        this.duration = duration;
+
+        audioIn.mark(-1);
 
         LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
     }
@@ -190,6 +194,12 @@ public class PlayerRunner implements Runnable {
                     break;
             } else {
                 outputLine.stop();
+
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
         }
     }
@@ -261,7 +271,18 @@ public class PlayerRunner implements Runnable {
         playing = false;
     }
 
-    public void seek(int positionMs) {  // TODO
+    public void seek(int positionMs) {
+        if (positionMs > 0) {
+            try {
+                audioIn.reset();
+                int skip = Math.round(audioIn.available() / (float) duration * positionMs);
+                long skipped = audioIn.skip(skip);
+                if (skip != skipped)
+                    throw new IOException(String.format("Failed seeking, skip: %d, skipped: %d", skip, skipped));
+            } catch (IOException ex) {
+                LOGGER.fatal("Failed seeking!", ex);
+            }
+        }
     }
 
     public void stop() {

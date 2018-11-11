@@ -74,7 +74,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
                 else if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) handlePlay();
                 break;
             case kMessageTypeNext:
-                handleNext();
+                handleNext(true);
                 break;
             case kMessageTypePrev:
                 handlePrev();
@@ -224,7 +224,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(audioStreaming, normalizationData, spirc.deviceState(), conf, this);
+            playerRunner = new PlayerRunner(audioStreaming, normalizationData, spirc.deviceState(), conf, this, track.getDuration());
             new Thread(playerRunner).start();
 
             if (play) {
@@ -232,6 +232,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
                 playerRunner.seek(pos);
                 playerRunner.play();
             } else {
+                playerRunner.seek(pos);
                 state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
             }
         } catch (PlayerRunner.PlayerException ex) {
@@ -312,8 +313,8 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         }
     }
 
-    private void handleNext() {
-        if (conf.pauseWhenLoading) {
+    private void handleNext(boolean forced) {
+        if (forced && conf.pauseWhenLoading) {
             handlePause();
             stateUpdated();
         }
@@ -330,6 +331,8 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         state.setPositionMeasuredAt(System.currentTimeMillis());
 
         safeLoadTrack(play, 0);
+
+        handlePlay();
     }
 
     private int consumeQueuedTrack() {
@@ -345,14 +348,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     @Override
     public void endOfTrack() {
         LOGGER.trace("End of track. Proceeding with next.");
-        handleNext();
+        handleNext(false);
     }
 
     @Override
     public void playbackReady() {
         if (state.getStatus() == Spirc.PlayStatus.kPlayStatusLoading) {
-            state.setPositionMs(0);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             stateUpdated();
         }
@@ -412,9 +413,9 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         public final boolean pauseWhenLoading;
 
         public Configuration() {
-            this.preferredQuality = AudioQuality.VORBIS_160;
+            this.preferredQuality = AudioQuality.VORBIS_320;
             this.normalisationPregain = 0;
-            this.pauseWhenLoading = true;
+            this.pauseWhenLoading = false;
         }
     }
 }
