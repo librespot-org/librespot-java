@@ -39,6 +39,18 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         spirc.addListener(this);
     }
 
+    @Nullable
+    private static Metadata.Track pickAlternativeIfNecessary(@NotNull Metadata.Track track) {
+        if (track.getFileCount() > 0) return track;
+
+        for (Metadata.Track alt : track.getAlternativeList()) {
+            if (alt.getFileCount() > 0)
+                return alt;
+        }
+
+        return null;
+    }
+
     @NotNull
     private Spirc.State.Builder initState() {
         return Spirc.State.newBuilder()
@@ -196,6 +208,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
         Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
         Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
+        track = pickAlternativeIfNecessary(track);
+        if (track == null) {
+            LOGGER.fatal("Couldn't find playable track: " + ref.getGid());
+            return;
+        }
+
         LOGGER.info(String.format("Loading track, name: '%s', artists: '%s', play: %b, pos: %d", track.getName(), Utils.toString(track.getArtistList()), play, pos));
 
         Metadata.AudioFile file = conf.preferredQuality.getFile(track);
