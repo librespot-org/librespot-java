@@ -2,7 +2,6 @@ package org.librespot.spotify;
 
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.mercury.MercuryClient;
-import org.librespot.spotify.player.Player;
 import org.librespot.spotify.spirc.SpotifyIrc;
 
 import java.io.IOException;
@@ -20,7 +19,5 @@ public class Main {
                 .userPass(args[0], args[1])
                 // .blob("username", new byte[] {...})
                 .create();
-
-        Player player = session.player();
     }
 }
