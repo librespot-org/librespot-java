@@ -27,6 +27,10 @@ public class TrackId implements SpotifyId {
         }
     }
 
+    public TrackId(@NotNull String id) {
+        hexId = Utils.bytesToHex(BASE62.decode(id.getBytes()));
+    }
+
     public TrackId(Spirc.TrackRef ref) {
         hexId = Utils.bytesToHex(ref.getGid().toByteArray());
     }
