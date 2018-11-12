@@ -97,8 +97,11 @@ public class AudioFileStreaming implements AudioFile {
 
     @Override
     public void writeChunk(byte[] buffer, int chunkIndex) throws IOException {
-        boolean cached = cacheHandler.has(chunkIndex);
-        if (!cached) cacheHandler.write(buffer, chunkIndex);
+        boolean cached = false;
+        if (cacheHandler != null) {
+            cached = cacheHandler.has(chunkIndex);
+            if (!cached) cacheHandler.write(buffer, chunkIndex);
+        }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
         LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b", chunkIndex, chunks, cached));

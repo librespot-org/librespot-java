@@ -4,9 +4,13 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.librespot.spotify.Utils;
 
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,11 +47,13 @@ public class CacheManager {
     @Nullable
     public Handler handler(@NotNull ByteString fileId) {
         if (!enabled) return null;
-        return loadedHandlers.computeIfAbsent(Base64.getEncoder().encodeToString(fileId.toByteArray()), id -> {
+
+        String hexId = Utils.bytesToHex(fileId);
+        return loadedHandlers.computeIfAbsent(hexId, id -> {
             try {
                 return new Handler(id);
             } catch (IOException ex) {
-                LOGGER.fatal("Failed creating cache handler for " + fileId, ex);
+                LOGGER.fatal("Failed creating cache handler for " + hexId, ex);
                 return null;
             }
         });
