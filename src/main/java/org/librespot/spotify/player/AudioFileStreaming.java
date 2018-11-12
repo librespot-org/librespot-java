@@ -52,7 +52,14 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     private int requestSize() throws IOException {
-        if (cacheHandler != null && cacheHandler.has(0)) return cacheHandler.requestSize();
+        if (cacheHandler != null && cacheHandler.has(0)) {
+            try {
+                return cacheHandler.requestSize();
+            } catch (IOException ex) {
+                LOGGER.warn("Failed loading track size from cache.", ex);
+                cacheHandler.remove();
+            }
+        }
 
         AudioFileFetch fetch = new AudioFileFetch();
         requestChunk(fileId, 0, fetch);

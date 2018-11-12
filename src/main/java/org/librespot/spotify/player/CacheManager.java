@@ -73,6 +73,7 @@ public class CacheManager {
                 save();
             } else {
                 try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(controlFile))) {
+                    // noinspection unchecked
                     map = (HashMap<String, ArrayList<Integer>>) in.readObject();
                 }
             }
@@ -89,15 +90,23 @@ public class CacheManager {
             return list != null && list.contains(chunk);
         }
 
-        void written(@NotNull String fileId, int index) {
-            List<Integer> list = map.computeIfAbsent(fileId, s -> new ArrayList<>());
-            list.add(index);
-
+        private void safeSave() {
             try {
                 save();
             } catch (IOException ex) {
                 LOGGER.warn("Failed saving cache control file!", ex);
             }
+        }
+
+        void written(@NotNull String fileId, int index) {
+            List<Integer> list = map.computeIfAbsent(fileId, s -> new ArrayList<>());
+            list.add(index);
+            safeSave();
+        }
+
+        public void remove(@NotNull String fileId) {
+            map.remove(fileId);
+            safeSave();
         }
     }
 
@@ -138,6 +147,7 @@ public class CacheManager {
                     file.writeChunk(buffer, index);
                 } catch (IOException ex) {
                     LOGGER.fatal("Failed reading chunk, index: " + index, ex);
+                    remove();
                     file.cacheFailed(index, file);
                 }
             });
@@ -153,6 +163,10 @@ public class CacheManager {
             cache.seek(index * CHUNK_SIZE + 4);
             cache.write(buffer);
             controlTable.written(fileId, index);
+        }
+
+        public void remove() {
+            controlTable.remove(fileId);
         }
     }
 }
