@@ -37,7 +37,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         this.session = session;
         this.spirc = session.spirc();
         this.state = initState();
-        this.cacheManager = new CacheManager(cacheConfiguration);
+
+        try {
+            this.cacheManager = new CacheManager(cacheConfiguration);
+        } catch (IOException | ClassNotFoundException ex) {
+            throw new RuntimeException(ex);
+        }
 
         spirc.addListener(this);
     }

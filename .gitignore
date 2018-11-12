@@ -3,3 +3,4 @@ out/
 target/
 *iml
 conf.json
+cache/

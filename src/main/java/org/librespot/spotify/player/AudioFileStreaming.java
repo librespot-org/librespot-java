@@ -46,21 +46,24 @@ public class AudioFileStreaming implements AudioFile {
         return chunksBuffer.stream();
     }
 
-    private void requestChunk(ByteString fileId, int index, AudioFile file) throws IOException {
-        if (cacheHandler != null && cacheHandler.has(index)) {
-            cacheHandler.requestChunk(index, file);
-        } else {
-            session.channel().requestChunk(fileId, index, file);
-        }
+    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
+        if (cacheHandler != null && cacheHandler.has(index)) cacheHandler.requestChunk(index, file);
+        else session.channel().requestChunk(fileId, index, file);
+    }
+
+    private int requestSize() throws IOException {
+        if (cacheHandler != null && cacheHandler.has(0)) return cacheHandler.requestSize();
+
+        AudioFileFetch fetch = new AudioFileFetch();
+        requestChunk(fileId, 0, fetch);
+        fetch.waitChunk();
+        int size = fetch.getSize();
+        if (cacheHandler != null) cacheHandler.writeSize(size);
+        return size;
     }
 
     public void open() throws IOException {
-        AudioFileFetch fetch = new AudioFileFetch();
-        requestChunk(fileId, 0, fetch);
-
-        fetch.waitChunk();
-
-        int size = fetch.getSize();
+        int size = requestSize();
         LOGGER.trace("Track size: " + size);
         chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
@@ -87,12 +90,24 @@ public class AudioFileStreaming implements AudioFile {
 
     @Override
     public void writeChunk(byte[] buffer, int chunkIndex) throws IOException {
+        boolean cached = cacheHandler.has(chunkIndex);
+        if (!cached) cacheHandler.write(buffer, chunkIndex);
+
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed.", chunkIndex, chunks));
+        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b", chunkIndex, chunks, cached));
     }
 
     @Override
     public void header(byte id, byte[] bytes) {
+    }
+
+    @Override
+    public void cacheFailed(int index, @NotNull AudioFile file) {
+        try {
+            session.channel().requestChunk(fileId, index, file);
+        } catch (IOException ex) {
+            LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+        }
     }
 
     private class ChunksBuffer {
