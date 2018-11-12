@@ -222,7 +222,8 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
         track = pickAlternativeIfNecessary(track);
         if (track == null) {
-            LOGGER.fatal("Couldn't find playable track: " + ref.getGid());
+            LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(ref.getGid()));
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             return;
         }
 
@@ -257,12 +258,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
             playerRunner = new PlayerRunner(audioStreaming, normalizationData, spirc.deviceState(), conf, this, track.getDuration());
             new Thread(playerRunner).start();
 
+            playerRunner.seek(pos);
+
             if (play) {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
-                playerRunner.seek(pos);
                 playerRunner.play();
             } else {
-                playerRunner.seek(pos);
                 state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
             }
         } catch (PlayerRunner.PlayerException ex) {
