@@ -44,8 +44,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         if (track.getFileCount() > 0) return track;
 
         for (Metadata.Track alt : track.getAlternativeList()) {
-            if (alt.getFileCount() > 0)
-                return alt;
+            if (alt.getFileCount() > 0) {
+                Metadata.Track.Builder builder = track.newBuilderForType();
+                builder.clearFile();
+                builder.addAllFile(alt.getFileList());
+                return builder.build();
+            }
         }
 
         return null;
