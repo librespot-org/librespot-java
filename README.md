@@ -23,6 +23,6 @@ This is more advanced and should only be used if you saved an authentication blo
 ## TODO
 The client is pretty functional as it is, but improvements can be made:
 - Have an user interface
-- Caching
+- ~Caching~ (#18)
 - Preloading
 - Gapless playing

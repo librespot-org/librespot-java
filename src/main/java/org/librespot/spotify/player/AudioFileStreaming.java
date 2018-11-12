@@ -20,6 +20,7 @@ import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
  */
 public class AudioFileStreaming implements AudioFile {
     private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
+    private final CacheManager.Handler cacheHandler;
     private final ByteString fileId;
     private final byte[] key;
     private final Session session;
@@ -27,9 +28,10 @@ public class AudioFileStreaming implements AudioFile {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) {
+    public AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
         this.session = session;
         this.fileId = file.getFileId();
+        this.cacheHandler = cacheManager.handler(fileId);
         this.key = key;
     }
 
@@ -44,13 +46,31 @@ public class AudioFileStreaming implements AudioFile {
         return chunksBuffer.stream();
     }
 
-    public void open() throws IOException {
+    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
+        if (cacheHandler != null && cacheHandler.has(index)) cacheHandler.requestChunk(index, file);
+        else session.channel().requestChunk(fileId, index, file);
+    }
+
+    private int requestSize() throws IOException {
+        if (cacheHandler != null && cacheHandler.has(0)) {
+            try {
+                return cacheHandler.requestSize();
+            } catch (IOException ex) {
+                LOGGER.warn("Failed loading track size from cache.", ex);
+                cacheHandler.remove();
+            }
+        }
+
         AudioFileFetch fetch = new AudioFileFetch();
-        session.channel().requestChunk(fileId, 0, fetch);
-
+        requestChunk(fileId, 0, fetch);
         fetch.waitChunk();
-
         int size = fetch.getSize();
+        if (cacheHandler != null) cacheHandler.writeSize(size);
+        return size;
+    }
+
+    public void open() throws IOException {
+        int size = requestSize();
         LOGGER.trace("Track size: " + size);
         chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
@@ -61,7 +81,7 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     private void requestChunk(int index) throws IOException {
-        session.channel().requestChunk(fileId, index, this);
+        requestChunk(fileId, index, this);
         chunksBuffer.requested[index] = true; // Just to be sure
     }
 
@@ -77,12 +97,24 @@ public class AudioFileStreaming implements AudioFile {
 
     @Override
     public void writeChunk(byte[] buffer, int chunkIndex) throws IOException {
+        boolean cached = cacheHandler.has(chunkIndex);
+        if (!cached) cacheHandler.write(buffer, chunkIndex);
+
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed.", chunkIndex, chunks));
+        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b", chunkIndex, chunks, cached));
     }
 
     @Override
     public void header(byte id, byte[] bytes) {
+    }
+
+    @Override
+    public void cacheFailed(int index, @NotNull AudioFile file) {
+        try {
+            session.channel().requestChunk(fileId, index, file);
+        } catch (IOException ex) {
+            LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+        }
     }
 
     private class ChunksBuffer {

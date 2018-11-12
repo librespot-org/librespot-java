@@ -30,7 +30,7 @@ public class ChannelManager extends PacketsManager {
         super(session);
     }
 
-    void requestChunk(ByteString fileId, int index, AudioFile file) throws IOException {
+    void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
         int start = index * CHUNK_SIZE / 4;
         int end = (index + 1) * CHUNK_SIZE / 4;
 

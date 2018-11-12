@@ -1,5 +1,7 @@
 package org.librespot.spotify.player;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -24,6 +26,11 @@ class AudioFileFetch implements AudioFile {
             size *= 4;
             notifyAll();
         }
+    }
+
+    @Override
+    public void cacheFailed(int index, @NotNull AudioFile file) {
+        // Never called
     }
 
     synchronized void waitChunk() {

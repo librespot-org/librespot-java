@@ -28,13 +28,21 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
-    private final Configuration conf = new Configuration();
+    private final PlayerConfiguration conf;
+    private final CacheManager cacheManager;
     private PlayerRunner playerRunner;
 
-    public Player(@NotNull Session session) {
+    public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
+        this.conf = conf;
         this.session = session;
         this.spirc = session.spirc();
         this.state = initState();
+
+        try {
+            this.cacheManager = new CacheManager(cacheConfiguration);
+        } catch (IOException | ClassNotFoundException ex) {
+            throw new RuntimeException(ex);
+        }
 
         spirc.addListener(this);
     }
@@ -136,7 +144,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
     private void handlePrev() {
         if (getPosition() < 3000) {
-            if (conf.pauseWhenLoading) {
+            if (conf.pauseWhenLoading()) {
                 handlePause();
                 stateUpdated();
             }
@@ -220,7 +228,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
         LOGGER.info(String.format("Loading track, name: '%s', artists: '%s', play: %b, pos: %d", track.getName(), Utils.toString(track.getArtistList()), play, pos));
 
-        Metadata.AudioFile file = conf.preferredQuality.getFile(track);
+        Metadata.AudioFile file = conf.preferredQuality().getFile(track);
         if (file == null) {
             file = AudioQuality.getAnyVorbisFile(track);
             if (file == null) {
@@ -228,12 +236,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
                 return;
             } else {
-                LOGGER.warn(String.format("Using %s because preferred %s couldn't be found.", file, conf.preferredQuality));
+                LOGGER.warn(String.format("Using %s because preferred %s couldn't be found.", file, conf.preferredQuality()));
             }
         }
 
         byte[] key = session.audioKey().getAudioKey(track, file);
-        AudioFileStreaming audioStreaming = new AudioFileStreaming(session, file, key);
+        AudioFileStreaming audioStreaming = new AudioFileStreaming(session, cacheManager, file, key);
         audioStreaming.open();
 
         InputStream in = audioStreaming.stream();
@@ -278,7 +286,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
                     .setIsActive(true)
                     .setBecameActiveAt(System.currentTimeMillis());
         } else {
-            if (conf.pauseWhenLoading) {
+            if (conf.pauseWhenLoading()) {
                 handlePause();
                 stateUpdated();
             }
@@ -336,7 +344,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     }
 
     private void handleNext(boolean forced) {
-        if (forced && conf.pauseWhenLoading) {
+        if (forced && conf.pauseWhenLoading()) {
             handlePause();
             stateUpdated();
         }
@@ -386,7 +394,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         LOGGER.fatal("Playback failed!", ex);
     }
 
-    private enum AudioQuality {
+    public enum AudioQuality {
         VORBIS_96(Metadata.AudioFile.Format.OGG_VORBIS_96),
         VORBIS_160(Metadata.AudioFile.Format.OGG_VORBIS_160),
         VORBIS_320(Metadata.AudioFile.Format.OGG_VORBIS_320);
@@ -429,15 +437,12 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         }
     }
 
-    public static class Configuration {
-        public final AudioQuality preferredQuality;
-        public final float normalisationPregain;
-        public final boolean pauseWhenLoading;
+    public interface PlayerConfiguration {
+        @NotNull
+        AudioQuality preferredQuality();
 
-        public Configuration() {
-            this.preferredQuality = AudioQuality.VORBIS_320;
-            this.normalisationPregain = 0;
-            this.pauseWhenLoading = false;
-        }
+        float normalisationPregain();
+
+        boolean pauseWhenLoading();
     }
 }
