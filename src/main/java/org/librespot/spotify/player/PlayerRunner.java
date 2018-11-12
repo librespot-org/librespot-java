@@ -52,7 +52,7 @@ public class PlayerRunner implements Runnable {
     private volatile boolean notifiedPlaybackReady = false;
 
     public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
-                        @NotNull Player.Configuration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
+                        @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);

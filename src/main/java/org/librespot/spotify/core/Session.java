@@ -3,6 +3,7 @@ package org.librespot.spotify.core;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.AbsConfiguration;
 import org.librespot.spotify.Version;
 import org.librespot.spotify.crypto.CipherPair;
 import org.librespot.spotify.crypto.DiffieHellman;
@@ -217,7 +218,7 @@ public class Session implements AutoCloseable {
             audioKeyManager = new AudioKeyManager(this);
             channelManager = new ChannelManager(this);
             spirc = new SpotifyIrc(this);
-            player = new Player(this);
+            player = new Player(inner.configuration, inner.configuration, this);
 
             LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
         } else if (packet.is(Packet.Type.AuthFailure)) {
@@ -341,10 +342,12 @@ public class Session implements AutoCloseable {
         final String deviceName;
         final SecureRandom random;
         final String deviceId;
+        final AbsConfiguration configuration;
 
-        private Inner(DeviceType deviceType, String deviceName) {
+        private Inner(DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
             this.deviceType = deviceType;
             this.deviceName = deviceName;
+            this.configuration = configuration;
             this.random = new SecureRandom();
             this.deviceId = UUID.randomUUID().toString();
         }
@@ -399,8 +402,8 @@ public class Session implements AutoCloseable {
         private final Inner inner;
         private Authentication.LoginCredentials loginCredentials = null;
 
-        public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName) {
-            this.inner = new Inner(deviceType, deviceName);
+        public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
+            this.inner = new Inner(deviceType, deviceName, configuration);
         }
 
         public Builder facebook() throws IOException {

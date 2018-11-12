@@ -20,6 +20,7 @@ import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
  */
 public class AudioFileStreaming implements AudioFile {
     private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
+    private final CacheManager.Handler cacheHandler;
     private final ByteString fileId;
     private final byte[] key;
     private final Session session;
@@ -27,9 +28,10 @@ public class AudioFileStreaming implements AudioFile {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) {
+    public AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
         this.session = session;
         this.fileId = file.getFileId();
+        this.cacheHandler = cacheManager.handler(fileId);
         this.key = key;
     }
 
@@ -44,9 +46,17 @@ public class AudioFileStreaming implements AudioFile {
         return chunksBuffer.stream();
     }
 
+    private void requestChunk(ByteString fileId, int index, AudioFile file) throws IOException {
+        if (cacheHandler != null && cacheHandler.has(index)) {
+            cacheHandler.requestChunk(index, file);
+        } else {
+            session.channel().requestChunk(fileId, index, file);
+        }
+    }
+
     public void open() throws IOException {
         AudioFileFetch fetch = new AudioFileFetch();
-        session.channel().requestChunk(fileId, 0, fetch);
+        requestChunk(fileId, 0, fetch);
 
         fetch.waitChunk();
 
@@ -61,7 +71,7 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     private void requestChunk(int index) throws IOException {
-        session.channel().requestChunk(fileId, index, this);
+        requestChunk(fileId, index, this);
         chunksBuffer.requested[index] = true; // Just to be sure
     }
 
