@@ -14,6 +14,8 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,6 +27,7 @@ public class ChannelManager extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     public ChannelManager(@NotNull Session session) {
         super(session);
@@ -99,7 +102,7 @@ public class ChannelManager extends PacketsManager {
                 id = (short) seqHolder.getAndIncrement();
             }
 
-            new Thread(new Handler()).start(); // TODO: Can we use an ExecutorService?
+            executorService.execute(new Handler());
         }
 
         /**
