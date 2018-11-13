@@ -7,10 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import org.librespot.spotify.Utils;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.math.BigInteger;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +26,7 @@ public class CacheManager {
     private final ControlTable controlTable;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    public CacheManager(@NotNull CacheConfiguration conf) throws IOException, ClassNotFoundException {
+    public CacheManager(@NotNull CacheConfiguration conf) throws IOException {
         this.enabled = conf.cacheEnabled();
         if (enabled) {
             this.loadedHandlers = new HashMap<>();
@@ -67,33 +65,46 @@ public class CacheManager {
     }
 
     private class ControlTable {
-        private final HashMap<String, ArrayList<Integer>> map;
-        private final File controlFile;
+        private final List<CacheEntry> entries = new ArrayList<>();
+        private final RandomAccessFile file;
 
-        private ControlTable(@NotNull File controlFile) throws IOException, ClassNotFoundException {
-            this.controlFile = controlFile;
-
+        private ControlTable(@NotNull File controlFile) throws IOException {
             if (!controlFile.exists()) {
-                if (controlFile.createNewFile()) map = new HashMap<>();
+                if (controlFile.createNewFile()) file = new RandomAccessFile(controlFile, "rwd");
                 else throw new IOException("Failed creating cache control file!");
                 save();
             } else {
-                try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(controlFile))) {
-                    // noinspection unchecked
-                    map = (HashMap<String, ArrayList<Integer>>) in.readObject();
+                file = new RandomAccessFile(controlFile, "rwd");
+                file.seek(0);
+
+                long read = 0;
+                while (read < file.length()) {
+                    entries.add(new CacheEntry(file));
+                    read += file.getFilePointer();
                 }
             }
         }
 
         private void save() throws IOException {
-            try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(controlFile))) {
-                out.writeObject(map);
-            }
+            file.seek(0);
+            for (CacheEntry entry : entries)
+                entry.writeTo(file);
         }
 
         boolean has(@NotNull String fileId, int chunk) {
-            List<Integer> list = map.get(fileId);
-            return list != null && list.contains(chunk);
+            for (CacheEntry entry : entries)
+                if (fileId.equals(entry.hexId))
+                    return entry.has(chunk);
+
+            return false;
+        }
+
+        public boolean hasHeaders(@NotNull String fileId) {
+            for (CacheEntry entry : entries)
+                if (fileId.equals(entry.hexId))
+                    return true;
+
+            return false;
         }
 
         private void safeSave() {
@@ -104,15 +115,108 @@ public class CacheManager {
             }
         }
 
-        void written(@NotNull String fileId, int index) {
-            List<Integer> list = map.computeIfAbsent(fileId, s -> new ArrayList<>());
-            list.add(index);
+        void writtenChunk(@NotNull String fileId, int index) {
+            for (CacheEntry entry : entries) {
+                if (fileId.equals(entry.hexId))
+                    entry.writtenChunk(index);
+            }
+
             safeSave();
         }
 
+        void writeHeaders(@NotNull String fileId, byte[] headersId, byte[][] headersData, short chunksCount) {
+            entries.add(new CacheEntry(fileId, headersId, headersData, chunksCount));
+        }
+
         public void remove(@NotNull String fileId) {
-            map.remove(fileId);
-            safeSave();
+            Iterator<CacheEntry> iterator = entries.iterator();
+            while (iterator.hasNext()) {
+                if (fileId.equals(iterator.next().hexId)) {
+                    iterator.remove();
+                    safeSave();
+                    return;
+                }
+            }
+        }
+
+        void requestHeaders(@NotNull String fileId, @NotNull AudioFile file) {
+            for (CacheEntry entry : entries) {
+                if (fileId.equals(entry.hexId)) {
+                    entry.requestHeaders(file);
+                    return;
+                }
+            }
+
+            file.cacheFailedHeader(file);
+        }
+
+        private class CacheEntry {
+            private final String hexId;
+            private final ByteString gid;
+            private final byte[] headersId;
+            private final byte[][] headersData;
+            private final boolean[] chunks;
+
+            CacheEntry(@NotNull String hexId, byte[] headersId, byte[][] headersData, short chunksSize) {
+                this.hexId = hexId;
+                this.gid = ByteString.copyFrom(new BigInteger(hexId, 16).toByteArray());
+                this.headersId = headersId;
+                this.headersData = headersData;
+                this.chunks = new boolean[chunksSize];
+            }
+
+            CacheEntry(@NotNull DataInput in) throws IOException {
+                byte[] buffer = new byte[20];
+                in.readFully(buffer);
+                gid = ByteString.copyFrom(buffer);
+                hexId = Utils.bytesToHex(buffer);
+
+                short headers = in.readShort();
+                headersId = new byte[headers];
+                headersData = new byte[headers][];
+                for (int i = 0; i < headers; i++) {
+                    short length = (short) (in.readShort() - 1);
+                    headersId[i] = in.readByte();
+                    headersData[i] = new byte[length];
+                    in.readFully(headersData[i]);
+                }
+
+                short chunksCount = in.readShort();
+                chunks = new boolean[chunksCount];
+                for (int i = 0; i < chunksCount; i++)
+                    chunks[i] = in.readBoolean();
+            }
+
+            boolean has(int chunk) {
+                return chunks[chunk];
+            }
+
+            private void writeTo(@NotNull DataOutput out) throws IOException {
+                out.write(gid.toByteArray());
+
+                out.writeShort(headersId.length);
+                for (int i = 0; i < headersId.length; i++) {
+                    short length = (short) (1 + headersData[i].length);
+                    out.writeShort(length);
+                    out.writeByte(headersId[i]);
+                    out.write(headersData[i]);
+                }
+
+                out.writeShort(chunks.length);
+                for (boolean chunk : chunks)
+                    out.writeBoolean(chunk);
+            }
+
+            void requestHeaders(@NotNull AudioFile file) {
+                for (int i = 0; i < headersId.length; i++)
+                    file.writeHeader(headersId[i], headersData[i], true);
+
+                file.headerEnd(true);
+            }
+
+            void writtenChunk(int index) {
+                chunks[index] = true;
+            }
         }
     }
 
@@ -139,40 +243,41 @@ public class CacheManager {
             cache.close();
         }
 
-        public int requestSize() throws IOException {
-            cache.seek(0);
-            return cache.readInt() * 4;
+        public void requestHeaders(@NotNull AudioFile fetch) {
+            executorService.execute(() -> controlTable.requestHeaders(fileId, fetch));
         }
 
         public void requestChunk(int index, @NotNull AudioFile file) {
             executorService.execute(() -> {
                 try {
-                    cache.seek(index * CHUNK_SIZE + 4);
+                    cache.seek(index * CHUNK_SIZE);
                     byte[] buffer = new byte[CHUNK_SIZE];
                     cache.readFully(buffer);
-                    file.writeChunk(buffer, index);
+                    file.writeChunk(buffer, index, true);
                 } catch (IOException ex) {
                     LOGGER.fatal("Failed reading chunk, index: " + index, ex);
                     remove();
-                    file.cacheFailed(index, file);
+                    file.cacheFailedChunk(index, file);
                 }
             });
         }
 
-        public void writeSize(int size) throws IOException {
-            size /= 4;
-            cache.seek(0);
-            cache.writeInt(size);
-        }
-
         public void write(byte[] buffer, int index) throws IOException {
-            cache.seek(index * CHUNK_SIZE + 4);
+            cache.seek(index * CHUNK_SIZE);
             cache.write(buffer);
-            controlTable.written(fileId, index);
+            controlTable.writtenChunk(fileId, index);
         }
 
         public void remove() {
             controlTable.remove(fileId);
+        }
+
+        public void writeHeaders(byte[] headersId, byte[][] headersData, short chunksCount) {
+            controlTable.writeHeaders(fileId, headersId, headersData, chunksCount);
+        }
+
+        public boolean hasHeaders() {
+            return controlTable.hasHeaders(fileId);
         }
     }
 }

@@ -99,7 +99,7 @@ public class ChannelManager extends PacketsManager {
                 id = (short) seqHolder.getAndIncrement();
             }
 
-            new Thread(new Handler()).start();
+            new Thread(new Handler()).start(); // TODO: Can we use an ExecutorService?
         }
 
         /**
@@ -109,7 +109,7 @@ public class ChannelManager extends PacketsManager {
             if (payload.remaining() == 0) {
                 if (!header) {
                     synchronized (buffer) {
-                        file.writeChunk(buffer.toByteArray(), chunkIndex);
+                        file.writeChunk(buffer.toByteArray(), chunkIndex, false);
                         return true;
                     }
                 }
@@ -124,9 +124,10 @@ public class ChannelManager extends PacketsManager {
                     byte headerId = payload.get();
                     byte[] headerData = new byte[length - 1];
                     payload.get(headerData);
-                    file.header(headerId, headerData);
+                    file.writeHeader(headerId, headerData, false);
                 }
 
+                file.headerEnd(false);
                 header = false;
             } else {
                 byte[] bytes = new byte[payload.remaining()];

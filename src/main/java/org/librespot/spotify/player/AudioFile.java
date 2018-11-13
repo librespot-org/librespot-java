@@ -8,9 +8,13 @@ import java.io.IOException;
  * @author Gianlu
  */
 public interface AudioFile {
-    void writeChunk(byte[] chunk, int chunkIndex) throws IOException;
+    void writeChunk(byte[] chunk, int chunkIndex, boolean cached) throws IOException;
 
-    void header(byte id, byte[] bytes);
+    void cacheFailedChunk(int index, @NotNull AudioFile file);
 
-    void cacheFailed(int index, @NotNull AudioFile file);
+    void writeHeader(byte id, byte[] bytes, boolean cached);
+
+    void cacheFailedHeader(@NotNull AudioFile file);
+
+    void headerEnd(boolean cached);
 }
