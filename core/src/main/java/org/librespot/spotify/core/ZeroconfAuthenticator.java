@@ -1,9 +1,9 @@
 package org.librespot.spotify.core;
 
 import com.google.gson.JsonObject;
-import net.posick.mDNS.MulticastDNSService;
-import net.posick.mDNS.ServiceInstance;
-import net.posick.mDNS.ServiceName;
+import net.posick.mdns.MulticastDNSService;
+import net.posick.mdns.ServiceInstance;
+import net.posick.mdns.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.Utils;
