@@ -1,5 +1,6 @@
 package org.librespot.spotify.player;
 
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -14,6 +15,7 @@ import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
  * @author Gianlu
  */
 class AudioFileFetch implements AudioFile {
+    private static final Logger LOGGER = Logger.getLogger(AudioFileFetch.class);
     private final CacheManager.Handler cache;
     private final ByteArrayOutputStream headersId = new ByteArrayOutputStream();
     private final BytesArrayList headersData = new BytesArrayList();
@@ -47,7 +49,7 @@ class AudioFileFetch implements AudioFile {
 
     @Override
     public void cacheFailedHeader(@NotNull AudioFile file) {
-        throw new RuntimeException("That could be a problem!"); // FIXME
+        LOGGER.fatal("Failed loading headers from cache!");
     }
 
     @Override

@@ -96,22 +96,41 @@ public class Player implements FrameListener, TrackHandler.Listener {
                 handleShuffle();
                 break;
             case kMessageTypeVolume:
-                spirc.deviceState().setVolume(frame.getVolume());
-                if (trackHandler != null) trackHandler.controller().setVolume(frame.getVolume());
-                stateUpdated();
+                handleSetVolume(frame.getVolume());
                 break;
             case kMessageTypeVolumeDown:
-                if (trackHandler != null) {
-                    spirc.deviceState().setVolume(trackHandler.controller().volumeDown());
-                    stateUpdated();
-                }
+                handleVolumeDown();
                 break;
             case kMessageTypeVolumeUp:
-                if (trackHandler != null) {
-                    spirc.deviceState().setVolume(trackHandler.controller().volumeUp());
-                    stateUpdated();
-                }
+                handleVolumeUp();
                 break;
+        }
+    }
+
+    private void handleSetVolume(int volume) {
+        spirc.deviceState().setVolume(volume);
+
+        if (trackHandler != null) {
+            PlayerRunner.Controller controller = trackHandler.controller();
+            if (controller != null) controller.setVolume(volume);
+        }
+
+        stateUpdated();
+    }
+
+    private void handleVolumeDown() {
+        if (trackHandler != null) {
+            PlayerRunner.Controller controller = trackHandler.controller();
+            if (controller != null) controller.volumeDown();
+            stateUpdated();
+        }
+    }
+
+    private void handleVolumeUp() {
+        if (trackHandler != null) {
+            PlayerRunner.Controller controller = trackHandler.controller();
+            if (controller != null) controller.volumeUp();
+            stateUpdated();
         }
     }
 
@@ -203,7 +222,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void loadTrack(boolean play) {
-        if (trackHandler != null) trackHandler.sendStop();
+        if (trackHandler != null) trackHandler.close();
         trackHandler = new TrackHandler(session, cacheManager, conf, this);
         trackHandler.sendLoad(state.getTrack(state.getPlayingTrackIndex()), play, state.getPositionMs());
         state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);

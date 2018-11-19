@@ -10,6 +10,7 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.proto.Spirc;
 
 import javax.sound.sampled.*;
 import java.io.IOException;
@@ -49,7 +50,7 @@ public class PlayerRunner implements Runnable {
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
 
-    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, int initialVolume,
+    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
                  @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
@@ -62,7 +63,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
-        this.controller = new Controller(outputLine, initialVolume);
+        this.controller = new Controller(outputLine);
         this.duration = duration;
 
         audioIn.mark(-1);
@@ -283,8 +284,12 @@ public class PlayerRunner implements Runnable {
     }
 
     @NotNull
-    public Controller controller() {
+    Controller controller() {
         return controller;
+    }
+
+    void initController(@NotNull Spirc.DeviceState.Builder state) {
+        controller.setVolume(state.getVolume());
     }
 
     public interface Listener {
@@ -297,13 +302,11 @@ public class PlayerRunner implements Runnable {
         private final FloatControl masterGain;
         private int volume = 0;
 
-        Controller(@NotNull Line line, int initialVolume) {
-            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+        Controller(@NotNull Line line) {
+            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-                setVolume(initialVolume);
-            } else {
+            else
                 masterGain = null;
-            }
         }
 
         private double calcLogarithmic(int val) {
@@ -317,12 +320,12 @@ public class PlayerRunner implements Runnable {
                 masterGain.setValue((float) calcLogarithmic(val));
         }
 
-        public int volumeDown() {
+        int volumeDown() {
             setVolume(volume - VOLUME_STEP);
             return volume;
         }
 
-        public int volumeUp() {
+        int volumeUp() {
             setVolume(volume + VOLUME_STEP);
             return volume;
         }

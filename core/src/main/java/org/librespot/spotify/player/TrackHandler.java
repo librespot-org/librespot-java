@@ -11,26 +11,25 @@ import org.librespot.spotify.mercury.model.TrackId;
 import org.librespot.spotify.proto.Metadata;
 import org.librespot.spotify.proto.Spirc;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author Gianlu
  */
-public class TrackHandler implements PlayerRunner.Listener {
+public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(TrackHandler.class);
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final Session session;
     private final CacheManager cacheManager;
     private final Player.PlayerConfiguration conf;
     private final Listener listener;
+    private final Looper looper;
     private PlayerRunner playerRunner;
 
     TrackHandler(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener) {
@@ -39,7 +38,7 @@ public class TrackHandler implements PlayerRunner.Listener {
         this.conf = conf;
         this.listener = listener;
 
-        executorService.execute(new Runner());
+        new Thread(looper = new Looper()).start();
     }
 
     @Nullable
@@ -93,7 +92,8 @@ public class TrackHandler implements PlayerRunner.Listener {
 
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(audioStreaming, normalizationData, session.spirc().deviceState().getVolume(), conf, this, track.getDuration());
+            playerRunner = new PlayerRunner(audioStreaming, normalizationData, conf, this, track.getDuration());
+            playerRunner.initController(session.spirc().deviceState());
             new Thread(playerRunner).start();
 
             playerRunner.seek(pos);
@@ -103,6 +103,7 @@ public class TrackHandler implements PlayerRunner.Listener {
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
+            listener.loadingError(ex);
         }
     }
 
@@ -141,8 +142,14 @@ public class TrackHandler implements PlayerRunner.Listener {
     }
 
     @Nullable
-    public PlayerRunner.Controller controller() {
+    PlayerRunner.Controller controller() {
         return playerRunner == null ? null : playerRunner.controller();
+    }
+
+    @Override
+    public void close() {
+        if (playerRunner != null) playerRunner.stop();
+        looper.stop();
     }
 
     public enum AudioQuality {
@@ -200,7 +207,7 @@ public class TrackHandler implements PlayerRunner.Listener {
         void endOfTrack();
     }
 
-    private class Runner implements Runnable {
+    private class Looper implements Runnable {
         private volatile boolean stopped = false;
 
         @Override
@@ -224,6 +231,7 @@ public class TrackHandler implements PlayerRunner.Listener {
                             break;
                         case Stop:
                             if (playerRunner != null) playerRunner.stop();
+                            stop();
                             break;
                         case Seek:
                             if (playerRunner != null) playerRunner.seek((Integer) cmd.args[0]);
@@ -231,8 +239,12 @@ public class TrackHandler implements PlayerRunner.Listener {
                     }
                 }
             } catch (InterruptedException ex) {
-                ex.printStackTrace(); // TODO
+                LOGGER.fatal("Failed handling command!", ex);
             }
+        }
+
+        private void stop() {
+            stopped = true;
         }
     }
 
