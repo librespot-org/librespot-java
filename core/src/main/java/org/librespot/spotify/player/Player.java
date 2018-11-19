@@ -40,7 +40,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
 
         try {
             this.cacheManager = new CacheManager(cacheConfiguration);
-        } catch (IOException | ClassNotFoundException ex) {
+        } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
 

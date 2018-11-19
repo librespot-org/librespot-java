@@ -28,7 +28,7 @@ public class AudioFileStreaming implements AudioFile {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
+    AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
         this.session = session;
         this.fileId = file.getFileId();
         this.cacheHandler = cacheManager.handler(fileId);
@@ -36,12 +36,12 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     @NotNull
-    public String getFileIdHex() {
+    String getFileIdHex() {
         return Utils.bytesToHex(fileId);
     }
 
     @NotNull
-    public InputStream stream() {
+    InputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
         return chunksBuffer.stream();
     }
@@ -51,28 +51,21 @@ public class AudioFileStreaming implements AudioFile {
         else session.channel().requestChunk(fileId, index, file);
     }
 
-    private int requestSize() throws IOException {
-        if (cacheHandler != null && cacheHandler.has(0)) {
-            try {
-                return cacheHandler.requestSize();
-            } catch (IOException ex) {
-                LOGGER.warn("Failed loading track size from cache.", ex);
-                cacheHandler.remove();
-            }
-        }
-
-        AudioFileFetch fetch = new AudioFileFetch();
-        requestChunk(fileId, 0, fetch);
+    @NotNull
+    private AudioFileFetch requestHeaders() throws IOException {
+        AudioFileFetch fetch = new AudioFileFetch(cacheHandler);
+        if (cacheHandler != null && cacheHandler.hasHeaders()) cacheHandler.requestHeaders(fetch);
+        else requestChunk(fileId, 0, fetch);
         fetch.waitChunk();
-        int size = fetch.getSize();
-        if (cacheHandler != null) cacheHandler.writeSize(size);
-        return size;
+        return fetch;
     }
 
-    public void open() throws IOException {
-        int size = requestSize();
+    void open() throws IOException {
+        AudioFileFetch fetch = requestHeaders();
+
+        int size = fetch.getSize();
         LOGGER.trace("Track size: " + size);
-        chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+        chunks = fetch.getChunks();
         LOGGER.trace(String.format("Track has %d chunks.", chunks));
 
         chunksBuffer = new ChunksBuffer(size, chunks);
@@ -96,28 +89,34 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     @Override
-    public void writeChunk(byte[] buffer, int chunkIndex) throws IOException {
-        boolean cached = false;
-        if (cacheHandler != null) {
-            cached = cacheHandler.has(chunkIndex);
-            if (!cached) cacheHandler.write(buffer, chunkIndex);
-        }
+    public void writeChunk(byte[] buffer, int chunkIndex, boolean cached) throws IOException {
+        if (!cached && cacheHandler != null)
+            cacheHandler.write(buffer, chunkIndex);
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
         LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b", chunkIndex, chunks, cached));
     }
 
     @Override
-    public void header(byte id, byte[] bytes) {
+    public void writeHeader(byte id, byte[] bytes, boolean cached) {
     }
 
     @Override
-    public void cacheFailed(int index, @NotNull AudioFile file) {
+    public void cacheFailedHeader(@NotNull AudioFile file) {
+    }
+
+    @Override
+    public void cacheFailedChunk(int index, @NotNull AudioFile file) {
         try {
             session.channel().requestChunk(fileId, index, file);
         } catch (IOException ex) {
             LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
         }
+    }
+
+    @Override
+    public void headerEnd(boolean cached) {
+        // Never called
     }
 
     private class ChunksBuffer {
