@@ -11,6 +11,7 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
 
@@ -19,14 +20,16 @@ import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
  * @author Gianlu
  */
 public class CacheManager {
+    static final byte BYTE_CREATED_AT = 0b1111111;
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
+    private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private final File cacheDir;
     private final boolean enabled;
     private final Map<String, Handler> loadedHandlers;
     private final ControlTable controlTable;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    public CacheManager(@NotNull CacheConfiguration conf) throws IOException {
+    CacheManager(@NotNull CacheConfiguration conf) throws IOException {
         this.enabled = conf.cacheEnabled();
         if (enabled) {
             this.loadedHandlers = new HashMap<>();
@@ -35,6 +38,7 @@ public class CacheManager {
                 throw new IllegalStateException("Cannot create cache dir!");
 
             this.controlTable = new ControlTable(new File(cacheDir, ".table"));
+            if (conf.doCleanUp()) controlTable.cleanOldTracks();
         } else {
             this.cacheDir = null;
             this.loadedHandlers = null;
@@ -43,7 +47,7 @@ public class CacheManager {
     }
 
     @Nullable
-    public Handler handler(@NotNull ByteString fileId) {
+    Handler handler(@NotNull ByteString fileId) {
         if (!enabled) return null;
 
         String hexId = Utils.bytesToHex(fileId);
@@ -62,6 +66,8 @@ public class CacheManager {
 
         @NotNull
         File cacheDir();
+
+        boolean doCleanUp();
     }
 
     private class ControlTable {
@@ -76,17 +82,28 @@ public class CacheManager {
             } else {
                 file = new RandomAccessFile(controlFile, "rwd");
                 file.seek(0);
-
-                long read = 0;
-                while (read < file.length()) {
+                int count = file.readInt();
+                for (int i = 0; i < count; i++)
                     entries.add(new CacheEntry(file));
-                    read += file.getFilePointer();
+            }
+        }
+
+        private void cleanOldTracks() {
+            Iterator<CacheEntry> iterator = entries.iterator();
+            while (iterator.hasNext()) {
+                CacheEntry entry = iterator.next();
+                if (System.currentTimeMillis() - entry.getCreatedAtMillis() > CLEAN_UP_THRESHOLD) {
+                    entry.deleteFile();
+                    iterator.remove();
                 }
             }
+
+            safeSave();
         }
 
         private void save() throws IOException {
             file.seek(0);
+            file.writeInt(entries.size());
             for (CacheEntry entry : entries)
                 entry.writeTo(file);
         }
@@ -99,7 +116,7 @@ public class CacheManager {
             return false;
         }
 
-        public boolean hasHeaders(@NotNull String fileId) {
+        boolean hasHeaders(@NotNull String fileId) {
             for (CacheEntry entry : entries)
                 if (fileId.equals(entry.hexId))
                     return true;
@@ -131,7 +148,9 @@ public class CacheManager {
         public void remove(@NotNull String fileId) {
             Iterator<CacheEntry> iterator = entries.iterator();
             while (iterator.hasNext()) {
-                if (fileId.equals(iterator.next().hexId)) {
+                CacheEntry entry = iterator.next();
+                if (fileId.equals(entry.hexId)) {
+                    entry.deleteFile();
                     iterator.remove();
                     safeSave();
                     return;
@@ -166,7 +185,7 @@ public class CacheManager {
             }
 
             CacheEntry(@NotNull DataInput in) throws IOException {
-                byte[] buffer = new byte[20];
+                byte[] buffer = new byte[in.readShort()];
                 in.readFully(buffer);
                 gid = ByteString.copyFrom(buffer);
                 hexId = Utils.bytesToHex(buffer);
@@ -192,7 +211,9 @@ public class CacheManager {
             }
 
             private void writeTo(@NotNull DataOutput out) throws IOException {
-                out.write(gid.toByteArray());
+                byte[] gidBytes = gid.toByteArray();
+                out.writeShort(gidBytes.length);
+                out.write(gidBytes);
 
                 out.writeShort(headersId.length);
                 for (int i = 0; i < headersId.length; i++) {
@@ -211,11 +232,44 @@ public class CacheManager {
                 for (int i = 0; i < headersId.length; i++)
                     file.writeHeader(headersId[i], headersData[i], true);
 
+                for (int i = 0; i < headersId.length; i++) {
+                    System.out.println("ID: " + headersId[i] + " " + new String(headersData[i]));
+                }
+
                 file.headerEnd(true);
             }
 
             void writtenChunk(int index) {
                 chunks[index] = true;
+            }
+
+            @Nullable
+            byte[] findHeaderData(byte id) {
+                for (int i = 0; i < headersId.length; i++)
+                    if (headersId[i] == id)
+                        return headersData[i];
+
+                return null;
+            }
+
+            long getCreatedAtMillis() {
+                byte[] createdAtBytes = findHeaderData(BYTE_CREATED_AT);
+                if (createdAtBytes == null) {
+                    LOGGER.warn("Missing CREATED_AT header!");
+                    return System.currentTimeMillis();
+                }
+
+                return new BigInteger(createdAtBytes).longValue() * 1000;
+            }
+
+            void deleteFile() {
+                File toDelete = new File(cacheDir, hexId);
+                if (toDelete.delete()) {
+                    LOGGER.trace("Deleted cached track: " + hexId);
+                } else {
+                    LOGGER.warn("Failed deleting cached track: " + toDelete);
+                    toDelete.deleteOnExit();
+                }
             }
         }
     }
@@ -234,7 +288,7 @@ public class CacheManager {
             cache = new RandomAccessFile(file, "rw");
         }
 
-        public boolean has(int chunk) {
+        boolean has(int chunk) {
             return controlTable.has(fileId, chunk);
         }
 
@@ -243,11 +297,11 @@ public class CacheManager {
             cache.close();
         }
 
-        public void requestHeaders(@NotNull AudioFile fetch) {
+        void requestHeaders(@NotNull AudioFile fetch) {
             executorService.execute(() -> controlTable.requestHeaders(fileId, fetch));
         }
 
-        public void requestChunk(int index, @NotNull AudioFile file) {
+        void requestChunk(int index, @NotNull AudioFile file) {
             executorService.execute(() -> {
                 try {
                     cache.seek(index * CHUNK_SIZE);
@@ -272,11 +326,11 @@ public class CacheManager {
             controlTable.remove(fileId);
         }
 
-        public void writeHeaders(byte[] headersId, byte[][] headersData, short chunksCount) {
+        void writeHeaders(byte[] headersId, byte[][] headersData, short chunksCount) {
             controlTable.writeHeaders(fileId, headersId, headersData, chunksCount);
         }
 
-        public boolean hasHeaders() {
+        boolean hasHeaders() {
             return controlTable.hasHeaders(fileId);
         }
     }

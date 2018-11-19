@@ -28,7 +28,7 @@ public class AudioFileStreaming implements AudioFile {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
+    AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
         this.session = session;
         this.fileId = file.getFileId();
         this.cacheHandler = cacheManager.handler(fileId);
@@ -36,12 +36,12 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     @NotNull
-    public String getFileIdHex() {
+    String getFileIdHex() {
         return Utils.bytesToHex(fileId);
     }
 
     @NotNull
-    public InputStream stream() {
+    InputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
         return chunksBuffer.stream();
     }
@@ -60,7 +60,7 @@ public class AudioFileStreaming implements AudioFile {
         return fetch;
     }
 
-    public void open() throws IOException {
+    void open() throws IOException {
         AudioFileFetch fetch = requestHeaders();
 
         int size = fetch.getSize();

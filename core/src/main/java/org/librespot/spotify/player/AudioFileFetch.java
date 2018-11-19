@@ -4,9 +4,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
 
@@ -16,7 +16,7 @@ import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
 class AudioFileFetch implements AudioFile {
     private final CacheManager.Handler cache;
     private final ByteArrayOutputStream headersId = new ByteArrayOutputStream();
-    private final List<byte[]> headersData = new ArrayList<>();
+    private final BytesArrayList headersData = new BytesArrayList();
     private int size = -1;
     private int chunks = -1;
 
@@ -52,8 +52,12 @@ class AudioFileFetch implements AudioFile {
 
     @Override
     public synchronized void headerEnd(boolean cached) {
-        if (!cached && cache != null)
-            cache.writeHeaders(headersId.toByteArray(), headersData.toArray(new byte[0][]), (short) chunks);
+        if (!cached && cache != null) {
+            headersId.write(CacheManager.BYTE_CREATED_AT);
+            headersData.add(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray());
+
+            cache.writeHeaders(headersId.toByteArray(), headersData.toArray(), (short) chunks);
+        }
     }
 
     @Override
@@ -79,5 +83,36 @@ class AudioFileFetch implements AudioFile {
     public int getChunks() {
         if (chunks == -1) throw new IllegalStateException("Headers not received yet!");
         return chunks;
+    }
+
+    private static class BytesArrayList {
+        private byte[][] elementData;
+        private int size;
+
+        BytesArrayList() {
+            size = 0;
+            elementData = new byte[5][];
+        }
+
+        private void ensureExplicitCapacity(int minCapacity) {
+            if (minCapacity - elementData.length > 0)
+                grow(minCapacity);
+        }
+
+        void add(byte[] e) {
+            ensureExplicitCapacity(size + 1);
+            elementData[size++] = e;
+        }
+
+        byte[][] toArray() {
+            return elementData;
+        }
+
+        private void grow(int minCapacity) {
+            int oldCapacity = elementData.length;
+            int newCapacity = oldCapacity + (oldCapacity >> 1);
+            if (newCapacity - minCapacity < 0) newCapacity = minCapacity;
+            elementData = Arrays.copyOf(elementData, newCapacity);
+        }
     }
 }

@@ -43,4 +43,9 @@ public final class DefaultConfiguration extends AbsConfiguration {
     public @NotNull File cacheDir() {
         return new File("./cache/");
     }
+
+    @Override
+    public boolean doCleanUp() {
+        return true;
+    }
 }
