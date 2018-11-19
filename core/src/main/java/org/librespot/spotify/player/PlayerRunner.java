@@ -10,7 +10,6 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.proto.Spirc;
 
 import javax.sound.sampled.*;
 import java.io.IOException;
@@ -49,10 +48,9 @@ public class PlayerRunner implements Runnable {
     private int[] pcmIndex;
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
-    private volatile boolean notifiedPlaybackReady = false;
 
-    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
-                        @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
+    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, int initialVolume,
+                 @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
@@ -64,7 +62,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
-        this.controller = new Controller(outputLine, deviceState);
+        this.controller = new Controller(outputLine, initialVolume);
         this.duration = duration;
 
         audioIn.mark(-1);
@@ -233,11 +231,6 @@ public class PlayerRunner implements Runnable {
 
             outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
-
-            if (!notifiedPlaybackReady) {
-                if (listener != null) listener.playbackReady();
-                notifiedPlaybackReady = true;
-            }
         }
     }
 
@@ -263,15 +256,15 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    public void play() {
+    void play() {
         playing = true;
     }
 
-    public void pause() {
+    void pause() {
         playing = false;
     }
 
-    public void seek(int positionMs) {
+    void seek(int positionMs) {
         if (positionMs > 0) {
             try {
                 audioIn.reset();
@@ -285,7 +278,7 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    public void stop() {
+    void stop() {
         stopped = true;
     }
 
@@ -297,8 +290,6 @@ public class PlayerRunner implements Runnable {
     public interface Listener {
         void endOfTrack();
 
-        void playbackReady();
-
         void playbackError(@NotNull Exception ex);
     }
 
@@ -306,10 +297,10 @@ public class PlayerRunner implements Runnable {
         private final FloatControl masterGain;
         private int volume = 0;
 
-        Controller(@NotNull Line line, @NotNull Spirc.DeviceState.Builder deviceState) {
+        Controller(@NotNull Line line, int initialVolume) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-                setVolume(deviceState.getVolume());
+                setVolume(initialVolume);
             } else {
                 masterGain = null;
             }
@@ -348,7 +339,7 @@ public class PlayerRunner implements Runnable {
         PlayerException() {
         }
 
-        PlayerException(Throwable ex) {
+        PlayerException(@NotNull Throwable ex) {
             super(ex);
         }
     }
