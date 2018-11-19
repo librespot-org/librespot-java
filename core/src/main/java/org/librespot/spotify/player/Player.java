@@ -2,6 +2,7 @@ package org.librespot.spotify.player;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Utils;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.proto.Spirc;
 import org.librespot.spotify.spirc.FrameListener;
@@ -24,6 +25,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private final PlayerConfiguration conf;
     private final CacheManager cacheManager;
     private TrackHandler trackHandler;
+    private TrackHandler preloadTrackHandler;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
         this.conf = conf;
@@ -181,23 +183,39 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     @Override
-    public void finishedLoading(boolean play) {
-        if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-        else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
-        stateUpdated();
+    public void finishedLoading(@NotNull TrackHandler handler, boolean play) {
+        if (handler == trackHandler) {
+            if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+            stateUpdated();
+        } else if (handler == preloadTrackHandler) {
+            LOGGER.trace("Preloaded track is ready.");
+        }
     }
 
     @Override
-    public void loadingError(@NotNull Exception ex) {
-        LOGGER.fatal("Failed loading track!", ex);
-        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-        stateUpdated();
+    public void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex) {
+        if (handler == trackHandler) {
+            LOGGER.fatal("Failed loading track!", ex);
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
+        }
     }
 
     @Override
-    public void endOfTrack() {
-        LOGGER.trace("End of track. Proceeding with next.");
-        handleNext();
+    public void endOfTrack(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            LOGGER.trace("End of track. Proceeding with next.");
+            handleNext();
+        }
+    }
+
+    public void preloadNextTrack() { // TODO
+        Spirc.TrackRef next = state.getTrack(getQueuedTrack(false));
+
+        preloadTrackHandler = new TrackHandler(session, cacheManager, conf, this);
+        preloadTrackHandler.sendLoad(next, false, 0);
+        LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {
@@ -254,7 +272,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void handleNext() {
-        int newTrack = consumeQueuedTrack();
+        int newTrack = getQueuedTrack(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
             newTrack = 0;
@@ -302,10 +320,10 @@ public class Player implements FrameListener, TrackHandler.Listener {
         }
     }
 
-    private int consumeQueuedTrack() {
+    private int getQueuedTrack(boolean consume) {
         int current = state.getPlayingTrackIndex();
         if (state.getTrack(current).getQueued()) {
-            state.removeTrack(current);
+            if (consume) state.removeTrack(current);
             return current;
         }
 

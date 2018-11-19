@@ -26,7 +26,6 @@ public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
-    private static final long PRELOAD_INTERVAL_SEC = 10;
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final Listener listener;
@@ -41,7 +40,6 @@ public class PlayerRunner implements Runnable {
     private final Mixer mixer;
     private final Controller controller;
     private final int duration;
-    private final boolean preloadEnabled;
     private byte[] buffer;
     private int count;
     private int index;
@@ -51,7 +49,6 @@ public class PlayerRunner implements Runnable {
     private int[] pcmIndex;
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
-    private volatile boolean calledPreload = false;
 
     PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
                  @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
@@ -59,7 +56,6 @@ public class PlayerRunner implements Runnable {
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
         this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
-        this.preloadEnabled = configuration.preloadEnabled();
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
@@ -184,8 +180,6 @@ public class PlayerRunner implements Runnable {
                         break;
                 }
 
-                reportPositionSeconds(outputLine.getLongFramePosition() / jorbisInfo.rate);
-
                 index = joggSyncState.buffer(BUFFER_SIZE);
                 buffer = joggSyncState.data;
 
@@ -206,13 +200,6 @@ public class PlayerRunner implements Runnable {
                     throw new RuntimeException(ex);
                 }
             }
-        }
-    }
-
-    private void reportPositionSeconds(long sec) {
-        if (preloadEnabled && !calledPreload && duration / 1000 - sec < PRELOAD_INTERVAL_SEC) {
-            listener.preloadNextTrack();
-            calledPreload = true;
         }
     }
 
@@ -308,8 +295,6 @@ public class PlayerRunner implements Runnable {
     public interface Listener {
         void endOfTrack();
 
-        void preloadNextTrack();
-
         void playbackError(@NotNull Exception ex);
     }
 
@@ -352,12 +337,12 @@ public class PlayerRunner implements Runnable {
     private static class HoleInDataException extends PlayerException {
     }
 
-    public static class PlayerException extends Exception {
+    static class PlayerException extends Exception {
 
-        PlayerException() {
+        private PlayerException() {
         }
 
-        PlayerException(@NotNull Throwable ex) {
+        private PlayerException(@NotNull Throwable ex) {
             super(ex);
         }
     }

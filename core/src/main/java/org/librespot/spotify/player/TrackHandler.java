@@ -98,12 +98,12 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
             playerRunner.seek(pos);
 
-            listener.finishedLoading(play);
+            listener.finishedLoading(this, play);
 
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
-            listener.loadingError(ex);
+            listener.loadingError(this, ex);
         }
     }
 
@@ -133,12 +133,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
     @Override
     public void endOfTrack() {
-        listener.endOfTrack();
-    }
-
-    @Override
-    public void preloadNextTrack() {
-        // TODO
+        listener.endOfTrack(this);
     }
 
     @Override
@@ -205,11 +200,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     public interface Listener {
-        void finishedLoading(boolean play);
+        void finishedLoading(@NotNull TrackHandler handler, boolean play);
 
-        void loadingError(@NotNull Exception ex);
+        void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex);
 
-        void endOfTrack();
+        void endOfTrack(@NotNull TrackHandler handler);
     }
 
     private class Looper implements Runnable {
@@ -225,7 +220,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                             try {
                                 load((Spirc.TrackRef) cmd.args[0], (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                             } catch (IOException | MercuryClient.MercuryException ex) {
-                                listener.loadingError(ex);
+                                listener.loadingError(TrackHandler.this, ex);
                             }
                             break;
                         case Play:
