@@ -121,7 +121,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void handleVolumeDown() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.volumeDown();
+            if (controller != null) spirc.deviceState().setVolume(controller.volumeDown());
             stateUpdated();
         }
     }
@@ -129,7 +129,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void handleVolumeUp() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.volumeUp();
+            if (controller != null) spirc.deviceState().setVolume(controller.volumeUp());
             stateUpdated();
         }
     }
