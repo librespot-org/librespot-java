@@ -266,13 +266,15 @@ public class PlayerRunner implements Runnable {
     }
 
     void seek(int positionMs) {
-        if (positionMs > 0) {
+        if (positionMs >= 0) {
             try {
                 audioIn.reset();
-                int skip = Math.round(audioIn.available() / (float) duration * positionMs);
-                long skipped = audioIn.skip(skip);
-                if (skip != skipped)
-                    throw new IOException(String.format("Failed seeking, skip: %d, skipped: %d", skip, skipped));
+                if (positionMs > 0) {
+                    int skip = Math.round(audioIn.available() / (float) duration * positionMs);
+                    long skipped = audioIn.skip(skip);
+                    if (skip != skipped)
+                        throw new IOException(String.format("Failed seeking, skip: %d, skipped: %d", skip, skipped));
+                }
             } catch (IOException ex) {
                 LOGGER.fatal("Failed seeking!", ex);
             }
