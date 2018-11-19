@@ -232,10 +232,6 @@ public class CacheManager {
                 for (int i = 0; i < headersId.length; i++)
                     file.writeHeader(headersId[i], headersData[i], true);
 
-                for (int i = 0; i < headersId.length; i++) {
-                    System.out.println("ID: " + headersId[i] + " " + new String(headersData[i]));
-                }
-
                 file.headerEnd(true);
             }
 

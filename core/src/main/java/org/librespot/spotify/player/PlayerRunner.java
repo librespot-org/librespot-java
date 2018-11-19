@@ -26,7 +26,6 @@ public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
-    private static final int PRELOAD_INTERVAL_SEC = 10;
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final Listener listener;
@@ -51,11 +50,10 @@ public class PlayerRunner implements Runnable {
     private int[] pcmIndex;
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
-    private volatile boolean notifiedPlaybackReady = false;
     private volatile boolean calledPreload = false;
 
-    public PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull Spirc.DeviceState.Builder deviceState,
-                        @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
+    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
+                 @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
@@ -68,7 +66,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         initializeSound();
-        this.controller = new Controller(outputLine, deviceState);
+        this.controller = new Controller(outputLine);
         this.duration = duration;
 
         audioIn.mark(-1);
@@ -246,11 +244,6 @@ public class PlayerRunner implements Runnable {
 
             outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
-
-            if (!notifiedPlaybackReady) {
-                listener.playbackReady();
-                notifiedPlaybackReady = true;
-            }
         }
     }
 
@@ -276,15 +269,15 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    public void play() {
+    void play() {
         playing = true;
     }
 
-    public void pause() {
+    void pause() {
         playing = false;
     }
 
-    public void seek(int positionMs) {
+    void seek(int positionMs) {
         if (positionMs > 0) {
             try {
                 audioIn.reset();
@@ -298,21 +291,23 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    public void stop() {
+    void stop() {
         stopped = true;
     }
 
     @NotNull
-    public Controller controller() {
+    Controller controller() {
         return controller;
+    }
+
+    void initController(@NotNull Spirc.DeviceState.Builder state) {
+        controller.setVolume(state.getVolume());
     }
 
     public interface Listener {
         void endOfTrack();
 
         void preloadNextTrack();
-
-        void playbackReady();
 
         void playbackError(@NotNull Exception ex);
     }
@@ -321,13 +316,11 @@ public class PlayerRunner implements Runnable {
         private final FloatControl masterGain;
         private int volume = 0;
 
-        Controller(@NotNull Line line, @NotNull Spirc.DeviceState.Builder deviceState) {
-            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+        Controller(@NotNull Line line) {
+            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-                setVolume(deviceState.getVolume());
-            } else {
+            else
                 masterGain = null;
-            }
         }
 
         private double calcLogarithmic(int val) {
@@ -341,12 +334,12 @@ public class PlayerRunner implements Runnable {
                 masterGain.setValue((float) calcLogarithmic(val));
         }
 
-        public int volumeDown() {
+        int volumeDown() {
             setVolume(volume - VOLUME_STEP);
             return volume;
         }
 
-        public int volumeUp() {
+        int volumeUp() {
             setVolume(volume + VOLUME_STEP);
             return volume;
         }
@@ -363,7 +356,7 @@ public class PlayerRunner implements Runnable {
         PlayerException() {
         }
 
-        PlayerException(Throwable ex) {
+        PlayerException(@NotNull Throwable ex) {
             super(ex);
         }
     }

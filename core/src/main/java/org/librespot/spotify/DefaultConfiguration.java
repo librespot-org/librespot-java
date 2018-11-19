@@ -1,7 +1,7 @@
 package org.librespot.spotify;
 
 import org.jetbrains.annotations.NotNull;
-import org.librespot.spotify.player.Player;
+import org.librespot.spotify.player.TrackHandler;
 
 import java.io.File;
 
@@ -16,18 +16,13 @@ public final class DefaultConfiguration extends AbsConfiguration {
 
     @NotNull
     @Override
-    public Player.AudioQuality preferredQuality() {
-        return Player.AudioQuality.VORBIS_320;
+    public TrackHandler.AudioQuality preferredQuality() {
+        return TrackHandler.AudioQuality.VORBIS_320;
     }
 
     @Override
     public float normalisationPregain() {
         return 0;
-    }
-
-    @Override
-    public boolean pauseWhenLoading() {
-        return false;
     }
 
     @Override
