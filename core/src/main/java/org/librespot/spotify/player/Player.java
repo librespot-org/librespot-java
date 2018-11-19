@@ -316,6 +316,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
         @NotNull
         TrackHandler.AudioQuality preferredQuality();
 
+        boolean preloadEnabled();
+
         float normalisationPregain();
     }
 }

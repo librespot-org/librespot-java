@@ -26,6 +26,7 @@ public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
+    private static final long PRELOAD_INTERVAL_SEC = 10;
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final Listener listener;

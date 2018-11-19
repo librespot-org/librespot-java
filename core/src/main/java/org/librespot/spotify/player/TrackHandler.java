@@ -137,6 +137,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     @Override
+    public void preloadNextTrack() {
+        // TODO
+    }
+
+    @Override
     public void playbackError(@NotNull Exception ex) {
         LOGGER.fatal("Playback failed!", ex);
     }
