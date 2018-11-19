@@ -214,10 +214,6 @@ public class Player implements FrameListener, PlayerRunner.Listener {
         stateUpdated();
     }
 
-    private void preload(Spirc.TrackRef ref) {
-
-    }
-
     private void loadTrack(boolean play, int pos) throws IOException, MercuryClient.MercuryException {
         state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
         stateUpdated();
@@ -387,8 +383,7 @@ public class Player implements FrameListener, PlayerRunner.Listener {
     }
 
     @Override
-    public void preloadNextTrack() {
-        System.out.println("PRELOAD");
+    public void preloadNextTrack() { // TODO
     }
 
     @Override
