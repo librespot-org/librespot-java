@@ -31,6 +31,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private final Listener listener;
     private final Looper looper;
     private PlayerRunner playerRunner;
+    private Metadata.Track track;
 
     TrackHandler(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener) {
         this.session = session;
@@ -58,7 +59,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private void load(@NotNull Spirc.TrackRef ref, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
+        track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
         track = pickAlternativeIfNecessary(track);
         if (track == null) {
             LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(ref.getGid()));
@@ -150,6 +151,15 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     public void close() {
         if (playerRunner != null) playerRunner.stop();
         looper.stop();
+    }
+
+    @Nullable
+    public Metadata.Track track() {
+        return track;
+    }
+
+    boolean isTrack(Spirc.TrackRef ref) {
+        return track != null && ref.getGid().equals(track.getGid());
     }
 
     public enum AudioQuality {
