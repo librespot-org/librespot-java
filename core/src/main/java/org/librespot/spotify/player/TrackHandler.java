@@ -31,6 +31,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private final Listener listener;
     private final Looper looper;
     private PlayerRunner playerRunner;
+    private Metadata.Track track;
 
     TrackHandler(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener) {
         this.session = session;
@@ -58,7 +59,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private void load(@NotNull Spirc.TrackRef ref, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        Metadata.Track track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
+        track = session.mercury().requestSync(MercuryRequests.getTrack(new TrackId(ref)));
         track = pickAlternativeIfNecessary(track);
         if (track == null) {
             LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(ref.getGid()));
@@ -98,12 +99,12 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
             playerRunner.seek(pos);
 
-            listener.finishedLoading(play);
+            listener.finishedLoading(this, play);
 
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
-            listener.loadingError(ex);
+            listener.loadingError(this, ex);
         }
     }
 
@@ -133,7 +134,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
     @Override
     public void endOfTrack() {
-        listener.endOfTrack();
+        listener.endOfTrack(this);
     }
 
     @Override
@@ -150,6 +151,15 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     public void close() {
         if (playerRunner != null) playerRunner.stop();
         looper.stop();
+    }
+
+    @Nullable
+    public Metadata.Track track() {
+        return track;
+    }
+
+    boolean isTrack(Spirc.TrackRef ref) {
+        return track != null && ref.getGid().equals(track.getGid());
     }
 
     public enum AudioQuality {
@@ -200,11 +210,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     public interface Listener {
-        void finishedLoading(boolean play);
+        void finishedLoading(@NotNull TrackHandler handler, boolean play);
 
-        void loadingError(@NotNull Exception ex);
+        void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex);
 
-        void endOfTrack();
+        void endOfTrack(@NotNull TrackHandler handler);
     }
 
     private class Looper implements Runnable {
@@ -220,7 +230,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                             try {
                                 load((Spirc.TrackRef) cmd.args[0], (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                             } catch (IOException | MercuryClient.MercuryException ex) {
-                                listener.loadingError(ex);
+                                listener.loadingError(TrackHandler.this, ex);
                             }
                             break;
                         case Play:

@@ -2,7 +2,9 @@ package org.librespot.spotify.player;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.Utils;
 import org.librespot.spotify.core.Session;
+import org.librespot.spotify.proto.Metadata;
 import org.librespot.spotify.proto.Spirc;
 import org.librespot.spotify.spirc.FrameListener;
 import org.librespot.spotify.spirc.SpotifyIrc;
@@ -12,18 +14,24 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
  */
 public class Player implements FrameListener, TrackHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
+    private static final long TRACK_PRELOAD_THRESHOLD = TimeUnit.SECONDS.toMillis(10);
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
     private final PlayerConfiguration conf;
     private final CacheManager cacheManager;
+    private final PreloadScheduler scheduler = new PreloadScheduler();
     private TrackHandler trackHandler;
+    private TrackHandler preloadTrackHandler;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
         this.conf = conf;
@@ -121,7 +129,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void handleVolumeDown() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.volumeDown();
+            if (controller != null) spirc.deviceState().setVolume(controller.volumeDown());
             stateUpdated();
         }
     }
@@ -129,7 +137,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void handleVolumeUp() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.volumeUp();
+            if (controller != null) spirc.deviceState().setVolume(controller.volumeUp());
             stateUpdated();
         }
     }
@@ -169,6 +177,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
         state.setPositionMeasuredAt(System.currentTimeMillis());
         if (trackHandler != null) trackHandler.sendSeek(pos);
         stateUpdated();
+
+        scheduler.reschedule();
     }
 
     private void updatedTracks(@NotNull Spirc.Frame frame) {
@@ -181,23 +191,42 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     @Override
-    public void finishedLoading(boolean play) {
-        if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-        else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
-        stateUpdated();
+    public void finishedLoading(@NotNull TrackHandler handler, boolean play) {
+        if (handler == trackHandler) {
+            if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+            stateUpdated();
+        } else if (handler == preloadTrackHandler) {
+            LOGGER.trace("Preloaded track is ready.");
+        }
     }
 
     @Override
-    public void loadingError(@NotNull Exception ex) {
-        LOGGER.fatal("Failed loading track!", ex);
-        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-        stateUpdated();
+    public void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex) {
+        if (handler == trackHandler) {
+            LOGGER.fatal("Failed loading track!", ex);
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
+        } else if (handler == preloadTrackHandler) {
+            LOGGER.warn("Preloaded track loading failed!", ex);
+            preloadTrackHandler = null;
+        }
     }
 
     @Override
-    public void endOfTrack() {
-        LOGGER.trace("End of track. Proceeding with next.");
-        handleNext();
+    public void endOfTrack(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            LOGGER.trace("End of track. Proceeding with next.");
+            handleNext();
+        }
+    }
+
+    private void preloadNextTrack() {
+        Spirc.TrackRef next = state.getTrack(getQueuedTrack(false));
+
+        preloadTrackHandler = new TrackHandler(session, cacheManager, conf, this);
+        preloadTrackHandler.sendLoad(next, false, 0);
+        LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
     }
 
     private void handleLoad(@NotNull Spirc.Frame frame) {
@@ -223,11 +252,27 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
-        trackHandler = new TrackHandler(session, cacheManager, conf, this);
-        trackHandler.sendLoad(state.getTrack(state.getPlayingTrackIndex()), play, state.getPositionMs());
-        state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+
+        Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
+        if (preloadTrackHandler != null && preloadTrackHandler.isTrack(ref)) {
+            trackHandler = preloadTrackHandler;
+            preloadTrackHandler = null;
+            trackHandler.sendSeek(state.getPositionMs());
+            if (play) {
+                state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+                trackHandler.sendPlay();
+            } else {
+                state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+            }
+        } else {
+            trackHandler = new TrackHandler(session, cacheManager, conf, this);
+            trackHandler.sendLoad(ref, play, state.getPositionMs());
+            state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+        }
 
         stateUpdated();
+
+        scheduler.reschedule();
     }
 
     private void handlePlay() {
@@ -236,6 +281,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             state.setPositionMeasuredAt(System.currentTimeMillis());
             stateUpdated();
+
+            scheduler.reschedule();
         }
     }
 
@@ -250,11 +297,13 @@ public class Player implements FrameListener, TrackHandler.Listener {
             state.setPositionMs(pos + diff);
             state.setPositionMeasuredAt(now);
             stateUpdated();
+
+            scheduler.reschedule();
         }
     }
 
     private void handleNext() {
-        int newTrack = consumeQueuedTrack();
+        int newTrack = getQueuedTrack(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
             newTrack = 0;
@@ -299,13 +348,15 @@ public class Player implements FrameListener, TrackHandler.Listener {
             state.setPositionMeasuredAt(System.currentTimeMillis());
             if (trackHandler != null) trackHandler.sendSeek(0);
             stateUpdated();
+
+            scheduler.reschedule();
         }
     }
 
-    private int consumeQueuedTrack() {
+    private int getQueuedTrack(boolean consume) {
         int current = state.getPlayingTrackIndex();
         if (state.getTrack(current).getQueued()) {
-            state.removeTrack(current);
+            if (consume) state.removeTrack(current);
             return current;
         }
 
@@ -316,6 +367,37 @@ public class Player implements FrameListener, TrackHandler.Listener {
         @NotNull
         TrackHandler.AudioQuality preferredQuality();
 
+        boolean preloadEnabled();
+
         float normalisationPregain();
+    }
+
+    private class PreloadScheduler {
+        private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        private Task activeTask;
+
+        void reschedule() {
+            if (activeTask != null) activeTask.abort();
+
+            if (!conf.preloadEnabled() || state.getStatus() != Spirc.PlayStatus.kPlayStatusPlay) return;
+            Metadata.Track track = trackHandler != null ? trackHandler.track() : null;
+            if (track == null) return;
+
+            activeTask = new Task();
+            executor.schedule(activeTask, (track.getDuration() - getPosition()) - TRACK_PRELOAD_THRESHOLD, TimeUnit.MILLISECONDS);
+        }
+
+        private class Task implements Runnable {
+            private volatile boolean aborted = false;
+
+            @Override
+            public void run() {
+                if (!aborted) preloadNextTrack();
+            }
+
+            private void abort() {
+                aborted = true;
+            }
+        }
     }
 }

@@ -25,6 +25,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
         return 0;
     }
 
+    @Override
+    public boolean preloadEnabled() {
+        return true;
+    }
+
     //****************//
     //---- CACHE -----//
     //****************//
