@@ -94,7 +94,7 @@ public class AudioFileStreaming implements AudioFile {
             cacheHandler.write(buffer, chunkIndex);
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b", chunkIndex, chunks, cached));
+        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, getFileIdHex()));
     }
 
     @Override
