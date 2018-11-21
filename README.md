@@ -27,5 +27,4 @@ After you've setup the [Main class](https://github.com/librespot-org/librespot-j
 The client is pretty functional as it is, but improvements can be made:
 - Have an user interface
 - ~Caching~ (#18)
-- Preloading
-- Gapless playing
+- ~Preloading~ (#21)
