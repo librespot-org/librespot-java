@@ -39,13 +39,13 @@ public class MercuryClient extends PacketsManager {
 
     @NotNull
     public <M> M requestSync(@NotNull GeneralMercuryRequest<M> request) throws IOException, MercuryException {
-        Response response = sendSync(request.uri, request.method, request.payload);
+        Response response = sendSync(request.uri, request.method, new Mercury.UserField[0], request.payload);
         if (response.statusCode >= 200 && response.statusCode < 300) return request.processor.process(response);
         else throw new MercuryException(response);
     }
 
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
-        Response response = sendSync(uri, Method.SUB, new byte[0][0]);
+        Response response = sendSync(uri, Method.SUB, new Mercury.UserField[0], new byte[0][0]);
         if (response.statusCode != 200) throw new PubSubException(response);
 
         if (response.payload.length > 0) {
@@ -61,9 +61,9 @@ public class MercuryClient extends PacketsManager {
     }
 
     @NotNull
-    public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload) throws IOException {
+    public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull Mercury.UserField[] fields, @NotNull byte[][] payload) throws IOException {
         AtomicReference<Response> reference = new AtomicReference<>(null);
-        send(uri, method, payload, response -> {
+        send(uri, method, fields, payload, response -> {
             synchronized (reference) {
                 reference.set(response);
                 reference.notifyAll();
@@ -73,7 +73,7 @@ public class MercuryClient extends PacketsManager {
         return Utils.wait(reference);
     }
 
-    public void send(@NotNull String uri, @NotNull Method method, @NotNull byte[][] payload, @NotNull Callback callback) throws IOException {
+    public void send(@NotNull String uri, @NotNull Method method, @NotNull Mercury.UserField[] fields, @NotNull byte[][] payload, @NotNull Callback callback) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
 
@@ -90,12 +90,14 @@ public class MercuryClient extends PacketsManager {
         out.writeByte(1); // Flags
         out.writeShort(1 + payload.length); // Parts count
 
-        Mercury.Header header = Mercury.Header.newBuilder()
+        Mercury.Header.Builder header = Mercury.Header.newBuilder()
                 .setMethod(method.name)
-                .setUri(uri)
-                .build();
+                .setUri(uri);
 
-        byte[] headerBytes = header.toByteArray();
+        for (Mercury.UserField field : fields)
+            header.addUserFields(field);
+
+        byte[] headerBytes = header.build().toByteArray();
         out.writeShort(headerBytes.length); // Header length
         out.write(headerBytes); // Header
 

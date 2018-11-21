@@ -19,5 +19,7 @@ public class Main {
                 .userPass(args[0], args[1])
                 // .blob("username", new byte[] {...})
                 .create();
+
+        ConsoleClient.start(session);
     }
 }
