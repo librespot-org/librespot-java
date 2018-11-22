@@ -1,10 +1,9 @@
 package org.librespot.spotify;
 
-import com.google.protobuf.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.mercury.MercuryClient;
-import org.librespot.spotify.proto.Mercury;
+import org.librespot.spotify.mercury.RawMercuryRequest;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,17 +38,18 @@ public class ConsoleClient {
         System.out.print("Method (GET, SEND, SUB, UNSUB): ");
 
         String in = scanner.nextLine();
-        MercuryClient.Method method = MercuryClient.Method.valueOf(in);
+        String method = in;
 
         System.out.print("URI: ");
         in = scanner.nextLine();
         String uri = in;
 
-        Mercury.UserField[] fields = new Mercury.UserField[2];
-        fields[0] = Mercury.UserField.newBuilder().setKey("Accept-Language").setValue(ByteString.copyFromUtf8("en")).build();
-        fields[1] = Mercury.UserField.newBuilder().setKey("Accept-Encoding").setValue(ByteString.copyFromUtf8("gzip")).build();
-
-        MercuryClient.Response resp = client.sendSync(uri, method, fields, new byte[0][]);
+        MercuryClient.Response resp = client.sendSync(RawMercuryRequest.newBuilder()
+                .setUri(uri)
+                .setMethod(method)
+                .addUserField("Accept-Language", "en")
+                .addUserField("Accept-Encoding", "gzip")
+                .build());
 
         System.out.println("Status code: " + resp.statusCode);
         System.out.println("Response URI: " + resp.uri);

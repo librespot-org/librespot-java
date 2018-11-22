@@ -3,11 +3,11 @@ package org.librespot.spotify.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.librespot.spotify.BytesArrayList;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import static org.librespot.spotify.player.ChannelManager.CHUNK_SIZE;
 
@@ -85,36 +85,5 @@ class AudioFileFetch implements AudioFile {
     public int getChunks() {
         if (chunks == -1) throw new IllegalStateException("Headers not received yet!");
         return chunks;
-    }
-
-    private static class BytesArrayList {
-        private byte[][] elementData;
-        private int size;
-
-        BytesArrayList() {
-            size = 0;
-            elementData = new byte[5][];
-        }
-
-        private void ensureExplicitCapacity(int minCapacity) {
-            if (minCapacity - elementData.length > 0)
-                grow(minCapacity);
-        }
-
-        void add(byte[] e) {
-            ensureExplicitCapacity(size + 1);
-            elementData[size++] = e;
-        }
-
-        byte[][] toArray() {
-            return elementData;
-        }
-
-        private void grow(int minCapacity) {
-            int oldCapacity = elementData.length;
-            int newCapacity = oldCapacity + (oldCapacity >> 1);
-            if (newCapacity - minCapacity < 0) newCapacity = minCapacity;
-            elementData = Arrays.copyOf(elementData, newCapacity);
-        }
     }
 }

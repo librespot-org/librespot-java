@@ -7,9 +7,9 @@ import org.jetbrains.annotations.Nullable;
 import org.librespot.spotify.Version;
 import org.librespot.spotify.core.Session;
 import org.librespot.spotify.mercury.MercuryClient;
+import org.librespot.spotify.mercury.RawMercuryRequest;
 import org.librespot.spotify.mercury.SubListener;
 import org.librespot.spotify.player.PlayerRunner;
-import org.librespot.spotify.proto.Mercury;
 import org.librespot.spotify.proto.Spirc;
 
 import java.io.IOException;
@@ -107,7 +107,7 @@ public class SpotifyIrc {
                 .setStateUpdateId(System.currentTimeMillis())
                 .build();
 
-        MercuryClient.Response response = session.mercury().sendSync(uri, MercuryClient.Method.SEND, new Mercury.UserField[0], new byte[][]{frame.toByteArray()});
+        MercuryClient.Response response = session.mercury().sendSync(RawMercuryRequest.send(uri, frame.toByteArray()));
         if (response.statusCode == 200) {
             LOGGER.trace("Frame sent successfully, type: " + type);
         } else {

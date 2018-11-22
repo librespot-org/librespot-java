@@ -1,8 +1,10 @@
 package org.librespot.spotify.mercury;
 
+import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.librespot.spotify.BytesArrayList;
 import org.librespot.spotify.Utils;
 import org.librespot.spotify.core.PacketsManager;
 import org.librespot.spotify.core.Session;
@@ -27,6 +29,7 @@ public class MercuryClient extends PacketsManager {
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
+    private final Map<Long, PartialResponse> partials = new HashMap<>();
 
     public MercuryClient(@NotNull Session session) {
         super(session);
@@ -37,15 +40,8 @@ public class MercuryClient extends PacketsManager {
         return session.apWelcome().getCanonicalUsername();
     }
 
-    @NotNull
-    public <M> M requestSync(@NotNull GeneralMercuryRequest<M> request) throws IOException, MercuryException {
-        Response response = sendSync(request.uri, request.method, new Mercury.UserField[0], request.payload);
-        if (response.statusCode >= 200 && response.statusCode < 300) return request.processor.process(response);
-        else throw new MercuryException(response);
-    }
-
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
-        Response response = sendSync(uri, Method.SUB, new Mercury.UserField[0], new byte[0][0]);
+        Response response = sendSync(RawMercuryRequest.sub(uri));
         if (response.statusCode != 200) throw new PubSubException(response);
 
         if (response.payload.length > 0) {
@@ -61,9 +57,9 @@ public class MercuryClient extends PacketsManager {
     }
 
     @NotNull
-    public Response sendSync(@NotNull String uri, @NotNull Method method, @NotNull Mercury.UserField[] fields, @NotNull byte[][] payload) throws IOException {
+    public Response sendSync(@NotNull RawMercuryRequest request) throws IOException {
         AtomicReference<Response> reference = new AtomicReference<>(null);
-        send(uri, method, fields, payload, response -> {
+        send(request, response -> {
             synchronized (reference) {
                 reference.set(response);
                 reference.notifyAll();
@@ -73,7 +69,14 @@ public class MercuryClient extends PacketsManager {
         return Utils.wait(reference);
     }
 
-    public void send(@NotNull String uri, @NotNull Method method, @NotNull Mercury.UserField[] fields, @NotNull byte[][] payload, @NotNull Callback callback) throws IOException {
+    @NotNull
+    public <P extends AbstractMessageLite> P sendSync(@NotNull ProtobufMercuryRequest<P> request) throws IOException, MercuryException {
+        Response resp = sendSync(request.request);
+        if (resp.statusCode >= 200 && resp.statusCode < 300) return request.processor.process(resp);
+        else throw new MercuryException(resp);
+    }
+
+    public void send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
 
@@ -82,31 +85,24 @@ public class MercuryClient extends PacketsManager {
             seq = seqHolder.getAndIncrement();
         }
 
-        LOGGER.trace(String.format("Send Mercury request, seq: %d, uri: %s, method: %s", seq, uri, method.name));
+        LOGGER.trace(String.format("Send Mercury request, seq: %d, uri: %s, method: %s", seq, request.header.getUri(), request.header.getMethod()));
 
         out.writeShort((short) 4); // Seq length
         out.writeInt(seq); // Seq
 
         out.writeByte(1); // Flags
-        out.writeShort(1 + payload.length); // Parts count
+        out.writeShort(1 + request.payload.length); // Parts count
 
-        Mercury.Header.Builder header = Mercury.Header.newBuilder()
-                .setMethod(method.name)
-                .setUri(uri);
-
-        for (Mercury.UserField field : fields)
-            header.addUserFields(field);
-
-        byte[] headerBytes = header.build().toByteArray();
+        byte[] headerBytes = request.header.toByteArray();
         out.writeShort(headerBytes.length); // Header length
         out.write(headerBytes); // Header
 
-        for (byte[] part : payload) { // Parts
+        for (byte[] part : request.payload) { // Parts
             out.writeShort(part.length);
             out.write(part);
         }
 
-        Packet.Type cmd = method.command();
+        Packet.Type cmd = Packet.Type.forMethod(request.header.getMethod());
         session.send(cmd, bytesOut.toByteArray());
 
         callbacks.put((long) seq, callback);
@@ -125,37 +121,27 @@ public class MercuryClient extends PacketsManager {
         byte flags = payload.get();
         short parts = payload.getShort();
 
-        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, parts: %d", packet.type(), seq, parts));
+        PartialResponse partial = partials.get(seq);
+        if (partial == null || flags == 0) {
+            partial = new PartialResponse();
+            partials.put(seq, partial);
+        }
 
-        byte[][] payloadParts = new byte[parts][];
+        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, flags: %d, parts: %d", packet.type(), seq, flags, parts));
+
         for (int i = 0; i < parts; i++) {
-                /*
-                part, err := parsePart(reader)
-                if err != nil {
-                    fmt.Println("read part")
-                    return nil, err
-                }
-
-                if pending.partial != nil {
-                    part = append(pending.partial, part...)
-                    pending.partial = nil
-                }
-
-                if i == count-1 && (flags == 2) {
-                    pending.partial = part
-                } else {
-                    pending.parts = append(pending.parts, part)
-                }
-                */
-
             short size = payload.getShort();
             byte[] buffer = new byte[size];
             payload.get(buffer);
-            payloadParts[i] = buffer;
+            partial.payloadParts.add(buffer);
         }
 
-        Mercury.Header header = Mercury.Header.parseFrom(payloadParts[0]);
-        Response resp = new Response(header, payloadParts);
+        if (flags != 1) return;
+
+        partials.remove(seq);
+
+        Mercury.Header header = Mercury.Header.parseFrom(partial.payloadParts.toArray()[0]);
+        Response resp = new Response(header, partial.payloadParts.toArray());
 
         if (packet.is(Packet.Type.MercurySubEvent)) {
             boolean dispatched = false;
@@ -185,36 +171,12 @@ public class MercuryClient extends PacketsManager {
         LOGGER.fatal("Failed handling packet!", ex);
     }
 
-    public enum Method {
-        GET("GET"),
-        SEND("SEND"),
-        SUB("SUB"),
-        UNSUB("UNSUB");
-
-        private final String name;
-
-        Method(String name) {
-            this.name = name;
-        }
-
-        @NotNull
-        public Packet.Type command() {
-            switch (this) {
-                case SEND:
-                case GET:
-                    return Packet.Type.MercuryReq;
-                case SUB:
-                    return Packet.Type.MercurySub;
-                case UNSUB:
-                    return Packet.Type.MercuryUnsub;
-                default:
-                    throw new IllegalStateException("Unknown method: " + this);
-            }
-        }
-    }
-
     public interface Callback {
         void response(@NotNull Response response);
+    }
+
+    private static class PartialResponse {
+        private final BytesArrayList payloadParts = new BytesArrayList();
     }
 
     public static class PubSubException extends MercuryException {

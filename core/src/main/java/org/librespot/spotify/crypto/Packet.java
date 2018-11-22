@@ -67,5 +67,16 @@ public class Packet {
 
             return null;
         }
+
+        public static Packet.Type forMethod(@NotNull String method) {
+            switch (method) {
+                case "SUB":
+                    return MercurySub;
+                case "UNSUB":
+                    return MercuryUnsub;
+                default:
+                    return MercuryReq;
+            }
+        }
     }
 }
