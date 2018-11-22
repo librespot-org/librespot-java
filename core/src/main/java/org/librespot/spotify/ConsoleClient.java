@@ -36,7 +36,7 @@ public class ConsoleClient {
 
     private void loop() throws IOException {
         System.out.println("New Mercury request");
-        System.out.print("Method: ");
+        System.out.print("Method (GET, SEND, SUB, UNSUB): ");
 
         String in = scanner.nextLine();
         MercuryClient.Method method = MercuryClient.Method.valueOf(in);
@@ -53,8 +53,12 @@ public class ConsoleClient {
 
         System.out.println("Status code: " + resp.statusCode);
         System.out.println("Response URI: " + resp.uri);
-        System.out.println("Payload: " + Arrays.deepToString(resp.payload));
-        if (resp.payload.length > 0) System.out.println("Payload 0 string: " + new String(resp.payload[0]));
+        System.out.println("Payloads: " + Arrays.deepToString(resp.payload));
+
+        for (int i = 0; i < resp.payload.length; i++) {
+            System.out.println("Payload " + i + " HEX: " + Utils.bytesToHex(resp.payload[i]));
+            System.out.println("Payload " + i + " string: " + new String(resp.payload[i]));
+        }
 
         System.out.println();
     }
