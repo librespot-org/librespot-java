@@ -2,6 +2,7 @@ package org.librespot.spotify;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -67,6 +68,35 @@ public class BytesArrayList implements Iterable<byte[]> {
     @Override
     public String toString() {
         return Arrays.deepToString(toArray());
+    }
+
+    @NotNull
+    public InputStream stream() {
+        return new InternalStream();
+    }
+
+    private class InternalStream extends InputStream { // TODO: Improve
+        private int offset = 0;
+        private int sub = 0;
+
+        private InternalStream() {
+        }
+
+        @Override
+        public synchronized int read() {
+            if (sub >= elementData.length)
+                return -1;
+
+            if (offset >= elementData[sub].length) {
+                offset = 0;
+                sub++;
+            }
+
+            if (sub >= elementData.length)
+                return -1;
+
+            return elementData[sub][offset++] & 0xff;
+        }
     }
 
     private class Itr implements Iterator<byte[]> {

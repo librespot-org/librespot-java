@@ -1,8 +1,9 @@
 package org.librespot.spotify.mercury;
 
 import com.google.protobuf.AbstractMessageLite;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
 
 /**
  * @author Gianlu
@@ -18,6 +19,6 @@ public class ProtobufMercuryRequest<P extends AbstractMessageLite> {
 
     public interface Processor<P extends AbstractMessageLite> {
         @NotNull
-        P process(@NotNull MercuryClient.Response response) throws InvalidProtocolBufferException;
+        P process(@NotNull MercuryClient.Response response) throws IOException;
     }
 }

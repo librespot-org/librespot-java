@@ -74,7 +74,7 @@ public class Main {
                 "hm://metadata/4/track/fa1907e1f0d845f79db7aef7754860fb?country=IT&product=premium",
                 "hm://metadata/4/track/f26568c04642451fa772e1e0da13b35e?country=IT&product=premium"};
 
-        Mercury.MercuryRequest[] requests = new Mercury.MercuryRequest[5];
+        Mercury.MercuryRequest[] requests = new Mercury.MercuryRequest[uris.length];
         for (int i = 0; i < requests.length; i++)
             requests[i] = Mercury.MercuryRequest.newBuilder().setUri(uris[i]).build();
 

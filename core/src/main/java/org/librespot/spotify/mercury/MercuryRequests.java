@@ -11,9 +11,9 @@ import org.librespot.spotify.proto.Playlist4Changes;
  * @author Gianlu
  */
 public final class MercuryRequests {
-    private static final ProtobufMercuryRequest.Processor<Playlist4Changes.SelectedListContent> SELECTED_LIST_CONTENT_PROCESSOR = response -> Playlist4Changes.SelectedListContent.parseFrom(response.payload.get(0));
-    private static final ProtobufMercuryRequest.Processor<Metadata.Track> METADATA_4_TRACK_PROCESSOR = response -> Metadata.Track.parseFrom(response.payload.get(0));
-    private static final ProtobufMercuryRequest.Processor<Mercury.MercuryMultiGetReply> MULTI_GET_REPLY_PROCESSOR = response -> Mercury.MercuryMultiGetReply.parseFrom(response.payload.get(0));
+    private static final ProtobufMercuryRequest.Processor<Playlist4Changes.SelectedListContent> SELECTED_LIST_CONTENT_PROCESSOR = response -> Playlist4Changes.SelectedListContent.parseFrom(response.payload.stream());
+    private static final ProtobufMercuryRequest.Processor<Metadata.Track> METADATA_4_TRACK_PROCESSOR = response -> Metadata.Track.parseFrom(response.payload.stream());
+    private static final ProtobufMercuryRequest.Processor<Mercury.MercuryMultiGetReply> MULTI_GET_REPLY_PROCESSOR = response -> Mercury.MercuryMultiGetReply.parseFrom(response.payload.stream());
 
     private MercuryRequests() {
     }
