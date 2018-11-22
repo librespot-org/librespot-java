@@ -6,7 +6,6 @@ import org.librespot.spotify.mercury.MercuryClient;
 import org.librespot.spotify.mercury.RawMercuryRequest;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Scanner;
 
 /**
@@ -53,11 +52,11 @@ public class ConsoleClient {
 
         System.out.println("Status code: " + resp.statusCode);
         System.out.println("Response URI: " + resp.uri);
-        System.out.println("Payloads: " + Arrays.deepToString(resp.payload));
+        System.out.println("Payloads: " + resp.payload);
 
-        for (int i = 0; i < resp.payload.length; i++) {
-            System.out.println("Payload " + i + " HEX: " + Utils.bytesToHex(resp.payload[i]));
-            System.out.println("Payload " + i + " string: " + new String(resp.payload[i]));
+        for (int i = 0; i < resp.payload.size(); i++) {
+            System.out.println("Payload " + i + " HEX: " + Utils.bytesToHex(resp.payload.get(i)));
+            System.out.println("Payload " + i + " string: " + new String(resp.payload.get(i)));
         }
 
         System.out.println();

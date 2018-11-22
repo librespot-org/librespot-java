@@ -167,7 +167,7 @@ public class SpotifyIrc {
             String ident = session.deviceId();
 
             try {
-                Spirc.Frame frame = Spirc.Frame.parseFrom(resp.payload[0]);
+                Spirc.Frame frame = Spirc.Frame.parseFrom(resp.payload.get(0));
                 if (ident.equals(frame.getIdent()) || (frame.getRecipientCount() > 0 && !frame.getRecipientList().contains(ident))) {
                     LOGGER.trace(String.format("Skipping message, not for us, ident: %s, recipients: %s", frame.getIdent(), frame.getRecipientList()));
                     return;

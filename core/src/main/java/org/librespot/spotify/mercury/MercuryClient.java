@@ -29,7 +29,7 @@ public class MercuryClient extends PacketsManager {
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
-    private final Map<Long, PartialResponse> partials = new HashMap<>();
+    private final Map<Long, BytesArrayList> partials = new HashMap<>();
 
     public MercuryClient(@NotNull Session session) {
         super(session);
@@ -44,7 +44,7 @@ public class MercuryClient extends PacketsManager {
         Response response = sendSync(RawMercuryRequest.sub(uri));
         if (response.statusCode != 200) throw new PubSubException(response);
 
-        if (response.payload.length > 0) {
+        if (response.payload.size() > 0) {
             for (byte[] payload : response.payload) {
                 Pubsub.Subscription sub = Pubsub.Subscription.parseFrom(payload);
                 subscriptions.add(new InternalSubListener(sub.getUri(), listener));
@@ -121,9 +121,9 @@ public class MercuryClient extends PacketsManager {
         byte flags = payload.get();
         short parts = payload.getShort();
 
-        PartialResponse partial = partials.get(seq);
+        BytesArrayList partial = partials.get(seq);
         if (partial == null || flags == 0) {
-            partial = new PartialResponse();
+            partial = new BytesArrayList();
             partials.put(seq, partial);
         }
 
@@ -133,15 +133,16 @@ public class MercuryClient extends PacketsManager {
             short size = payload.getShort();
             byte[] buffer = new byte[size];
             payload.get(buffer);
-            partial.payloadParts.add(buffer);
+            partial.add(buffer);
         }
 
         if (flags != 1) return;
 
         partials.remove(seq);
 
-        Mercury.Header header = Mercury.Header.parseFrom(partial.payloadParts.toArray()[0]);
-        Response resp = new Response(header, partial.payloadParts.toArray());
+
+        Mercury.Header header = Mercury.Header.parseFrom(partial.get(0));
+        Response resp = new Response(header, partial);
 
         if (packet.is(Packet.Type.MercurySubEvent)) {
             boolean dispatched = false;
@@ -173,10 +174,6 @@ public class MercuryClient extends PacketsManager {
 
     public interface Callback {
         void response(@NotNull Response response);
-    }
-
-    private static class PartialResponse {
-        private final BytesArrayList payloadParts = new BytesArrayList();
     }
 
     public static class PubSubException extends MercuryException {
@@ -211,13 +208,13 @@ public class MercuryClient extends PacketsManager {
 
     public static class Response {
         public final String uri;
-        public final byte[][] payload;
+        public final BytesArrayList payload;
         public final int statusCode;
 
-        private Response(Mercury.Header header, byte[][] payload) {
+        private Response(@NotNull Mercury.Header header, @NotNull BytesArrayList payload) {
             this.uri = header.getUri();
             this.statusCode = header.getStatusCode();
-            this.payload = Arrays.copyOfRange(payload, 1, payload.length);
+            this.payload = payload.copyOfRange(1, payload.size());
         }
     }
 }
