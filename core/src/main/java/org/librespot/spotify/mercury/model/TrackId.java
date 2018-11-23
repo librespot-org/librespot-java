@@ -17,22 +17,34 @@ public class TrackId implements SpotifyId {
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
-    public TrackId(@NotNull Playlist4Content.Item item) {
+    private TrackId(@NotNull String hex) {
+        this.hexId = hex;
+    }
+
+    @NotNull
+    public static TrackId fromItemsList(@NotNull Playlist4Content.Item item) {
         Matcher matcher = PATTERN.matcher(item.getUri());
         if (matcher.find()) {
             String id = matcher.group(1);
-            hexId = Utils.bytesToHex(BASE62.decode(id.getBytes()));
+            return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
         } else {
             throw new IllegalArgumentException("Not a Spotify track ID: " + item.getUri());
         }
     }
 
-    public TrackId(@NotNull String id) {
-        hexId = Utils.bytesToHex(BASE62.decode(id.getBytes()));
+    @NotNull
+    public static TrackId fromBase62(@NotNull String base62) {
+        return new TrackId(Utils.bytesToHex(BASE62.decode(base62.getBytes())));
     }
 
-    public TrackId(Spirc.TrackRef ref) {
-        hexId = Utils.bytesToHex(ref.getGid().toByteArray());
+    @NotNull
+    public static TrackId fromTrackRef(@NotNull Spirc.TrackRef ref) {
+        return new TrackId(Utils.bytesToHex(ref.getGid().toByteArray()));
+    }
+
+    @NotNull
+    public static TrackId fromHex(@NotNull String hex) {
+        return new TrackId(hex);
     }
 
     @Override

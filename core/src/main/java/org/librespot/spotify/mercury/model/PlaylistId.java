@@ -14,11 +14,16 @@ public class PlaylistId implements SpotifyId {
     public final String username;
     public final String playlistId;
 
-    public PlaylistId(@NotNull Playlist4Content.Item item) {
+    private PlaylistId(@NotNull String username, @NotNull String playlistId) {
+        this.username = username;
+        this.playlistId = playlistId;
+    }
+
+    @NotNull
+    public static PlaylistId fromItemsList(@NotNull Playlist4Content.Item item) {
         Matcher matcher = PATTERN.matcher(item.getUri());
         if (matcher.find()) {
-            username = matcher.group(1);
-            playlistId = matcher.group(2);
+            return new PlaylistId(matcher.group(1), matcher.group(2));
         } else {
             throw new IllegalArgumentException("Not a Spotify playlist ID: " + item.getUri());
         }
