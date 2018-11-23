@@ -1864,6 +1864,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum list_checksum = 3;</code>
              */
+            public Builder setListChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (listChecksumBuilder_ == null) {
+                    listChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    listChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum list_checksum = 3;</code>
+             */
             public Builder setListChecksum(Playlist4Meta.ListChecksum value) {
                 if (listChecksumBuilder_ == null) {
                     if (value == null) {
@@ -1873,21 +1888,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     listChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum list_checksum = 3;</code>
-             */
-            public Builder setListChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (listChecksumBuilder_ == null) {
-                    listChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    listChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -3298,6 +3298,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum list_checksum = 4;</code>
              */
+            public Builder setListChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (listChecksumBuilder_ == null) {
+                    listChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    listChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum list_checksum = 4;</code>
+             */
             public Builder setListChecksum(Playlist4Meta.ListChecksum value) {
                 if (listChecksumBuilder_ == null) {
                     if (value == null) {
@@ -3307,21 +3322,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     listChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum list_checksum = 4;</code>
-             */
-            public Builder setListChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (listChecksumBuilder_ == null) {
-                    listChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    listChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -3421,6 +3421,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum items_checksum = 5;</code>
              */
+            public Builder setItemsChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (itemsChecksumBuilder_ == null) {
+                    itemsChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    itemsChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum items_checksum = 5;</code>
+             */
             public Builder setItemsChecksum(Playlist4Meta.ListChecksum value) {
                 if (itemsChecksumBuilder_ == null) {
                     if (value == null) {
@@ -3430,21 +3445,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     itemsChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum items_checksum = 5;</code>
-             */
-            public Builder setItemsChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (itemsChecksumBuilder_ == null) {
-                    itemsChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    itemsChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -3544,6 +3544,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum uris_checksum = 6;</code>
              */
+            public Builder setUrisChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (urisChecksumBuilder_ == null) {
+                    urisChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    urisChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum uris_checksum = 6;</code>
+             */
             public Builder setUrisChecksum(Playlist4Meta.ListChecksum value) {
                 if (urisChecksumBuilder_ == null) {
                     if (value == null) {
@@ -3553,21 +3568,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     urisChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum uris_checksum = 6;</code>
-             */
-            public Builder setUrisChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (urisChecksumBuilder_ == null) {
-                    urisChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    urisChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;
@@ -4612,6 +4612,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum list_checksum = 4;</code>
              */
+            public Builder setListChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (listChecksumBuilder_ == null) {
+                    listChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    listChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum list_checksum = 4;</code>
+             */
             public Builder setListChecksum(Playlist4Meta.ListChecksum value) {
                 if (listChecksumBuilder_ == null) {
                     if (value == null) {
@@ -4621,21 +4636,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     listChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum list_checksum = 4;</code>
-             */
-            public Builder setListChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (listChecksumBuilder_ == null) {
-                    listChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    listChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -4735,6 +4735,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum items_checksum = 5;</code>
              */
+            public Builder setItemsChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (itemsChecksumBuilder_ == null) {
+                    itemsChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    itemsChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum items_checksum = 5;</code>
+             */
             public Builder setItemsChecksum(Playlist4Meta.ListChecksum value) {
                 if (itemsChecksumBuilder_ == null) {
                     if (value == null) {
@@ -4744,21 +4759,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     itemsChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum items_checksum = 5;</code>
-             */
-            public Builder setItemsChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (itemsChecksumBuilder_ == null) {
-                    itemsChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    itemsChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -4858,6 +4858,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum uris_checksum = 6;</code>
              */
+            public Builder setUrisChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (urisChecksumBuilder_ == null) {
+                    urisChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    urisChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum uris_checksum = 6;</code>
+             */
             public Builder setUrisChecksum(Playlist4Meta.ListChecksum value) {
                 if (urisChecksumBuilder_ == null) {
                     if (value == null) {
@@ -4867,21 +4882,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     urisChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum uris_checksum = 6;</code>
-             */
-            public Builder setUrisChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (urisChecksumBuilder_ == null) {
-                    urisChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    urisChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;
@@ -5790,6 +5790,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ItemAttributes values = 1;</code>
              */
+            public Builder setValues(
+                    Playlist4Meta.ItemAttributes.Builder builderForValue) {
+                if (valuesBuilder_ == null) {
+                    values_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    valuesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .ItemAttributes values = 1;</code>
+             */
             public Builder setValues(Playlist4Meta.ItemAttributes value) {
                 if (valuesBuilder_ == null) {
                     if (value == null) {
@@ -5799,21 +5814,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     valuesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .ItemAttributes values = 1;</code>
-             */
-            public Builder setValues(
-                    Playlist4Meta.ItemAttributes.Builder builderForValue) {
-                if (valuesBuilder_ == null) {
-                    values_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    valuesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -6771,6 +6771,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListAttributes values = 1;</code>
              */
+            public Builder setValues(
+                    Playlist4Meta.ListAttributes.Builder builderForValue) {
+                if (valuesBuilder_ == null) {
+                    values_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    valuesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListAttributes values = 1;</code>
+             */
             public Builder setValues(Playlist4Meta.ListAttributes value) {
                 if (valuesBuilder_ == null) {
                     if (value == null) {
@@ -6780,21 +6795,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     valuesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListAttributes values = 1;</code>
-             */
-            public Builder setValues(
-                    Playlist4Meta.ListAttributes.Builder builderForValue) {
-                if (valuesBuilder_ == null) {
-                    values_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    valuesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -7793,6 +7793,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ItemAttributesPartialState new_attributes = 2;</code>
              */
+            public Builder setNewAttributes(
+                    Playlist4Ops.ItemAttributesPartialState.Builder builderForValue) {
+                if (newAttributesBuilder_ == null) {
+                    newAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    newAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .ItemAttributesPartialState new_attributes = 2;</code>
+             */
             public Builder setNewAttributes(Playlist4Ops.ItemAttributesPartialState value) {
                 if (newAttributesBuilder_ == null) {
                     if (value == null) {
@@ -7802,21 +7817,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     newAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .ItemAttributesPartialState new_attributes = 2;</code>
-             */
-            public Builder setNewAttributes(
-                    Playlist4Ops.ItemAttributesPartialState.Builder builderForValue) {
-                if (newAttributesBuilder_ == null) {
-                    newAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    newAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -7916,6 +7916,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ItemAttributesPartialState old_attributes = 3;</code>
              */
+            public Builder setOldAttributes(
+                    Playlist4Ops.ItemAttributesPartialState.Builder builderForValue) {
+                if (oldAttributesBuilder_ == null) {
+                    oldAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    oldAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ItemAttributesPartialState old_attributes = 3;</code>
+             */
             public Builder setOldAttributes(Playlist4Ops.ItemAttributesPartialState value) {
                 if (oldAttributesBuilder_ == null) {
                     if (value == null) {
@@ -7925,21 +7940,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     oldAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ItemAttributesPartialState old_attributes = 3;</code>
-             */
-            public Builder setOldAttributes(
-                    Playlist4Ops.ItemAttributesPartialState.Builder builderForValue) {
-                if (oldAttributesBuilder_ == null) {
-                    oldAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    oldAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -8039,6 +8039,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum list_checksum = 4;</code>
              */
+            public Builder setListChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (listChecksumBuilder_ == null) {
+                    listChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    listChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum list_checksum = 4;</code>
+             */
             public Builder setListChecksum(Playlist4Meta.ListChecksum value) {
                 if (listChecksumBuilder_ == null) {
                     if (value == null) {
@@ -8048,21 +8063,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     listChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum list_checksum = 4;</code>
-             */
-            public Builder setListChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (listChecksumBuilder_ == null) {
-                    listChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    listChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -8162,6 +8162,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum old_attributes_checksum = 5;</code>
              */
+            public Builder setOldAttributesChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (oldAttributesChecksumBuilder_ == null) {
+                    oldAttributesChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    oldAttributesChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum old_attributes_checksum = 5;</code>
+             */
             public Builder setOldAttributesChecksum(Playlist4Meta.ListChecksum value) {
                 if (oldAttributesChecksumBuilder_ == null) {
                     if (value == null) {
@@ -8171,21 +8186,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     oldAttributesChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum old_attributes_checksum = 5;</code>
-             */
-            public Builder setOldAttributesChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (oldAttributesChecksumBuilder_ == null) {
-                    oldAttributesChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    oldAttributesChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -9023,6 +9023,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListAttributesPartialState new_attributes = 1;</code>
              */
+            public Builder setNewAttributes(
+                    Playlist4Ops.ListAttributesPartialState.Builder builderForValue) {
+                if (newAttributesBuilder_ == null) {
+                    newAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    newAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListAttributesPartialState new_attributes = 1;</code>
+             */
             public Builder setNewAttributes(Playlist4Ops.ListAttributesPartialState value) {
                 if (newAttributesBuilder_ == null) {
                     if (value == null) {
@@ -9032,21 +9047,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     newAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListAttributesPartialState new_attributes = 1;</code>
-             */
-            public Builder setNewAttributes(
-                    Playlist4Ops.ListAttributesPartialState.Builder builderForValue) {
-                if (newAttributesBuilder_ == null) {
-                    newAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    newAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -9146,6 +9146,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListAttributesPartialState old_attributes = 2;</code>
              */
+            public Builder setOldAttributes(
+                    Playlist4Ops.ListAttributesPartialState.Builder builderForValue) {
+                if (oldAttributesBuilder_ == null) {
+                    oldAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    oldAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListAttributesPartialState old_attributes = 2;</code>
+             */
             public Builder setOldAttributes(Playlist4Ops.ListAttributesPartialState value) {
                 if (oldAttributesBuilder_ == null) {
                     if (value == null) {
@@ -9155,21 +9170,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     oldAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListAttributesPartialState old_attributes = 2;</code>
-             */
-            public Builder setOldAttributes(
-                    Playlist4Ops.ListAttributesPartialState.Builder builderForValue) {
-                if (oldAttributesBuilder_ == null) {
-                    oldAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    oldAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -9269,6 +9269,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum list_checksum = 3;</code>
              */
+            public Builder setListChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (listChecksumBuilder_ == null) {
+                    listChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    listChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum list_checksum = 3;</code>
+             */
             public Builder setListChecksum(Playlist4Meta.ListChecksum value) {
                 if (listChecksumBuilder_ == null) {
                     if (value == null) {
@@ -9278,21 +9293,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     listChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum list_checksum = 3;</code>
-             */
-            public Builder setListChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (listChecksumBuilder_ == null) {
-                    listChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    listChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -9392,6 +9392,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .ListChecksum old_attributes_checksum = 4;</code>
              */
+            public Builder setOldAttributesChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (oldAttributesChecksumBuilder_ == null) {
+                    oldAttributesChecksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    oldAttributesChecksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum old_attributes_checksum = 4;</code>
+             */
             public Builder setOldAttributesChecksum(Playlist4Meta.ListChecksum value) {
                 if (oldAttributesChecksumBuilder_ == null) {
                     if (value == null) {
@@ -9401,21 +9416,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     oldAttributesChecksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum old_attributes_checksum = 4;</code>
-             */
-            public Builder setOldAttributesChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (oldAttributesChecksumBuilder_ == null) {
-                    oldAttributesChecksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    oldAttributesChecksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -10552,6 +10552,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .Add add = 2;</code>
              */
+            public Builder setAdd(
+                    Playlist4Ops.Add.Builder builderForValue) {
+                if (addBuilder_ == null) {
+                    add_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    addBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .Add add = 2;</code>
+             */
             public Builder setAdd(Playlist4Ops.Add value) {
                 if (addBuilder_ == null) {
                     if (value == null) {
@@ -10561,21 +10576,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     addBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .Add add = 2;</code>
-             */
-            public Builder setAdd(
-                    Playlist4Ops.Add.Builder builderForValue) {
-                if (addBuilder_ == null) {
-                    add_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    addBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -10675,6 +10675,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .Rem rem = 3;</code>
              */
+            public Builder setRem(
+                    Playlist4Ops.Rem.Builder builderForValue) {
+                if (remBuilder_ == null) {
+                    rem_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    remBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .Rem rem = 3;</code>
+             */
             public Builder setRem(Playlist4Ops.Rem value) {
                 if (remBuilder_ == null) {
                     if (value == null) {
@@ -10684,21 +10699,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     remBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .Rem rem = 3;</code>
-             */
-            public Builder setRem(
-                    Playlist4Ops.Rem.Builder builderForValue) {
-                if (remBuilder_ == null) {
-                    rem_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    remBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -10798,6 +10798,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .Mov mov = 4;</code>
              */
+            public Builder setMov(
+                    Playlist4Ops.Mov.Builder builderForValue) {
+                if (movBuilder_ == null) {
+                    mov_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    movBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .Mov mov = 4;</code>
+             */
             public Builder setMov(Playlist4Ops.Mov value) {
                 if (movBuilder_ == null) {
                     if (value == null) {
@@ -10807,21 +10822,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     movBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .Mov mov = 4;</code>
-             */
-            public Builder setMov(
-                    Playlist4Ops.Mov.Builder builderForValue) {
-                if (movBuilder_ == null) {
-                    mov_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    movBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -10921,6 +10921,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .UpdateItemAttributes update_item_attributes = 5;</code>
              */
+            public Builder setUpdateItemAttributes(
+                    Playlist4Ops.UpdateItemAttributes.Builder builderForValue) {
+                if (updateItemAttributesBuilder_ == null) {
+                    updateItemAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    updateItemAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .UpdateItemAttributes update_item_attributes = 5;</code>
+             */
             public Builder setUpdateItemAttributes(Playlist4Ops.UpdateItemAttributes value) {
                 if (updateItemAttributesBuilder_ == null) {
                     if (value == null) {
@@ -10930,21 +10945,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     updateItemAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .UpdateItemAttributes update_item_attributes = 5;</code>
-             */
-            public Builder setUpdateItemAttributes(
-                    Playlist4Ops.UpdateItemAttributes.Builder builderForValue) {
-                if (updateItemAttributesBuilder_ == null) {
-                    updateItemAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    updateItemAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -11044,6 +11044,21 @@ public final class Playlist4Ops {
             /**
              * <code>optional .UpdateListAttributes update_list_attributes = 6;</code>
              */
+            public Builder setUpdateListAttributes(
+                    Playlist4Ops.UpdateListAttributes.Builder builderForValue) {
+                if (updateListAttributesBuilder_ == null) {
+                    updateListAttributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    updateListAttributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .UpdateListAttributes update_list_attributes = 6;</code>
+             */
             public Builder setUpdateListAttributes(Playlist4Ops.UpdateListAttributes value) {
                 if (updateListAttributesBuilder_ == null) {
                     if (value == null) {
@@ -11053,21 +11068,6 @@ public final class Playlist4Ops {
                     onChanged();
                 } else {
                     updateListAttributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .UpdateListAttributes update_list_attributes = 6;</code>
-             */
-            public Builder setUpdateListAttributes(
-                    Playlist4Ops.UpdateListAttributes.Builder builderForValue) {
-                if (updateListAttributesBuilder_ == null) {
-                    updateListAttributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    updateListAttributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;

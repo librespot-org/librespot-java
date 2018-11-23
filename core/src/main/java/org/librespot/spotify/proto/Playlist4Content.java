@@ -1077,6 +1077,21 @@ public final class Playlist4Content {
             /**
              * <code>optional .ItemAttributes attributes = 2;</code>
              */
+            public Builder setAttributes(
+                    Playlist4Meta.ItemAttributes.Builder builderForValue) {
+                if (attributesBuilder_ == null) {
+                    attributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    attributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .ItemAttributes attributes = 2;</code>
+             */
             public Builder setAttributes(Playlist4Meta.ItemAttributes value) {
                 if (attributesBuilder_ == null) {
                     if (value == null) {
@@ -1086,21 +1101,6 @@ public final class Playlist4Content {
                     onChanged();
                 } else {
                     attributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .ItemAttributes attributes = 2;</code>
-             */
-            public Builder setAttributes(
-                    Playlist4Meta.ItemAttributes.Builder builderForValue) {
-                if (attributesBuilder_ == null) {
-                    attributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    attributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -4185,6 +4185,21 @@ public final class Playlist4Content {
             /**
              * <code>optional .ContentRange contentRange = 6;</code>
              */
+            public Builder setContentRange(
+                    Playlist4Content.ContentRange.Builder builderForValue) {
+                if (contentRangeBuilder_ == null) {
+                    contentRange_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    contentRangeBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .ContentRange contentRange = 6;</code>
+             */
             public Builder setContentRange(Playlist4Content.ContentRange value) {
                 if (contentRangeBuilder_ == null) {
                     if (value == null) {
@@ -4194,21 +4209,6 @@ public final class Playlist4Content {
                     onChanged();
                 } else {
                     contentRangeBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .ContentRange contentRange = 6;</code>
-             */
-            public Builder setContentRange(
-                    Playlist4Content.ContentRange.Builder builderForValue) {
-                if (contentRangeBuilder_ == null) {
-                    contentRange_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    contentRangeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;

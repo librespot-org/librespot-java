@@ -3394,21 +3394,6 @@ public final class Keyexchange {
             /**
              * <code>required .BuildInfo build_info = 10;</code>
              */
-            public Builder setBuildInfo(
-                    Keyexchange.BuildInfo.Builder builderForValue) {
-                if (buildInfoBuilder_ == null) {
-                    buildInfo_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    buildInfoBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>required .BuildInfo build_info = 10;</code>
-             */
             public Builder setBuildInfo(Keyexchange.BuildInfo value) {
                 if (buildInfoBuilder_ == null) {
                     if (value == null) {
@@ -3418,6 +3403,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     buildInfoBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>required .BuildInfo build_info = 10;</code>
+             */
+            public Builder setBuildInfo(
+                    Keyexchange.BuildInfo.Builder builderForValue) {
+                if (buildInfoBuilder_ == null) {
+                    buildInfo_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    buildInfoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -3754,21 +3754,6 @@ public final class Keyexchange {
             /**
              * <code>required .LoginCryptoHelloUnion login_crypto_hello = 50;</code>
              */
-            public Builder setLoginCryptoHello(
-                    Keyexchange.LoginCryptoHelloUnion.Builder builderForValue) {
-                if (loginCryptoHelloBuilder_ == null) {
-                    loginCryptoHello_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    loginCryptoHelloBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>required .LoginCryptoHelloUnion login_crypto_hello = 50;</code>
-             */
             public Builder setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion value) {
                 if (loginCryptoHelloBuilder_ == null) {
                     if (value == null) {
@@ -3778,6 +3763,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     loginCryptoHelloBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>required .LoginCryptoHelloUnion login_crypto_hello = 50;</code>
+             */
+            public Builder setLoginCryptoHello(
+                    Keyexchange.LoginCryptoHelloUnion.Builder builderForValue) {
+                if (loginCryptoHelloBuilder_ == null) {
+                    loginCryptoHello_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    loginCryptoHelloBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -3951,21 +3951,6 @@ public final class Keyexchange {
             /**
              * <code>optional .FeatureSet feature_set = 80;</code>
              */
-            public Builder setFeatureSet(
-                    Keyexchange.FeatureSet.Builder builderForValue) {
-                if (featureSetBuilder_ == null) {
-                    featureSet_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    featureSetBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000080;
-                return this;
-            }
-
-            /**
-             * <code>optional .FeatureSet feature_set = 80;</code>
-             */
             public Builder setFeatureSet(Keyexchange.FeatureSet value) {
                 if (featureSetBuilder_ == null) {
                     if (value == null) {
@@ -3975,6 +3960,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     featureSetBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000080;
+                return this;
+            }
+
+            /**
+             * <code>optional .FeatureSet feature_set = 80;</code>
+             */
+            public Builder setFeatureSet(
+                    Keyexchange.FeatureSet.Builder builderForValue) {
+                if (featureSetBuilder_ == null) {
+                    featureSet_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    featureSetBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000080;
                 return this;
@@ -5527,21 +5527,6 @@ public final class Keyexchange {
             /**
              * <code>optional .LoginCryptoDiffieHellmanHello diffie_hellman = 10;</code>
              */
-            public Builder setDiffieHellman(
-                    Keyexchange.LoginCryptoDiffieHellmanHello.Builder builderForValue) {
-                if (diffieHellmanBuilder_ == null) {
-                    diffieHellman_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    diffieHellmanBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .LoginCryptoDiffieHellmanHello diffie_hellman = 10;</code>
-             */
             public Builder setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello value) {
                 if (diffieHellmanBuilder_ == null) {
                     if (value == null) {
@@ -5551,6 +5536,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     diffieHellmanBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .LoginCryptoDiffieHellmanHello diffie_hellman = 10;</code>
+             */
+            public Builder setDiffieHellman(
+                    Keyexchange.LoginCryptoDiffieHellmanHello.Builder builderForValue) {
+                if (diffieHellmanBuilder_ == null) {
+                    diffieHellman_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    diffieHellmanBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -7582,21 +7582,6 @@ public final class Keyexchange {
             /**
              * <code>optional .APChallenge challenge = 10;</code>
              */
-            public Builder setChallenge(
-                    Keyexchange.APChallenge.Builder builderForValue) {
-                if (challengeBuilder_ == null) {
-                    challenge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    challengeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .APChallenge challenge = 10;</code>
-             */
             public Builder setChallenge(Keyexchange.APChallenge value) {
                 if (challengeBuilder_ == null) {
                     if (value == null) {
@@ -7606,6 +7591,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     challengeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .APChallenge challenge = 10;</code>
+             */
+            public Builder setChallenge(
+                    Keyexchange.APChallenge.Builder builderForValue) {
+                if (challengeBuilder_ == null) {
+                    challenge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    challengeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -7705,21 +7705,6 @@ public final class Keyexchange {
             /**
              * <code>optional .UpgradeRequiredMessage upgrade = 20;</code>
              */
-            public Builder setUpgrade(
-                    Keyexchange.UpgradeRequiredMessage.Builder builderForValue) {
-                if (upgradeBuilder_ == null) {
-                    upgrade_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    upgradeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .UpgradeRequiredMessage upgrade = 20;</code>
-             */
             public Builder setUpgrade(Keyexchange.UpgradeRequiredMessage value) {
                 if (upgradeBuilder_ == null) {
                     if (value == null) {
@@ -7729,6 +7714,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     upgradeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .UpgradeRequiredMessage upgrade = 20;</code>
+             */
+            public Builder setUpgrade(
+                    Keyexchange.UpgradeRequiredMessage.Builder builderForValue) {
+                if (upgradeBuilder_ == null) {
+                    upgrade_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    upgradeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -7828,21 +7828,6 @@ public final class Keyexchange {
             /**
              * <code>optional .APLoginFailed login_failed = 30;</code>
              */
-            public Builder setLoginFailed(
-                    Keyexchange.APLoginFailed.Builder builderForValue) {
-                if (loginFailedBuilder_ == null) {
-                    loginFailed_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    loginFailedBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .APLoginFailed login_failed = 30;</code>
-             */
             public Builder setLoginFailed(Keyexchange.APLoginFailed value) {
                 if (loginFailedBuilder_ == null) {
                     if (value == null) {
@@ -7852,6 +7837,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     loginFailedBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .APLoginFailed login_failed = 30;</code>
+             */
+            public Builder setLoginFailed(
+                    Keyexchange.APLoginFailed.Builder builderForValue) {
+                if (loginFailedBuilder_ == null) {
+                    loginFailed_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    loginFailedBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -8831,21 +8831,6 @@ public final class Keyexchange {
             /**
              * <code>required .LoginCryptoChallengeUnion login_crypto_challenge = 10;</code>
              */
-            public Builder setLoginCryptoChallenge(
-                    Keyexchange.LoginCryptoChallengeUnion.Builder builderForValue) {
-                if (loginCryptoChallengeBuilder_ == null) {
-                    loginCryptoChallenge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    loginCryptoChallengeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>required .LoginCryptoChallengeUnion login_crypto_challenge = 10;</code>
-             */
             public Builder setLoginCryptoChallenge(Keyexchange.LoginCryptoChallengeUnion value) {
                 if (loginCryptoChallengeBuilder_ == null) {
                     if (value == null) {
@@ -8855,6 +8840,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     loginCryptoChallengeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>required .LoginCryptoChallengeUnion login_crypto_challenge = 10;</code>
+             */
+            public Builder setLoginCryptoChallenge(
+                    Keyexchange.LoginCryptoChallengeUnion.Builder builderForValue) {
+                if (loginCryptoChallengeBuilder_ == null) {
+                    loginCryptoChallenge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    loginCryptoChallengeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -8954,21 +8954,6 @@ public final class Keyexchange {
             /**
              * <code>required .FingerprintChallengeUnion fingerprint_challenge = 20;</code>
              */
-            public Builder setFingerprintChallenge(
-                    Keyexchange.FingerprintChallengeUnion.Builder builderForValue) {
-                if (fingerprintChallengeBuilder_ == null) {
-                    fingerprintChallenge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    fingerprintChallengeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>required .FingerprintChallengeUnion fingerprint_challenge = 20;</code>
-             */
             public Builder setFingerprintChallenge(Keyexchange.FingerprintChallengeUnion value) {
                 if (fingerprintChallengeBuilder_ == null) {
                     if (value == null) {
@@ -8978,6 +8963,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     fingerprintChallengeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>required .FingerprintChallengeUnion fingerprint_challenge = 20;</code>
+             */
+            public Builder setFingerprintChallenge(
+                    Keyexchange.FingerprintChallengeUnion.Builder builderForValue) {
+                if (fingerprintChallengeBuilder_ == null) {
+                    fingerprintChallenge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    fingerprintChallengeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -9077,21 +9077,6 @@ public final class Keyexchange {
             /**
              * <code>required .PoWChallengeUnion pow_challenge = 30;</code>
              */
-            public Builder setPowChallenge(
-                    Keyexchange.PoWChallengeUnion.Builder builderForValue) {
-                if (powChallengeBuilder_ == null) {
-                    powChallenge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    powChallengeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>required .PoWChallengeUnion pow_challenge = 30;</code>
-             */
             public Builder setPowChallenge(Keyexchange.PoWChallengeUnion value) {
                 if (powChallengeBuilder_ == null) {
                     if (value == null) {
@@ -9101,6 +9086,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     powChallengeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>required .PoWChallengeUnion pow_challenge = 30;</code>
+             */
+            public Builder setPowChallenge(
+                    Keyexchange.PoWChallengeUnion.Builder builderForValue) {
+                if (powChallengeBuilder_ == null) {
+                    powChallenge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    powChallengeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -9200,21 +9200,6 @@ public final class Keyexchange {
             /**
              * <code>required .CryptoChallengeUnion crypto_challenge = 40;</code>
              */
-            public Builder setCryptoChallenge(
-                    Keyexchange.CryptoChallengeUnion.Builder builderForValue) {
-                if (cryptoChallengeBuilder_ == null) {
-                    cryptoChallenge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    cryptoChallengeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>required .CryptoChallengeUnion crypto_challenge = 40;</code>
-             */
             public Builder setCryptoChallenge(Keyexchange.CryptoChallengeUnion value) {
                 if (cryptoChallengeBuilder_ == null) {
                     if (value == null) {
@@ -9224,6 +9209,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     cryptoChallengeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>required .CryptoChallengeUnion crypto_challenge = 40;</code>
+             */
+            public Builder setCryptoChallenge(
+                    Keyexchange.CryptoChallengeUnion.Builder builderForValue) {
+                if (cryptoChallengeBuilder_ == null) {
+                    cryptoChallenge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    cryptoChallengeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -9925,21 +9925,6 @@ public final class Keyexchange {
             /**
              * <code>optional .LoginCryptoDiffieHellmanChallenge diffie_hellman = 10;</code>
              */
-            public Builder setDiffieHellman(
-                    Keyexchange.LoginCryptoDiffieHellmanChallenge.Builder builderForValue) {
-                if (diffieHellmanBuilder_ == null) {
-                    diffieHellman_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    diffieHellmanBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .LoginCryptoDiffieHellmanChallenge diffie_hellman = 10;</code>
-             */
             public Builder setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanChallenge value) {
                 if (diffieHellmanBuilder_ == null) {
                     if (value == null) {
@@ -9949,6 +9934,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     diffieHellmanBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .LoginCryptoDiffieHellmanChallenge diffie_hellman = 10;</code>
+             */
+            public Builder setDiffieHellman(
+                    Keyexchange.LoginCryptoDiffieHellmanChallenge.Builder builderForValue) {
+                if (diffieHellmanBuilder_ == null) {
+                    diffieHellman_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    diffieHellmanBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -11376,21 +11376,6 @@ public final class Keyexchange {
             /**
              * <code>optional .FingerprintGrainChallenge grain = 10;</code>
              */
-            public Builder setGrain(
-                    Keyexchange.FingerprintGrainChallenge.Builder builderForValue) {
-                if (grainBuilder_ == null) {
-                    grain_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    grainBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .FingerprintGrainChallenge grain = 10;</code>
-             */
             public Builder setGrain(Keyexchange.FingerprintGrainChallenge value) {
                 if (grainBuilder_ == null) {
                     if (value == null) {
@@ -11400,6 +11385,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     grainBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .FingerprintGrainChallenge grain = 10;</code>
+             */
+            public Builder setGrain(
+                    Keyexchange.FingerprintGrainChallenge.Builder builderForValue) {
+                if (grainBuilder_ == null) {
+                    grain_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    grainBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -11499,21 +11499,6 @@ public final class Keyexchange {
             /**
              * <code>optional .FingerprintHmacRipemdChallenge hmac_ripemd = 20;</code>
              */
-            public Builder setHmacRipemd(
-                    Keyexchange.FingerprintHmacRipemdChallenge.Builder builderForValue) {
-                if (hmacRipemdBuilder_ == null) {
-                    hmacRipemd_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    hmacRipemdBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .FingerprintHmacRipemdChallenge hmac_ripemd = 20;</code>
-             */
             public Builder setHmacRipemd(Keyexchange.FingerprintHmacRipemdChallenge value) {
                 if (hmacRipemdBuilder_ == null) {
                     if (value == null) {
@@ -11523,6 +11508,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     hmacRipemdBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .FingerprintHmacRipemdChallenge hmac_ripemd = 20;</code>
+             */
+            public Builder setHmacRipemd(
+                    Keyexchange.FingerprintHmacRipemdChallenge.Builder builderForValue) {
+                if (hmacRipemdBuilder_ == null) {
+                    hmacRipemd_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    hmacRipemdBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -13211,21 +13211,6 @@ public final class Keyexchange {
             /**
              * <code>optional .PoWHashCashChallenge hash_cash = 10;</code>
              */
-            public Builder setHashCash(
-                    Keyexchange.PoWHashCashChallenge.Builder builderForValue) {
-                if (hashCashBuilder_ == null) {
-                    hashCash_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    hashCashBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .PoWHashCashChallenge hash_cash = 10;</code>
-             */
             public Builder setHashCash(Keyexchange.PoWHashCashChallenge value) {
                 if (hashCashBuilder_ == null) {
                     if (value == null) {
@@ -13235,6 +13220,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     hashCashBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .PoWHashCashChallenge hash_cash = 10;</code>
+             */
+            public Builder setHashCash(
+                    Keyexchange.PoWHashCashChallenge.Builder builderForValue) {
+                if (hashCashBuilder_ == null) {
+                    hashCash_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    hashCashBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -14621,21 +14621,6 @@ public final class Keyexchange {
             /**
              * <code>optional .CryptoShannonChallenge shannon = 10;</code>
              */
-            public Builder setShannon(
-                    Keyexchange.CryptoShannonChallenge.Builder builderForValue) {
-                if (shannonBuilder_ == null) {
-                    shannon_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    shannonBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .CryptoShannonChallenge shannon = 10;</code>
-             */
             public Builder setShannon(Keyexchange.CryptoShannonChallenge value) {
                 if (shannonBuilder_ == null) {
                     if (value == null) {
@@ -14645,6 +14630,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     shannonBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .CryptoShannonChallenge shannon = 10;</code>
+             */
+            public Builder setShannon(
+                    Keyexchange.CryptoShannonChallenge.Builder builderForValue) {
+                if (shannonBuilder_ == null) {
+                    shannon_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    shannonBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -14744,21 +14744,6 @@ public final class Keyexchange {
             /**
              * <code>optional .CryptoRc4Sha1HmacChallenge rc4_sha1_hmac = 20;</code>
              */
-            public Builder setRc4Sha1Hmac(
-                    Keyexchange.CryptoRc4Sha1HmacChallenge.Builder builderForValue) {
-                if (rc4Sha1HmacBuilder_ == null) {
-                    rc4Sha1Hmac_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    rc4Sha1HmacBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .CryptoRc4Sha1HmacChallenge rc4_sha1_hmac = 20;</code>
-             */
             public Builder setRc4Sha1Hmac(Keyexchange.CryptoRc4Sha1HmacChallenge value) {
                 if (rc4Sha1HmacBuilder_ == null) {
                     if (value == null) {
@@ -14768,6 +14753,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     rc4Sha1HmacBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .CryptoRc4Sha1HmacChallenge rc4_sha1_hmac = 20;</code>
+             */
+            public Builder setRc4Sha1Hmac(
+                    Keyexchange.CryptoRc4Sha1HmacChallenge.Builder builderForValue) {
+                if (rc4Sha1HmacBuilder_ == null) {
+                    rc4Sha1Hmac_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    rc4Sha1HmacBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -18094,21 +18094,6 @@ public final class Keyexchange {
             /**
              * <code>required .LoginCryptoResponseUnion login_crypto_response = 10;</code>
              */
-            public Builder setLoginCryptoResponse(
-                    Keyexchange.LoginCryptoResponseUnion.Builder builderForValue) {
-                if (loginCryptoResponseBuilder_ == null) {
-                    loginCryptoResponse_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    loginCryptoResponseBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>required .LoginCryptoResponseUnion login_crypto_response = 10;</code>
-             */
             public Builder setLoginCryptoResponse(Keyexchange.LoginCryptoResponseUnion value) {
                 if (loginCryptoResponseBuilder_ == null) {
                     if (value == null) {
@@ -18118,6 +18103,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     loginCryptoResponseBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>required .LoginCryptoResponseUnion login_crypto_response = 10;</code>
+             */
+            public Builder setLoginCryptoResponse(
+                    Keyexchange.LoginCryptoResponseUnion.Builder builderForValue) {
+                if (loginCryptoResponseBuilder_ == null) {
+                    loginCryptoResponse_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    loginCryptoResponseBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -18217,21 +18217,6 @@ public final class Keyexchange {
             /**
              * <code>required .PoWResponseUnion pow_response = 20;</code>
              */
-            public Builder setPowResponse(
-                    Keyexchange.PoWResponseUnion.Builder builderForValue) {
-                if (powResponseBuilder_ == null) {
-                    powResponse_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    powResponseBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>required .PoWResponseUnion pow_response = 20;</code>
-             */
             public Builder setPowResponse(Keyexchange.PoWResponseUnion value) {
                 if (powResponseBuilder_ == null) {
                     if (value == null) {
@@ -18241,6 +18226,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     powResponseBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>required .PoWResponseUnion pow_response = 20;</code>
+             */
+            public Builder setPowResponse(
+                    Keyexchange.PoWResponseUnion.Builder builderForValue) {
+                if (powResponseBuilder_ == null) {
+                    powResponse_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    powResponseBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -18340,21 +18340,6 @@ public final class Keyexchange {
             /**
              * <code>required .CryptoResponseUnion crypto_response = 30;</code>
              */
-            public Builder setCryptoResponse(
-                    Keyexchange.CryptoResponseUnion.Builder builderForValue) {
-                if (cryptoResponseBuilder_ == null) {
-                    cryptoResponse_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    cryptoResponseBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>required .CryptoResponseUnion crypto_response = 30;</code>
-             */
             public Builder setCryptoResponse(Keyexchange.CryptoResponseUnion value) {
                 if (cryptoResponseBuilder_ == null) {
                     if (value == null) {
@@ -18364,6 +18349,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     cryptoResponseBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>required .CryptoResponseUnion crypto_response = 30;</code>
+             */
+            public Builder setCryptoResponse(
+                    Keyexchange.CryptoResponseUnion.Builder builderForValue) {
+                if (cryptoResponseBuilder_ == null) {
+                    cryptoResponse_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    cryptoResponseBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -18991,21 +18991,6 @@ public final class Keyexchange {
             /**
              * <code>optional .LoginCryptoDiffieHellmanResponse diffie_hellman = 10;</code>
              */
-            public Builder setDiffieHellman(
-                    Keyexchange.LoginCryptoDiffieHellmanResponse.Builder builderForValue) {
-                if (diffieHellmanBuilder_ == null) {
-                    diffieHellman_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    diffieHellmanBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .LoginCryptoDiffieHellmanResponse diffie_hellman = 10;</code>
-             */
             public Builder setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanResponse value) {
                 if (diffieHellmanBuilder_ == null) {
                     if (value == null) {
@@ -19015,6 +19000,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     diffieHellmanBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .LoginCryptoDiffieHellmanResponse diffie_hellman = 10;</code>
+             */
+            public Builder setDiffieHellman(
+                    Keyexchange.LoginCryptoDiffieHellmanResponse.Builder builderForValue) {
+                if (diffieHellmanBuilder_ == null) {
+                    diffieHellman_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    diffieHellmanBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -20177,21 +20177,6 @@ public final class Keyexchange {
             /**
              * <code>optional .PoWHashCashResponse hash_cash = 10;</code>
              */
-            public Builder setHashCash(
-                    Keyexchange.PoWHashCashResponse.Builder builderForValue) {
-                if (hashCashBuilder_ == null) {
-                    hashCash_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    hashCashBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .PoWHashCashResponse hash_cash = 10;</code>
-             */
             public Builder setHashCash(Keyexchange.PoWHashCashResponse value) {
                 if (hashCashBuilder_ == null) {
                     if (value == null) {
@@ -20201,6 +20186,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     hashCashBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .PoWHashCashResponse hash_cash = 10;</code>
+             */
+            public Builder setHashCash(
+                    Keyexchange.PoWHashCashResponse.Builder builderForValue) {
+                if (hashCashBuilder_ == null) {
+                    hashCash_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    hashCashBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -21427,21 +21427,6 @@ public final class Keyexchange {
             /**
              * <code>optional .CryptoShannonResponse shannon = 10;</code>
              */
-            public Builder setShannon(
-                    Keyexchange.CryptoShannonResponse.Builder builderForValue) {
-                if (shannonBuilder_ == null) {
-                    shannon_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    shannonBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .CryptoShannonResponse shannon = 10;</code>
-             */
             public Builder setShannon(Keyexchange.CryptoShannonResponse value) {
                 if (shannonBuilder_ == null) {
                     if (value == null) {
@@ -21451,6 +21436,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     shannonBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .CryptoShannonResponse shannon = 10;</code>
+             */
+            public Builder setShannon(
+                    Keyexchange.CryptoShannonResponse.Builder builderForValue) {
+                if (shannonBuilder_ == null) {
+                    shannon_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    shannonBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
@@ -21550,21 +21550,6 @@ public final class Keyexchange {
             /**
              * <code>optional .CryptoRc4Sha1HmacResponse rc4_sha1_hmac = 20;</code>
              */
-            public Builder setRc4Sha1Hmac(
-                    Keyexchange.CryptoRc4Sha1HmacResponse.Builder builderForValue) {
-                if (rc4Sha1HmacBuilder_ == null) {
-                    rc4Sha1Hmac_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    rc4Sha1HmacBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .CryptoRc4Sha1HmacResponse rc4_sha1_hmac = 20;</code>
-             */
             public Builder setRc4Sha1Hmac(Keyexchange.CryptoRc4Sha1HmacResponse value) {
                 if (rc4Sha1HmacBuilder_ == null) {
                     if (value == null) {
@@ -21574,6 +21559,21 @@ public final class Keyexchange {
                     onChanged();
                 } else {
                     rc4Sha1HmacBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .CryptoRc4Sha1HmacResponse rc4_sha1_hmac = 20;</code>
+             */
+            public Builder setRc4Sha1Hmac(
+                    Keyexchange.CryptoRc4Sha1HmacResponse.Builder builderForValue) {
+                if (rc4Sha1HmacBuilder_ == null) {
+                    rc4Sha1Hmac_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    rc4Sha1HmacBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;

@@ -8714,6 +8714,21 @@ public final class Metadata {
             /**
              * <code>optional .ImageGroup portrait_group = 17;</code>
              */
+            public Builder setPortraitGroup(
+                    Metadata.ImageGroup.Builder builderForValue) {
+                if (portraitGroupBuilder_ == null) {
+                    portraitGroup_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    portraitGroupBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00010000;
+                return this;
+            }
+
+            /**
+             * <code>optional .ImageGroup portrait_group = 17;</code>
+             */
             public Builder setPortraitGroup(Metadata.ImageGroup value) {
                 if (portraitGroupBuilder_ == null) {
                     if (value == null) {
@@ -8723,21 +8738,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     portraitGroupBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00010000;
-                return this;
-            }
-
-            /**
-             * <code>optional .ImageGroup portrait_group = 17;</code>
-             */
-            public Builder setPortraitGroup(
-                    Metadata.ImageGroup.Builder builderForValue) {
-                if (portraitGroupBuilder_ == null) {
-                    portraitGroup_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    portraitGroupBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00010000;
                 return this;
@@ -12886,6 +12886,21 @@ public final class Metadata {
             /**
              * <code>optional .Date date = 6;</code>
              */
+            public Builder setDate(
+                    Metadata.Date.Builder builderForValue) {
+                if (dateBuilder_ == null) {
+                    date_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    dateBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .Date date = 6;</code>
+             */
             public Builder setDate(Metadata.Date value) {
                 if (dateBuilder_ == null) {
                     if (value == null) {
@@ -12895,21 +12910,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     dateBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .Date date = 6;</code>
-             */
-            public Builder setDate(
-                    Metadata.Date.Builder builderForValue) {
-                if (dateBuilder_ == null) {
-                    date_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    dateBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;
@@ -15023,6 +15023,21 @@ public final class Metadata {
             /**
              * <code>optional .ImageGroup cover_group = 17;</code>
              */
+            public Builder setCoverGroup(
+                    Metadata.ImageGroup.Builder builderForValue) {
+                if (coverGroupBuilder_ == null) {
+                    coverGroup_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    coverGroupBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00010000;
+                return this;
+            }
+
+            /**
+             * <code>optional .ImageGroup cover_group = 17;</code>
+             */
             public Builder setCoverGroup(Metadata.ImageGroup value) {
                 if (coverGroupBuilder_ == null) {
                     if (value == null) {
@@ -15032,21 +15047,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     coverGroupBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00010000;
-                return this;
-            }
-
-            /**
-             * <code>optional .ImageGroup cover_group = 17;</code>
-             */
-            public Builder setCoverGroup(
-                    Metadata.ImageGroup.Builder builderForValue) {
-                if (coverGroupBuilder_ == null) {
-                    coverGroup_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    coverGroupBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00010000;
                 return this;
@@ -16926,6 +16926,21 @@ public final class Metadata {
             /**
              * <code>optional .Album album = 3;</code>
              */
+            public Builder setAlbum(
+                    Metadata.Album.Builder builderForValue) {
+                if (albumBuilder_ == null) {
+                    album_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    albumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .Album album = 3;</code>
+             */
             public Builder setAlbum(Metadata.Album value) {
                 if (albumBuilder_ == null) {
                     if (value == null) {
@@ -16935,21 +16950,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     albumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .Album album = 3;</code>
-             */
-            public Builder setAlbum(
-                    Metadata.Album.Builder builderForValue) {
-                if (albumBuilder_ == null) {
-                    album_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    albumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -25957,6 +25957,21 @@ public final class Metadata {
             /**
              * <code>optional .Date start = 2;</code>
              */
+            public Builder setStart(
+                    Metadata.Date.Builder builderForValue) {
+                if (startBuilder_ == null) {
+                    start_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    startBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .Date start = 2;</code>
+             */
             public Builder setStart(Metadata.Date value) {
                 if (startBuilder_ == null) {
                     if (value == null) {
@@ -25966,21 +25981,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     startBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .Date start = 2;</code>
-             */
-            public Builder setStart(
-                    Metadata.Date.Builder builderForValue) {
-                if (startBuilder_ == null) {
-                    start_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    startBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -26080,6 +26080,21 @@ public final class Metadata {
             /**
              * <code>optional .Date end = 3;</code>
              */
+            public Builder setEnd(
+                    Metadata.Date.Builder builderForValue) {
+                if (endBuilder_ == null) {
+                    end_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    endBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .Date end = 3;</code>
+             */
             public Builder setEnd(Metadata.Date value) {
                 if (endBuilder_ == null) {
                     if (value == null) {
@@ -26089,21 +26104,6 @@ public final class Metadata {
                     onChanged();
                 } else {
                     endBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .Date end = 3;</code>
-             */
-            public Builder setEnd(
-                    Metadata.Date.Builder builderForValue) {
-                if (endBuilder_ == null) {
-                    end_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    endBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;

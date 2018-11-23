@@ -3056,6 +3056,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ChangeInfo info = 4;</code>
              */
+            public Builder setInfo(
+                    Playlist4Changes.ChangeInfo.Builder builderForValue) {
+                if (infoBuilder_ == null) {
+                    info_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    infoBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ChangeInfo info = 4;</code>
+             */
             public Builder setInfo(Playlist4Changes.ChangeInfo value) {
                 if (infoBuilder_ == null) {
                     if (value == null) {
@@ -3065,21 +3080,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     infoBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ChangeInfo info = 4;</code>
-             */
-            public Builder setInfo(
-                    Playlist4Changes.ChangeInfo.Builder builderForValue) {
-                if (infoBuilder_ == null) {
-                    info_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    infoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -3868,6 +3868,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ChangeInfo info = 4;</code>
              */
+            public Builder setInfo(
+                    Playlist4Changes.ChangeInfo.Builder builderForValue) {
+                if (infoBuilder_ == null) {
+                    info_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    infoBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ChangeInfo info = 4;</code>
+             */
             public Builder setInfo(Playlist4Changes.ChangeInfo value) {
                 if (infoBuilder_ == null) {
                     if (value == null) {
@@ -3877,21 +3892,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     infoBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ChangeInfo info = 4;</code>
-             */
-            public Builder setInfo(
-                    Playlist4Changes.ChangeInfo.Builder builderForValue) {
-                if (infoBuilder_ == null) {
-                    info_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    infoBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -4779,6 +4779,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .Delta delta = 2;</code>
              */
+            public Builder setDelta(
+                    Playlist4Changes.Delta.Builder builderForValue) {
+                if (deltaBuilder_ == null) {
+                    delta_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    deltaBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .Delta delta = 2;</code>
+             */
             public Builder setDelta(Playlist4Changes.Delta value) {
                 if (deltaBuilder_ == null) {
                     if (value == null) {
@@ -4788,21 +4803,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     deltaBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .Delta delta = 2;</code>
-             */
-            public Builder setDelta(
-                    Playlist4Changes.Delta.Builder builderForValue) {
-                if (deltaBuilder_ == null) {
-                    delta_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    deltaBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -4902,6 +4902,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .Merge merge = 3;</code>
              */
+            public Builder setMerge(
+                    Playlist4Changes.Merge.Builder builderForValue) {
+                if (mergeBuilder_ == null) {
+                    merge_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    mergeBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .Merge merge = 3;</code>
+             */
             public Builder setMerge(Playlist4Changes.Merge value) {
                 if (mergeBuilder_ == null) {
                     if (value == null) {
@@ -4911,21 +4926,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     mergeBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .Merge merge = 3;</code>
-             */
-            public Builder setMerge(
-                    Playlist4Changes.Merge.Builder builderForValue) {
-                if (mergeBuilder_ == null) {
-                    merge_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    mergeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -5629,6 +5629,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ChangeSet change_set = 2;</code>
              */
+            public Builder setChangeSet(
+                    Playlist4Changes.ChangeSet.Builder builderForValue) {
+                if (changeSetBuilder_ == null) {
+                    changeSet_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    changeSetBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000002;
+                return this;
+            }
+
+            /**
+             * <code>optional .ChangeSet change_set = 2;</code>
+             */
             public Builder setChangeSet(Playlist4Changes.ChangeSet value) {
                 if (changeSetBuilder_ == null) {
                     if (value == null) {
@@ -5638,21 +5653,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     changeSetBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000002;
-                return this;
-            }
-
-            /**
-             * <code>optional .ChangeSet change_set = 2;</code>
-             */
-            public Builder setChangeSet(
-                    Playlist4Changes.ChangeSet.Builder builderForValue) {
-                if (changeSetBuilder_ == null) {
-                    changeSet_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    changeSetBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000002;
                 return this;
@@ -7676,6 +7676,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListAttributes attributes = 3;</code>
              */
+            public Builder setAttributes(
+                    Playlist4Meta.ListAttributes.Builder builderForValue) {
+                if (attributesBuilder_ == null) {
+                    attributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    attributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListAttributes attributes = 3;</code>
+             */
             public Builder setAttributes(Playlist4Meta.ListAttributes value) {
                 if (attributesBuilder_ == null) {
                     if (value == null) {
@@ -7685,21 +7700,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     attributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListAttributes attributes = 3;</code>
-             */
-            public Builder setAttributes(
-                    Playlist4Meta.ListAttributes.Builder builderForValue) {
-                if (attributesBuilder_ == null) {
-                    attributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    attributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -7799,6 +7799,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListChecksum checksum = 4;</code>
              */
+            public Builder setChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (checksumBuilder_ == null) {
+                    checksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    checksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum checksum = 4;</code>
+             */
             public Builder setChecksum(Playlist4Meta.ListChecksum value) {
                 if (checksumBuilder_ == null) {
                     if (value == null) {
@@ -7808,21 +7823,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     checksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum checksum = 4;</code>
-             */
-            public Builder setChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (checksumBuilder_ == null) {
-                    checksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    checksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -7922,6 +7922,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListItems contents = 5;</code>
              */
+            public Builder setContents(
+                    Playlist4Content.ListItems.Builder builderForValue) {
+                if (contentsBuilder_ == null) {
+                    contents_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    contentsBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListItems contents = 5;</code>
+             */
             public Builder setContents(Playlist4Content.ListItems value) {
                 if (contentsBuilder_ == null) {
                     if (value == null) {
@@ -7931,21 +7946,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     contentsBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListItems contents = 5;</code>
-             */
-            public Builder setContents(
-                    Playlist4Content.ListItems.Builder builderForValue) {
-                if (contentsBuilder_ == null) {
-                    contents_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    contentsBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -9519,6 +9519,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListDump dump = 5;</code>
              */
+            public Builder setDump(
+                    Playlist4Changes.ListDump.Builder builderForValue) {
+                if (dumpBuilder_ == null) {
+                    dump_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    dumpBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListDump dump = 5;</code>
+             */
             public Builder setDump(Playlist4Changes.ListDump value) {
                 if (dumpBuilder_ == null) {
                     if (value == null) {
@@ -9528,21 +9543,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     dumpBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListDump dump = 5;</code>
-             */
-            public Builder setDump(
-                    Playlist4Changes.ListDump.Builder builderForValue) {
-                if (dumpBuilder_ == null) {
-                    dump_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    dumpBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -11169,6 +11169,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListAttributes attributes = 3;</code>
              */
+            public Builder setAttributes(
+                    Playlist4Meta.ListAttributes.Builder builderForValue) {
+                if (attributesBuilder_ == null) {
+                    attributes_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    attributesBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000004;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListAttributes attributes = 3;</code>
+             */
             public Builder setAttributes(Playlist4Meta.ListAttributes value) {
                 if (attributesBuilder_ == null) {
                     if (value == null) {
@@ -11178,21 +11193,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     attributesBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000004;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListAttributes attributes = 3;</code>
-             */
-            public Builder setAttributes(
-                    Playlist4Meta.ListAttributes.Builder builderForValue) {
-                if (attributesBuilder_ == null) {
-                    attributes_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    attributesBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000004;
                 return this;
@@ -11292,6 +11292,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListChecksum checksum = 4;</code>
              */
+            public Builder setChecksum(
+                    Playlist4Meta.ListChecksum.Builder builderForValue) {
+                if (checksumBuilder_ == null) {
+                    checksum_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    checksumBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000008;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListChecksum checksum = 4;</code>
+             */
             public Builder setChecksum(Playlist4Meta.ListChecksum value) {
                 if (checksumBuilder_ == null) {
                     if (value == null) {
@@ -11301,21 +11316,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     checksumBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000008;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListChecksum checksum = 4;</code>
-             */
-            public Builder setChecksum(
-                    Playlist4Meta.ListChecksum.Builder builderForValue) {
-                if (checksumBuilder_ == null) {
-                    checksum_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    checksumBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000008;
                 return this;
@@ -11415,6 +11415,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .ListItems contents = 5;</code>
              */
+            public Builder setContents(
+                    Playlist4Content.ListItems.Builder builderForValue) {
+                if (contentsBuilder_ == null) {
+                    contents_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    contentsBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000010;
+                return this;
+            }
+
+            /**
+             * <code>optional .ListItems contents = 5;</code>
+             */
             public Builder setContents(Playlist4Content.ListItems value) {
                 if (contentsBuilder_ == null) {
                     if (value == null) {
@@ -11424,21 +11439,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     contentsBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000010;
-                return this;
-            }
-
-            /**
-             * <code>optional .ListItems contents = 5;</code>
-             */
-            public Builder setContents(
-                    Playlist4Content.ListItems.Builder builderForValue) {
-                if (contentsBuilder_ == null) {
-                    contents_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    contentsBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000010;
                 return this;
@@ -11538,6 +11538,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .Diff diff = 6;</code>
              */
+            public Builder setDiff(
+                    Playlist4Changes.Diff.Builder builderForValue) {
+                if (diffBuilder_ == null) {
+                    diff_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    diffBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .Diff diff = 6;</code>
+             */
             public Builder setDiff(Playlist4Changes.Diff value) {
                 if (diffBuilder_ == null) {
                     if (value == null) {
@@ -11547,21 +11562,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     diffBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .Diff diff = 6;</code>
-             */
-            public Builder setDiff(
-                    Playlist4Changes.Diff.Builder builderForValue) {
-                if (diffBuilder_ == null) {
-                    diff_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    diffBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;
@@ -11661,6 +11661,21 @@ public final class Playlist4Changes {
             /**
              * <code>optional .Diff syncResult = 7;</code>
              */
+            public Builder setSyncResult(
+                    Playlist4Changes.Diff.Builder builderForValue) {
+                if (syncResultBuilder_ == null) {
+                    syncResult_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    syncResultBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000040;
+                return this;
+            }
+
+            /**
+             * <code>optional .Diff syncResult = 7;</code>
+             */
             public Builder setSyncResult(Playlist4Changes.Diff value) {
                 if (syncResultBuilder_ == null) {
                     if (value == null) {
@@ -11670,21 +11685,6 @@ public final class Playlist4Changes {
                     onChanged();
                 } else {
                     syncResultBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000040;
-                return this;
-            }
-
-            /**
-             * <code>optional .Diff syncResult = 7;</code>
-             */
-            public Builder setSyncResult(
-                    Playlist4Changes.Diff.Builder builderForValue) {
-                if (syncResultBuilder_ == null) {
-                    syncResult_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    syncResultBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000040;
                 return this;

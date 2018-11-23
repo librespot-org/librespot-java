@@ -470,6 +470,7 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:MessageType)
     }
+
     /**
      * Protobuf enum {@code CapabilityType}
      */
@@ -680,6 +681,7 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:CapabilityType)
     }
+
     /**
      * Protobuf enum {@code PlayStatus}
      */
@@ -790,6 +792,7 @@ public final class Spirc {
 
         // @@protoc_insertion_point(enum_scope:PlayStatus)
     }
+
     public interface FrameOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Frame)
             com.google.protobuf.MessageOrBuilder {
@@ -994,6 +997,7 @@ public final class Spirc {
          */
         Spirc.MetadataOrBuilder getMetadataOrBuilder();
     }
+
     public interface DeviceStateOrBuilder extends
             // @@protoc_insertion_point(interface_extends:DeviceState)
             com.google.protobuf.MessageOrBuilder {
@@ -1168,6 +1172,7 @@ public final class Spirc {
         Spirc.MetadataOrBuilder getMetadataOrBuilder(
                 int index);
     }
+
     public interface CapabilityOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Capability)
             com.google.protobuf.MessageOrBuilder {
@@ -1219,6 +1224,7 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getStringValueBytes(int index);
     }
+
     public interface GoodbyeOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Goodbye)
             com.google.protobuf.MessageOrBuilder {
@@ -1239,6 +1245,7 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getReasonBytes();
     }
+
     public interface StateOrBuilder extends
             // @@protoc_insertion_point(interface_extends:State)
             com.google.protobuf.MessageOrBuilder {
@@ -1434,6 +1441,7 @@ public final class Spirc {
          */
         Spirc.AdOrBuilder getAdOrBuilder();
     }
+
     public interface TrackRefOrBuilder extends
             // @@protoc_insertion_point(interface_extends:TrackRef)
             com.google.protobuf.MessageOrBuilder {
@@ -1490,6 +1498,7 @@ public final class Spirc {
         com.google.protobuf.ByteString
         getContextBytes();
     }
+
     public interface AdOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Ad)
             com.google.protobuf.MessageOrBuilder {
@@ -1608,6 +1617,7 @@ public final class Spirc {
          */
         com.google.protobuf.ByteString getGid();
     }
+
     public interface MetadataOrBuilder extends
             // @@protoc_insertion_point(interface_extends:Metadata)
             com.google.protobuf.MessageOrBuilder {
@@ -1703,6 +1713,7 @@ public final class Spirc {
         private volatile java.lang.Object newName_;
         private Spirc.Metadata metadata_;
         private byte memoizedIsInitialized = -1;
+
         // Use Frame.newBuilder() to construct.
         private Frame(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
@@ -3311,21 +3322,6 @@ public final class Spirc {
             /**
              * <code>optional .DeviceState device_state = 7;</code>
              */
-            public Builder setDeviceState(
-                    Spirc.DeviceState.Builder builderForValue) {
-                if (deviceStateBuilder_ == null) {
-                    deviceState_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    deviceStateBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .DeviceState device_state = 7;</code>
-             */
             public Builder setDeviceState(Spirc.DeviceState value) {
                 if (deviceStateBuilder_ == null) {
                     if (value == null) {
@@ -3335,6 +3331,21 @@ public final class Spirc {
                     onChanged();
                 } else {
                     deviceStateBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .DeviceState device_state = 7;</code>
+             */
+            public Builder setDeviceState(
+                    Spirc.DeviceState.Builder builderForValue) {
+                if (deviceStateBuilder_ == null) {
+                    deviceState_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    deviceStateBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;
@@ -3434,21 +3445,6 @@ public final class Spirc {
             /**
              * <code>optional .Goodbye goodbye = 11;</code>
              */
-            public Builder setGoodbye(
-                    Spirc.Goodbye.Builder builderForValue) {
-                if (goodbyeBuilder_ == null) {
-                    goodbye_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    goodbyeBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000040;
-                return this;
-            }
-
-            /**
-             * <code>optional .Goodbye goodbye = 11;</code>
-             */
             public Builder setGoodbye(Spirc.Goodbye value) {
                 if (goodbyeBuilder_ == null) {
                     if (value == null) {
@@ -3458,6 +3454,21 @@ public final class Spirc {
                     onChanged();
                 } else {
                     goodbyeBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000040;
+                return this;
+            }
+
+            /**
+             * <code>optional .Goodbye goodbye = 11;</code>
+             */
+            public Builder setGoodbye(
+                    Spirc.Goodbye.Builder builderForValue) {
+                if (goodbyeBuilder_ == null) {
+                    goodbye_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    goodbyeBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000040;
                 return this;
@@ -3557,21 +3568,6 @@ public final class Spirc {
             /**
              * <code>optional .State state = 12;</code>
              */
-            public Builder setState(
-                    Spirc.State.Builder builderForValue) {
-                if (stateBuilder_ == null) {
-                    state_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    stateBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000080;
-                return this;
-            }
-
-            /**
-             * <code>optional .State state = 12;</code>
-             */
             public Builder setState(Spirc.State value) {
                 if (stateBuilder_ == null) {
                     if (value == null) {
@@ -3581,6 +3577,21 @@ public final class Spirc {
                     onChanged();
                 } else {
                     stateBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000080;
+                return this;
+            }
+
+            /**
+             * <code>optional .State state = 12;</code>
+             */
+            public Builder setState(
+                    Spirc.State.Builder builderForValue) {
+                if (stateBuilder_ == null) {
+                    state_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    stateBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000080;
                 return this;
@@ -4000,21 +4011,6 @@ public final class Spirc {
             /**
              * <code>optional .Metadata metadata = 25;</code>
              */
-            public Builder setMetadata(
-                    Spirc.Metadata.Builder builderForValue) {
-                if (metadataBuilder_ == null) {
-                    metadata_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    metadataBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00004000;
-                return this;
-            }
-
-            /**
-             * <code>optional .Metadata metadata = 25;</code>
-             */
             public Builder setMetadata(Spirc.Metadata value) {
                 if (metadataBuilder_ == null) {
                     if (value == null) {
@@ -4024,6 +4020,21 @@ public final class Spirc {
                     onChanged();
                 } else {
                     metadataBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00004000;
+                return this;
+            }
+
+            /**
+             * <code>optional .Metadata metadata = 25;</code>
+             */
+            public Builder setMetadata(
+                    Spirc.Metadata.Builder builderForValue) {
+                if (metadataBuilder_ == null) {
+                    metadata_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    metadataBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00004000;
                 return this;
@@ -6380,6 +6391,7 @@ public final class Spirc {
         private Capability(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
+
         private Capability() {
             typ_ = 1;
             intValue_ = java.util.Collections.emptyList();
@@ -7249,10 +7261,12 @@ public final class Spirc {
         private int bitField0_;
         private volatile java.lang.Object reason_;
         private byte memoizedIsInitialized = -1;
+
         // Use Goodbye.newBuilder() to construct.
         private Goodbye(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
+
         private Goodbye() {
             reason_ = "";
         }
@@ -10019,21 +10033,6 @@ public final class Spirc {
             /**
              * <code>optional .Ad ad = 28;</code>
              */
-            public Builder setAd(
-                    Spirc.Ad.Builder builderForValue) {
-                if (adBuilder_ == null) {
-                    ad_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    adBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00004000;
-                return this;
-            }
-
-            /**
-             * <code>optional .Ad ad = 28;</code>
-             */
             public Builder setAd(Spirc.Ad value) {
                 if (adBuilder_ == null) {
                     if (value == null) {
@@ -10043,6 +10042,21 @@ public final class Spirc {
                     onChanged();
                 } else {
                     adBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00004000;
+                return this;
+            }
+
+            /**
+             * <code>optional .Ad ad = 28;</code>
+             */
+            public Builder setAd(
+                    Spirc.Ad.Builder builderForValue) {
+                if (adBuilder_ == null) {
+                    ad_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    adBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00004000;
                 return this;
@@ -11120,6 +11134,7 @@ public final class Spirc {
         private Ad(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
         }
+
         private Ad() {
             next_ = 0;
             oggFid_ = com.google.protobuf.ByteString.EMPTY;

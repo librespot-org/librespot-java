@@ -4651,6 +4651,21 @@ public final class Playlist4Meta {
             /**
              * <code>optional .DownloadFormat download_format = 6;</code>
              */
+            public Builder setDownloadFormat(
+                    Playlist4Meta.DownloadFormat.Builder builderForValue) {
+                if (downloadFormatBuilder_ == null) {
+                    downloadFormat_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    downloadFormatBuilder_.setMessage(builderForValue.build());
+                }
+                bitField0_ |= 0x00000020;
+                return this;
+            }
+
+            /**
+             * <code>optional .DownloadFormat download_format = 6;</code>
+             */
             public Builder setDownloadFormat(Playlist4Meta.DownloadFormat value) {
                 if (downloadFormatBuilder_ == null) {
                     if (value == null) {
@@ -4660,21 +4675,6 @@ public final class Playlist4Meta {
                     onChanged();
                 } else {
                     downloadFormatBuilder_.setMessage(value);
-                }
-                bitField0_ |= 0x00000020;
-                return this;
-            }
-
-            /**
-             * <code>optional .DownloadFormat download_format = 6;</code>
-             */
-            public Builder setDownloadFormat(
-                    Playlist4Meta.DownloadFormat.Builder builderForValue) {
-                if (downloadFormatBuilder_ == null) {
-                    downloadFormat_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    downloadFormatBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000020;
                 return this;

@@ -7854,21 +7854,6 @@ public final class Radio {
             /**
              * <code>optional .Station station = 1;</code>
              */
-            public Builder setStation(
-                    Radio.Station.Builder builderForValue) {
-                if (stationBuilder_ == null) {
-                    station_ = builderForValue.build();
-                    onChanged();
-                } else {
-                    stationBuilder_.setMessage(builderForValue.build());
-                }
-                bitField0_ |= 0x00000001;
-                return this;
-            }
-
-            /**
-             * <code>optional .Station station = 1;</code>
-             */
             public Builder setStation(Radio.Station value) {
                 if (stationBuilder_ == null) {
                     if (value == null) {
@@ -7878,6 +7863,21 @@ public final class Radio {
                     onChanged();
                 } else {
                     stationBuilder_.setMessage(value);
+                }
+                bitField0_ |= 0x00000001;
+                return this;
+            }
+
+            /**
+             * <code>optional .Station station = 1;</code>
+             */
+            public Builder setStation(
+                    Radio.Station.Builder builderForValue) {
+                if (stationBuilder_ == null) {
+                    station_ = builderForValue.build();
+                    onChanged();
+                } else {
+                    stationBuilder_.setMessage(builderForValue.build());
                 }
                 bitField0_ |= 0x00000001;
                 return this;
