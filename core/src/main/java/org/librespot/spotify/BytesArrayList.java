@@ -83,17 +83,47 @@ public class BytesArrayList implements Iterable<byte[]> {
         }
 
         @Override
+        public int read(@NotNull byte[] b, int off, int len) {
+            if (off < 0 || len < 0 || len > b.length - off) {
+                throw new IndexOutOfBoundsException();
+            } else if (len == 0) {
+                return 0;
+            }
+
+            if (sub >= elementData.length)
+                return -1;
+
+            int i = 0;
+            while (true) {
+                if (sub >= elementData.length)
+                    return i;
+
+                int copy = Math.min(len - i, elementData[sub].length - offset);
+                System.arraycopy(elementData[sub], offset, b, off + i, copy);
+                i += copy;
+                offset += copy;
+
+                if (i == len)
+                    return i;
+
+                if (offset >= elementData[sub].length) {
+                    offset = 0;
+                    if (++sub >= elementData.length)
+                        return i;
+                }
+            }
+        }
+
+        @Override
         public synchronized int read() {
             if (sub >= elementData.length)
                 return -1;
 
             if (offset >= elementData[sub].length) {
                 offset = 0;
-                sub++;
+                if (++sub >= elementData.length)
+                    return -1;
             }
-
-            if (sub >= elementData.length)
-                return -1;
 
             return elementData[sub][offset++] & 0xff;
         }
