@@ -1,0 +1,29 @@
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.librespot.spotify</groupId>
+        <artifactId>librespot-java</artifactId>
+        <version>0.0.1</version>
+        <relativePath>../</relativePath>
+    </parent>
+
+    <artifactId>librespot-api</artifactId>
+    <packaging>jar</packaging>
+
+    <name>librespot-java api</name>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.librespot.spotify</groupId>
+            <artifactId>librespot-core</artifactId>
+            <version>0.0.1</version>
+        </dependency>
+    </dependencies>
+</project>
