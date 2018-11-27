@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.librespot.spotify</groupId>
+        <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
         <version>0.0.1</version>
         <relativePath>../</relativePath>
@@ -21,7 +21,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.librespot.spotify</groupId>
+            <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-core</artifactId>
             <version>0.0.1</version>
         </dependency>

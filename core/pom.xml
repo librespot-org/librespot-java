@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.librespot.spotify</groupId>
+        <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
         <version>0.0.1</version>
         <relativePath>../</relativePath>
@@ -34,7 +34,7 @@
                         <configuration>
                             <archive>
                                 <manifest>
-                                    <mainClass>org.librespot.spotify.Main</mainClass>
+                                    <mainClass>xyz.gianlu.librespot.Main</mainClass>
                                 </manifest>
                             </archive>
                             <descriptorRefs>
