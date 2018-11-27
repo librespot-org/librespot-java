@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.mercury.model;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.proto.Playlist4Content;
+import xyz.gianlu.librespot.common.proto.Playlist4Content;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

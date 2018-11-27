@@ -10,7 +10,7 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.proto.Spirc;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 import javax.sound.sampled.*;
 import java.io.IOException;

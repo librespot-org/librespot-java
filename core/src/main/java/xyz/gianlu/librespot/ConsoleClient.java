@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.io.IOException;
 import java.util.Scanner;

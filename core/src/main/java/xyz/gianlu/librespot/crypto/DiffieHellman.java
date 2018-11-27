@@ -2,7 +2,7 @@ package xyz.gianlu.librespot.crypto;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.math.BigInteger;
 import java.util.Random;

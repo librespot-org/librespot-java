@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player;
 
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;

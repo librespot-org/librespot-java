@@ -48,6 +48,12 @@
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>xyz.gianlu.librespot</groupId>
+            <artifactId>librespot-common</artifactId>
+            <version>0.0.1</version>
+        </dependency>
+
         <!-- Data -->
         <dependency>
             <groupId>com.google.code.gson</groupId>

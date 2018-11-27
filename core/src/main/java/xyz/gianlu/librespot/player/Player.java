@@ -2,10 +2,10 @@ package xyz.gianlu.librespot.player;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.proto.Metadata;
-import xyz.gianlu.librespot.proto.Spirc;
+import xyz.gianlu.librespot.common.proto.Metadata;
+import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 

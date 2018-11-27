@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.spirc;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.proto.Spirc;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 /**
  * @author Gianlu

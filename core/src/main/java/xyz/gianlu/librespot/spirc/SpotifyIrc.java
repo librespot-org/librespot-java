@@ -10,7 +10,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.PlayerRunner;
-import xyz.gianlu.librespot.proto.Spirc;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.io.IOException;
 import java.util.HashSet;

@@ -4,7 +4,7 @@ import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.BytesArrayList;
-import xyz.gianlu.librespot.proto.Mercury;
+import xyz.gianlu.librespot.common.proto.Mercury;
 
 /**
  * @author Gianlu

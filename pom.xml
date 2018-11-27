@@ -11,5 +11,6 @@
         <module>core</module>
         <module>mdnsjava</module>
         <module>api</module>
+        <module>common</module>
     </modules>
 </project>

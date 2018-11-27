@@ -3,9 +3,9 @@ package xyz.gianlu.librespot.mercury;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.mercury.model.PlaylistId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.proto.Mercury;
-import xyz.gianlu.librespot.proto.Metadata;
-import xyz.gianlu.librespot.proto.Playlist4Changes;
+import xyz.gianlu.librespot.common.proto.Mercury;
+import xyz.gianlu.librespot.common.proto.Metadata;
+import xyz.gianlu.librespot.common.proto.Playlist4Changes;
 
 /**
  * @author Gianlu

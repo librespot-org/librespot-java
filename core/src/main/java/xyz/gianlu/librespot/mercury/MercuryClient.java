@@ -5,12 +5,12 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.BytesArrayList;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
-import xyz.gianlu.librespot.proto.Mercury;
-import xyz.gianlu.librespot.proto.Pubsub;
+import xyz.gianlu.librespot.common.proto.Mercury;
+import xyz.gianlu.librespot.common.proto.Pubsub;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;

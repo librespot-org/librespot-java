@@ -3,9 +3,9 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.proto.Metadata;
+import xyz.gianlu.librespot.common.proto.Metadata;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -5,9 +5,9 @@ import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.Version;
-import xyz.gianlu.librespot.proto.Authentication;
+import xyz.gianlu.librespot.common.proto.Authentication;
 
 import javax.net.ssl.SSLSocketFactory;
 import java.io.*;

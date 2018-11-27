@@ -9,10 +9,9 @@
         <relativePath>../</relativePath>
     </parent>
 
-    <artifactId>librespot-api</artifactId>
-    <packaging>jar</packaging>
+    <artifactId>librespot-common</artifactId>
 
-    <name>librespot-java api</name>
+    <name>librespot-java common</name>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -21,14 +20,23 @@
 
     <dependencies>
         <dependency>
-            <groupId>xyz.gianlu.librespot</groupId>
-            <artifactId>librespot-core</artifactId>
-            <version>0.0.1</version>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.6.0</version>
         </dependency>
+
+        <!-- Annotations -->
         <dependency>
-            <groupId>xyz.gianlu.librespot</groupId>
-            <artifactId>librespot-common</artifactId>
-            <version>0.0.1</version>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>15.0</version>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
         </dependency>
     </dependencies>
 </project>

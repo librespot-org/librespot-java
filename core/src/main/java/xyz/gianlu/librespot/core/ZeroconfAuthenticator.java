@@ -7,10 +7,10 @@ import net.posick.mdns.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.xbill.DNS.Name;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
-import xyz.gianlu.librespot.proto.Authentication;
+import xyz.gianlu.librespot.common.proto.Authentication;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;

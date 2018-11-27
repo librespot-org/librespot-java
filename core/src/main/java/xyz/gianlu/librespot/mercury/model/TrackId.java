@@ -2,9 +2,9 @@ package xyz.gianlu.librespot.mercury.model;
 
 import io.seruco.encoding.base62.Base62;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
-import xyz.gianlu.librespot.proto.Playlist4Content;
-import xyz.gianlu.librespot.proto.Spirc;
+import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Playlist4Content;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

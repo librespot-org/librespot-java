@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.crypto;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.Utils;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.io.DataInputStream;
 import java.io.IOException;

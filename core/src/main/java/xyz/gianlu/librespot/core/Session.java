@@ -13,8 +13,8 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.ChannelManager;
 import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.proto.Authentication;
-import xyz.gianlu.librespot.proto.Keyexchange;
+import xyz.gianlu.librespot.common.proto.Authentication;
+import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
