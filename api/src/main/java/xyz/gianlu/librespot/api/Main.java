@@ -8,6 +8,6 @@ import java.io.IOException;
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        new ApiServer(24879);
+        ApiServer server = new ApiServer(24879);
     }
 }

@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Gianlu
  */
 public class Utils {
+    public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
 
