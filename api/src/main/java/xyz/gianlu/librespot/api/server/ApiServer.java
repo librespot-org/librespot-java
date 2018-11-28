@@ -188,6 +188,16 @@ public class ApiServer implements Receiver {
             this.id = id;
             this.error = error;
         }
+
+        PredefinedJsonRpcException(@Nullable JsonElement id, @NotNull PredefinedJsonRpcError error) {
+            this.id = id;
+            this.error = error;
+        }
+
+        @NotNull
+        public static PredefinedJsonRpcException from(@NotNull Request request, @NotNull PredefinedJsonRpcError error) {
+            return new PredefinedJsonRpcException(request.id, error);
+        }
     }
 
     public static class JsonRpcSpecificationException extends GeneralJsonException {
