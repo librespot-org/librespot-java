@@ -1,6 +1,9 @@
 package xyz.gianlu.librespot.api;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.api.server.Receiver;
+import xyz.gianlu.librespot.api.server.Sender;
+import xyz.gianlu.librespot.api.server.WebsocketServer;
 
 import java.io.IOException;
 
@@ -10,23 +13,15 @@ import java.io.IOException;
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        WebsocketServer server = new WebsocketServer(24879, new WebsocketServer.Receiver() {
+        WebsocketServer server = new WebsocketServer(24879, new Receiver() {
             @Override
-            public void onReceivedText(WebsocketServer.@NotNull Sender sender, @NotNull String payload) {
-                try {
-                    sender.sendText(payload);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            public void onReceivedText(@NotNull Sender sender, @NotNull String payload) {
+                sender.sendText(payload);
             }
 
             @Override
-            public void onReceivedBytes(WebsocketServer.@NotNull Sender sender, @NotNull byte[] payload) {
-                try {
-                    sender.sendBytes(payload);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            public void onReceivedBytes(@NotNull Sender sender, @NotNull byte[] payload) {
+                sender.sendBytes(payload);
             }
         });
     }

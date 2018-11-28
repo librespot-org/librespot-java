@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.api;
+package xyz.gianlu.librespot.api.server;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -11,7 +11,9 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,12 +23,13 @@ import static xyz.gianlu.librespot.common.Utils.EOL;
 /**
  * @author Gianlu
  */
-public class WebsocketServer implements Closeable {
+public class WebsocketServer implements Closeable, BroadcastSender {
     private final static Logger LOGGER = Logger.getLogger(WebsocketServer.class);
     private static final byte[] EMPTY = new byte[0];
     private final Looper looper;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final Receiver receiver;
+    private final List<ClientRunner> clients = new ArrayList<>();
 
     public WebsocketServer(int port, @NotNull Receiver receiver) throws IOException {
         this.receiver = receiver;
@@ -55,18 +58,29 @@ public class WebsocketServer implements Closeable {
     public void close() throws IOException {
         looper.stop();
         executorService.shutdown();
+
+        synchronized (clients) {
+            for (ClientRunner client : clients)
+                client.close();
+
+            clients.clear();
+        }
     }
 
-    public interface Receiver {
-        void onReceivedText(@NotNull Sender sender, @NotNull String payload);
-
-        void onReceivedBytes(@NotNull Sender sender, @NotNull byte[] payload);
+    @Override
+    public void sendTextBroadcast(@NotNull String payload) {
+        synchronized (clients) {
+            for (ClientRunner client : clients)
+                client.sendText(payload);
+        }
     }
 
-    public interface Sender {
-        void sendText(@NotNull String payload) throws IOException;
-
-        void sendBytes(@NotNull byte[] payload) throws IOException;
+    @Override
+    public void sendBytesBroadcast(@NotNull byte[] payload) {
+        synchronized (clients) {
+            for (ClientRunner client : clients)
+                client.sendBytes(payload);
+        }
     }
 
     public static class HandshakeFailedException extends IOException {
@@ -112,6 +126,8 @@ public class WebsocketServer implements Closeable {
                     }
                 }
             }
+
+            if (socket.isClosed()) throw new IOException("Socket is closed.");
 
             out.write(0b10000000 | (opcode & 0b00001111));
             if (payload.length >= 126) {
@@ -267,16 +283,38 @@ public class WebsocketServer implements Closeable {
         @Override
         public void close() throws IOException {
             socket.close();
+
+            synchronized (clients) {
+                clients.remove(this);
+            }
         }
 
         @Override
-        public void sendText(@NotNull String payload) throws IOException {
-            send((byte) 0x1, payload.getBytes());
+        public void sendText(@NotNull String payload) {
+            try {
+                send((byte) 0x1, payload.getBytes());
+            } catch (IOException ex) {
+                LOGGER.fatal("Failed sending text payload.", ex);
+            }
         }
 
         @Override
-        public void sendBytes(@NotNull byte[] payload) throws IOException {
-            send((byte) 0x2, payload);
+        public void sendBytes(@NotNull byte[] payload) {
+            try {
+                send((byte) 0x2, payload);
+            } catch (IOException ex) {
+                LOGGER.fatal("Failed sending bytes payload.", ex);
+            }
+        }
+
+        @Override
+        public void sendTextBroadcast(@NotNull String payload) {
+            WebsocketServer.this.sendTextBroadcast(payload);
+        }
+
+        @Override
+        public void sendBytesBroadcast(@NotNull byte[] payload) {
+            WebsocketServer.this.sendBytesBroadcast(payload);
         }
     }
 
@@ -292,7 +330,12 @@ public class WebsocketServer implements Closeable {
         public void run() {
             while (!shouldStop && !serverSocket.isClosed()) {
                 try {
-                    executorService.execute(new ClientRunner(serverSocket.accept(), receiver));
+                    ClientRunner client = new ClientRunner(serverSocket.accept(), receiver);
+                    executorService.execute(client);
+
+                    synchronized (clients) {
+                        clients.add(client);
+                    }
                 } catch (IOException ex) {
                     LOGGER.fatal("Failed accepting connection!", ex);
                 }
