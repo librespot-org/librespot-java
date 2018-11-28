@@ -10,9 +10,9 @@ import java.io.IOException;
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        ApiServer server = new ApiServer(24879, new ApiServer.Receiver() {
+        WebsocketServer server = new WebsocketServer(24879, new WebsocketServer.Receiver() {
             @Override
-            public void onReceivedText(ApiServer.@NotNull Sender sender, @NotNull String payload) {
+            public void onReceivedText(WebsocketServer.@NotNull Sender sender, @NotNull String payload) {
                 try {
                     sender.sendText(payload);
                 } catch (IOException e) {
@@ -21,7 +21,7 @@ public class Main {
             }
 
             @Override
-            public void onReceivedBytes(ApiServer.@NotNull Sender sender, @NotNull byte[] payload) {
+            public void onReceivedBytes(WebsocketServer.@NotNull Sender sender, @NotNull byte[] payload) {
                 try {
                     sender.sendBytes(payload);
                 } catch (IOException e) {

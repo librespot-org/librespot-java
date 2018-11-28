@@ -21,16 +21,16 @@ import static xyz.gianlu.librespot.common.Utils.EOL;
 /**
  * @author Gianlu
  */
-public class ApiServer implements Closeable {
-    private final static Logger LOGGER = Logger.getLogger(ApiServer.class);
+public class WebsocketServer implements Closeable {
+    private final static Logger LOGGER = Logger.getLogger(WebsocketServer.class);
     private static final byte[] EMPTY = new byte[0];
     private final Looper looper;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final Receiver receiver;
 
-    public ApiServer(int port, @NotNull Receiver receiver) throws IOException {
+    public WebsocketServer(int port, @NotNull Receiver receiver) throws IOException {
         this.receiver = receiver;
-        executorService.execute(looper = new Looper(port));
+        this.executorService.execute(looper = new Looper(port));
     }
 
     private static byte[] getPayload(DataInputStream in, boolean mask, int length) throws IOException {
@@ -54,6 +54,7 @@ public class ApiServer implements Closeable {
     @Override
     public void close() throws IOException {
         looper.stop();
+        executorService.shutdown();
     }
 
     public interface Receiver {
