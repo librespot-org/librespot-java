@@ -26,8 +26,10 @@ public class ApiServer implements Closeable {
     private static final byte[] EMPTY = new byte[0];
     private final Looper looper;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final Receiver receiver;
 
-    public ApiServer(int port) throws IOException {
+    public ApiServer(int port, @NotNull Receiver receiver) throws IOException {
+        this.receiver = receiver;
         executorService.execute(looper = new Looper(port));
     }
 
@@ -54,6 +56,18 @@ public class ApiServer implements Closeable {
         looper.stop();
     }
 
+    public interface Receiver {
+        void onReceivedText(@NotNull Sender sender, @NotNull String payload);
+
+        void onReceivedBytes(@NotNull Sender sender, @NotNull byte[] payload);
+    }
+
+    public interface Sender {
+        void sendText(@NotNull String payload) throws IOException;
+
+        void sendBytes(@NotNull byte[] payload) throws IOException;
+    }
+
     public static class HandshakeFailedException extends IOException {
         HandshakeFailedException(String message) {
             super(message);
@@ -72,20 +86,31 @@ public class ApiServer implements Closeable {
         }
     }
 
-    private class ClientRunner implements Runnable, Closeable {
+    private class ClientRunner implements Runnable, Closeable, Sender {
         private final Socket socket;
         private final DataInputStream in;
         private final DataOutputStream out;
+        private final Receiver receiver;
+        private final Object handshakeLock = new Object();
         private Random random;
 
-        ClientRunner(@NotNull Socket socket) throws IOException {
+        ClientRunner(@NotNull Socket socket, @NotNull Receiver receiver) throws IOException {
             this.socket = socket;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
+            this.receiver = receiver;
         }
 
         void send(byte opcode, byte[] payload) throws IOException {
-            if (random == null) throw new IllegalStateException();
+            if (random == null) {
+                synchronized (handshakeLock) {
+                    try {
+                        handshakeLock.wait();
+                    } catch (InterruptedException ex) {
+                        throw new IllegalStateException("Failed waiting for handshake.", ex);
+                    }
+                }
+            }
 
             out.write(0b10000000 | (opcode & 0b00001111));
             if (payload.length >= 126) {
@@ -96,6 +121,8 @@ public class ApiServer implements Closeable {
                     out.write(0b00000000 | (126 & 0b01111111));
                     out.writeShort(payload.length);
                 }
+            } else {
+                out.writeByte(payload.length);
             }
 
             out.write(payload);
@@ -109,16 +136,15 @@ public class ApiServer implements Closeable {
 
                 while (!socket.isClosed()) {
                     Frame frame = readMessage();
-
                     switch (frame.opcode) {
                         case 0x0:
                             LOGGER.warn("Received continuation frame out of sync.");
                             break;
                         case 0x1:
-                            send((byte) 0x1, frame.payload); // FIXME
+                            executorService.execute(() -> receiver.onReceivedText(this, new String(frame.payload)));
                             break;
                         case 0x2:
-                            send((byte) 0x2, frame.payload); // FIXME
+                            executorService.execute(() -> receiver.onReceivedBytes(this, frame.payload));
                             break;
                         case 0x8:
                             handleClose(frame.payload);
@@ -129,7 +155,9 @@ public class ApiServer implements Closeable {
                         case 0xa:
                             LOGGER.trace("Pong ACK.");
                             break;
-
+                        default:
+                            LOGGER.warn(String.format("Unknown opcode, opcode: %d, payload: %s ", frame.opcode, Utils.bytesToHex(frame.payload)));
+                            break;
                     }
                 }
             } catch (IOException | GeneralSecurityException ex) {
@@ -226,6 +254,10 @@ public class ApiServer implements Closeable {
                 out.flush();
 
                 this.random = new Random(new BigInteger(websocketKeyDigest).longValue());
+
+                synchronized (handshakeLock) {
+                    handshakeLock.notifyAll();
+                }
             } else {
                 throw new HandshakeFailedException(sl);
             }
@@ -234,6 +266,16 @@ public class ApiServer implements Closeable {
         @Override
         public void close() throws IOException {
             socket.close();
+        }
+
+        @Override
+        public void sendText(@NotNull String payload) throws IOException {
+            send((byte) 0x1, payload.getBytes());
+        }
+
+        @Override
+        public void sendBytes(@NotNull byte[] payload) throws IOException {
+            send((byte) 0x2, payload);
         }
     }
 
@@ -249,7 +291,7 @@ public class ApiServer implements Closeable {
         public void run() {
             while (!shouldStop && !serverSocket.isClosed()) {
                 try {
-                    executorService.execute(new ClientRunner(serverSocket.accept()));
+                    executorService.execute(new ClientRunner(serverSocket.accept(), receiver));
                 } catch (IOException ex) {
                     LOGGER.fatal("Failed accepting connection!", ex);
                 }
