@@ -1,4 +1,6 @@
 # librespot-java
+[![Build Status](https://travis-ci.org/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.org/librespot-org/librespot-java)
+
 `librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust.
 
 ## Get started
