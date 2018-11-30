@@ -3,9 +3,9 @@ package xyz.gianlu.librespot.mercury.model;
 import io.seruco.encoding.base62.Base62;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Playlist4Content;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
+import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,13 +22,13 @@ public class TrackId implements SpotifyId {
     }
 
     @NotNull
-    public static TrackId fromItemsList(@NotNull Playlist4Content.Item item) {
-        Matcher matcher = PATTERN.matcher(item.getUri());
+    public static TrackId fromUri(@NotNull String uri) {
+        Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
             return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
         } else {
-            throw new IllegalArgumentException("Not a Spotify track ID: " + item.getUri());
+            throw new IllegalArgumentException("Not a Spotify track ID: " + uri);
         }
     }
 
@@ -48,7 +48,12 @@ public class TrackId implements SpotifyId {
     }
 
     @Override
-    public @NotNull String getMercuryUri() {
+    public @NotNull String toMercuryUri() {
         return "hm://metadata/4/track/" + hexId;
+    }
+
+    @Override
+    public @NotNull String toSpotifyUri() {
+        return "spotify:track:" + new String(BASE62.encode(new BigInteger(hexId, 16).toByteArray()));
     }
 }

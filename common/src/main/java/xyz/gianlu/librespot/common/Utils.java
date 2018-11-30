@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +27,11 @@ public class Utils {
     public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    @NotNull
+    public static String toBase64(@NotNull ByteString bytes) {
+        return Base64.getEncoder().encodeToString(bytes.toByteArray());
+    }
 
     @NotNull
     public static String readLine(@NotNull InputStream in) throws IOException {

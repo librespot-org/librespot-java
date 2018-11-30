@@ -20,17 +20,22 @@ public class PlaylistId implements SpotifyId {
     }
 
     @NotNull
-    public static PlaylistId fromItemsList(@NotNull Playlist4Content.Item item) {
-        Matcher matcher = PATTERN.matcher(item.getUri());
+    public static PlaylistId fromUri(@NotNull String uri) {
+        Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             return new PlaylistId(matcher.group(1), matcher.group(2));
         } else {
-            throw new IllegalArgumentException("Not a Spotify playlist ID: " + item.getUri());
+            throw new IllegalArgumentException("Not a Spotify playlist ID: " + uri);
         }
     }
 
     @Override
-    public @NotNull String getMercuryUri() {
+    public @NotNull String toMercuryUri() {
         return String.format("hm://playlist/user/%s/playlist/%s", username, playlistId);
+    }
+
+    @Override
+    public @NotNull String toSpotifyUri() {
+        return String.format("spotify:user:%s:playlist:%s", username, playlistId);
     }
 }

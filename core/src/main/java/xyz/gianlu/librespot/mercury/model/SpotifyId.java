@@ -6,5 +6,7 @@ import org.jetbrains.annotations.NotNull;
  * @author Gianlu
  */
 public interface SpotifyId {
-    @NotNull String getMercuryUri();
+    @NotNull String toMercuryUri();
+
+    @NotNull String toSpotifyUri();
 }

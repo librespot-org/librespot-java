@@ -52,6 +52,7 @@ public abstract class AbsApiHandler {
         private final JsonElement data;
 
         public HandlingException(int code, @NotNull String msg, @Nullable JsonElement data) {
+            super(msg);
             this.code = code;
             this.msg = msg;
             this.data = data;
@@ -59,6 +60,17 @@ public abstract class AbsApiHandler {
 
         public HandlingException(int code, @NotNull String msg) {
             this(code, msg, null);
+        }
+
+        public HandlingException(@NotNull Throwable cause, int code, @Nullable JsonElement data) {
+            super(cause);
+            this.code = code;
+            this.msg = cause.getMessage();
+            this.data = data;
+        }
+
+        public HandlingException(@NotNull Throwable cause, int code) {
+            this(cause, code, null);
         }
     }
 }

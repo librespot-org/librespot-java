@@ -59,7 +59,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private void load(@NotNull Spirc.TrackRef ref, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        track = session.mercury().sendSync(MercuryRequests.getTrack(TrackId.fromTrackRef(ref)));
+        track = session.mercury().sendSync(MercuryRequests.getTrack(TrackId.fromTrackRef(ref))).proto();
         track = pickAlternativeIfNecessary(track);
         if (track == null) {
             LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(ref.getGid()));

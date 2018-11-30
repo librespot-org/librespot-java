@@ -1,16 +1,17 @@
 package xyz.gianlu.librespot.mercury;
 
+import com.google.gson.JsonElement;
 import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Mercury;
+import xyz.gianlu.librespot.common.proto.Pubsub;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
-import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Pubsub;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -72,8 +73,13 @@ public class MercuryClient extends PacketsManager {
     @NotNull
     public <P extends AbstractMessageLite> P sendSync(@NotNull ProtobufMercuryRequest<P> request) throws IOException, MercuryException {
         Response resp = sendSync(request.request);
-        if (resp.statusCode >= 200 && resp.statusCode < 300) return request.processor.process(resp);
+        if (resp.statusCode >= 200 && resp.statusCode < 300) return request.parser.parseFrom(resp.payload.stream());
         else throw new MercuryException(resp);
+    }
+
+    @NotNull
+    public <P extends AbstractMessageLite> ProtoWrapperResponse<P> sendSync(@NotNull ProtoJsonMercuryRequest<P> request) throws IOException, MercuryException {
+        return new ProtoWrapperResponse<>(sendSync((ProtobufMercuryRequest<P>) request), request.converter);
     }
 
     public void send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
@@ -174,6 +180,28 @@ public class MercuryClient extends PacketsManager {
 
     public interface Callback {
         void response(@NotNull Response response);
+    }
+
+    public static class ProtoWrapperResponse<P extends AbstractMessageLite> {
+        private final P proto;
+        private final ProtoJsonMercuryRequest.JsonConverter<P> converter;
+        private JsonElement json;
+
+        ProtoWrapperResponse(@NotNull P proto, @NotNull ProtoJsonMercuryRequest.JsonConverter<P> converter) {
+            this.proto = proto;
+            this.converter = converter;
+        }
+
+        @NotNull
+        public P proto() {
+            return proto;
+        }
+
+        @NotNull
+        public JsonElement json() {
+            if (json == null) json = converter.convert(proto);
+            return json;
+        }
     }
 
     public static class PubSubException extends MercuryException {

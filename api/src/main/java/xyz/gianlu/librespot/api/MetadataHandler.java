@@ -1,18 +1,18 @@
 package xyz.gianlu.librespot.api;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.protobuf.AbstractMessageLite;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
-import xyz.gianlu.librespot.common.proto.Playlist4Changes;
-import xyz.gianlu.librespot.common.proto.Playlist4Content;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.ProtoJsonMercuryRequest;
+import xyz.gianlu.librespot.mercury.model.PlaylistId;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * @author Gianlu
@@ -31,25 +31,22 @@ public class MetadataHandler extends AbsApiHandler {
     protected @NotNull JsonElement handleRequest(ApiServer.@NotNull Request request) throws ApiServer.PredefinedJsonRpcException, HandlingException {
         switch (request.getSuffix()) {
             case "rootlists":
-                return handleRootlists();
+                return handle(MercuryRequests.getRootPlaylists(session.apWelcome().getCanonicalUsername()));
+            case "playlist":
+                return handle(MercuryRequests.getPlaylist(PlaylistId.fromUri(request.params.getAsString())));
+            case "track":
+                return handle(MercuryRequests.getTrack(TrackId.fromUri(request.params.getAsString())));
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
         }
     }
 
     @NotNull
-    private JsonElement handleRootlists() throws HandlingException {
+    private <P extends AbstractMessageLite> JsonElement handle(@NotNull ProtoJsonMercuryRequest<P> req) throws HandlingException {
         try {
-            Playlist4Changes.SelectedListContent list = client.sendSync(MercuryRequests.getRootPlaylists(session.apWelcome().getCanonicalUsername()));
-            List<Playlist4Content.Item> items = list.getContents().getItemsList();
-
-            JsonArray array = new JsonArray(items.size());
-            for (Playlist4Content.Item item : items)
-                array.add(item.getUri());
-
-            return array;
+            return client.sendSync(req).json();
         } catch (IOException | MercuryClient.MercuryException ex) {
-            throw new HandlingException(100, ""); // FIXME: Create error codes table
+            throw new HandlingException(ex, 100); // FIXME: Create error codes table
         }
     }
 
