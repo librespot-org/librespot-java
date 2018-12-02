@@ -38,14 +38,7 @@ public final class MercuryRequests {
         obj.addProperty("allowed", proto.getCountriesAllowed());
         obj.addProperty("forbidden", proto.getCountriesForbidden());
         obj.addProperty("type", proto.getTyp().name());
-        obj.add("catalogues", makeArray(proto.getCatalogueStrList()));
-        return obj;
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.add("start", DATE_JSON_CONVERTER.convert(proto.getStart()));
-        obj.add("end", DATE_JSON_CONVERTER.convert(proto.getEnd()));
-        obj.add("restrictions", makeArray(proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER));
+        putArray(obj, "catalogues", proto.getCatalogueStrList());
         return obj;
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Copyright> COPYRIGHT_JSON_CONVERTER = proto -> {
@@ -62,22 +55,10 @@ public final class MercuryRequests {
         obj.addProperty("fileId", Utils.toBase64(proto.getFileId()));
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.add("images", makeArray(proto.getImageList(), IMAGE_JSON_CONVERTER));
-        return obj;
-    };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ExternalId> EXTERNAL_ID_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("type", proto.getTyp());
         obj.addProperty("id", proto.getId());
-        return obj;
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("text", proto.getText());
-        obj.add("portraits", makeArray(proto.getPortraitList(), IMAGE_JSON_CONVERTER));
-        obj.add("portraitGroups", makeArray(proto.getPortraitGroupList(), IMAGE_GROUP_JSON_CONVERTER));
         return obj;
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ActivityPeriod> ACTIVITY_PERIOD_JSON_CONVERTER = proto -> {
@@ -93,97 +74,135 @@ public final class MercuryRequests {
         obj.addProperty("format", proto.getFormat().name());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist> ARTIST_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist>() {
-        @Override
-        public @NotNull JsonElement convert(Metadata.@NotNull Artist proto) {
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist> ARTIST_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Album> ALBUM_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AlbumGroup> ALBUM_GROUP_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Track> TRACK_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Disc> DISC_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.TopTracks> TOP_TRACKS_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER;
+
+    static {
+        SALE_PERIOD_JSON_CONVERTER = proto -> {
             JsonObject obj = new JsonObject();
-            obj.addProperty("gid", Utils.toBase64(proto.getGid()));
-            obj.addProperty("name", proto.getName());
-            obj.addProperty("popularity", proto.getPopularity());
-            obj.addProperty("isPortraitAlbumCover", proto.getIsPortraitAlbumCover());
-            obj.add("portraitGroup", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getPortraitGroup()));
-            obj.add("genres", makeArray(proto.getGenreList()));
-            obj.add("restrictions", makeArray(proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER));
-            obj.add("externalIds", makeArray(proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER));
-            obj.add("related", makeArray(proto.getRelatedList(), this));
-            obj.add("portraits", makeArray(proto.getPortraitList(), IMAGE_JSON_CONVERTER));
-            obj.add("albumGroups", makeArray(proto.getAlbumGroupList(), ALBUM_GROUP_JSON_CONVERTER));
-            obj.add("singleGroups", makeArray(proto.getSingleGroupList(), ALBUM_GROUP_JSON_CONVERTER));
-            obj.add("compilationGroups", makeArray(proto.getCompilationGroupList(), ALBUM_GROUP_JSON_CONVERTER));
-            obj.add("appearsOnGroups", makeArray(proto.getAppearsOnGroupList(), ALBUM_GROUP_JSON_CONVERTER));
-            obj.add("biographies", makeArray(proto.getBiographyList(), BIOGRAPHY_JSON_CONVERTER));
-            obj.add("topTracks", makeArray(proto.getTopTrackList(), TOP_TRACKS_JSON_CONVERTER));
-            obj.add("activityPeriods", makeArray(proto.getActivityPeriodList(), ACTIVITY_PERIOD_JSON_CONVERTER));
+            obj.add("start", DATE_JSON_CONVERTER.convert(proto.getStart()));
+            obj.add("end", DATE_JSON_CONVERTER.convert(proto.getEnd()));
+            putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
             return obj;
-        }
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Album> ALBUM_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Album>() {
-        @Override
-        public @NotNull JsonElement convert(Metadata.@NotNull Album proto) {
+        };
+        IMAGE_GROUP_JSON_CONVERTER = proto -> {
             JsonObject obj = new JsonObject();
-            obj.addProperty("gid", Utils.toBase64(proto.getGid()));
-            obj.addProperty("name", proto.getName());
-            obj.addProperty("popularity", proto.getPopularity());
-            obj.addProperty("label", proto.getLabel());
-            obj.add("genres", makeArray(proto.getGenreList()));
-            obj.add("reviews", makeArray(proto.getReviewList()));
-            obj.add("artists", makeArray(proto.getArtistList(), ARTIST_JSON_CONVERTER));
-            obj.add("related", makeArray(proto.getRelatedList(), ALBUM_JSON_CONVERTER));
-            obj.addProperty("type", proto.getTyp().name());
-            obj.add("date", DATE_JSON_CONVERTER.convert(proto.getDate()));
-            obj.add("discs", makeArray(proto.getDiscList(), DISC_JSON_CONVERTER));
-            obj.add("salePeriods", makeArray(proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER));
-            obj.add("restrictions", makeArray(proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER));
-            obj.add("copyrights", makeArray(proto.getCopyrightList(), COPYRIGHT_JSON_CONVERTER));
-            obj.add("coverGroup", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getCoverGroup()));
-            obj.add("covers", makeArray(proto.getCoverList(), IMAGE_JSON_CONVERTER));
-            obj.add("externalIds", makeArray(proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER));
+            putArray(obj, "images", proto.getImageList(), IMAGE_JSON_CONVERTER);
             return obj;
-        }
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AlbumGroup> ALBUM_GROUP_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.add("albums", makeArray(proto.getAlbumList(), ALBUM_JSON_CONVERTER));
-        return obj;
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Track> TRACK_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Track>() {
-        @Override
-        public @NotNull JsonElement convert(Metadata.@NotNull Track proto) {
+        };
+        BIOGRAPHY_JSON_CONVERTER = proto -> {
             JsonObject obj = new JsonObject();
-            obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+            obj.addProperty("text", proto.getText());
+            putArray(obj, "portraits", proto.getPortraitList(), IMAGE_JSON_CONVERTER);
+            putArray(obj, "portraitGroups", proto.getPortraitGroupList(), IMAGE_GROUP_JSON_CONVERTER);
+            return obj;
+        };
+        ARTIST_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist>() {
+            @Override
+            public @NotNull JsonElement convert(Metadata.@NotNull Artist proto) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("name", proto.getName());
+                obj.addProperty("popularity", proto.getPopularity());
+                obj.addProperty("isPortraitAlbumCover", proto.getIsPortraitAlbumCover());
+                obj.add("portraitGroup", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getPortraitGroup()));
+                putArray(obj, "genres", proto.getGenreList());
+                putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
+                putArray(obj, "externalIds", proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER);
+                putArray(obj, "related", proto.getRelatedList(), this);
+                putArray(obj, "portraits", proto.getPortraitList(), IMAGE_JSON_CONVERTER);
+                putArray(obj, "albumGroups", proto.getAlbumGroupList(), ALBUM_GROUP_JSON_CONVERTER);
+                putArray(obj, "singleGroups", proto.getSingleGroupList(), ALBUM_GROUP_JSON_CONVERTER);
+                putArray(obj, "compilationGroups", proto.getCompilationGroupList(), ALBUM_GROUP_JSON_CONVERTER);
+                putArray(obj, "appearsOnGroups", proto.getAppearsOnGroupList(), ALBUM_GROUP_JSON_CONVERTER);
+                putArray(obj, "biographies", proto.getBiographyList(), BIOGRAPHY_JSON_CONVERTER);
+                putArray(obj, "topTracks", proto.getTopTrackList(), TOP_TRACKS_JSON_CONVERTER);
+                putArray(obj, "activityPeriods", proto.getActivityPeriodList(), ACTIVITY_PERIOD_JSON_CONVERTER);
+                return obj;
+            }
+        };
+        ALBUM_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Album>() {
+            @Override
+            public @NotNull JsonElement convert(Metadata.@NotNull Album proto) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("name", proto.getName());
+                obj.addProperty("popularity", proto.getPopularity());
+                obj.addProperty("label", proto.getLabel());
+                putArray(obj, "genres", proto.getGenreList());
+                putArray(obj, "reviews", proto.getReviewList());
+                putArray(obj, "artists", proto.getArtistList(), ARTIST_JSON_CONVERTER);
+                putArray(obj, "related", proto.getRelatedList(), ALBUM_JSON_CONVERTER);
+                obj.addProperty("type", proto.getTyp().name());
+                obj.add("date", DATE_JSON_CONVERTER.convert(proto.getDate()));
+                putArray(obj, "discs", proto.getDiscList(), DISC_JSON_CONVERTER);
+                putArray(obj, "salePeriods", proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER);
+                putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
+                putArray(obj, "copyrights", proto.getCopyrightList(), COPYRIGHT_JSON_CONVERTER);
+                obj.add("coverGroup", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getCoverGroup()));
+                putArray(obj, "covers", proto.getCoverList(), IMAGE_JSON_CONVERTER);
+                putArray(obj, "externalIds", proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER);
+                return obj;
+            }
+        };
+        ALBUM_GROUP_JSON_CONVERTER = proto -> {
+            JsonObject obj = new JsonObject();
+            putArray(obj, "albums", proto.getAlbumList(), ALBUM_JSON_CONVERTER);
+            return obj;
+        };
+        TRACK_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Track>() {
+            @Override
+            public @NotNull JsonElement convert(Metadata.@NotNull Track proto) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("name", proto.getName());
+                obj.addProperty("number", proto.getNumber());
+                obj.addProperty("discNumber", proto.getDiscNumber());
+                obj.addProperty("duration", proto.getDuration());
+                obj.addProperty("popularity", proto.getPopularity());
+                obj.addProperty("explicit", proto.getExplicit());
+                obj.add("album", ALBUM_JSON_CONVERTER.convert(proto.getAlbum()));
+                putArray(obj, "artists", proto.getArtistList(), ARTIST_JSON_CONVERTER);
+                putArray(obj, "externalIds", proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER);
+                putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
+                putArray(obj, "alternatives", proto.getAlternativeList(), this);
+                putArray(obj, "salePeriods", proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER);
+                putArray(obj, "previews", proto.getPreviewList(), AUDIO_FILE_JSON_CONVERTER);
+                putArray(obj, "files", proto.getFileList(), AUDIO_FILE_JSON_CONVERTER);
+                return obj;
+            }
+        };
+        DISC_JSON_CONVERTER = proto -> {
+            JsonObject obj = new JsonObject();
             obj.addProperty("name", proto.getName());
             obj.addProperty("number", proto.getNumber());
-            obj.addProperty("discNumber", proto.getDiscNumber());
-            obj.addProperty("duration", proto.getDuration());
-            obj.addProperty("popularity", proto.getPopularity());
-            obj.addProperty("explicit", proto.getExplicit());
-            obj.add("album", ALBUM_JSON_CONVERTER.convert(proto.getAlbum()));
-            obj.add("artists", makeArray(proto.getArtistList(), ARTIST_JSON_CONVERTER));
-            obj.add("externalIds", makeArray(proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER));
-            obj.add("restrictions", makeArray(proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER));
-            obj.add("alternatives", makeArray(proto.getAlternativeList(), this));
-            obj.add("salePeriods", makeArray(proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER));
-            obj.add("previews", makeArray(proto.getPreviewList(), AUDIO_FILE_JSON_CONVERTER));
-            obj.add("files", makeArray(proto.getFileList(), AUDIO_FILE_JSON_CONVERTER));
+            putArray(obj, "tracks", proto.getTrackList(), TRACK_JSON_CONVERTER);
             return obj;
-        }
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Disc> DISC_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("name", proto.getName());
-        obj.addProperty("number", proto.getNumber());
-        obj.add("tracks", makeArray(proto.getTrackList(), TRACK_JSON_CONVERTER));
-        return obj;
-    };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.TopTracks> TOP_TRACKS_JSON_CONVERTER = proto -> {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("country", proto.getCountry());
-        obj.add("tracks", makeArray(proto.getTrackList(), TRACK_JSON_CONVERTER));
-        return obj;
-    };
-
+        };
+        TOP_TRACKS_JSON_CONVERTER = proto -> {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("country", proto.getCountry());
+            putArray(obj, "tracks", proto.getTrackList(), TRACK_JSON_CONVERTER);
+            return obj;
+        };
+    }
 
     private MercuryRequests() {
+    }
+
+    private static <P extends AbstractMessage> void putArray(@NotNull JsonObject dest, @NotNull String key, @NotNull List<P> list, @NotNull ProtoJsonMercuryRequest.JsonConverter<P> converter) {
+        if (!list.isEmpty()) dest.add(key, makeArray(list, converter));
+    }
+
+    private static void putArray(@NotNull JsonObject dest, @NotNull String key, @NotNull ProtocolStringList list) {
+        if (!list.isEmpty()) dest.add(key, makeArray(list));
     }
 
     @NotNull
