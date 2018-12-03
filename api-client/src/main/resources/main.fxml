@@ -106,6 +106,7 @@
                                         </VBox>
                                         <VBox>
                                             <children>
+                                                <Label text="Headers"/>
                                                 <TableView fx:id="mercuryHeaders" editable="true" prefHeight="250.0"
                                                            prefWidth="200.0">
                                                     <columns>
@@ -140,7 +141,7 @@
             <content>
                 <VBox>
                     <children>
-                        <ListView fx:id="responses" VBox.vgrow="SOMETIMES"/>
+                        <ListView fx:id="responses" onMouseClicked="#clickedResponse" VBox.vgrow="SOMETIMES"/>
                     </children>
                 </VBox>
             </content>

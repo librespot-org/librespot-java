@@ -3,13 +3,19 @@ package xyz.gianlu.librespot.api.client;
 import com.google.gson.JsonObject;
 import com.sun.javafx.collections.ObservableListWrapper;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -178,6 +184,21 @@ public class MainController implements NetworkThread.Listener, NetworkThread.Cal
         int last = mercuryHeaders.getItems().size() - 1;
         mercuryHeaders.getSelectionModel().select(last);
         mercuryHeaders.getFocusModel().focus(last);
+    }
+
+    public void clickedResponse(MouseEvent mouseEvent) throws IOException {
+        String json = responses.getSelectionModel().getSelectedItem();
+
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getClassLoader().getResource("responseDialog.fxml"));
+        Parent parent = fxmlLoader.load();
+        ResponseDialogController dialogController = fxmlLoader.getController();
+        dialogController.setJson(json);
+
+        Scene scene = new Scene(parent, 400, 300);
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setScene(scene);
+        stage.showAndWait();
     }
 
     public static class Header {
