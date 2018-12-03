@@ -23,5 +23,6 @@ public class Main {
         ApiServer server = new ApiServer(24879);
         server.registerHandler(new PlayerHandler());
         server.registerHandler(new MetadataHandler(session));
+        server.registerHandler(new MercuryHandler(session));
     }
 }

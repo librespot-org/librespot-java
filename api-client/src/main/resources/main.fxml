@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121"
+      fx:controller="xyz.gianlu.librespot.api.client.MainController">
+    <children>
+        <HBox VBox.vgrow="NEVER">
+            <children>
+                <TextField fx:id="address" HBox.hgrow="ALWAYS">
+                    <HBox.margin>
+                        <Insets right="8.0"/>
+                    </HBox.margin>
+                </TextField>
+                <Pane HBox.hgrow="NEVER">
+                    <children>
+                        <Button fx:id="disconnect" mnemonicParsing="false" onMouseClicked="#clickedDisconnect"
+                                text="Disconnect" visible="false"/>
+                        <Button fx:id="connect" mnemonicParsing="false" onMouseClicked="#clickedConnect"
+                                text="Connect"/>
+                    </children>
+                </Pane>
+            </children>
+            <VBox.margin>
+                <Insets bottom="8.0"/>
+            </VBox.margin>
+        </HBox>
+        <TitledPane animated="false" text="Send" VBox.vgrow="ALWAYS">
+            <VBox.margin>
+                <Insets bottom="8.0"/>
+            </VBox.margin>
+            <content>
+                <VBox>
+                    <children>
+                        <HBox>
+                            <children>
+                                <TextField fx:id="jsonrpcId" prefWidth="100.0" promptText="ID">
+                                    <HBox.margin>
+                                        <Insets right="8.0"/>
+                                    </HBox.margin>
+                                </TextField>
+                                <Button mnemonicParsing="false" onMouseClicked="#clickedGenerateId" text="Generate">
+                                    <HBox.margin>
+                                        <Insets right="24.0"/>
+                                    </HBox.margin>
+                                </Button>
+                                <TextField fx:id="jsonrpcMethod" promptText="Method" HBox.hgrow="ALWAYS"/>
+                            </children>
+                            <VBox.margin>
+                                <Insets bottom="8.0"/>
+                            </VBox.margin>
+                        </HBox>
+                        <TextArea fx:id="jsonrpcParams" promptText="JSON params" VBox.vgrow="SOMETIMES">
+                            <VBox.margin>
+                                <Insets bottom="8.0"/>
+                            </VBox.margin>
+                        </TextArea>
+                        <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onMouseClicked="#clickedSend"
+                                text="Send" VBox.vgrow="NEVER"/>
+                    </children>
+                </VBox>
+            </content>
+        </TitledPane>
+        <TitledPane animated="false" text="Received" VBox.vgrow="ALWAYS">
+            <content>
+                <VBox>
+                    <children>
+                        <ListView fx:id="responses" VBox.vgrow="SOMETIMES"/>
+                    </children>
+                </VBox>
+            </content>
+        </TitledPane>
+    </children>
+    <padding>
+        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0"/>
+    </padding>
+</VBox>

@@ -9,21 +9,23 @@
         <relativePath>../</relativePath>
     </parent>
 
-    <artifactId>librespot-api</artifactId>
+    <artifactId>librespot-api-client</artifactId>
     <packaging>jar</packaging>
 
-    <name>librespot-java api</name>
+    <name>librespot-java api client</name>
 
     <dependencies>
         <dependency>
             <groupId>xyz.gianlu.librespot</groupId>
-            <artifactId>librespot-core</artifactId>
-            <version>0.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-common</artifactId>
             <version>0.0.1</version>
+        </dependency>
+
+        <!-- WebSocket client -->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.3.9</version>
         </dependency>
 
         <!-- Data -->
