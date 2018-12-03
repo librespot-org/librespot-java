@@ -5,6 +5,8 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.proto.Authentication;
+import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.PBKDF2;
@@ -13,8 +15,6 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.ChannelManager;
 import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.common.proto.Authentication;
-import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
@@ -401,6 +401,14 @@ public class Session implements AutoCloseable {
         private Authentication.LoginCredentials loginCredentials = null;
 
         public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
+            this.inner = new Inner(deviceType, deviceName, configuration);
+        }
+
+        public Builder(@NotNull DeviceType deviceType, @NotNull AbsConfiguration configuration) {
+            String deviceName = configuration.deviceName();
+            if (deviceName == null || deviceName.isEmpty())
+                throw new IllegalArgumentException("Device name required: " + deviceName);
+
             this.inner = new Inner(deviceType, deviceName, configuration);
         }
 

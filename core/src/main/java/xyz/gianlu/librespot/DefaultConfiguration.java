@@ -48,4 +48,10 @@ public final class DefaultConfiguration extends AbsConfiguration {
     public boolean doCleanUp() {
         return true;
     }
+
+    @NotNull
+    @Override
+    public String deviceName() {
+        return "librespot-java";
+    }
 }

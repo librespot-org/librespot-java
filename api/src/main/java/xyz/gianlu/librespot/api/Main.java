@@ -16,7 +16,7 @@ import java.security.GeneralSecurityException;
 public class Main {
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, MercuryClient.PubSubException, SpotifyIrc.IrcException, Session.SpotifyAuthenticationException {
-        Session session = new Session.Builder(Session.DeviceType.Computer, "librespot-java", new FileConfiguration(new File("conf.properties")))
+        Session session = new Session.Builder(Session.DeviceType.Computer, new FileConfiguration(new File("conf.properties")))
                 .userPass(args[0], args[1])
                 .create();
 

@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.TrackHandler;
 
 import java.io.File;
@@ -65,5 +66,10 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public float normalisationPregain() {
         return getFloat("player.normalisationPregain", defaults.normalisationPregain());
+    }
+
+    @Override
+    public @Nullable String deviceName() {
+        return properties.getProperty("deviceName", null);
     }
 }
