@@ -1,7 +1,7 @@
 # librespot-java
 [![Build Status](https://travis-ci.org/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.org/librespot-org/librespot-java)
 
-`librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust.
+`librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
 
 ## Get started
 This implementation doesn't have an user interface (at the moment) therefore you can interact with it only from an original Spotify client. To understand how you can use this have a look at the [Main.java](https://github.com/librespot-org/librespot-java/blob/master/core/src/main/java/org/librespot/spotify/Main.java), there you can decide how to authenticate:
@@ -29,6 +29,6 @@ After you've setup the [Main class](https://github.com/librespot-org/librespot-j
 The client is pretty functional as it is, but improvements can be made:
 - Have an user interface
 - API (WIP)
-- API client (WIP)
+- ~API client~ ([librespot-api](https://github.com/librespot-org/librespot-java/blob/master/api))
 - ~Caching~ (#18)
 - ~Preloading~ (#21)
