@@ -29,11 +29,20 @@ public class MercuryHandler extends AbsApiHandler {
         if (request.getSuffix().equals("request")) {
             JsonObject params = request.params.getAsJsonObject();
 
+            RawMercuryRequest.Builder builder = RawMercuryRequest.newBuilder()
+                    .setMethod(params.get("method").getAsString())
+                    .setUri(params.get("uri").getAsString());
+
+            if (params.has("headers")) {
+                JsonArray headers = params.getAsJsonArray("headers");
+                for (JsonElement element : headers) {
+                    JsonObject header = element.getAsJsonObject();
+                    builder.addUserField(header.get("key").getAsString(), header.get("value").getAsString());
+                }
+            }
+
             try {
-                MercuryClient.Response response = client.sendSync(RawMercuryRequest.newBuilder()
-                        .setMethod(params.get("method").getAsString())
-                        .setUri(params.get("uri").getAsString())
-                        .build());
+                MercuryClient.Response response = client.sendSync(builder.build());
 
                 JsonArray payloads = new JsonArray(response.payload.size());
                 for (byte[] bytes : response.payload)
@@ -45,7 +54,7 @@ public class MercuryHandler extends AbsApiHandler {
                 obj.add("payloads", payloads);
                 return obj;
             } catch (IOException ex) {
-                throw new HandlingException(ex, 100);
+                throw new HandlingException(ex, 100 /* FIXME */);
             }
         } else {
             throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
