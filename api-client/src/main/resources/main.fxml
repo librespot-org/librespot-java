@@ -3,12 +3,12 @@
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<VBox xmlns:fx="http://javafx.com/fxml/1" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121"
+<VBox xmlns:fx="http://javafx.com/fxml/1" prefHeight="600.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121"
       fx:controller="xyz.gianlu.librespot.api.client.MainController">
     <children>
         <HBox VBox.vgrow="NEVER">
             <children>
-                <TextField fx:id="address" HBox.hgrow="ALWAYS">
+                <TextField fx:id="address" promptText="Address" text="ws://" HBox.hgrow="ALWAYS">
                     <HBox.margin>
                         <Insets right="8.0"/>
                     </HBox.margin>
@@ -26,43 +26,117 @@
                 <Insets bottom="8.0"/>
             </VBox.margin>
         </HBox>
-        <TitledPane animated="false" text="Send" VBox.vgrow="ALWAYS">
+        <TitledPane fx:id="sendContainer" animated="false" text="Send" VBox.vgrow="ALWAYS">
             <VBox.margin>
                 <Insets bottom="8.0"/>
             </VBox.margin>
             <content>
-                <VBox>
-                    <children>
-                        <HBox>
-                            <children>
-                                <TextField fx:id="jsonrpcId" prefWidth="100.0" promptText="ID">
-                                    <HBox.margin>
-                                        <Insets right="8.0"/>
-                                    </HBox.margin>
-                                </TextField>
-                                <Button mnemonicParsing="false" onMouseClicked="#clickedGenerateId" text="Generate">
-                                    <HBox.margin>
-                                        <Insets right="24.0"/>
-                                    </HBox.margin>
-                                </Button>
-                                <TextField fx:id="jsonrpcMethod" promptText="Method" HBox.hgrow="ALWAYS"/>
-                            </children>
-                            <VBox.margin>
-                                <Insets bottom="8.0"/>
-                            </VBox.margin>
-                        </HBox>
-                        <TextArea fx:id="jsonrpcParams" promptText="JSON params" VBox.vgrow="SOMETIMES">
-                            <VBox.margin>
-                                <Insets bottom="8.0"/>
-                            </VBox.margin>
-                        </TextArea>
-                        <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onMouseClicked="#clickedSend"
-                                text="Send" VBox.vgrow="NEVER"/>
-                    </children>
-                </VBox>
+                <TabPane>
+                    <tabs>
+                        <Tab closable="false" text="General">
+                            <content>
+                                <VBox>
+                                    <children>
+                                        <HBox>
+                                            <children>
+                                                <TextField fx:id="jsonrpcId" prefWidth="100.0" promptText="ID">
+                                                    <HBox.margin>
+                                                        <Insets right="8.0"/>
+                                                    </HBox.margin>
+                                                </TextField>
+                                                <Button mnemonicParsing="false" onMouseClicked="#clickedGenerateId"
+                                                        text="Generate">
+                                                    <HBox.margin>
+                                                        <Insets right="24.0"/>
+                                                    </HBox.margin>
+                                                </Button>
+                                                <TextField fx:id="jsonrpcMethod" promptText="Method"
+                                                           HBox.hgrow="ALWAYS"/>
+                                            </children>
+                                            <VBox.margin>
+                                                <Insets bottom="8.0"/>
+                                            </VBox.margin>
+                                        </HBox>
+                                        <TextArea fx:id="jsonrpcParams" promptText="JSON params" VBox.vgrow="SOMETIMES">
+                                            <VBox.margin>
+                                                <Insets bottom="8.0"/>
+                                            </VBox.margin>
+                                        </TextArea>
+                                        <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false"
+                                                onMouseClicked="#clickedGeneralSend" text="Send" VBox.vgrow="NEVER"/>
+                                    </children>
+                                    <padding>
+                                        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0"/>
+                                    </padding>
+                                </VBox>
+                            </content>
+                        </Tab>
+                        <Tab closable="false" text="Mercury">
+                            <content>
+                                <HBox>
+                                    <children>
+                                        <VBox HBox.hgrow="ALWAYS">
+                                            <children>
+                                                <HBox VBox.vgrow="NEVER">
+                                                    <children>
+                                                        <ComboBox fx:id="mercuryMethod" editable="true"
+                                                                  prefWidth="150.0" promptText="Method">
+                                                            <HBox.margin>
+                                                                <Insets right="8.0"/>
+                                                            </HBox.margin>
+                                                        </ComboBox>
+                                                        <TextField fx:id="mercuryUri" promptText="URI"
+                                                                   HBox.hgrow="ALWAYS"/>
+                                                    </children>
+                                                    <VBox.margin>
+                                                        <Insets bottom="8.0"/>
+                                                    </VBox.margin>
+                                                </HBox>
+                                                <TextField fx:id="mercuryContentType" promptText="Content type">
+                                                    <VBox.margin>
+                                                        <Insets bottom="8.0"/>
+                                                    </VBox.margin>
+                                                </TextField>
+                                                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false"
+                                                        onMouseClicked="#clickedMercurySend" text="Send"/>
+                                            </children>
+                                            <padding>
+                                                <Insets right="8.0"/>
+                                            </padding>
+                                        </VBox>
+                                        <VBox>
+                                            <children>
+                                                <TableView fx:id="mercuryHeaders" editable="true" prefHeight="250.0"
+                                                           prefWidth="200.0">
+                                                    <columns>
+                                                        <TableColumn fx:id="mercuryHeaderKeys" prefWidth="75.0"
+                                                                     text="Key"/>
+                                                        <TableColumn fx:id="mercuryHeaderValues" prefWidth="75.0"
+                                                                     text="Value"/>
+                                                    </columns>
+                                                    <columnResizePolicy>
+                                                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                                                    </columnResizePolicy>
+                                                    <VBox.margin>
+                                                        <Insets bottom="8.0"/>
+                                                    </VBox.margin>
+                                                </TableView>
+                                                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false"
+                                                        onMouseClicked="#clickedMercuryAddEmptyHeader" text="Add"/>
+                                            </children>
+                                        </VBox>
+                                    </children>
+                                    <padding>
+                                        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0"/>
+                                    </padding>
+                                </HBox>
+                            </content>
+                        </Tab>
+                    </tabs>
+                </TabPane>
             </content>
         </TitledPane>
-        <TitledPane animated="false" text="Received" VBox.vgrow="ALWAYS">
+        <TitledPane fx:id="receivedContainer" animated="false" text="Received" VBox.vgrow="ALWAYS">
             <content>
                 <VBox>
                     <children>

@@ -1,14 +1,18 @@
 package xyz.gianlu.librespot.api.client;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import javafx.application.Platform;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Gianlu
@@ -19,13 +23,25 @@ public class NetworkThread extends Thread {
     private final Listener listener;
     private final Map<String, Callback> requests = new HashMap<>();
 
-    public NetworkThread(@NotNull String uri, @NotNull Listener listener) {
-        client = new Client(URI.create(uri));
+    NetworkThread(@NotNull URI uri, @NotNull Listener listener) {
+        client = new Client(uri);
         this.listener = listener;
         start();
     }
 
-    public void close() {
+    private static void addParams(@NotNull JsonObject obj, @Nullable String params) {
+        if (params == null) return;
+
+        if (params.isEmpty()) {
+            obj.addProperty("params", "");
+        } else if ((params.startsWith("{") && params.endsWith("}")) || (params.startsWith("[") && params.endsWith("]"))) {
+            obj.add("params", PARSER.parse(params));
+        } else {
+            obj.addProperty("params", params);
+        }
+    }
+
+    void close() {
         client.close();
     }
 
@@ -38,12 +54,43 @@ public class NetworkThread extends Thread {
         }
     }
 
-    public void send(String id, String method, String params, @NotNull Callback listener) {
+    void sendGeneral(@NotNull String id, @NotNull String method, @Nullable String params, @NotNull Callback listener) {
         JsonObject obj = new JsonObject();
         obj.addProperty("jsonrpc", "2.0");
         obj.addProperty("id", id);
         obj.addProperty("method", method);
-        if (!params.isEmpty()) obj.add("params", PARSER.parse(params));
+        addParams(obj, params);
+
+        client.send(obj.toString());
+        requests.put(id, listener);
+    }
+
+    void sendMercury(@NotNull String method, @NotNull String uri, @Nullable String contentType, @NotNull Map<String, String> headers, @NotNull Callback listener) {
+        String id = String.valueOf(ThreadLocalRandom.current().nextInt(1000));
+
+        JsonObject obj = new JsonObject();
+        obj.addProperty("jsonrpc", "2.0");
+        obj.addProperty("id", id);
+        obj.addProperty("method", "mercury.request");
+
+        JsonObject params = new JsonObject();
+        obj.add("params", params);
+
+        params.addProperty("method", method);
+        params.addProperty("uri", uri);
+        if (contentType != null && !contentType.isEmpty())
+            params.addProperty("contentType", contentType);
+
+        if (!headers.isEmpty()) {
+            JsonArray array = new JsonArray(headers.size());
+            params.add("headers", array);
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                JsonObject e = new JsonObject();
+                e.addProperty("key", entry.getKey());
+                e.addProperty("value", entry.getValue());
+                array.add(e);
+            }
+        }
 
         client.send(obj.toString());
         requests.put(id, listener);
@@ -55,6 +102,8 @@ public class NetworkThread extends Thread {
 
     public interface Listener {
         void connected();
+
+        void error(@NotNull Throwable ex);
 
         void closed();
 
@@ -68,26 +117,26 @@ public class NetworkThread extends Thread {
 
         @Override
         public void onOpen(ServerHandshake serverHandshake) {
-            listener.connected();
+            Platform.runLater(listener::connected);
         }
 
         @Override
         public void onMessage(String s) {
             JsonObject obj = PARSER.parse(s).getAsJsonObject();
             String id = obj.get("id").getAsString();
-            Callback callback = requests.get(id);
-            if (callback == null) listener.unknownResponse(obj);
-            else callback.response(obj);
+            Callback callback = requests.remove(id);
+            if (callback == null) Platform.runLater(() -> listener.unknownResponse(obj));
+            else Platform.runLater(() -> callback.response(obj));
         }
 
         @Override
         public void onClose(int i, String s, boolean b) {
-            listener.closed();
+            Platform.runLater(listener::closed);
         }
 
         @Override
-        public void onError(Exception e) {
-            e.printStackTrace();
+        public void onError(Exception ex) {
+            Platform.runLater(() -> listener.error(ex));
         }
     }
 }
