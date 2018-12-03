@@ -28,5 +28,7 @@ After you've setup the [Main class](https://github.com/librespot-org/librespot-j
 ## TODO
 The client is pretty functional as it is, but improvements can be made:
 - Have an user interface
+- API (WIP)
+- API client (WIP)
 - ~Caching~ (#18)
 - ~Preloading~ (#21)
