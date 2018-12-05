@@ -201,6 +201,31 @@ public class MainController implements NetworkThread.Listener, NetworkThread.Cal
         stage.showAndWait();
     }
 
+    public void clickedPlayerPlay(MouseEvent event) {
+        if (networkThread == null) return;
+        networkThread.sendPlayer("play", this);
+    }
+
+    public void clickedPlayerPause(MouseEvent event) {
+        if (networkThread == null) return;
+        networkThread.sendPlayer("pause", this);
+    }
+
+    public void clickedPlayerPlayPause(MouseEvent event) {
+        if (networkThread == null) return;
+        networkThread.sendPlayer("playPause", this);
+    }
+
+    public void clickedPlayerNext(MouseEvent event) {
+        if (networkThread == null) return;
+        networkThread.sendPlayer("next", this);
+    }
+
+    public void clickedPlayerPrev(MouseEvent event) {
+        if (networkThread == null) return;
+        networkThread.sendPlayer("prev", this);
+    }
+
     public static class Header {
         private final SimpleStringProperty key;
         private final SimpleStringProperty value;

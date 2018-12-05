@@ -54,7 +54,7 @@ public class MercuryHandler extends AbsApiHandler {
                 obj.add("payloads", payloads);
                 return obj;
             } catch (IOException ex) {
-                throw new HandlingException(ex, 100 /* FIXME */);
+                throw new HandlingException(ex, ErrorCode.IO_EXCEPTION);
             }
         } else {
             throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);

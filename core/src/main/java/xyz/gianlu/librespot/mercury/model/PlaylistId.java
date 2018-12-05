@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.mercury.model;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.proto.Playlist4Content;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -9,7 +8,7 @@ import java.util.regex.Pattern;
 /**
  * @author Gianlu
  */
-public class PlaylistId implements SpotifyId {
+public final class PlaylistId implements SpotifyId {
     private static final Pattern PATTERN = Pattern.compile("spotify:user:(.*):playlist:(.{22})");
     public final String username;
     public final String playlistId;

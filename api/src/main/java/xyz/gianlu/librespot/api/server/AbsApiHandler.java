@@ -35,7 +35,7 @@ public abstract class AbsApiHandler {
             JsonElement result = handleRequest(request);
             request.answerResult(result);
         } catch (HandlingException ex) {
-            request.answerError(ex.code, ex.msg, ex.data);
+            request.answerError(ex.code.code, ex.msg, ex.data);
         } catch (ApiServer.PredefinedJsonRpcException ex) {
             request.answerError(ex);
         }
@@ -46,30 +46,41 @@ public abstract class AbsApiHandler {
 
     protected abstract void handleNotification(@NotNull ApiServer.Request request);
 
+    public enum ErrorCode {
+        MERCURY_EXCEPTION(1001),
+        IO_EXCEPTION(1002);
+
+        public final int code;
+
+        ErrorCode(int code) {
+            this.code = code;
+        }
+    }
+
     protected static class HandlingException extends Exception {
-        private final int code;
+        private final ErrorCode code;
         private final String msg;
         private final JsonElement data;
 
-        public HandlingException(int code, @NotNull String msg, @Nullable JsonElement data) {
+        public HandlingException(@NotNull ErrorCode code, @NotNull String msg, @Nullable JsonElement data) {
             super(msg);
             this.code = code;
             this.msg = msg;
             this.data = data;
         }
 
-        public HandlingException(int code, @NotNull String msg) {
+        public HandlingException(@NotNull ErrorCode code, @NotNull String msg) {
             this(code, msg, null);
         }
 
-        public HandlingException(@NotNull Throwable cause, int code, @Nullable JsonElement data) {
+        public HandlingException(@NotNull Throwable cause, @NotNull ErrorCode code, @Nullable JsonElement data) {
             super(cause);
             this.code = code;
             this.msg = cause.getMessage();
             this.data = data;
         }
 
-        public HandlingException(@NotNull Throwable cause, int code) {
+        public HandlingException(@NotNull Throwable cause, @NotNull ErrorCode code) {
             this(cause, code, null);
         }
     }

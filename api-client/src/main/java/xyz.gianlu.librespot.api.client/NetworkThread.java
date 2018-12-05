@@ -65,6 +65,10 @@ public class NetworkThread extends Thread {
         requests.put(id, listener);
     }
 
+    void sendPlayer(@NotNull String suffix, @NotNull Callback listener) {
+        sendGeneral(String.valueOf(ThreadLocalRandom.current().nextInt(1000)), "player." + suffix, null, listener);
+    }
+
     void sendMercury(@NotNull String method, @NotNull String uri, @Nullable String contentType, @NotNull Map<String, String> headers, @NotNull Callback listener) {
         String id = String.valueOf(ThreadLocalRandom.current().nextInt(1000));
 
