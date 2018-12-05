@@ -1,1 +1,38 @@
 language: java
+
+before_install:
+  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+
+install:
+  mvn --settings .maven.xml install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
+
+script:
+  mvn clean deploy --settings .maven.xml -DskipTests=true -B -U -Prelease
+
+before_deploy:
+  - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
+  - export project_version=$(mvn help:evaluate -N -Dexpression=project.version|grep -v '\[')
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  name: $project_version
+  api_key:
+    secure: qD8WixE5dpxKyiDEEPdrWVchBxMw7NKLrSNeUEJIb+p9Wq/yJ4cf3DScXYJToFJ/SB5JPCjjyj7rudOJ2wUMydJ01UGVJ+vbR/dTIXjtQxRJ7bDuqq4AGeUjZvDeBhigrA6hxWsqkzbRZzPEMcsWPa77Bs5drwiSJVixS2kLWgH3cKzLHZaqRQnlOeX20MHcPLFr/K0buFBg+qKUazx/z56qJuT0hh6+DYbXhdB9qK3bcGgUPE7rEaq6qfK0o3bZibCxtxFpMQR9qNXHnxfV5hUnq/k/YHQUNwFVo8kA3mSniYd9LxycLQ5nlwcbA2EgjKoJmQ3GYg1VLNsXVbWbw4aAl54h/7k7JzlCfpmM4DDrN62hGYzcoU+dD1WkAQob7a20pmmUmZI5LYUOJPIrpS98/DjDQdnkGeU/waCswSmjIYCqWhX2n0F1yYmC8X9nD2tRUCSyAAT3jFotLyRCsbjy1zg5xBFDw/Lgvd2ixgsnlVVKJrAo4q396WWstcL/2oGR/+J5K/Otlh0BBjJ+ND6tlKqOMFVLm6sE8WL0490Y9C2kumf9kDXV3QqganPnGS7/2MqqJBHrqhDXUbSZhkcExYfZwFjMqHA+Fi6yAFUvtNBC5W6nydWi2Nh1k5QiHtxCnukVnGU7iN0o+tT/H5d3UEklT+xIE0tILWcrXII=
+  file:
+    - core/target/librespot-java-core-jar-with-dependencies.jar
+    - core/target/librespot-java-core-javadoc.jar
+    - core/target/librespot-java-core-sources.jar
+    - api/target/librespot-java-api-jar-with-dependencies.jar
+    - api/target/librespot-java-api-javadoc.jar
+    - api/target/librespot-java-api-sources.jar
+    - api-client/target/librespot-java-api-client-jar-with-dependencies.jar
+    - api-client/target/librespot-java-api-client-javadoc.jar
+    - api-client/target/librespot-java-api-client-sources.jar
+  on:
+    repo: librespot-org/librespot-java
+
+cache:
+  directories:
+    - ~/.m2/repository
