@@ -5,7 +5,7 @@ package xyz.gianlu.librespot.crypto;
  * <p>
  * Based on original reference implementation in C.
  *
- * @author Felix Bruns <felixbruns@web.de>
+ * @author Felix Bruns (felixbruns@web.de)
  */
 @SuppressWarnings("ALL")
 public class Shannon {

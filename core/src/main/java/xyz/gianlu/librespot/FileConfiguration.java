@@ -2,6 +2,7 @@ package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.TrackHandler;
 
 import java.io.File;
@@ -71,5 +72,12 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public @Nullable String deviceName() {
         return properties.getProperty("deviceName", null);
+    }
+
+    @Override
+    public @Nullable Session.DeviceType deviceType() {
+        String val = properties.getProperty("deviceType", null);
+        if (val == null) return null;
+        return Session.DeviceType.valueOf(val);
     }
 }

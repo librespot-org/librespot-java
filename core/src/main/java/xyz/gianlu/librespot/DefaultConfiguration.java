@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.TrackHandler;
 
 import java.io.File;
@@ -53,5 +54,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     @Override
     public String deviceName() {
         return "librespot-java";
+    }
+
+    @NotNull
+    @Override
+    public Session.DeviceType deviceType() {
+        return Session.DeviceType.Computer;
     }
 }

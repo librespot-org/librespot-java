@@ -404,10 +404,14 @@ public class Session implements AutoCloseable {
             this.inner = new Inner(deviceType, deviceName, configuration);
         }
 
-        public Builder(@NotNull DeviceType deviceType, @NotNull AbsConfiguration configuration) {
+        public Builder(@NotNull AbsConfiguration configuration) {
             String deviceName = configuration.deviceName();
             if (deviceName == null || deviceName.isEmpty())
                 throw new IllegalArgumentException("Device name required: " + deviceName);
+
+            DeviceType deviceType = configuration.deviceType();
+            if (deviceType == null)
+                throw new IllegalArgumentException("Device type required!");
 
             this.inner = new Inner(deviceType, deviceName, configuration);
         }
