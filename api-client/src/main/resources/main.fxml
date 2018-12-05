@@ -133,6 +133,42 @@
                                 </HBox>
                             </content>
                         </Tab>
+                        <Tab closable="false" text="Player">
+                            <content>
+                                <FlowPane>
+                                    <children>
+                                        <Button mnemonicParsing="false" onMouseClicked="#clickedPlayerPlay" text="Play">
+                                            <FlowPane.margin>
+                                                <Insets right="8.0"/>
+                                            </FlowPane.margin>
+                                        </Button>
+                                        <Button layoutX="18.0" layoutY="18.0" onMouseClicked="#clickedPlayerPause"
+                                                mnemonicParsing="false" text="Pause">
+                                            <FlowPane.margin>
+                                                <Insets right="8.0"/>
+                                            </FlowPane.margin>
+                                        </Button>
+                                        <Button layoutX="132.0" layoutY="18.0" onMouseClicked="#clickedPlayerPlayPause"
+                                                mnemonicParsing="false" text="Play/Pause">
+                                            <FlowPane.margin>
+                                                <Insets right="8.0"/>
+                                            </FlowPane.margin>
+                                        </Button>
+                                        <Button layoutX="56.0" layoutY="18.0" onMouseClicked="#clickedPlayerNext"
+                                                mnemonicParsing="false" text="Next">
+                                            <FlowPane.margin>
+                                                <Insets right="8.0"/>
+                                            </FlowPane.margin>
+                                        </Button>
+                                        <Button layoutX="56.0" layoutY="18.0" onMouseClicked="#clickedPlayerPrev"
+                                                mnemonicParsing="false" text="Previous"/>
+                                    </children>
+                                    <padding>
+                                        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0"/>
+                                    </padding>
+                                </FlowPane>
+                            </content>
+                        </Tab>
                     </tabs>
                 </TabPane>
             </content>

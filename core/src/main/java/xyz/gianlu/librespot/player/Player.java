@@ -3,9 +3,9 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -48,6 +48,26 @@ public class Player implements FrameListener, TrackHandler.Listener {
         spirc.addListener(this);
     }
 
+    public void playPause() {
+        handlePlayPause();
+    }
+
+    public void play() {
+        handlePlay();
+    }
+
+    public void pause() {
+        handlePause();
+    }
+
+    public void next() {
+        handleNext();
+    }
+
+    public void previous() {
+        handlePrev();
+    }
+
     @NotNull
     private Spirc.State.Builder initState() {
         return Spirc.State.newBuilder()
@@ -79,8 +99,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
                 handlePause();
                 break;
             case kMessageTypePlayPause:
-                if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) handlePause();
-                else if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) handlePlay();
+                handlePlayPause();
                 break;
             case kMessageTypeNext:
                 handleNext();
@@ -113,6 +132,11 @@ public class Player implements FrameListener, TrackHandler.Listener {
                 handleVolumeUp();
                 break;
         }
+    }
+
+    private void handlePlayPause() {
+        if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) handlePause();
+        else if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) handlePlay();
     }
 
     private void handleSetVolume(int volume) {

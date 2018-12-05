@@ -22,16 +22,25 @@ public class PlayerHandler extends AbsApiHandler {
     protected @NotNull JsonElement handleRequest(ApiServer.@NotNull Request request) throws ApiServer.PredefinedJsonRpcException {
         switch (request.getSuffix()) {
             case "play":
-            case "stop":
+                player.play();
+                break;
             case "pause":
+                player.pause();
+                break;
             case "next":
+                player.next();
+                break;
             case "prev":
+                player.previous();
+                break;
             case "playPause":
-                return string("OK");
+                player.playPause();
+                break;
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
-
         }
+
+        return string("OK");
     }
 
     @Override
