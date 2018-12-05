@@ -45,13 +45,14 @@ public class MetadataHandler extends AbsApiHandler {
     private <P extends AbstractMessageLite> JsonElement handle(@NotNull ProtoJsonMercuryRequest<P> req) throws HandlingException {
         try {
             return client.sendSync(req).json();
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            throw new HandlingException(ex, 100); // FIXME: Create error codes table
+        } catch (MercuryClient.MercuryException ex) {
+            throw new HandlingException(ex, ErrorCode.MERCURY_EXCEPTION);
+        } catch (IOException ex) {
+            throw new HandlingException(ex, ErrorCode.IO_EXCEPTION);
         }
     }
 
     @Override
     protected void handleNotification(ApiServer.@NotNull Request request) {
-
     }
 }
