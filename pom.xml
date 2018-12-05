@@ -46,6 +46,7 @@
         <module>core</module>
         <module>api</module>
         <module>api-client</module>
+        <module>mdnsjava</module>
     </modules>
 
     <dependencies>
