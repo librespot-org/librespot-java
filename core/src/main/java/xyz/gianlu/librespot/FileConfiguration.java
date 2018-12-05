@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
@@ -35,6 +36,18 @@ public final class FileConfiguration extends AbsConfiguration {
         try {
             return Float.parseFloat(properties.getProperty(key, String.valueOf(fallback)));
         } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    @Contract("_, _, !null -> !null")
+    private <E extends Enum<E>> E getEnum(@NotNull Class<E> clazz, @NotNull String key, @Nullable E fallback) {
+        String val = properties.getProperty(key, null);
+        if (val == null) return fallback;
+
+        try {
+            return Enum.valueOf(clazz, val);
+        } catch (RuntimeException ex) {
             return fallback;
         }
     }
@@ -76,8 +89,27 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public @Nullable Session.DeviceType deviceType() {
-        String val = properties.getProperty("deviceType", null);
-        if (val == null) return null;
-        return Session.DeviceType.valueOf(val);
+        return getEnum(Session.DeviceType.class, "deviceType", null);
+    }
+
+    @Override
+    public @Nullable String username() {
+        return properties.getProperty("auth.username", null);
+    }
+
+    @Override
+    public @Nullable String password() {
+        return properties.getProperty("auth.password", null);
+    }
+
+    @Override
+    public @Nullable String blob() {
+        return properties.getProperty("auth.blob", null);
+    }
+
+    @NotNull
+    @Override
+    public Strategy strategy() {
+        return getEnum(Strategy.class, "auth.strategy", defaults.strategy());
     }
 }

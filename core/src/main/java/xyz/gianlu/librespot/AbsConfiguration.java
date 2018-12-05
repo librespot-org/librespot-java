@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.core.AuthConfiguration;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.CacheManager;
 import xyz.gianlu.librespot.player.Player;
@@ -8,7 +9,7 @@ import xyz.gianlu.librespot.player.Player;
 /**
  * @author Gianlu
  */
-public abstract class AbsConfiguration implements Player.PlayerConfiguration, CacheManager.CacheConfiguration {
+public abstract class AbsConfiguration implements Player.PlayerConfiguration, CacheManager.CacheConfiguration, AuthConfiguration {
 
     @Nullable
     public abstract String deviceName();
