@@ -11,6 +11,8 @@ import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Playlist4Changes;
 import xyz.gianlu.librespot.common.proto.Playlist4Content;
+import xyz.gianlu.librespot.mercury.model.AlbumId;
+import xyz.gianlu.librespot.mercury.model.ArtistId;
 import xyz.gianlu.librespot.mercury.model.PlaylistId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 
@@ -108,7 +110,7 @@ public final class MercuryRequests {
             @Override
             public @NotNull JsonElement convert(Metadata.@NotNull Artist proto) {
                 JsonObject obj = new JsonObject();
-                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("gid", Utils.bytesToHex(proto.getGid()));
                 obj.addProperty("name", proto.getName());
                 obj.addProperty("popularity", proto.getPopularity());
                 obj.addProperty("isPortraitAlbumCover", proto.getIsPortraitAlbumCover());
@@ -132,7 +134,7 @@ public final class MercuryRequests {
             @Override
             public @NotNull JsonElement convert(Metadata.@NotNull Album proto) {
                 JsonObject obj = new JsonObject();
-                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("gid", Utils.bytesToHex(proto.getGid()));
                 obj.addProperty("name", proto.getName());
                 obj.addProperty("popularity", proto.getPopularity());
                 obj.addProperty("label", proto.getLabel());
@@ -161,7 +163,7 @@ public final class MercuryRequests {
             @Override
             public @NotNull JsonElement convert(Metadata.@NotNull Track proto) {
                 JsonObject obj = new JsonObject();
-                obj.addProperty("gid", Utils.toBase64(proto.getGid()));
+                obj.addProperty("gid", Utils.bytesToHex(proto.getGid()));
                 obj.addProperty("name", proto.getName());
                 obj.addProperty("number", proto.getNumber());
                 obj.addProperty("discNumber", proto.getDiscNumber());
@@ -234,6 +236,16 @@ public final class MercuryRequests {
     @NotNull
     public static ProtoJsonMercuryRequest<Metadata.Track> getTrack(@NotNull TrackId id) {
         return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Track.parser(), TRACK_JSON_CONVERTER);
+    }
+
+    @NotNull
+    public static ProtoJsonMercuryRequest<Metadata.Artist> getArtist(@NotNull ArtistId id) {
+        return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Artist.parser(), ARTIST_JSON_CONVERTER);
+    }
+
+    @NotNull
+    public static ProtoJsonMercuryRequest<Metadata.Album> getAlbum(@NotNull AlbumId id) {
+        return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Album.parser(), ALBUM_JSON_CONVERTER);
     }
 
     @NotNull
