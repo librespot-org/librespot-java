@@ -399,6 +399,7 @@ public class Session implements AutoCloseable {
     public static class Builder {
         private final Inner inner;
         private Authentication.LoginCredentials loginCredentials = null;
+        private AuthConfiguration authConf;
 
         public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);
@@ -414,6 +415,7 @@ public class Session implements AutoCloseable {
                 throw new IllegalArgumentException("Device type required!");
 
             this.inner = new Inner(deviceType, deviceName, configuration);
+            this.authConf = configuration;
         }
 
         public Builder facebook() throws IOException {
@@ -450,7 +452,36 @@ public class Session implements AutoCloseable {
 
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
-            if (loginCredentials == null) throw new IllegalStateException("Missing credentials!");
+            if (loginCredentials == null) {
+                if (authConf != null) {
+                    String blob = authConf.blob();
+                    String username = authConf.username();
+                    String password = authConf.password();
+
+                    switch (authConf.strategy()) {
+                        case FACEBOOK:
+                            facebook();
+                            break;
+                        case BLOB:
+                            if (username == null) throw new IllegalArgumentException("Missing username!");
+                            if (blob == null) throw new IllegalArgumentException("Missing blob!");
+                            blob(username, Base64.getDecoder().decode(blob));
+                            break;
+                        case USER_PASS:
+                            if (username == null) throw new IllegalArgumentException("Missing username!");
+                            if (password == null) throw new IllegalArgumentException("Missing password!");
+                            userPass(username, password);
+                            break;
+                        case ZEROCONF:
+                            zeroconf();
+                            break;
+                        default:
+                            throw new IllegalStateException("Unknown auth strategy: " + authConf.strategy());
+                    }
+                } else {
+                    throw new IllegalStateException("Missing credentials!");
+                }
+            }
 
             Session session = new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
             session.connect();

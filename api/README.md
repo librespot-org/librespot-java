@@ -1,4 +1,6 @@
 # librespot-api
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-api/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-api)
+
 This module depends on `librespot-core` and provides an API to interact with the Spotify client.
 
 ## How it works

@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.TrackHandler;
 
@@ -60,5 +61,26 @@ public final class DefaultConfiguration extends AbsConfiguration {
     @Override
     public Session.DeviceType deviceType() {
         return Session.DeviceType.Computer;
+    }
+
+    @Override
+    public @Nullable String username() {
+        return null;
+    }
+
+    @Override
+    public @Nullable String password() {
+        return null;
+    }
+
+    @Override
+    public @Nullable String blob() {
+        return null;
+    }
+
+    @NotNull
+    @Override
+    public Strategy strategy() {
+        return Strategy.ZEROCONF;
     }
 }

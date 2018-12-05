@@ -75,7 +75,7 @@
 
         <!-- mDNS -->
         <dependency>
-            <groupId>net.posick</groupId>
+            <groupId>xyz.gianlu.mdnsjava</groupId>
             <artifactId>mdnsjava</artifactId>
             <version>2.2.0</version>
         </dependency>
