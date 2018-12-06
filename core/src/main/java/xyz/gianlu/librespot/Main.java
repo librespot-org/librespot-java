@@ -14,13 +14,6 @@ import java.security.GeneralSecurityException;
 public class Main {
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.PubSubException {
-        Session session = new Session.Builder(new FileConfiguration(new File("conf.properties")))
-                // .facebook()
-                // .zeroconf()
-                .userPass(args[0], args[1])
-                // .blob("username", new byte[] {...})
-                .create();
-
-        ConsoleClient.start(session);
+        new Session.Builder(new FileConfiguration(new File("conf.properties"), args)).create();
     }
 }

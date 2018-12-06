@@ -1,8 +1,10 @@
 package xyz.gianlu.librespot;
 
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.TrackHandler;
 
@@ -15,12 +17,31 @@ import java.util.Properties;
  * @author Gianlu
  */
 public final class FileConfiguration extends AbsConfiguration {
+    private static final Logger LOGGER = Logger.getLogger(FileConfiguration.class);
     private final Properties properties;
     private final DefaultConfiguration defaults = new DefaultConfiguration();
 
-    public FileConfiguration(@NotNull File file) throws IOException {
+    public FileConfiguration(@NotNull File file, @Nullable String[] override) throws IOException {
         this.properties = new Properties();
         this.properties.load(new FileReader(file));
+
+        if (override != null && override.length > 0) {
+            for (String str : override) {
+                if (str == null) continue;
+
+                if (str.contains("=") && str.startsWith("--")) {
+                    String[] split = Utils.split(str, '=');
+                    if (split.length != 2) {
+                        LOGGER.warn("Invalid command line argument: " + str);
+                        continue;
+                    }
+
+                    properties.setProperty(split[0].substring(2), split[1]);
+                } else {
+                    LOGGER.warn("Invalid command line argument: " + str);
+                }
+            }
+        }
     }
 
     private boolean getBoolean(@NotNull String key, boolean fallback) {

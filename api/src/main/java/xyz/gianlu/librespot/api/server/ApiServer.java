@@ -24,6 +24,8 @@ public class ApiServer implements Receiver {
 
     public ApiServer(int port) throws IOException {
         server = new WebsocketServer(port, this);
+
+        LOGGER.info(String.format("Server started on port %d!", port));
     }
 
     private static boolean validateVersion(@NotNull JsonObject obj) {
