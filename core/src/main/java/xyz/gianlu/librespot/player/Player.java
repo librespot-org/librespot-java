@@ -6,6 +6,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -66,6 +67,10 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
     public void previous() {
         handlePrev();
+    }
+
+    public void load(@NotNull TrackId id) {
+        // TODO
     }
 
     @NotNull
