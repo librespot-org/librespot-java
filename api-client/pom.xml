@@ -45,7 +45,7 @@
         <dependency>
             <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-common</artifactId>
-            <version>0.1.0</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- WebSocket client -->
