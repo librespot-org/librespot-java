@@ -15,7 +15,7 @@
     <name>librespot-java core</name>
 
     <build>
-        <finalName>librespot-java-core</finalName>
+        <finalName>librespot-core</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
