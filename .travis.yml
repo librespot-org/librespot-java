@@ -8,7 +8,12 @@ install:
   - mvn --settings .maven.xml install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
 
 script:
-  mvn clean deploy --settings .maven.xml -B -U -Prelease
+  - |
+    if [[ -z "${TRAVIS_TAG}" ]]; then
+      mvn clean deploy --settings .maven.xml -B -U
+    else
+      mvn clean deploy --settings .maven.xml -B -U -Prelease
+    fi
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
