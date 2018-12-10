@@ -1,5 +1,5 @@
 # librespot-java
-[![Build Status](https://travis-ci.org/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.org/librespot-org/librespot-java)
+[![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.com/librespot-org/librespot-java)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
 
 `librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
