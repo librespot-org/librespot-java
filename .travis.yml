@@ -10,9 +10,9 @@ install:
 script:
   - |
     if [[ -z "${TRAVIS_TAG}" ]]; then
-      mvn clean deploy --settings .maven.xml -B -U
+      mvn clean deploy -B -U -P debug
     else
-      mvn clean deploy --settings .maven.xml -B -U -Prelease
+      mvn clean deploy --settings .maven.xml -B -U -P release
     fi
 
 before_deploy:
