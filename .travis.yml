@@ -5,14 +5,14 @@ before_install:
   - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
 
 install:
-  - mvn --settings .maven.xml install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
+  - mvn install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
 
 script:
   - |
     if [[ -z "${TRAVIS_TAG}" ]]; then
-      mvn clean deploy -B -U -P debug
+      mvn clean deploy -Dmaven.deploy.skip=true -B -U -Pdebug
     else
-      mvn clean deploy --settings .maven.xml -B -U -P release
+      mvn clean deploy --settings .maven.xml -B -U -Prelease
     fi
 
 before_deploy:
