@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
@@ -75,10 +76,9 @@ public class ChannelManager extends PacketsManager {
 
             channel.addToQueue(payload);
         } else if (packet.is(Packet.Type.ChannelError)) {
-            short code = payload.getShort();
-            LOGGER.fatal(String.format("Stream error, code: %d, length: %d", code, packet.payload.length));
+            LOGGER.fatal(String.format("Stream error, payload: %s", Utils.bytesToHex(packet.payload)));
         } else {
-            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
+            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, payload: %s", packet.type(), Utils.bytesToHex(packet.payload)));
         }
     }
 
