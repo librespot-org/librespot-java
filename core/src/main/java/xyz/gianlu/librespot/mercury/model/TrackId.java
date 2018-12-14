@@ -39,7 +39,13 @@ public final class TrackId implements SpotifyId {
 
     @NotNull
     public static TrackId fromTrackRef(@NotNull Spirc.TrackRef ref) {
-        return new TrackId(Utils.bytesToHex(ref.getGid().toByteArray()));
+        if (ref.hasGid()) {
+            return new TrackId(Utils.bytesToHex(ref.getGid().toByteArray()));
+        } else if (ref.hasUri()) {
+            return fromUri(ref.getUri());
+        } else {
+            throw new IllegalArgumentException("Not enough data to extract the track ID!");
+        }
     }
 
     @NotNull
@@ -55,5 +61,9 @@ public final class TrackId implements SpotifyId {
     @Override
     public @NotNull String toSpotifyUri() {
         return "spotify:track:" + new String(BASE62.encode(new BigInteger(hexId, 16).toByteArray()));
+    }
+
+    public byte[] getGid() {
+        return Utils.toByteArray(new BigInteger(hexId, 16));
     }
 }

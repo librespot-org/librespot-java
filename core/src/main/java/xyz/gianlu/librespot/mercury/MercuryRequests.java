@@ -5,7 +5,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.ProtocolStringList;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.common.proto.Metadata;
@@ -261,5 +263,51 @@ public final class MercuryRequests {
 
         request.addProtobufPayload(multi.build());
         return new ProtobufMercuryRequest<>(request.build(), Mercury.MercuryMultiGetReply.parser());
+    }
+
+    @NotNull
+    public static JsonMercuryRequest<ResolvedContextWrapper> resolveContext(@NotNull String uri) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://context-resolve/v1/%s", uri)), ResolvedContextWrapper.class);
+    }
+
+    @NotNull
+    private static String getAsString(@NotNull JsonObject obj, @NotNull String key) {
+        JsonElement elm = obj.get(key);
+        if (elm == null) throw new NullPointerException("Unexpected null value for " + key);
+        else return elm.getAsString();
+    }
+
+    @Contract("_, _, !null -> !null")
+    private static String getAsString(@NotNull JsonObject obj, @NotNull String key, @Nullable String fallback) {
+        JsonElement elm = obj.get(key);
+        if (elm == null) return fallback;
+        else return elm.getAsString();
+    }
+
+    public static final class ResolvedContextWrapper extends JsonWrapper {
+
+        public ResolvedContextWrapper(@NotNull JsonElement elm) {
+            super(elm);
+        }
+
+        @NotNull
+        public JsonArray pages() {
+            return obj().getAsJsonArray("pages");
+        }
+
+        @NotNull
+        public JsonObject metadata() {
+            return obj().getAsJsonObject("metadata");
+        }
+
+        @NotNull
+        public String uri() {
+            return getAsString(obj(), "uri");
+        }
+
+        @NotNull
+        public String url() {
+            return getAsString(obj(), "url");
+        }
     }
 }

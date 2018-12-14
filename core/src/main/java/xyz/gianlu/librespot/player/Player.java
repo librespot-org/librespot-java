@@ -1,11 +1,17 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -192,8 +198,35 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void handleShuffle() {
         if (state.getShuffle()) {
             shuffleTracks();
-            stateUpdated();
+        } else {
+            String contextUri = state.getContextUri();
+
+            JsonArray tracks;
+            try {
+                MercuryRequests.ResolvedContextWrapper context = session.mercury().sendSync(MercuryRequests.resolveContext(contextUri));
+                tracks = context.pages().get(0).getAsJsonObject().getAsJsonArray("tracks");
+            } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.fatal("Failed requesting context!", ex);
+                return;
+            }
+
+            int num = Math.min(100, tracks.size());
+            List<Spirc.TrackRef> rebuildState = new ArrayList<>(num);
+            for (int i = 0; i < num; i++) {
+                JsonObject track = tracks.get(i).getAsJsonObject();
+                rebuildState.add(Spirc.TrackRef.newBuilder()
+                        .setGid(ByteString.copyFrom(TrackId.fromUri(track.get("uri").getAsString()).getGid()))
+                        .build());
+            }
+
+            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
+
+            state.clearTrack();
+            state.addAllTrack(rebuildState);
+            state.setPlayingTrackIndex(Utils.indexOf(rebuildState, current));
         }
+
+        stateUpdated();
     }
 
     private void handleSeek(int pos) {

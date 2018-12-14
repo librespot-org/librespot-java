@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Metadata;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,6 +32,18 @@ public class Utils {
     @NotNull
     public static String toBase64(@NotNull ByteString bytes) {
         return Base64.getEncoder().encodeToString(bytes.toByteArray());
+    }
+
+    public static int indexOf(@NotNull List<Spirc.TrackRef> list, @NotNull Spirc.TrackRef ref) {
+        for (int i = 0; i < list.size(); i++) {
+            Spirc.TrackRef item = list.get(i);
+            if (item.hasGid() && ref.hasGid() && item.getGid().equals(ref.getGid()))
+                return i;
+            else if (item.hasUri() && ref.hasUri() && item.getUri().equals(ref.getUri()))
+                return i;
+        }
+
+        return -1;
     }
 
     @NotNull

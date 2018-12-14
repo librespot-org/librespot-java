@@ -71,6 +71,13 @@ public class MercuryClient extends PacketsManager {
     }
 
     @NotNull
+    public <W extends JsonWrapper> W sendSync(@NotNull JsonMercuryRequest<W> request) throws IOException, MercuryException {
+        Response resp = sendSync(request.request);
+        if (resp.statusCode >= 200 && resp.statusCode < 300) return request.instantiate(resp);
+        else throw new MercuryException(resp);
+    }
+
+    @NotNull
     public <P extends AbstractMessageLite> P sendSync(@NotNull ProtobufMercuryRequest<P> request) throws IOException, MercuryException {
         Response resp = sendSync(request.request);
         if (resp.statusCode >= 200 && resp.statusCode < 300) return request.parser.parseFrom(resp.payload.stream());
