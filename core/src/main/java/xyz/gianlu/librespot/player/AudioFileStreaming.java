@@ -4,8 +4,8 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.common.proto.Metadata;
+import xyz.gianlu.librespot.core.Session;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -117,6 +117,11 @@ public class AudioFileStreaming implements AudioFile {
     @Override
     public void headerEnd(boolean cached) {
         // Never called
+    }
+
+    @Override
+    public void streamError(short code) {
+        LOGGER.fatal(String.format("Stream error, code: %d", code));
     }
 
     private class ChunksBuffer {

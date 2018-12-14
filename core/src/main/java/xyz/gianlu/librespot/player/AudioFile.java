@@ -17,4 +17,6 @@ public interface AudioFile {
     void cacheFailedHeader(@NotNull AudioFile file);
 
     void headerEnd(boolean cached);
+
+    void streamError(short code);
 }

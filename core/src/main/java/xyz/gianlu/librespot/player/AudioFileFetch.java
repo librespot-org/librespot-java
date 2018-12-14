@@ -63,6 +63,11 @@ class AudioFileFetch implements AudioFile {
     }
 
     @Override
+    public void streamError(short code) {
+        LOGGER.fatal(String.format("Stream error, code: %d", code));
+    }
+
+    @Override
     public synchronized void cacheFailedChunk(int index, @NotNull AudioFile file) {
         // Never called
     }

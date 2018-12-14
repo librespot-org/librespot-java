@@ -76,7 +76,14 @@ public class ChannelManager extends PacketsManager {
 
             channel.addToQueue(payload);
         } else if (packet.is(Packet.Type.ChannelError)) {
-            LOGGER.fatal(String.format("Stream error, payload: %s", Utils.bytesToHex(packet.payload)));
+            short id = payload.getShort();
+            Channel channel = channels.get(id);
+            if (channel == null) {
+                LOGGER.warn(String.format("Dropping channel error, id: %d, code: %d", id, payload.getShort()));
+                return;
+            }
+
+            channel.streamError(payload.getShort());
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, payload: %s", packet.type(), Utils.bytesToHex(packet.payload)));
         }
@@ -145,6 +152,10 @@ public class ChannelManager extends PacketsManager {
 
         private void addToQueue(@NotNull ByteBuffer payload) {
             queue.add(payload);
+        }
+
+        void streamError(short code) {
+            file.streamError(code);
         }
 
         private class Handler implements Runnable {
