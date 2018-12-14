@@ -51,7 +51,10 @@ public class Packet {
         MercurySub(0xb3),
         MercuryUnsub(0xb4),
         MercurySubEvent(0xb5),
-        UnknownData_AllZeros(0x1f);
+        UnknownData_AllZeros(0x1f),
+        Unknown_0x4f(0x4f),
+        Unknown_0x0f(0x0f),
+        Unknown_0x10(0x10);
 
         public final byte val;
 

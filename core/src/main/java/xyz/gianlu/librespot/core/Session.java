@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
@@ -221,6 +222,10 @@ public class Session implements AutoCloseable {
             player = new Player(inner.configuration, inner.configuration, this);
 
             LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
+
+            byte[] bytes0x0f = new byte[20];
+            random().nextBytes(bytes0x0f);
+            send(Packet.Type.Unknown_0x0f, bytes0x0f);
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
@@ -562,6 +567,9 @@ public class Session implements AutoCloseable {
                         byte[] buffer = new byte[licenseVersion.get()];
                         licenseVersion.get(buffer);
                         LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                        break;
+                    case Unknown_0x10:
+                        LOGGER.debug("Received 0x10: " + Utils.bytesToHex(packet.payload));
                         break;
                     case MercurySub:
                     case MercuryUnsub:

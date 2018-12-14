@@ -45,12 +45,10 @@ public class ChannelManager extends PacketsManager {
         DataOutputStream out = new DataOutputStream(bytes);
 
         out.writeShort(channel.id);
-        out.writeByte(0);
-        out.writeByte(1);
-        out.writeShort(0);
-        out.writeInt(0);
-        out.writeInt(0x00009C40);
-        out.writeInt(0x00020000);
+        out.writeInt(0x00000000);
+        out.writeInt(0x00000000);
+        out.writeInt(0x00004e20);
+        out.writeInt(0x00030d40);
         fileId.writeTo(out);
         out.writeInt(start);
         out.writeInt(end);

@@ -4,12 +4,13 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
+import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -78,6 +79,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                 LOGGER.warn(String.format("Using %s because preferred %s couldn't be found.", file, conf.preferredQuality()));
             }
         }
+
+        session.send(Packet.Type.Unknown_0x4f, new byte[0]);
 
         byte[] key = session.audioKey().getAudioKey(track, file);
         AudioFileStreaming audioStreaming = new AudioFileStreaming(session, cacheManager, file, key);
