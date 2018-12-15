@@ -4,7 +4,6 @@ import io.seruco.encoding.base62.Base62;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 
-import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,6 +47,6 @@ public final class ArtistId implements SpotifyId {
 
     @Override
     public @NotNull String toSpotifyUri() {
-        return "spotify:artist:" + new String(BASE62.encode(new BigInteger(hexId, 16).toByteArray()));
+        return "spotify:artist:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
     }
 }

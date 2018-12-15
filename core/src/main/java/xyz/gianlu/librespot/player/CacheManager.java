@@ -178,7 +178,7 @@ public class CacheManager {
 
             CacheEntry(@NotNull String hexId, byte[] headersId, byte[][] headersData, short chunksSize) {
                 this.hexId = hexId;
-                this.gid = ByteString.copyFrom(new BigInteger(hexId, 16).toByteArray());
+                this.gid = ByteString.copyFrom(Utils.hexToBytes(hexId));
                 this.headersId = headersId;
                 this.headersData = headersData;
                 this.chunks = new boolean[chunksSize];

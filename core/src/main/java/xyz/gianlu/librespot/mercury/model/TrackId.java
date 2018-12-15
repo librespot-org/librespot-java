@@ -5,7 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
-import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,7 +39,7 @@ public final class TrackId implements SpotifyId {
     @NotNull
     public static TrackId fromTrackRef(@NotNull Spirc.TrackRef ref) {
         if (ref.hasGid()) {
-            return new TrackId(Utils.bytesToHex(ref.getGid().toByteArray()));
+            return new TrackId(Utils.bytesToHex(ref.getGid()));
         } else if (ref.hasUri()) {
             return fromUri(ref.getUri());
         } else {
@@ -60,10 +59,10 @@ public final class TrackId implements SpotifyId {
 
     @Override
     public @NotNull String toSpotifyUri() {
-        return "spotify:track:" + new String(BASE62.encode(new BigInteger(hexId, 16).toByteArray()));
+        return "spotify:track:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
     }
 
     public byte[] getGid() {
-        return Utils.toByteArray(new BigInteger(hexId, 16));
+        return Utils.hexToBytes(hexId);
     }
 }

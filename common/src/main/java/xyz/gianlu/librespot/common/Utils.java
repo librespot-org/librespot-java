@@ -151,6 +151,14 @@ public class Utils {
         return split;
     }
 
+    public static byte[] hexToBytes(@NotNull String str) {
+        int len = str.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2)
+            data[i / 2] = (byte) ((Character.digit(str.charAt(i), 16) << 4) + Character.digit(str.charAt(i + 1), 16));
+        return data;
+    }
+
     @NotNull
     public static byte[] toByteArray(@NotNull BigInteger i) {
         byte[] array = i.toByteArray();
@@ -166,7 +174,7 @@ public class Utils {
     }
 
     @NotNull
-    public static String bytesToHex(ByteString bytes) {
+    public static String bytesToHex(@NotNull ByteString bytes) {
         return bytesToHex(bytes.toByteArray());
     }
 
