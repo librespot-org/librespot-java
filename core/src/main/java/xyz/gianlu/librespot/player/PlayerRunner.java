@@ -41,6 +41,7 @@ public class PlayerRunner implements Runnable {
     private final Mixer mixer;
     private final Controller controller;
     private final int duration;
+    private final Object pauseLock = new Object();
     private byte[] buffer;
     private int count;
     private int index;
@@ -56,6 +57,7 @@ public class PlayerRunner implements Runnable {
     PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
                  @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
+        this.duration = duration;
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
         this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
@@ -67,7 +69,6 @@ public class PlayerRunner implements Runnable {
         readHeader();
         initializeSound();
         this.controller = new Controller(outputLine);
-        this.duration = duration;
 
         audioIn.mark(-1);
 
@@ -185,20 +186,20 @@ public class PlayerRunner implements Runnable {
 
                 index = joggSyncState.buffer(BUFFER_SIZE);
                 buffer = joggSyncState.data;
-
                 if (index == -1)
                     break;
 
                 count = audioIn.read(buffer, index, BUFFER_SIZE);
                 joggSyncState.wrote(count);
-
                 if (count == 0)
                     break;
             } else {
                 outputLine.stop();
 
                 try {
-                    Thread.sleep(500);
+                    synchronized (pauseLock) {
+                        pauseLock.wait();
+                    }
                 } catch (InterruptedException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -207,8 +208,6 @@ public class PlayerRunner implements Runnable {
     }
 
     private void decodeCurrentPacket() {
-        long granulepos = joggPacket.granulepos;
-
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -231,13 +230,14 @@ public class PlayerRunner implements Runnable {
                     convertedBuffer[sampleIndex] = (byte) (value);
                     convertedBuffer[sampleIndex + 1] = (byte) (value >>> 8);
 
-                    sampleIndex += 2 * (jorbisInfo.channels);
+                    sampleIndex += 2 * jorbisInfo.channels;
                 }
             }
 
             outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
 
+            long granulepos = joggPacket.granulepos;
             if (granulepos != -1 && joggPacket.e_o_s == 0) {
                 granulepos -= samples;
                 pcm_offset = granulepos;
@@ -247,7 +247,7 @@ public class PlayerRunner implements Runnable {
     }
 
     private void checkPreload() {
-        if (!calledPreload && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
+        if (!calledPreload && !stopped && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
             calledPreload = true;
             listener.preloadNextTrack();
         }
@@ -281,6 +281,9 @@ public class PlayerRunner implements Runnable {
 
     void play() {
         playing = true;
+        synchronized (pauseLock) {
+            pauseLock.notifyAll();
+        }
     }
 
     void pause() {

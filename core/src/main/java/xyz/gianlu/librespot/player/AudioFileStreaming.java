@@ -202,14 +202,18 @@ public class AudioFileStreaming implements AudioFile {
             }
 
             @Override
-            public synchronized long skip(long n) {
+            public synchronized long skip(long n) throws IOException {
                 long k = size - pos;
                 if (n < k) k = n < 0 ? 0 : n;
                 pos += k;
+
+                int chunk = pos / CHUNK_SIZE;
+                checkAvailability(chunk, false);
+
                 return k;
             }
 
-            private void checkAvailability(int chunk) throws IOException {
+            private void checkAvailability(int chunk, boolean wait) throws IOException {
                 if (!requested[chunk]) {
                     requestChunkFromStream(chunk);
                     requested[chunk] = true;
@@ -220,7 +224,7 @@ public class AudioFileStreaming implements AudioFile {
                     requested[chunk + 1] = true;
                 }
 
-                if (!available[chunk])
+                if (wait && !available[chunk])
                     waitFor(chunk);
             }
 
@@ -240,7 +244,7 @@ public class AudioFileStreaming implements AudioFile {
                     int chunk = pos / CHUNK_SIZE;
                     int chunkOff = pos % CHUNK_SIZE;
 
-                    checkAvailability(chunk);
+                    checkAvailability(chunk, true);
 
                     int copy = Math.min(buffer[chunk].length - chunkOff, len - i);
                     System.arraycopy(buffer[chunk], chunkOff, b, off + i, copy);
@@ -258,7 +262,7 @@ public class AudioFileStreaming implements AudioFile {
                     return -1;
 
                 int chunk = pos / CHUNK_SIZE;
-                checkAvailability(chunk);
+                checkAvailability(chunk, true);
 
                 return buffer[chunk][pos++ % CHUNK_SIZE] & 0xff;
             }
