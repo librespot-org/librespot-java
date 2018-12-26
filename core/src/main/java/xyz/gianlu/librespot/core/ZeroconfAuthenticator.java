@@ -7,10 +7,10 @@ import net.posick.mdns.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.xbill.DNS.Name;
-import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.Version;
-import xyz.gianlu.librespot.crypto.DiffieHellman;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
+import xyz.gianlu.librespot.crypto.DiffieHellman;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -71,8 +71,7 @@ public class ZeroconfAuthenticator implements Closeable {
         this.mDnsService = new MulticastDNSService();
 
         int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
-        this.runner = new HttpRunner(port);
-        new Thread(runner).start();
+        new Thread(this.runner = new HttpRunner(port)).start();
 
         ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), new InetAddress[]{InetAddress.getLocalHost()}, "VERSION=1.0", "CPath=/");
         spotifyConnectService = mDnsService.register(service);
@@ -201,7 +200,7 @@ public class ZeroconfAuthenticator implements Closeable {
 
         HttpRunner(int port) throws IOException {
             serverSocket = new ServerSocket(port);
-            LOGGER.info(String.format("HTTP server started successfully on port %d!", port));
+            LOGGER.info(String.format("Zeroconf HTTP server started successfully on port %d!", port));
         }
 
         @Override
