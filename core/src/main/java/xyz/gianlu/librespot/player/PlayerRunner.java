@@ -26,6 +26,7 @@ public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
+    private static final long TRACK_PRELOAD_THRESHOLD = 10; // sec
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final Listener listener;
@@ -49,6 +50,8 @@ public class PlayerRunner implements Runnable {
     private int[] pcmIndex;
     private volatile boolean playing = false;
     private volatile boolean stopped = false;
+    private long pcm_offset;
+    private boolean calledPreload = false;
 
     PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
                  @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
@@ -204,6 +207,8 @@ public class PlayerRunner implements Runnable {
     }
 
     private void decodeCurrentPacket() {
+        long granulepos = joggPacket.granulepos;
+
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -232,7 +237,24 @@ public class PlayerRunner implements Runnable {
 
             outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
+
+            if (granulepos != -1 && joggPacket.e_o_s == 0) {
+                granulepos -= samples;
+                pcm_offset = granulepos;
+                checkPreload();
+            }
         }
+    }
+
+    private void checkPreload() {
+        if (!calledPreload && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
+            calledPreload = true;
+            listener.preloadNextTrack();
+        }
+    }
+
+    public int time() {
+        return (int) (pcm_offset / jorbisInfo.rate);
     }
 
     private void cleanup() {
@@ -298,6 +320,8 @@ public class PlayerRunner implements Runnable {
         void endOfTrack();
 
         void playbackError(@NotNull Exception ex);
+
+        void preloadNextTrack();
     }
 
     public static class Controller {
