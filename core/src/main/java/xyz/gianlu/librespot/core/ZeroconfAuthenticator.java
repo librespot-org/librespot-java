@@ -73,7 +73,7 @@ public class ZeroconfAuthenticator implements Closeable {
         int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         new Thread(this.runner = new HttpRunner(port)).start();
 
-        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), new InetAddress[]{InetAddress.getLocalHost()}, "VERSION=1.0", "CPath=/");
+        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), InetAddress.getAllByName("localhost"), "VERSION=1.0", "CPath=/");
         spotifyConnectService = mDnsService.register(service);
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
