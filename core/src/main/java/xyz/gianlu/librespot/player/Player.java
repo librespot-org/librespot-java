@@ -1,31 +1,21 @@
 package xyz.gianlu.librespot.player;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 /**
  * @author Gianlu
  */
 public class Player implements FrameListener, TrackHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
-
     private final Session session;
     private final SpotifyIrc spirc;
     private final Spirc.State.Builder state;
@@ -33,6 +23,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private final CacheManager cacheManager;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
+    private long shuffleSeed;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
         this.conf = conf;
@@ -176,51 +167,57 @@ public class Player implements FrameListener, TrackHandler.Listener {
         return state.getPositionMs() + diff;
     }
 
+    private static int[] getShuffleExchanges(int size, long seed) {
+        int[] exchanges = new int[size - 1];
+        Random rand = new Random(seed);
+        for (int i = size - 1; i > 0; i--) {
+            int n = rand.nextInt(i + 1);
+            exchanges[size - 1 - i] = n;
+        }
+        return exchanges;
+    }
+
     private void shuffleTracks() {
+        shuffleSeed = session.random().nextLong();
+
         List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
         if (state.getPlayingTrackIndex() != 0) {
             Collections.swap(tracks, 0, state.getPlayingTrackIndex());
             state.setPlayingTrackIndex(0);
         }
 
-        for (int i = tracks.size(); i > 1; i--)
-            Collections.swap(tracks, i - 1, session.random().nextInt(i - 1) + 1);
+        int size = tracks.size() - 1;
+        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
+        for (int i = size - 1; i > 0; i--) {
+            int n = exchanges[size - 1 - i];
+            Collections.swap(tracks, i, n);
+        }
+
+        state.clearTrack();
+        state.addAllTrack(tracks);
+    }
+
+    private void unshuffleTracks() {
+        List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
+        if (state.getPlayingTrackIndex() != 0) {
+            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+            state.setPlayingTrackIndex(0);
+        }
+
+        int size = tracks.size() - 1;
+        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
+        for (int i = 1; i < size; i++) {
+            int n = exchanges[size - i - 1];
+            Collections.swap(tracks, i, n);
+        }
 
         state.clearTrack();
         state.addAllTrack(tracks);
     }
 
     private void handleShuffle() {
-        if (state.getShuffle()) {
-            shuffleTracks();
-        } else {
-            String contextUri = state.getContextUri();
-
-            JsonArray tracks;
-            try {
-                MercuryRequests.ResolvedContextWrapper context = session.mercury().sendSync(MercuryRequests.resolveContext(contextUri));
-                tracks = context.pages().get(0).getAsJsonObject().getAsJsonArray("tracks");
-            } catch (IOException | MercuryClient.MercuryException ex) {
-                LOGGER.fatal("Failed requesting context!", ex);
-                return;
-            }
-
-            int num = Math.min(100, tracks.size());
-            List<Spirc.TrackRef> rebuildState = new ArrayList<>(num);
-            for (int i = 0; i < num; i++) {
-                JsonObject track = tracks.get(i).getAsJsonObject();
-                rebuildState.add(Spirc.TrackRef.newBuilder()
-                        .setGid(ByteString.copyFrom(TrackId.fromUri(track.get("uri").getAsString()).getGid()))
-                        .build());
-            }
-
-            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
-
-            state.clearTrack();
-            state.addAllTrack(rebuildState);
-            state.setPlayingTrackIndex(Utils.indexOf(rebuildState, current));
-        }
-
+        if (state.getShuffle()) shuffleTracks();
+        else unshuffleTracks();
         stateUpdated();
     }
 
