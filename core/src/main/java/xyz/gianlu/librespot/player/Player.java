@@ -40,6 +40,16 @@ public class Player implements FrameListener, TrackHandler.Listener {
         spirc.addListener(this);
     }
 
+    private static int[] getShuffleExchanges(int size, long seed) {
+        int[] exchanges = new int[size - 1];
+        Random rand = new Random(seed);
+        for (int i = size - 1; i > 0; i--) {
+            int n = rand.nextInt(i + 1);
+            exchanges[size - 1 - i] = n;
+        }
+        return exchanges;
+    }
+
     public void playPause() {
         handlePlayPause();
     }
@@ -167,16 +177,6 @@ public class Player implements FrameListener, TrackHandler.Listener {
         return state.getPositionMs() + diff;
     }
 
-    private static int[] getShuffleExchanges(int size, long seed) {
-        int[] exchanges = new int[size - 1];
-        Random rand = new Random(seed);
-        for (int i = size - 1; i > 0; i--) {
-            int n = rand.nextInt(i + 1);
-            exchanges[size - 1 - i] = n;
-        }
-        return exchanges;
-    }
-
     private void shuffleTracks() {
         shuffleSeed = session.random().nextLong();
 
@@ -188,9 +188,9 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
         int size = tracks.size() - 1;
         int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = size - 1; i > 0; i--) {
+        for (int i = size - 1; i > 1; i--) {
             int n = exchanges[size - 1 - i];
-            Collections.swap(tracks, i, n);
+            Collections.swap(tracks, i, n + 1);
         }
 
         state.clearTrack();
@@ -206,9 +206,9 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
         int size = tracks.size() - 1;
         int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = 1; i < size; i++) {
+        for (int i = 2; i < size; i++) {
             int n = exchanges[size - i - 1];
-            Collections.swap(tracks, i, n);
+            Collections.swap(tracks, i, n + 1);
         }
 
         state.clearTrack();
