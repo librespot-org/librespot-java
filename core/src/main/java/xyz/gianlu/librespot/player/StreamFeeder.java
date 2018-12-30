@@ -47,20 +47,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
-        Metadata.Track track = session.mercury().sendSync(MercuryRequests.getTrack(TrackId.fromTrackRef(ref))).proto();
-        track = pickAlternativeIfNecessary(track);
-        if (track == null) {
-            LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(ref.getGid()));
-            throw new FeederException();
-        }
-
-        Metadata.AudioFile file = audioQualityPreference.getFile(track);
-        if (file == null) {
-            LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
-            throw new FeederException();
-        }
-
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException {
         session.send(Packet.Type.Unknown_0x4f, new byte[0]);
 
         byte[] key = session.audioKey().getAudioKey(track, file);
@@ -76,6 +63,34 @@ public class StreamFeeder {
             throw new IOException("Couldn't skip 0xa7 bytes!");
 
         return new LoadedStream(track, audioStreaming, normalizationData);
+    }
+
+    @NotNull
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference) throws IOException {
+        Metadata.AudioFile file = audioQualityPreference.getFile(track);
+        if (file == null) {
+            LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
+            throw new FeederException();
+        }
+
+        return load(track, file);
+    }
+
+    @NotNull
+    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
+        Metadata.Track track = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
+        track = pickAlternativeIfNecessary(track);
+        if (track == null) {
+            LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(id.getGid()));
+            throw new FeederException();
+        }
+
+        return load(track, audioQualityPreference);
+    }
+
+    @NotNull
+    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
+        return load(TrackId.fromTrackRef(ref), audioQualityPreference);
     }
 
     public enum AudioQuality {

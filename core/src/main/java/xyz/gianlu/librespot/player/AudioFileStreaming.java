@@ -7,6 +7,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
@@ -41,7 +42,7 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     @NotNull
-    InputStream stream() {
+    public InputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
         return chunksBuffer.stream();
     }
@@ -124,7 +125,14 @@ public class AudioFileStreaming implements AudioFile {
         LOGGER.fatal(String.format("Stream error, code: %d", code));
     }
 
-    private class ChunksBuffer {
+    @Override
+    public void close() {
+        executorService.shutdown();
+        if (chunksBuffer != null)
+            chunksBuffer.close();
+    }
+
+    private class ChunksBuffer implements Closeable {
         private final int size;
         private final byte[][] buffer;
         private final boolean[] available;
@@ -143,6 +151,8 @@ public class AudioFileStreaming implements AudioFile {
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
+            if (internalStream != null && internalStream.closed) return;
+
             if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
 
@@ -158,6 +168,8 @@ public class AudioFileStreaming implements AudioFile {
         }
 
         private void waitFor(int chunkIndex) throws IOException {
+            if (internalStream != null && internalStream.closed) return;
+
             synchronized (waitForChunk) {
                 try {
                     waitForChunk.set(chunkIndex);
@@ -174,11 +186,23 @@ public class AudioFileStreaming implements AudioFile {
             return internalStream;
         }
 
+        @Override
+        public void close() {
+            if (internalStream != null)
+                internalStream.close();
+        }
+
         private class InternalStream extends InputStream {
             private int pos = 0;
             private int mark = 0;
+            private volatile boolean closed = false;
 
             private InternalStream() {
+            }
+
+            @Override
+            public void close() {
+                closed = true;
             }
 
             @Override
@@ -203,6 +227,8 @@ public class AudioFileStreaming implements AudioFile {
 
             @Override
             public synchronized long skip(long n) throws IOException {
+                if (closed) throw new IOException("Stream is closed!");
+
                 long k = size - pos;
                 if (n < k) k = n < 0 ? 0 : n;
                 pos += k;
@@ -230,6 +256,8 @@ public class AudioFileStreaming implements AudioFile {
 
             @Override
             public int read(@NotNull byte[] b, int off, int len) throws IOException {
+                if (closed) throw new IOException("Stream is closed!");
+
                 if (off < 0 || len < 0 || len > b.length - off) {
                     throw new IndexOutOfBoundsException(String.format("off: %d, len: %d, buffer: %d", off, len, buffer.length));
                 } else if (len == 0) {
@@ -258,6 +286,8 @@ public class AudioFileStreaming implements AudioFile {
 
             @Override
             public synchronized int read() throws IOException {
+                if (closed) throw new IOException("Stream is closed!");
+
                 if (pos >= size)
                     return -1;
 

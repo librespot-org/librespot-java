@@ -2,12 +2,13 @@ package xyz.gianlu.librespot.player;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * @author Gianlu
  */
-public interface AudioFile {
+public interface AudioFile extends Closeable {
     void writeChunk(byte[] chunk, int chunkIndex, boolean cached) throws IOException;
 
     void cacheFailedChunk(int index, @NotNull AudioFile file);

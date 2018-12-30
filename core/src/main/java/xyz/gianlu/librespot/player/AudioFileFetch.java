@@ -21,6 +21,7 @@ class AudioFileFetch implements AudioFile {
     private final BytesArrayList headersData = new BytesArrayList();
     private int size = -1;
     private int chunks = -1;
+    private volatile boolean closed = false;
 
     AudioFileFetch(@Nullable CacheManager.Handler cache) {
         this.cache = cache;
@@ -34,6 +35,8 @@ class AudioFileFetch implements AudioFile {
 
     @Override
     public synchronized void writeHeader(byte id, byte[] bytes, boolean cached) {
+        if (closed) return;
+
         if (!cached && cache != null) {
             headersId.write(id);
             headersData.add(bytes);
@@ -54,6 +57,8 @@ class AudioFileFetch implements AudioFile {
 
     @Override
     public synchronized void headerEnd(boolean cached) {
+        if (closed) return;
+
         if (!cached && cache != null) {
             headersId.write(CacheManager.BYTE_CREATED_AT);
             headersData.add(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray());
@@ -90,5 +95,10 @@ class AudioFileFetch implements AudioFile {
     public int getChunks() {
         if (chunks == -1) throw new IllegalStateException("Headers not received yet!");
         return chunks;
+    }
+
+    @Override
+    public void close() {
+        closed = true;
     }
 }
