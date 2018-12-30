@@ -83,4 +83,14 @@ public final class DefaultConfiguration extends AbsConfiguration {
     public Strategy strategy() {
         return Strategy.ZEROCONF;
     }
+
+    @Override
+    public boolean zeroconfListenAll() {
+        return true;
+    }
+
+    @Override
+    public @NotNull String[] zeroconfInterfaces() {
+        return new String[0];
+    }
 }

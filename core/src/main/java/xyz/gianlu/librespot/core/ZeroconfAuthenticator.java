@@ -20,10 +20,7 @@ import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.URLDecoder;
+import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
@@ -65,7 +62,7 @@ public class ZeroconfAuthenticator implements Closeable {
     private final Session.Inner session;
     private final DiffieHellman keys;
 
-    ZeroconfAuthenticator(Session.Inner session) throws IOException {
+    ZeroconfAuthenticator(Session.Inner session, Configuration conf) throws IOException {
         this.session = session;
         this.keys = new DiffieHellman(session.random);
         this.mDnsService = new MulticastDNSService();
@@ -73,12 +70,52 @@ public class ZeroconfAuthenticator implements Closeable {
         int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         new Thread(this.runner = new HttpRunner(port)).start();
 
-        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), InetAddress.getAllByName("localhost"), "VERSION=1.0", "CPath=/");
+        InetAddress[] bound;
+        if (conf.zeroconfListenAll()) {
+            bound = getAllInterfacesAddresses();
+        } else {
+            String[] interfaces = conf.zeroconfInterfaces();
+            if (interfaces.length == 0) {
+                bound = new InetAddress[]{InetAddress.getLoopbackAddress()};
+            } else {
+                List<InetAddress> list = new ArrayList<>();
+                for (String str : interfaces) addAddressForInterfaceName(list, str);
+                bound = list.toArray(new InetAddress[0]);
+            }
+        }
+
+        LOGGER.debug("Registering service on " + Arrays.toString(bound));
+
+        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), bound, "VERSION=1.0", "CPath=/");
         spotifyConnectService = mDnsService.register(service);
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
-
         LOGGER.info("SpotifyConnect service registered successfully!");
+    }
+
+    private static void addAddressForInterfaceName(List<InetAddress> list, @NotNull String name) throws SocketException {
+        NetworkInterface nif = NetworkInterface.getByName(name);
+        if (nif == null) {
+            LOGGER.warn(String.format("Interface %s doesn't exists.", name));
+            return;
+        }
+
+        addAddressOfInterface(list, nif);
+    }
+
+    private static void addAddressOfInterface(List<InetAddress> list, @NotNull NetworkInterface nif) {
+        LOGGER.trace(String.format("Adding addresses of %s (displayName: %s)", nif.getName(), nif.getDisplayName()));
+        Enumeration<InetAddress> ias = nif.getInetAddresses();
+        while (ias.hasMoreElements())
+            list.add(ias.nextElement());
+    }
+
+    @NotNull
+    private static InetAddress[] getAllInterfacesAddresses() throws SocketException {
+        List<InetAddress> list = new ArrayList<>();
+        Enumeration<NetworkInterface> is = NetworkInterface.getNetworkInterfaces();
+        while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement());
+        return list.toArray(new InetAddress[0]);
     }
 
     @Override
@@ -192,6 +229,13 @@ public class ZeroconfAuthenticator implements Closeable {
             authenticationLock.wait();
             return authenticationLock.get();
         }
+    }
+
+    public interface Configuration {
+        boolean zeroconfListenAll();
+
+        @NotNull
+        String[] zeroconfInterfaces();
     }
 
     private class HttpRunner implements Runnable, Closeable {

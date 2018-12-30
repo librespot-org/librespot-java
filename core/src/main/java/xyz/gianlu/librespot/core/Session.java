@@ -405,9 +405,12 @@ public class Session implements AutoCloseable {
         private final Inner inner;
         private Authentication.LoginCredentials loginCredentials = null;
         private AuthConfiguration authConf;
+        private ZeroconfAuthenticator.Configuration zeroconfConf;
 
         public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);
+            this.authConf = configuration;
+            this.zeroconfConf = configuration;
         }
 
         public Builder(@NotNull AbsConfiguration configuration) {
@@ -421,6 +424,7 @@ public class Session implements AutoCloseable {
 
             this.inner = new Inner(deviceType, deviceName, configuration);
             this.authConf = configuration;
+            this.zeroconfConf = configuration;
         }
 
         public Builder facebook() throws IOException {
@@ -433,7 +437,7 @@ public class Session implements AutoCloseable {
         }
 
         public Builder zeroconf() throws IOException {
-            try (ZeroconfAuthenticator authenticator = new ZeroconfAuthenticator(inner)) {
+            try (ZeroconfAuthenticator authenticator = new ZeroconfAuthenticator(inner, zeroconfConf)) {
                 loginCredentials = authenticator.lockUntilCredentials();
                 return this;
             } catch (InterruptedException ex) {

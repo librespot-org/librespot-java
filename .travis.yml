@@ -1,8 +1,11 @@
 language: java
 
 before_install:
-  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
-  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+  - |
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+      echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+      echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+    fi
 
 install:
   - mvn install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
