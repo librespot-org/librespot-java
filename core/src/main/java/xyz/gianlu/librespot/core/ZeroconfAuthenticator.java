@@ -20,10 +20,7 @@ import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.URLDecoder;
+import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
@@ -72,12 +69,25 @@ public class ZeroconfAuthenticator implements Closeable {
 
         int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         new Thread(this.runner = new HttpRunner(port)).start();
-
-        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), InetAddress.getAllByName("localhost"), "VERSION=1.0", "CPath=/");
+        ArrayList<InetAddress> addressArrayList = new ArrayList<>();
+        Enumeration<NetworkInterface> networkInterfaces= NetworkInterface.getNetworkInterfaces();
+        while(networkInterfaces.hasMoreElements()){
+            NetworkInterface networkInterface = networkInterfaces.nextElement();
+            Enumeration<InetAddress> interfaceAddresses = networkInterface.getInetAddresses();
+            if(!networkInterface.isLoopback()) {
+                while (interfaceAddresses.hasMoreElements()) {
+                    InetAddress address = interfaceAddresses.nextElement();
+                    if(!address.isLoopbackAddress())
+                        addressArrayList.add(address);
+                }
+            }
+        }
+        InetAddress[] addressArray = addressArrayList.toArray(new InetAddress[addressArrayList.size()]);
+        addressArrayList.add(InetAddress.getByName(InetAddress.getLocalHost().getCanonicalHostName()));
+        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), addressArray, "VERSION=1.0", "CPath=/");
         spotifyConnectService = mDnsService.register(service);
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
-
         LOGGER.info("SpotifyConnect service registered successfully!");
     }
 
