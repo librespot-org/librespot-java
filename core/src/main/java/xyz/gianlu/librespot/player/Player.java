@@ -407,7 +407,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
     public interface PlayerConfiguration {
         @NotNull
-        TrackHandler.AudioQuality preferredQuality();
+        StreamFeeder.AudioQuality preferredQuality();
 
         boolean preloadEnabled();
 

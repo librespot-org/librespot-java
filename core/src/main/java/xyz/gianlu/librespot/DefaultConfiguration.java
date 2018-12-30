@@ -3,7 +3,7 @@ package xyz.gianlu.librespot;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.TrackHandler;
+import xyz.gianlu.librespot.player.StreamFeeder;
 
 import java.io.File;
 
@@ -18,8 +18,8 @@ public final class DefaultConfiguration extends AbsConfiguration {
 
     @NotNull
     @Override
-    public TrackHandler.AudioQuality preferredQuality() {
-        return TrackHandler.AudioQuality.VORBIS_320;
+    public StreamFeeder.AudioQuality preferredQuality() {
+        return StreamFeeder.AudioQuality.VORBIS_320;
     }
 
     @Override

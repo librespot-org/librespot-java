@@ -29,7 +29,7 @@ public class CacheManager {
     private final ControlTable controlTable;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    CacheManager(@NotNull CacheConfiguration conf) throws IOException {
+    public CacheManager(@NotNull CacheConfiguration conf) throws IOException {
         this.enabled = conf.cacheEnabled();
         if (enabled) {
             this.loadedHandlers = new HashMap<>();

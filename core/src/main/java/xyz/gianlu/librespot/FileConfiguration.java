@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.TrackHandler;
+import xyz.gianlu.librespot.player.StreamFeeder;
 
 import java.io.File;
 import java.io.FileReader;
@@ -97,8 +97,8 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @NotNull TrackHandler.AudioQuality preferredQuality() {
-        return TrackHandler.AudioQuality.valueOf(properties.getProperty("player.preferredAudioQuality", defaults.preferredQuality().name()));
+    public @NotNull StreamFeeder.AudioQuality preferredQuality() {
+        return StreamFeeder.AudioQuality.valueOf(properties.getProperty("player.preferredAudioQuality", defaults.preferredQuality().name()));
     }
 
     @Override
