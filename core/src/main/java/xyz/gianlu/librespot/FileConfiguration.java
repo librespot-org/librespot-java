@@ -73,6 +73,14 @@ public final class FileConfiguration extends AbsConfiguration {
         }
     }
 
+    @NotNull
+    private String[] getStringArray(@NotNull String key, @NotNull String[] fallback) {
+        String str = properties.getProperty(key, null);
+        if (str == null) return fallback;
+        else if ((str = str.trim()).isEmpty()) return new String[0];
+        else return Utils.split(str, ',');
+    }
+
     @Override
     public boolean cacheEnabled() {
         return getBoolean("cache.enabled", defaults.cacheEnabled());
@@ -132,5 +140,16 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public Strategy strategy() {
         return getEnum(Strategy.class, "auth.strategy", defaults.strategy());
+    }
+
+    @Override
+    public boolean zeroconfListenAll() {
+        return getBoolean("zeroconf.listenAll", defaults.zeroconfListenAll());
+    }
+
+    @NotNull
+    @Override
+    public String[] zeroconfInterfaces() {
+        return getStringArray("zeroconf.interfaces", defaults.zeroconfInterfaces());
     }
 }
