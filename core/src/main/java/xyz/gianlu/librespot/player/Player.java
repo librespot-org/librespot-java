@@ -23,7 +23,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private final CacheManager cacheManager;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
-    private long shuffleSeed;
+    private long shuffleSeed = 0;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
         this.conf = conf;
@@ -235,6 +235,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
         state.setContextUri(frame.getState().getContextUri());
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
+        if (state.getShuffle()) shuffleTracks();
     }
 
     @Override
