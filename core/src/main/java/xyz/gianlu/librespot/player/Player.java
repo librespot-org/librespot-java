@@ -309,16 +309,17 @@ public class Player implements FrameListener, TrackHandler.Listener {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
             trackHandler.sendSeek(state.getPositionMs());
-            if (play) {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-                trackHandler.sendPlay();
-            } else {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
-            }
         } else {
             trackHandler = new TrackHandler(session, cacheManager, conf, this);
             trackHandler.sendLoad(ref, play, state.getPositionMs());
             state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+        }
+
+        if (play) {
+            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            trackHandler.sendPlay();
+        } else {
+            state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
         }
 
         stateUpdated();
