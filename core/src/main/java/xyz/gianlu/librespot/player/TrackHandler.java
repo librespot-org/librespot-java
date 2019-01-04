@@ -5,12 +5,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -37,8 +38,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         new Thread(looper = new Looper()).start();
     }
 
-    private void load(@NotNull Spirc.TrackRef ref, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        StreamFeeder.LoadedStream stream = feeder.load(ref, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
+    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
+        StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
         track = stream.track;
 
         LOGGER.info(String.format("Loading track, name: '%s', artists: '%s'", track.getName(), Utils.toString(track.getArtistList())));
@@ -80,8 +81,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         sendCommand(Command.Stop);
     }
 
-    void sendLoad(@NotNull Spirc.TrackRef ref, boolean play, int pos) {
-        sendCommand(Command.Load, ref, play, pos);
+    void sendLoad(@NotNull TrackId track, boolean play, int pos) {
+        sendCommand(Command.Load, track, play, pos);
     }
 
     @Override
@@ -115,8 +116,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         return track;
     }
 
-    boolean isTrack(Spirc.TrackRef ref) {
-        return track != null && ref.getGid().equals(track.getGid());
+    boolean isTrack(@NotNull TrackId id) {
+        return track != null && track.hasGid() && Arrays.equals(id.getGid(), track.getGid().toByteArray());
     }
 
     public enum Command {
@@ -145,7 +146,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                     switch (cmd.cmd) {
                         case Load:
                             try {
-                                load((Spirc.TrackRef) cmd.args[0], (Boolean) cmd.args[1], (Integer) cmd.args[2]);
+                                load((TrackId) cmd.args[0], (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                             } catch (IOException | MercuryClient.MercuryException ex) {
                                 listener.loadingError(TrackHandler.this, ex);
                             }

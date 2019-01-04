@@ -5,11 +5,11 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.IOException;
-import java.util.*;
 
 /**
  * @author Gianlu
@@ -18,18 +18,18 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
     private final SpotifyIrc spirc;
-    private final Spirc.State.Builder state;
+    private final StateWrapper state;
     private final PlayerConfiguration conf;
     private final CacheManager cacheManager;
+    private TracksProvider tracksProvider;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
-    private long shuffleSeed = 0;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.spirc = session.spirc();
-        this.state = initState();
+        this.state = new StateWrapper(initState());
 
         try {
             this.cacheManager = new CacheManager(cacheConfiguration);
@@ -38,16 +38,6 @@ public class Player implements FrameListener, TrackHandler.Listener {
         }
 
         spirc.addListener(this);
-    }
-
-    private static int[] getShuffleExchanges(int size, long seed) {
-        int[] exchanges = new int[size - 1];
-        Random rand = new Random(seed);
-        for (int i = size - 1; i > 0; i--) {
-            int n = rand.nextInt(i + 1);
-            exchanges[size - 1 - i] = n;
-        }
-        return exchanges;
     }
 
     public void playPause() {
@@ -137,8 +127,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void handlePlayPause() {
-        if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) handlePause();
-        else if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) handlePlay();
+        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPlay)) handlePause();
+        else if (state.isStatus(Spirc.PlayStatus.kPlayStatusPause)) handlePlay();
     }
 
     private void handleSetVolume(int volume) {
@@ -169,7 +159,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void stateUpdated() {
-        spirc.deviceStateUpdated(state);
+        spirc.deviceStateUpdated(state.state);
     }
 
     private int getPosition() {
@@ -177,48 +167,24 @@ public class Player implements FrameListener, TrackHandler.Listener {
         return state.getPositionMs() + diff;
     }
 
-    private void shuffleTracks() {
-        shuffleSeed = session.random().nextLong();
-
-        List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
-        if (state.getPlayingTrackIndex() != 0) {
-            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
-            state.setPlayingTrackIndex(0);
-        }
-
-        int size = tracks.size() - 1;
-        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = size - 1; i > 1; i--) {
-            int n = exchanges[size - 1 - i];
-            Collections.swap(tracks, i, n + 1);
-        }
-
-        state.clearTrack();
-        state.addAllTrack(tracks);
-    }
-
-    private void unshuffleTracks() {
-        List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
-        if (state.getPlayingTrackIndex() != 0) {
-            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
-            state.setPlayingTrackIndex(0);
-        }
-
-        int size = tracks.size() - 1;
-        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = 2; i < size; i++) {
-            int n = exchanges[size - i - 1];
-            Collections.swap(tracks, i, n + 1);
-        }
-
-        state.clearTrack();
-        state.addAllTrack(tracks);
-    }
-
     private void handleShuffle() {
         if (state.getShuffle()) shuffleTracks();
         else unshuffleTracks();
         stateUpdated();
+    }
+
+    private void shuffleTracks() {
+        if (tracksProvider instanceof PlaylistProvider)
+            ((PlaylistProvider) tracksProvider).shuffleTracks(session.random());
+        else
+            LOGGER.warn("Cannot shuffle TracksProvider: " + tracksProvider);
+    }
+
+    private void unshuffleTracks() {
+        if (tracksProvider instanceof PlaylistProvider)
+            ((PlaylistProvider) tracksProvider).unshuffleTracks();
+        else
+            LOGGER.warn("Cannot unshuffle TracksProvider: " + tracksProvider);
     }
 
     private void handleSeek(int pos) {
@@ -229,10 +195,12 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void updatedTracks(@NotNull Spirc.Frame frame) {
-        state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
-        state.clearTrack();
-        state.addAllTrack(frame.getState().getTrackList());
-        state.setContextUri(frame.getState().getContextUri());
+        state.update(frame);
+        String context = frame.getState().getContextUri();
+
+        if (context.startsWith("spotify:station:")) tracksProvider = new StationProvider(session, state.state, frame);
+        else tracksProvider = new PlaylistProvider(state.state, frame);
+
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
         if (state.getShuffle()) shuffleTracks();
@@ -272,7 +240,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            Spirc.TrackRef next = state.getTrack(getQueuedTrack(false));
+            TrackId next = tracksProvider.getTrackAt(tracksProvider.getNextTrackIndex(false));
 
             preloadTrackHandler = new TrackHandler(session, cacheManager, conf, this);
             preloadTrackHandler.sendLoad(next, false, 0);
@@ -304,14 +272,14 @@ public class Player implements FrameListener, TrackHandler.Listener {
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
-        Spirc.TrackRef ref = state.getTrack(state.getPlayingTrackIndex());
-        if (preloadTrackHandler != null && preloadTrackHandler.isTrack(ref)) {
+        TrackId id = tracksProvider.getCurrentTrack();
+        if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
             trackHandler.sendSeek(state.getPositionMs());
         } else {
             trackHandler = new TrackHandler(session, cacheManager, conf, this);
-            trackHandler.sendLoad(ref, play, state.getPositionMs());
+            trackHandler.sendLoad(id, play, state.getPositionMs());
             state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
         }
 
@@ -326,7 +294,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void handlePlay() {
-        if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPause) {
+        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPause)) {
             if (trackHandler != null) trackHandler.sendPlay();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             state.setPositionMeasuredAt(System.currentTimeMillis());
@@ -335,7 +303,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void handlePause() {
-        if (state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay) {
+        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPlay)) {
             if (trackHandler != null) trackHandler.sendPause();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
 
@@ -349,7 +317,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     private void handleNext() {
-        int newTrack = getQueuedTrack(true);
+        int newTrack = tracksProvider.getNextTrackIndex(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
             newTrack = 0;
@@ -365,26 +333,7 @@ public class Player implements FrameListener, TrackHandler.Listener {
 
     private void handlePrev() {
         if (getPosition() < 3000) {
-            List<Spirc.TrackRef> queueTracks = new ArrayList<>();
-            Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
-            while (iter.hasNext()) {
-                Spirc.TrackRef track = iter.next();
-                if (track.getQueued()) {
-                    queueTracks.add(track);
-                    iter.remove();
-                }
-            }
-
-            int current = state.getPlayingTrackIndex();
-            int newIndex;
-            if (current > 0) newIndex = current - 1;
-            else if (state.getRepeat()) newIndex = state.getTrackCount() - 1;
-            else newIndex = 0;
-
-            for (int i = 0; i < queueTracks.size(); i++)
-                state.getTrackList().add(newIndex + 1 + i, queueTracks.get(i));
-
-            state.setPlayingTrackIndex(newIndex);
+            state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex(true));
             state.setPositionMs(0);
             state.setPositionMeasuredAt(System.currentTimeMillis());
 
@@ -397,16 +346,6 @@ public class Player implements FrameListener, TrackHandler.Listener {
         }
     }
 
-    private int getQueuedTrack(boolean consume) {
-        int current = state.getPlayingTrackIndex();
-        if (state.getTrack(current).getQueued()) {
-            if (consume) state.removeTrack(current);
-            return current;
-        }
-
-        return current + 1;
-    }
-
     public interface PlayerConfiguration {
         @NotNull
         StreamFeeder.AudioQuality preferredQuality();
@@ -414,5 +353,70 @@ public class Player implements FrameListener, TrackHandler.Listener {
         boolean preloadEnabled();
 
         float normalisationPregain();
+    }
+
+    private class StateWrapper {
+        private final Spirc.State.Builder state;
+
+        StateWrapper(@NotNull Spirc.State.Builder state) {
+            this.state = state;
+        }
+
+        @NotNull
+        Spirc.PlayStatus getStatus() {
+            return state.getStatus();
+        }
+
+        void setStatus(@NotNull Spirc.PlayStatus status) {
+            state.setStatus(status);
+        }
+
+        boolean isStatus(@NotNull Spirc.PlayStatus status) {
+            return status == getStatus();
+        }
+
+        boolean getShuffle() {
+            return state.getShuffle();
+        }
+
+        void setShuffle(boolean shuffle) {
+            state.setShuffle(shuffle && (tracksProvider == null || tracksProvider.canShuffle()));
+        }
+
+        void update(@NotNull Spirc.Frame frame) {
+            state.setContextUri(frame.getState().getContextUri());
+        }
+
+        long getPositionMeasuredAt() {
+            return state.getPositionMeasuredAt();
+        }
+
+        void setPositionMeasuredAt(long ms) {
+            state.setPositionMeasuredAt(ms);
+        }
+
+        int getPositionMs() {
+            return state.getPositionMs();
+        }
+
+        void setPositionMs(int pos) {
+            state.setPositionMs(pos);
+        }
+
+        boolean getRepeat() {
+            return state.getRepeat();
+        }
+
+        void setRepeat(boolean repeat) {
+            state.setRepeat(repeat && (tracksProvider == null || tracksProvider.canRepeat()));
+        }
+
+        void setPlayingTrackIndex(int i) {
+            state.setPlayingTrackIndex(i);
+        }
+
+        int getTrackCount() {
+            return state.getTrackCount();
+        }
     }
 }
