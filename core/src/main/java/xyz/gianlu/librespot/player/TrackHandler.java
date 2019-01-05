@@ -42,7 +42,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
         track = stream.track;
 
-        LOGGER.info(String.format("Loading track, name: '%s', artists: '%s'", track.getName(), Utils.toString(track.getArtistList())));
+        LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.toString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
 
         try {
             if (playerRunner != null) playerRunner.stop();
@@ -57,7 +57,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
             LOGGER.fatal("Failed starting playback!", ex);
-            listener.loadingError(this, ex);
+            listener.loadingError(this, id, ex);
         }
     }
 
@@ -128,7 +128,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     public interface Listener {
         void finishedLoading(@NotNull TrackHandler handler, boolean play);
 
-        void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex);
+        void loadingError(@NotNull TrackHandler handler, @NotNull TrackId track, @NotNull Exception ex);
 
         void endOfTrack(@NotNull TrackHandler handler);
 
@@ -145,10 +145,12 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                     CommandBundle cmd = commands.take();
                     switch (cmd.cmd) {
                         case Load:
+                            TrackId id = (TrackId) cmd.args[0];
+
                             try {
-                                load((TrackId) cmd.args[0], (Boolean) cmd.args[1], (Integer) cmd.args[2]);
+                                load(id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                             } catch (IOException | MercuryClient.MercuryException ex) {
-                                listener.loadingError(TrackHandler.this, ex);
+                                listener.loadingError(TrackHandler.this, id, ex);
                             }
                             break;
                         case Play:

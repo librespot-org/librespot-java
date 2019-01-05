@@ -218,9 +218,9 @@ public class Player implements FrameListener, TrackHandler.Listener {
     }
 
     @Override
-    public void loadingError(@NotNull TrackHandler handler, @NotNull Exception ex) {
+    public void loadingError(@NotNull TrackHandler handler, @NotNull TrackId id, @NotNull Exception ex) {
         if (handler == trackHandler) {
-            LOGGER.fatal("Failed loading track!", ex);
+            LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
         } else if (handler == preloadTrackHandler) {

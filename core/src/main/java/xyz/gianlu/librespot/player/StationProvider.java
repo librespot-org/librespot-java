@@ -71,6 +71,7 @@ public class StationProvider implements TracksProvider {
         for (JsonElement elm : tracks) {
             JsonObject track = elm.getAsJsonObject();
             state.addTrack(Spirc.TrackRef.newBuilder()
+                    .setUri(track.get("uri").getAsString())
                     .setGid(ByteString.copyFrom(TrackId.fromUri(track.get("uri").getAsString()).getGid()))
                     .build());
         }
