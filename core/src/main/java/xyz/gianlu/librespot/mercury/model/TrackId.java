@@ -17,7 +17,9 @@ public final class TrackId implements SpotifyId {
     private final String hexId;
 
     private TrackId(@NotNull String hex) {
-        this.hexId = hex;
+        if (hex.length() == 32) this.hexId = hex;
+        else if (hex.length() == 34 && hex.startsWith("00")) this.hexId = hex.substring(2);
+        else throw new IllegalArgumentException("Illegal track id: " + hex);
     }
 
     @NotNull
