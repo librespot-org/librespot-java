@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.tracks;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Spirc;
@@ -31,7 +31,7 @@ public class PlaylistProvider implements TracksProvider {
         return exchanges;
     }
 
-    void shuffleTracks(@NotNull Random random) {
+    public void shuffleTracks(@NotNull Random random) {
         shuffleSeed = random.nextLong();
 
         List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
@@ -51,7 +51,7 @@ public class PlaylistProvider implements TracksProvider {
         state.addAllTrack(tracks);
     }
 
-    void unshuffleTracks() {
+    public void unshuffleTracks() {
         List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
         if (state.getPlayingTrackIndex() != 0) {
             Collections.swap(tracks, 0, state.getPlayingTrackIndex());

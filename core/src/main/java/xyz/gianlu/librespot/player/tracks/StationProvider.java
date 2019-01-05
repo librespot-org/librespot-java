@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.tracks;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
  */
 public class StationProvider implements TracksProvider {
     private static final Logger LOGGER = Logger.getLogger(StationProvider.class);
+    private static final int LOAD_NEXT_PAGE_THRESHOLD = 3;
     private final MercuryClient mercury;
     private final Spirc.State.Builder state;
     private String nextPageUri;
@@ -38,7 +39,7 @@ public class StationProvider implements TracksProvider {
     @Override
     public int getNextTrackIndex(boolean consume) {
         int next = state.getPlayingTrackIndex() + 1;
-        if (next >= state.getTrackCount()) {
+        if (next >= state.getTrackCount() - LOAD_NEXT_PAGE_THRESHOLD) {
             try {
                 requestMore();
             } catch (IOException | MercuryClient.MercuryException ex) {
@@ -51,9 +52,7 @@ public class StationProvider implements TracksProvider {
     }
 
     private void requestMore() throws IOException, MercuryClient.MercuryException {
-        if (nextPageUri == null)
-            resolveContext();
-
+        if (nextPageUri == null) resolveContext();
         getNextPage();
     }
 
@@ -70,18 +69,17 @@ public class StationProvider implements TracksProvider {
         JsonArray tracks = obj.getAsJsonArray("tracks");
         for (JsonElement elm : tracks) {
             JsonObject track = elm.getAsJsonObject();
+            String uri = track.get("uri").getAsString();
             state.addTrack(Spirc.TrackRef.newBuilder()
-                    .setUri(track.get("uri").getAsString())
-                    .setGid(ByteString.copyFrom(TrackId.fromUri(track.get("uri").getAsString()).getGid()))
+                    .setUri(uri)
+                    .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
                     .build());
         }
     }
 
     private void resolveContext() throws IOException, MercuryClient.MercuryException {
-        if (!state.hasContextUri()) {
-            LOGGER.fatal("Missing context URI!");
-            return;
-        }
+        if (!state.hasContextUri())
+            throw new IOException("Missing context URI!");
 
         MercuryRequests.ResolvedContextWrapper json = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
         JsonObject firstPage = json.pages().get(0).getAsJsonObject();

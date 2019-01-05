@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.tracks;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.mercury.model.TrackId;
