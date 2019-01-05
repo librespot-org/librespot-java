@@ -258,6 +258,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
                     .setBecameActiveAt(System.currentTimeMillis());
         }
 
+        LOGGER.debug(String.format("Loading context, uri: %s", frame.getState().getContextUri()));
+
         updatedTracks(frame);
 
         if (state.getTrackCount() > 0) {
