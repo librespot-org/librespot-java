@@ -38,7 +38,6 @@ public class PlayerRunner implements Runnable {
     private final Packet joggPacket = new Packet();
     private final Page joggPage = new Page();
     private final float normalizationFactor;
-    private final Mixer mixer;
     private final Controller controller;
     private final int duration;
     private final Object pauseLock = new Object();
@@ -60,7 +59,6 @@ public class PlayerRunner implements Runnable {
         this.duration = duration;
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(configuration);
-        this.mixer = AudioSystem.getMixer(AudioSystem.getMixerInfo()[0]);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
@@ -136,7 +134,16 @@ public class PlayerRunner implements Runnable {
         AudioFormat audioFormat = new AudioFormat((float) rate, 16, channels, true, false);
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
 
-        if (!mixer.isLineSupported(dataLineInfo))
+        Mixer mixer = null;
+        for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
+            mixer = AudioSystem.getMixer(mixerInfo);
+
+            if (mixer.isLineSupported(dataLineInfo)) {
+                break;
+            }
+        }
+
+        if (mixer == null || !mixer.isLineSupported(dataLineInfo))
             throw new PlayerException();
 
         try {
