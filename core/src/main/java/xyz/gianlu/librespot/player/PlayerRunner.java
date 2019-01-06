@@ -139,6 +139,7 @@ public class PlayerRunner implements Runnable {
             mixer = AudioSystem.getMixer(mixerInfo);
 
             if (mixer.isLineSupported(dataLineInfo)) {
+                LOGGER.info(String.format("Mixer for sound output: %s", mixerInfo.getName()));
                 break;
             }
         }
