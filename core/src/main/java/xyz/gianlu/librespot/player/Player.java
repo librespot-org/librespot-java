@@ -243,11 +243,13 @@ public class Player implements FrameListener, TrackHandler.Listener {
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            TrackId next = tracksProvider.getTrackAt(tracksProvider.getNextTrackIndex(false));
-
-            preloadTrackHandler = new TrackHandler(session, cacheManager, conf, this);
-            preloadTrackHandler.sendLoad(next, false, 0);
-            LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
+            int index = tracksProvider.getNextTrackIndex(false);
+            if (index < state.getTrackCount()) {
+                TrackId next = tracksProvider.getTrackAt(index);
+                preloadTrackHandler = new TrackHandler(session, cacheManager, conf, this);
+                preloadTrackHandler.sendLoad(next, false, 0);
+                LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
+            }
         }
     }
 
