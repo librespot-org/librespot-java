@@ -15,6 +15,7 @@ import xyz.gianlu.librespot.common.proto.Spirc;
 import javax.sound.sampled.*;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 /**
  * @author Gianlu
@@ -71,6 +72,20 @@ public class PlayerRunner implements Runnable {
         audioIn.mark(-1);
 
         LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
+    }
+
+    @NotNull
+    private static Line findSuitableLineFromMixer(@NotNull Line.Info info) throws PlayerException, LineUnavailableException {
+        for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
+            Mixer mixer = AudioSystem.getMixer(mixerInfo);
+
+            if (mixer.isLineSupported(info)) {
+                LOGGER.debug("Mixer for playback: " + mixer.getMixerInfo());
+                return mixer.getLine(info);
+            }
+        }
+
+        throw new PlayerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
     }
 
     /**
@@ -134,21 +149,8 @@ public class PlayerRunner implements Runnable {
         AudioFormat audioFormat = new AudioFormat((float) rate, 16, channels, true, false);
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
 
-        Mixer mixer = null;
-        for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
-            mixer = AudioSystem.getMixer(mixerInfo);
-
-            if (mixer.isLineSupported(dataLineInfo)) {
-                LOGGER.info(String.format("Mixer for sound output: %s", mixerInfo.getName()));
-                break;
-            }
-        }
-
-        if (mixer == null || !mixer.isLineSupported(dataLineInfo))
-            throw new PlayerException();
-
         try {
-            outputLine = (SourceDataLine) mixer.getLine(dataLineInfo);
+            outputLine = (SourceDataLine) findSuitableLineFromMixer(dataLineInfo);
             outputLine.open(audioFormat);
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
             throw new PlayerException(ex);
@@ -381,6 +383,10 @@ public class PlayerRunner implements Runnable {
 
         private PlayerException(@NotNull Throwable ex) {
             super(ex);
+        }
+
+        private PlayerException(String message) {
+            super(message);
         }
     }
 }
