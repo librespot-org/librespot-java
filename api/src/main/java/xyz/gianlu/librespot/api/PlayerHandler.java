@@ -5,7 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.Player;
 
 /**
@@ -36,9 +35,6 @@ public class PlayerHandler extends AbsApiHandler {
                 break;
             case "playPause":
                 player.playPause();
-                break;
-            case "load":
-                player.load(ApiUtils.extractId(TrackId.class, request, request.params));
                 break;
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
