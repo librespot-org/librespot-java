@@ -28,6 +28,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private final StreamFeeder feeder;
     private PlayerRunner playerRunner;
     private Metadata.Track track;
+    private volatile boolean stopped = false;
 
     TrackHandler(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener) {
         this.session = session;
@@ -41,6 +42,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
         StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
         track = stream.track;
+
+        if (stopped) return;
 
         LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.toString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
 
@@ -59,6 +62,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             LOGGER.fatal("Failed starting playback!", ex);
             listener.loadingError(this, id, ex);
         }
+
+        if (stopped && playerRunner != null) playerRunner.stop();
     }
 
     private void sendCommand(@NotNull Command command, Object... args) {
@@ -107,8 +112,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
     @Override
     public void close() {
+        stopped = true;
         if (playerRunner != null) playerRunner.stop();
-        looper.stop();
     }
 
     @Nullable
@@ -136,7 +141,6 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private class Looper implements Runnable {
-        private volatile boolean stopped = false;
 
         @Override
         public void run() {
@@ -161,7 +165,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                             break;
                         case Stop:
                             if (playerRunner != null) playerRunner.stop();
-                            stop();
+                            close();
                             break;
                         case Seek:
                             if (playerRunner != null) playerRunner.seek((Integer) cmd.args[0]);
@@ -171,10 +175,6 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             } catch (InterruptedException ex) {
                 LOGGER.fatal("Failed handling command!", ex);
             }
-        }
-
-        private void stop() {
-            stopped = true;
         }
     }
 
