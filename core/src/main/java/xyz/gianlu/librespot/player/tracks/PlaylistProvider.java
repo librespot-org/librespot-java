@@ -1,20 +1,35 @@
 package xyz.gianlu.librespot.player.tracks;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.protobuf.ByteString;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.Player;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
  * @author Gianlu
  */
 public class PlaylistProvider implements TracksProvider {
+    private static final Logger LOGGER = Logger.getLogger(PlaylistProvider.class);
     private final Spirc.State.Builder state;
+    private final Player.PlayerConfiguration conf;
+    private final MercuryClient mercury;
     private long shuffleSeed = 0;
 
-    public PlaylistProvider(@NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame) {
+    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame, @NotNull Player.PlayerConfiguration conf) {
         this.state = state;
+        this.conf = conf;
+        this.mercury = session.mercury();
 
         state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
         state.clearTrack();
@@ -52,21 +67,58 @@ public class PlaylistProvider implements TracksProvider {
     }
 
     public void unshuffleTracks() {
-        List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
-        if (state.getPlayingTrackIndex() != 0) {
-            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+        if (shuffleSeed == 0 && !conf.defaultUnshuffleBehaviour() && state.hasContextUri()) {
+            JsonArray tracks;
+            try {
+                MercuryRequests.ResolvedContextWrapper context = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
+                tracks = context.pages().get(0).getAsJsonObject().getAsJsonArray("tracks");
+            } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.fatal("Failed requesting context!", ex);
+                return;
+            }
+
+            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
+
+            List<Spirc.TrackRef> rebuildState = new ArrayList<>(80);
+            TrackId currentTrackId = TrackId.fromTrackRef(current);
+            String currentTrackUri = currentTrackId.toSpotifyUri();
+            boolean add = false;
+            int count = 80;
+            for (JsonElement elm : tracks) {
+                JsonObject track = elm.getAsJsonObject();
+                String uri = track.get("uri").getAsString();
+                if (add || uri.equals(currentTrackUri)) {
+                    rebuildState.add(Spirc.TrackRef.newBuilder()
+                            .setUri(uri)
+                            .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
+                            .build());
+
+                    add = true;
+                    count--;
+                    if (count <= 0) break;
+                }
+            }
+
+            state.clearTrack();
+            state.addAllTrack(rebuildState);
             state.setPlayingTrackIndex(0);
-        }
+        } else {
+            List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
+            if (state.getPlayingTrackIndex() != 0) {
+                Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+                state.setPlayingTrackIndex(0);
+            }
 
-        int size = tracks.size() - 1;
-        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = 2; i < size; i++) {
-            int n = exchanges[size - i - 1];
-            Collections.swap(tracks, i, n + 1);
-        }
+            int size = tracks.size() - 1;
+            int[] exchanges = getShuffleExchanges(size, shuffleSeed);
+            for (int i = 2; i < size; i++) {
+                int n = exchanges[size - i - 1];
+                Collections.swap(tracks, i, n + 1);
+            }
 
-        state.clearTrack();
-        state.addAllTrack(tracks);
+            state.clearTrack();
+            state.addAllTrack(tracks);
+        }
     }
 
     @Override

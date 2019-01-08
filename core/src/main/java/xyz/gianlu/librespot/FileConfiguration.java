@@ -112,6 +112,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean defaultUnshuffleBehaviour() {
+        return getBoolean("player.defaultUnshuffleBehaviour", defaults.defaultUnshuffleBehaviour());
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return properties.getProperty("deviceName", null);
     }

@@ -202,11 +202,11 @@ public class Player implements FrameListener, TrackHandler.Listener {
         String context = frame.getState().getContextUri();
 
         if (context.startsWith("spotify:station:")) tracksProvider = new StationProvider(session, state.state, frame);
-        else tracksProvider = new PlaylistProvider(state.state, frame);
+        else tracksProvider = new PlaylistProvider(session, state.state, frame, conf);
 
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
-        if (state.getShuffle()) shuffleTracks();
+        if (state.getShuffle() && conf.defaultUnshuffleBehaviour()) shuffleTracks();
     }
 
     @Override
@@ -360,6 +360,8 @@ public class Player implements FrameListener, TrackHandler.Listener {
         boolean preloadEnabled();
 
         float normalisationPregain();
+
+        boolean defaultUnshuffleBehaviour();
     }
 
     private class StateWrapper {

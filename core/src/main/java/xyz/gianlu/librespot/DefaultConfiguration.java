@@ -28,6 +28,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean defaultUnshuffleBehaviour() {
+        return false;
+    }
+
+    @Override
     public boolean preloadEnabled() {
         return true;
     }
