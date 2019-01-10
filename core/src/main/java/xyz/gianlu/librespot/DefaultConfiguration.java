@@ -19,7 +19,7 @@ public final class DefaultConfiguration extends AbsConfiguration {
     @NotNull
     @Override
     public StreamFeeder.AudioQuality preferredQuality() {
-        return StreamFeeder.AudioQuality.VORBIS_320;
+        return StreamFeeder.AudioQuality.VORBIS_160;
     }
 
     @Override
