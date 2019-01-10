@@ -48,6 +48,14 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- GUI -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx</artifactId>
+            <version>12-ea+7</version>
+            <type>pom</type>
+        </dependency>
+
         <!-- WebSocket client -->
         <dependency>
             <groupId>org.java-websocket</groupId>
