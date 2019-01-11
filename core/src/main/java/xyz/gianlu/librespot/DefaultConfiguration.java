@@ -33,6 +33,16 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public @NotNull String[] mixerSearchKeywords() {
+        return new String[0];
+    }
+
+    @Override
+    public boolean logAvailableMixers() {
+        return true;
+    }
+
+    @Override
     public boolean preloadEnabled() {
         return true;
     }

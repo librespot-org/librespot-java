@@ -45,7 +45,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         if (stopped) return;
 
-        LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.toString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
+        LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.artistsToString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
 
         try {
             if (playerRunner != null) playerRunner.stop();
@@ -59,7 +59,6 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
-            LOGGER.fatal("Failed starting playback!", ex);
             listener.loadingError(this, id, ex);
         }
 

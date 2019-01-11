@@ -10,12 +10,15 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
 import javax.sound.sampled.*;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author Gianlu
@@ -55,18 +58,18 @@ public class PlayerRunner implements Runnable {
     private boolean calledPreload = false;
 
     PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
-                 @NotNull Player.PlayerConfiguration configuration, @NotNull Listener listener, int duration) throws IOException, PlayerException {
+                 @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.duration = duration;
         this.listener = listener;
-        this.normalizationFactor = normalizationData.getFactor(configuration);
+        this.normalizationFactor = normalizationData.getFactor(conf);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
         this.buffer = joggSyncState.data;
 
         readHeader();
-        initializeSound();
+        initializeSound(conf);
         this.controller = new Controller(outputLine);
 
         audioIn.mark(-1);
@@ -75,17 +78,35 @@ public class PlayerRunner implements Runnable {
     }
 
     @NotNull
-    private static Line findSuitableLineFromMixer(@NotNull Line.Info info) throws PlayerException, LineUnavailableException {
+    private static List<Mixer> findSupportingMixersFor(@NotNull Line.Info info) throws PlayerException {
+        List<Mixer> mixers = new ArrayList<>();
         for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
             Mixer mixer = AudioSystem.getMixer(mixerInfo);
-
-            if (mixer.isLineSupported(info)) {
-                LOGGER.debug("Mixer for playback: " + mixer.getMixerInfo());
-                return mixer.getLine(info);
-            }
+            if (mixer.isLineSupported(info))
+                mixers.add(mixer);
         }
 
-        throw new PlayerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
+        if (mixers.isEmpty())
+            throw new PlayerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
+        else
+            return mixers;
+    }
+
+    @NotNull
+    private static Mixer findMixer(@NotNull List<Mixer> mixers, @NotNull String[] keywords) throws PlayerException {
+        if (keywords.length == 0) return mixers.get(0);
+
+        List<Mixer> list = new ArrayList<>(mixers);
+        for (String word : keywords) {
+            list.removeIf(mixer -> !mixer.getMixerInfo().getName().toLowerCase().contains(word.toLowerCase()));
+            if (list.isEmpty())
+                throw new PlayerException("No mixers available for the specified search keywords: " + Arrays.toString(keywords));
+        }
+
+        if (list.size() > 1)
+            LOGGER.info("Multiple mixers available after keyword search: " + Utils.mixersToString(list));
+
+        return list.get(0);
     }
 
     /**
@@ -137,7 +158,7 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    private void initializeSound() throws PlayerException {
+    private void initializeSound(Player.@NotNull PlayerConfiguration conf) throws PlayerException {
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
         jorbisDspState.synthesis_init(jorbisInfo);
@@ -148,9 +169,13 @@ public class PlayerRunner implements Runnable {
 
         AudioFormat audioFormat = new AudioFormat((float) rate, 16, channels, true, false);
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
+        List<Mixer> mixers = findSupportingMixersFor(dataLineInfo);
+        if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
+        Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords());
+        LOGGER.info(String.format("Mixer for playback '%s'.", mixer.getMixerInfo().getName()));
 
         try {
-            outputLine = (SourceDataLine) findSuitableLineFromMixer(dataLineInfo);
+            outputLine = (SourceDataLine) mixer.getLine(dataLineInfo);
             outputLine.open(audioFormat);
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
             throw new PlayerException(ex);

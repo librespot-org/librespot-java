@@ -362,6 +362,11 @@ public class Player implements FrameListener, TrackHandler.Listener {
         float normalisationPregain();
 
         boolean defaultUnshuffleBehaviour();
+
+        @NotNull
+        String[] mixerSearchKeywords();
+
+        boolean logAvailableMixers();
     }
 
     private class StateWrapper {

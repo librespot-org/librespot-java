@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
+import javax.sound.sampled.Mixer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -191,7 +192,7 @@ public class Utils {
     }
 
     @NotNull
-    public static String toString(List<Metadata.Artist> artists) {
+    public static String artistsToString(List<Metadata.Artist> artists) {
         StringBuilder builder = new StringBuilder();
         boolean first = true;
         for (Metadata.Artist artist : artists) {
@@ -199,6 +200,20 @@ public class Utils {
             first = false;
 
             builder.append(artist.getName());
+        }
+
+        return builder.toString();
+    }
+
+    @NotNull
+    public static String mixersToString(List<Mixer> list) {
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (Mixer mixer : list) {
+            if (!first) builder.append(", ");
+            first = false;
+
+            builder.append('\'').append(mixer.getMixerInfo().getName()).append('\'');
         }
 
         return builder.toString();

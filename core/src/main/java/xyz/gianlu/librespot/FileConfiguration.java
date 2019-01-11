@@ -117,6 +117,16 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public @NotNull String[] mixerSearchKeywords() {
+        return getStringArray("player.mixerSearchKeywords", defaults.mixerSearchKeywords());
+    }
+
+    @Override
+    public boolean logAvailableMixers() {
+        return getBoolean("player.logAvailableMixers", defaults.logAvailableMixers());
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return properties.getProperty("deviceName", null);
     }
