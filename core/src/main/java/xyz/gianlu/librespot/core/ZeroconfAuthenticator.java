@@ -250,10 +250,8 @@ public class ZeroconfAuthenticator implements Closeable {
         @Override
         public void run() {
             while (!shouldStop) {
-                try {
-                    try (Socket socket = serverSocket.accept()) { // We don't need this to be async
-                        handle(socket);
-                    }
+                try (Socket socket = serverSocket.accept()) { // We don't need this to be async
+                    handle(socket);
                 } catch (IOException ex) {
                     LOGGER.fatal("Failed handling request!", ex);
                 }
@@ -267,24 +265,23 @@ public class ZeroconfAuthenticator implements Closeable {
             String[] requestLine = Utils.split(Utils.readLine(in), ' ');
             if (requestLine.length != 3) {
                 LOGGER.warn("Unexpected request line: " + Arrays.toString(requestLine));
-                socket.close();
                 return;
             }
 
             String method = requestLine[0];
             String path = requestLine[1];
             String httpVersion = requestLine[2];
-            LOGGER.trace(String.format("Handling request: %s %s %s", method, path, httpVersion));
+
+            Map<String, String> headers = new HashMap<>();
+            String header;
+            while (!(header = Utils.readLine(in)).isEmpty()) {
+                String[] split = Utils.split(header, ':');
+                headers.put(split[0], split[1].trim());
+            }
+
+            LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
 
             if (method.equals("POST") && path.equals("/")) {
-                Map<String, String> headers = new HashMap<>(7);
-
-                String header;
-                while (!(header = Utils.readLine(in)).isEmpty()) {
-                    String[] split = Utils.split(header, ':');
-                    headers.put(split[0], split[1].trim());
-                }
-
                 String contentType = headers.get("Content-Type");
                 if (!Objects.equals(contentType, "application/x-www-form-urlencoded")) {
                     LOGGER.fatal("Bad Content-Type: " + contentType);
