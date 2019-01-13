@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.api.client;
 
 import com.google.gson.JsonObject;
-import com.sun.javafx.collections.ObservableListWrapper;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -20,7 +20,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -48,8 +50,8 @@ public class MainController implements NetworkThread.Listener, NetworkThread.Cal
     }
 
     public void initialize() {
-        responses.setItems(new ObservableListWrapper<>(new ArrayList<>()));
-        mercuryMethod.setItems(new ObservableListWrapper<>(Arrays.asList("GET", "SUB", "UNSUB", "SEND")));
+        responses.setItems(FXCollections.observableArrayList());
+        mercuryMethod.setItems(FXCollections.observableArrayList("GET", "SUB", "UNSUB", "SEND"));
         sendContainer.setDisable(true);
         receivedContainer.setDisable(true);
 
@@ -73,7 +75,7 @@ public class MainController implements NetworkThread.Listener, NetworkThread.Cal
                 t.getTableView().getItems().remove(header);
         });
 
-        mercuryHeaders.setItems(new ObservableListWrapper<>(new ArrayList<>()));
+        mercuryHeaders.setItems(FXCollections.observableArrayList());
     }
 
     public void clickedConnect(MouseEvent mouseEvent) {
