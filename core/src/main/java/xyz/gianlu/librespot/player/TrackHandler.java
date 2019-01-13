@@ -22,21 +22,22 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(TrackHandler.class);
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Session session;
-    private final Player.PlayerConfiguration conf;
+    private final LinesHolder lines;
+    private final Player.Configuration conf;
     private final Listener listener;
-    private final Looper looper;
     private final StreamFeeder feeder;
     private PlayerRunner playerRunner;
     private Metadata.Track track;
     private volatile boolean stopped = false;
 
-    TrackHandler(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener) {
+    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull CacheManager cacheManager, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
+        this.lines = lines;
         this.conf = conf;
         this.listener = listener;
         this.feeder = new StreamFeeder(session, cacheManager);
 
-        new Thread(looper = new Looper()).start();
+        new Thread(new Looper()).start();
     }
 
     private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
@@ -49,8 +50,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(stream.in, stream.normalizationData, conf, this, track.getDuration());
-            playerRunner.initController(session.spirc().deviceState());
+            playerRunner = new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track.getDuration());
             new Thread(playerRunner).start();
 
             playerRunner.seek(pos);
@@ -102,6 +102,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     @Override
     public void preloadNextTrack() {
         listener.preloadNextTrack(this);
+    }
+
+    @Override
+    public int getVolume() {
+        return session.spirc().deviceState().getVolume();
     }
 
     @Nullable

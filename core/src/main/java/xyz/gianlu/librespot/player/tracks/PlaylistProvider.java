@@ -22,11 +22,11 @@ import java.util.*;
 public class PlaylistProvider implements TracksProvider {
     private static final Logger LOGGER = Logger.getLogger(PlaylistProvider.class);
     private final Spirc.State.Builder state;
-    private final Player.PlayerConfiguration conf;
+    private final Player.Configuration conf;
     private final MercuryClient mercury;
     private long shuffleSeed = 0;
 
-    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame, @NotNull Player.PlayerConfiguration conf) {
+    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame, @NotNull Player.Configuration conf) {
         this.state = state;
         this.conf = conf;
         this.mercury = session.mercury();

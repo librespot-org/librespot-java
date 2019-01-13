@@ -10,7 +10,7 @@ import xyz.gianlu.librespot.player.Player;
 /**
  * @author Gianlu
  */
-public abstract class AbsConfiguration implements Player.PlayerConfiguration, CacheManager.CacheConfiguration, AuthConfiguration, ZeroconfAuthenticator.Configuration {
+public abstract class AbsConfiguration implements Player.Configuration, CacheManager.CacheConfiguration, AuthConfiguration, ZeroconfAuthenticator.Configuration {
 
     @Nullable
     public abstract String deviceName();

@@ -10,15 +10,11 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Spirc;
+import org.jetbrains.annotations.Nullable;
 
 import javax.sound.sampled.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * @author Gianlu
@@ -42,14 +38,16 @@ public class PlayerRunner implements Runnable {
     private final Packet joggPacket = new Packet();
     private final Page joggPage = new Page();
     private final float normalizationFactor;
-    private final Controller controller;
+    private final LinesHolder lines;
     private final int duration;
     private final Object pauseLock = new Object();
+    private final AudioFormat audioFormat;
+    private Controller controller;
     private byte[] buffer;
     private int count;
     private int index;
     private byte[] convertedBuffer;
-    private SourceDataLine outputLine;
+    private LinesHolder.LineWrapper outputLine;
     private float[][][] pcmInfo;
     private int[] pcmIndex;
     private volatile boolean playing = false;
@@ -57,9 +55,10 @@ public class PlayerRunner implements Runnable {
     private long pcm_offset;
     private boolean calledPreload = false;
 
-    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData,
-                 @NotNull Player.PlayerConfiguration conf, @NotNull Listener listener, int duration) throws IOException, PlayerException {
+    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull LinesHolder lines,
+                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
+        this.lines = lines;
         this.duration = duration;
         this.listener = listener;
         this.normalizationFactor = normalizationData.getFactor(conf);
@@ -69,44 +68,11 @@ public class PlayerRunner implements Runnable {
         this.buffer = joggSyncState.data;
 
         readHeader();
-        initializeSound(conf);
-        this.controller = new Controller(outputLine);
+        this.audioFormat = initializeSound(conf);
 
         audioIn.mark(-1);
 
         LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
-    }
-
-    @NotNull
-    private static List<Mixer> findSupportingMixersFor(@NotNull Line.Info info) throws PlayerException {
-        List<Mixer> mixers = new ArrayList<>();
-        for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
-            Mixer mixer = AudioSystem.getMixer(mixerInfo);
-            if (mixer.isLineSupported(info))
-                mixers.add(mixer);
-        }
-
-        if (mixers.isEmpty())
-            throw new PlayerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
-        else
-            return mixers;
-    }
-
-    @NotNull
-    private static Mixer findMixer(@NotNull List<Mixer> mixers, @NotNull String[] keywords) throws PlayerException {
-        if (keywords.length == 0) return mixers.get(0);
-
-        List<Mixer> list = new ArrayList<>(mixers);
-        for (String word : keywords) {
-            list.removeIf(mixer -> !mixer.getMixerInfo().getName().toLowerCase().contains(word.toLowerCase()));
-            if (list.isEmpty())
-                throw new PlayerException("No mixers available for the specified search keywords: " + Arrays.toString(keywords));
-        }
-
-        if (list.size() > 1)
-            LOGGER.info("Multiple mixers available after keyword search: " + Utils.mixersToString(list));
-
-        return list.get(0);
     }
 
     /**
@@ -158,7 +124,8 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    private void initializeSound(Player.@NotNull PlayerConfiguration conf) throws PlayerException {
+    @NotNull
+    private AudioFormat initializeSound(Player.Configuration conf) throws PlayerException {
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
         jorbisDspState.synthesis_init(jorbisInfo);
@@ -167,22 +134,18 @@ public class PlayerRunner implements Runnable {
         int channels = jorbisInfo.channels;
         int rate = jorbisInfo.rate;
 
-        AudioFormat audioFormat = new AudioFormat((float) rate, 16, channels, true, false);
-        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
-        List<Mixer> mixers = findSupportingMixersFor(dataLineInfo);
-        if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
-        Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords());
-        LOGGER.info(String.format("Mixer for playback '%s'.", mixer.getMixerInfo().getName()));
+        AudioFormat format = new AudioFormat((float) rate, 16, channels, true, false);
 
         try {
-            outputLine = (SourceDataLine) mixer.getLine(dataLineInfo);
-            outputLine.open(audioFormat);
+            outputLine = lines.getLineFor(conf, format);
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
             throw new PlayerException(ex);
         }
 
         pcmInfo = new float[1][][];
         pcmIndex = new int[jorbisInfo.channels];
+
+        return format;
     }
 
     /**
@@ -191,10 +154,13 @@ public class PlayerRunner implements Runnable {
      * @throws PlayerException if a player exception occurs
      * @throws IOException     if an I/O exception occurs
      */
-    private void readBody() throws PlayerException, IOException {
+    private void readBody() throws PlayerException, IOException, LineUnavailableException {
+        SourceDataLine line = outputLine.waitAndOpen(audioFormat);
+        this.controller = new Controller(line, listener.getVolume());
+
         while (!stopped) {
             if (playing) {
-                outputLine.start();
+                line.start();
 
                 int result = joggSyncState.pageout(joggPage);
                 if (result == -1 || result == 0) {
@@ -211,7 +177,7 @@ public class PlayerRunner implements Runnable {
                         if (result == -1 || result == 0) {
                             break;
                         } else if (result == 1) {
-                            decodeCurrentPacket();
+                            decodeCurrentPacket(line);
                         }
                     }
 
@@ -229,7 +195,7 @@ public class PlayerRunner implements Runnable {
                 if (count == 0)
                     break;
             } else {
-                outputLine.stop();
+                line.stop();
 
                 try {
                     synchronized (pauseLock) {
@@ -242,7 +208,7 @@ public class PlayerRunner implements Runnable {
         }
     }
 
-    private void decodeCurrentPacket() {
+    private void decodeCurrentPacket(@NotNull SourceDataLine line) {
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -269,7 +235,7 @@ public class PlayerRunner implements Runnable {
                 }
             }
 
-            outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
+            line.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
 
             long granulepos = joggPacket.granulepos;
@@ -298,6 +264,7 @@ public class PlayerRunner implements Runnable {
         jorbisDspState.clear();
         jorbisInfo.clear();
         joggSyncState.clear();
+        outputLine.close();
 
         LOGGER.trace("Cleaned up player.");
     }
@@ -307,7 +274,7 @@ public class PlayerRunner implements Runnable {
         try {
             readBody();
             if (!stopped) listener.endOfTrack();
-        } catch (PlayerException | IOException ex) {
+        } catch (PlayerException | IOException | LineUnavailableException ex) {
             if (!stopped) listener.playbackError(ex);
         } finally {
             cleanup();
@@ -345,13 +312,9 @@ public class PlayerRunner implements Runnable {
         stopped = true;
     }
 
-    @NotNull
+    @Nullable
     Controller controller() {
         return controller;
-    }
-
-    void initController(@NotNull Spirc.DeviceState.Builder state) {
-        controller.setVolume(state.getVolume());
     }
 
     public interface Listener {
@@ -360,17 +323,21 @@ public class PlayerRunner implements Runnable {
         void playbackError(@NotNull Exception ex);
 
         void preloadNextTrack();
+
+        int getVolume();
     }
 
     public static class Controller {
         private final FloatControl masterGain;
         private int volume = 0;
 
-        Controller(@NotNull Line line) {
+        Controller(@NotNull Line line, int initialVolume) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
             else
                 masterGain = null;
+
+            setVolume(initialVolume);
         }
 
         private double calcLogarithmic(int val) {
@@ -410,7 +377,7 @@ public class PlayerRunner implements Runnable {
             super(ex);
         }
 
-        private PlayerException(String message) {
+        PlayerException(String message) {
             super(message);
         }
     }
