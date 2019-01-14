@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
@@ -28,7 +29,7 @@ public class ChannelManager extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "channel-queue-" + r.hashCode()));
 
     public ChannelManager(@NotNull Session session) {
         super(session);

@@ -5,8 +5,8 @@ import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 
 import javax.net.ssl.SSLSocketFactory;
@@ -55,7 +55,7 @@ public class FacebookAuthenticator implements Closeable {
 
     private void startPolling() throws IOException {
         polling = new HttpPolling();
-        new Thread(polling).start();
+        new Thread(polling, "facebook-auth-polling").start();
     }
 
     @NotNull

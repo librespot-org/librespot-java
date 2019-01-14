@@ -37,7 +37,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         this.listener = listener;
         this.feeder = new StreamFeeder(session, cacheManager);
 
-        new Thread(new Looper()).start();
+        Looper looper;
+        new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
     }
 
     private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
@@ -51,7 +52,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         try {
             if (playerRunner != null) playerRunner.stop();
             playerRunner = new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track.getDuration());
-            new Thread(playerRunner).start();
+            new Thread(playerRunner, "player-runner-" + playerRunner.hashCode()).start();
 
             playerRunner.seek(pos);
 

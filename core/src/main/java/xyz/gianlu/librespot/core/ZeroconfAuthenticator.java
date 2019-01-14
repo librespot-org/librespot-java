@@ -68,7 +68,7 @@ public class ZeroconfAuthenticator implements Closeable {
         this.mDnsService = new MulticastDNSService();
 
         int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
-        new Thread(this.runner = new HttpRunner(port)).start();
+        new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
         InetAddress[] bound;
         if (conf.zeroconfListenAll()) {

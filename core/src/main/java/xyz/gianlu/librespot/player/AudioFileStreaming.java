@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
@@ -25,7 +26,7 @@ public class AudioFileStreaming implements AudioFile {
     private final ByteString fileId;
     private final byte[] key;
     private final Session session;
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "request-chunk-" + r.hashCode()));
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 

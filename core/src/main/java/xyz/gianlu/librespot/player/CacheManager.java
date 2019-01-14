@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.io.*;
@@ -27,7 +28,7 @@ public class CacheManager {
     private final boolean enabled;
     private final Map<String, Handler> loadedHandlers;
     private final ControlTable controlTable;
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "cache-io-" + r.hashCode()));
 
     public CacheManager(@NotNull CacheConfiguration conf) throws IOException {
         this.enabled = conf.cacheEnabled();

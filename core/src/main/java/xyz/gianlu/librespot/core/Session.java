@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.common.proto.Keyexchange;
@@ -49,7 +50,7 @@ public class Session implements AutoCloseable {
     private final DataInputStream in;
     private final DataOutputStream out;
     private final Inner inner;
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
@@ -214,7 +215,7 @@ public class Session implements AutoCloseable {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
             mercuryClient = new MercuryClient(this);
             receiver = new Receiver();
-            new Thread(receiver).start();
+            new Thread(receiver, "session-packet-receiver").start();
 
             audioKeyManager = new AudioKeyManager(this);
             channelManager = new ChannelManager(this);

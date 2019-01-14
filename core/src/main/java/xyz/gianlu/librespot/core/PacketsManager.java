@@ -22,7 +22,7 @@ public abstract class PacketsManager implements AutoCloseable {
         this.executorService = session.executor();
         this.queue = new LinkedBlockingQueue<>();
         this.looper = new Looper();
-        new Thread(looper).start();
+        new Thread(looper, "packets-manager-" + looper.hashCode()).start();
     }
 
     public final void dispatch(@NotNull Packet packet) {
