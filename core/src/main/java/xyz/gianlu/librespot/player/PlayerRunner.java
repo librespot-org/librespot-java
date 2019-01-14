@@ -310,6 +310,9 @@ public class PlayerRunner implements Runnable {
 
     void stop() {
         stopped = true;
+        synchronized (pauseLock) {
+            pauseLock.notifyAll(); // Allow thread to exit
+        }
     }
 
     @Nullable

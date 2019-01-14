@@ -67,6 +67,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private void sendCommand(@NotNull Command command, Object... args) {
+        if (stopped) throw new IllegalStateException("Looper is stopped!");
         commands.add(new CommandBundle(command, args));
     }
 
@@ -119,6 +120,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     public void close() {
         stopped = true;
         if (playerRunner != null) playerRunner.stop();
+        commands.add(new CommandBundle(Command.Terminate));
     }
 
     @Nullable
@@ -132,7 +134,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
     public enum Command {
         Load, Play, Pause,
-        Stop, Seek
+        Stop, Seek, Terminate
     }
 
     public interface Listener {
@@ -175,6 +177,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                         case Seek:
                             if (playerRunner != null) playerRunner.seek((Integer) cmd.args[0]);
                             break;
+                        case Terminate:
+                            return;
                     }
                 }
             } catch (InterruptedException ex) {
