@@ -22,10 +22,7 @@ import xyz.gianlu.librespot.spirc.SpotifyIrc;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
@@ -43,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Gianlu
  */
-public class Session implements AutoCloseable {
+public class Session implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
     private final DiffieHellman keys;
     private final Socket socket;
@@ -235,14 +232,9 @@ public class Session implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
-        receiver.stop();
-        receiver = null;
-
-        socket.close();
-
-        mercuryClient.close();
-        mercuryClient = null;
+    public void close() throws IOException {
+        player.close();
+        player = null;
 
         audioKeyManager.close();
         audioKeyManager = null;
@@ -250,8 +242,18 @@ public class Session implements AutoCloseable {
         channelManager.close();
         channelManager = null;
 
-        player = null;
+        spirc.close();
         spirc = null;
+
+        mercuryClient.close();
+        mercuryClient = null;
+
+        receiver.stop();
+        receiver = null;
+
+        executorService.shutdown();
+        socket.close();
+
         apWelcome = null;
         cipherPair = null;
 
@@ -547,7 +549,7 @@ public class Session implements AutoCloseable {
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
-                    LOGGER.fatal("Failed reading packet!", ex);
+                    if (!shouldStop) LOGGER.fatal("Failed reading packet!", ex);
                     return;
                 }
 

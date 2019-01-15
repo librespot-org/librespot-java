@@ -5,13 +5,14 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.PlayerRunner;
-import xyz.gianlu.librespot.common.proto.Spirc;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Gianlu
  */
-public class SpotifyIrc {
+public class SpotifyIrc implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(SpotifyIrc.class);
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final String uri;
@@ -115,10 +116,6 @@ public class SpotifyIrc {
         }
     }
 
-    private void sendNotify() throws IOException, IrcException {
-        sendNotify(null, null);
-    }
-
     private void sendNotify(@Nullable String recipient, @Nullable Spirc.Frame.Builder frame) throws IOException, IrcException {
         if (frame == null) frame = Spirc.Frame.newBuilder();
 
@@ -153,6 +150,18 @@ public class SpotifyIrc {
         }
     }
 
+    @Override
+    public void close() throws IOException {
+        try {
+            send(Spirc.MessageType.kMessageTypeGoodbye);
+            session.mercury().unsubscribe(uri);
+        } catch (SpotifyIrc.IrcException | MercuryClient.PubSubException ex) {
+            throw new IOException(ex);
+        }
+
+        internalListener.clear();
+    }
+
     public static class IrcException extends Exception {
         private IrcException(MercuryClient.Response response) {
             super(String.format("status: %d", response.statusCode));
@@ -161,6 +170,10 @@ public class SpotifyIrc {
 
     private final class SpircListener implements SubListener {
         private final Set<FrameListener> listeners = new HashSet<>();
+
+        void clear() {
+            listeners.clear();
+        }
 
         @Override
         public final void event(MercuryClient.@NotNull Response resp) {

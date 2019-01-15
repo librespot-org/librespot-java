@@ -20,7 +20,7 @@ import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 /**
  * @author Gianlu
  */
-public class CacheManager {
+public class CacheManager implements Closeable {
     static final byte BYTE_CREATED_AT = 0b1111111;
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
@@ -29,6 +29,7 @@ public class CacheManager {
     private final Map<String, Handler> loadedHandlers;
     private final ControlTable controlTable;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "cache-io-" + r.hashCode()));
+    private volatile boolean closed = false;
 
     public CacheManager(@NotNull CacheConfiguration conf) throws IOException {
         this.enabled = conf.cacheEnabled();
@@ -49,6 +50,7 @@ public class CacheManager {
 
     @Nullable
     Handler handler(@NotNull ByteString fileId) {
+        if (closed) throw new IllegalStateException("CacheManager is closed!");
         if (!enabled) return null;
 
         String hexId = Utils.bytesToHex(fileId);
@@ -60,6 +62,21 @@ public class CacheManager {
                 return null;
             }
         });
+    }
+
+    @Override
+    public void close() throws IOException {
+        closed = true;
+        executorService.shutdown();
+
+        if (controlTable != null) controlTable.safeSave();
+
+        if (loadedHandlers != null) {
+            for (Handler handler : loadedHandlers.values())
+                handler.close();
+
+            loadedHandlers.clear();
+        }
     }
 
     public interface CacheConfiguration {
@@ -134,6 +151,8 @@ public class CacheManager {
         }
 
         void writtenChunk(@NotNull String fileId, int index) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
+
             for (CacheEntry entry : entries) {
                 if (fileId.equals(entry.hexId))
                     entry.writtenChunk(index);
@@ -143,10 +162,14 @@ public class CacheManager {
         }
 
         void writeHeaders(@NotNull String fileId, byte[] headersId, byte[][] headersData, short chunksCount) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
+
             entries.add(new CacheEntry(fileId, headersId, headersData, chunksCount));
         }
 
         public void remove(@NotNull String fileId) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
+
             Iterator<CacheEntry> iterator = entries.iterator();
             while (iterator.hasNext()) {
                 CacheEntry entry = iterator.next();
@@ -160,6 +183,8 @@ public class CacheManager {
         }
 
         void requestHeaders(@NotNull String fileId, @NotNull AudioFile file) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
+
             for (CacheEntry entry : entries) {
                 if (fileId.equals(entry.hexId)) {
                     entry.requestHeaders(file);
@@ -286,6 +311,7 @@ public class CacheManager {
         }
 
         boolean has(int chunk) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             return controlTable.has(fileId, chunk);
         }
 
@@ -295,10 +321,12 @@ public class CacheManager {
         }
 
         void requestHeaders(@NotNull AudioFile fetch) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             executorService.execute(() -> controlTable.requestHeaders(fileId, fetch));
         }
 
         void requestChunk(int index, @NotNull AudioFile file) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             executorService.execute(() -> {
                 try {
                     cache.seek(index * CHUNK_SIZE);
@@ -314,20 +342,24 @@ public class CacheManager {
         }
 
         public void write(byte[] buffer, int index) throws IOException {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             cache.seek(index * CHUNK_SIZE);
             cache.write(buffer);
             controlTable.writtenChunk(fileId, index);
         }
 
         public void remove() {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             controlTable.remove(fileId);
         }
 
         void writeHeaders(byte[] headersId, byte[][] headersData, short chunksCount) {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             controlTable.writeHeaders(fileId, headersId, headersData, chunksCount);
         }
 
         boolean hasHeaders() {
+            if (closed) throw new IllegalStateException("CacheManager is closed!");
             return controlTable.hasHeaders(fileId);
         }
     }

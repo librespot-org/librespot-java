@@ -24,6 +24,11 @@ public class RawMercuryRequest {
     }
 
     @NotNull
+    public static RawMercuryRequest unsub(@NotNull String uri) {
+        return RawMercuryRequest.newBuilder().setUri(uri).setMethod("UNSUB").build();
+    }
+
+    @NotNull
     public static RawMercuryRequest get(@NotNull String uri) {
         return RawMercuryRequest.newBuilder().setUri(uri).setMethod("GET").build();
     }

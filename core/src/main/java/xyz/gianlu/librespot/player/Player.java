@@ -12,12 +12,13 @@ import xyz.gianlu.librespot.player.tracks.TracksProvider;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * @author Gianlu
  */
-public class Player implements FrameListener, TrackHandler.Listener {
+public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
     private final SpotifyIrc spirc;
@@ -353,6 +354,21 @@ public class Player implements FrameListener, TrackHandler.Listener {
             if (trackHandler != null) trackHandler.sendSeek(0);
             stateUpdated();
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (trackHandler != null) {
+            trackHandler.close();
+            trackHandler = null;
+        }
+
+        if (preloadTrackHandler != null) {
+            preloadTrackHandler.close();
+            preloadTrackHandler = null;
+        }
+
+        cacheManager.close();
     }
 
     public interface Configuration {

@@ -36,11 +36,6 @@ public class MercuryClient extends PacketsManager {
         super(session);
     }
 
-    @NotNull
-    public String username() {
-        return session.apWelcome().getCanonicalUsername();
-    }
-
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
         Response response = sendSync(RawMercuryRequest.sub(uri));
         if (response.statusCode != 200) throw new PubSubException(response);
@@ -55,6 +50,14 @@ public class MercuryClient extends PacketsManager {
         }
 
         LOGGER.trace(String.format("Subscribed successfully to %s!", uri));
+    }
+
+    public void unsubscribe(@NotNull String uri) throws IOException, PubSubException {
+        Response response = sendSync(RawMercuryRequest.unsub(uri));
+        if (response.statusCode != 200) throw new PubSubException(response);
+
+        subscriptions.removeIf(l -> l.matches(uri));
+        LOGGER.trace(String.format("Unsubscribed successfully from %s!", uri));
     }
 
     @NotNull
@@ -168,7 +171,7 @@ public class MercuryClient extends PacketsManager {
 
             if (!dispatched)
                 LOGGER.warn(String.format("Couldn't dispatch Mercury sub event, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
-        } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub)) {
+        } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
             if (callback != null) {
                 callback.response(resp);
