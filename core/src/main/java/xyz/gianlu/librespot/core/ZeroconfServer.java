@@ -181,15 +181,14 @@ public class ZeroconfServer implements Closeable {
             return;
         }
 
-        keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr));
-
+        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
         byte[] blobBytes = Base64.getDecoder().decode(blobStr);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
         byte[] encrypted = Arrays.copyOfRange(blobBytes, 16, blobBytes.length - 20);
         byte[] checksum = Arrays.copyOfRange(blobBytes, blobBytes.length - 20, blobBytes.length);
 
         MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-        sha1.update(keys.sharedKeyArray());
+        sha1.update(sharedKey);
         byte[] baseKey = Arrays.copyOfRange(sha1.digest(), 0, 16);
 
         Mac hmac = Mac.getInstance("HmacSHA1");

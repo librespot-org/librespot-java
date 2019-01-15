@@ -28,7 +28,6 @@ public class DiffieHellman {
     private static final Logger LOGGER = Logger.getLogger(DiffieHellman.class);
     private final BigInteger privateKey;
     private final BigInteger publicKey;
-    private BigInteger sharedKey = null;
 
     public DiffieHellman(Random random) {
         byte[] keyData = new byte[95];
@@ -38,24 +37,13 @@ public class DiffieHellman {
         publicKey = GENERATOR.modPow(privateKey, PRIME);
     }
 
-    public void computeSharedKey(byte[] remoteKeyBytes) {
-        if (sharedKey != null) throw new IllegalStateException("Cannot reuse object!");
-
+    @NotNull
+    public BigInteger computeSharedKey(byte[] remoteKeyBytes) {
         BigInteger remoteKey = new BigInteger(1, remoteKeyBytes);
-        sharedKey = remoteKey.modPow(privateKey, PRIME);
+        BigInteger sharedKey = remoteKey.modPow(privateKey, PRIME);
 
         LOGGER.trace("Computed shared key successfully!");
-    }
-
-    @NotNull
-    public BigInteger sharedKey() {
-        if (sharedKey == null) throw new IllegalStateException("Shared key not initialized!");
         return sharedKey;
-    }
-
-    @NotNull
-    public byte[] sharedKeyArray() {
-        return Utils.toByteArray(sharedKey());
     }
 
     @NotNull

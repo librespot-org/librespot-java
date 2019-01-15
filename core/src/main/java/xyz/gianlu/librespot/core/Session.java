@@ -129,7 +129,7 @@ public class Session implements Closeable {
         acc.dump();
 
         Keyexchange.APResponseMessage apResponseMessage = Keyexchange.APResponseMessage.parseFrom(buffer);
-        keys.computeSharedKey(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray());
+        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray()));
 
 
         // Solve challenge
@@ -137,7 +137,7 @@ public class Session implements Closeable {
         ByteArrayOutputStream data = new ByteArrayOutputStream(0x64);
 
         Mac mac = Mac.getInstance("HmacSHA1");
-        mac.init(new SecretKeySpec(keys.sharedKeyArray(), "HmacSHA1"));
+        mac.init(new SecretKeySpec(sharedKey, "HmacSHA1"));
         for (int i = 1; i < 6; i++) {
             mac.update(acc.array());
             mac.update(new byte[]{(byte) i});
