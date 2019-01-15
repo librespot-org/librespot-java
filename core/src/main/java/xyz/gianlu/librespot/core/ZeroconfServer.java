@@ -7,10 +7,13 @@ import net.posick.mdns.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.xbill.DNS.Name;
+import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
+import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -24,15 +27,14 @@ import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
  */
-public class ZeroconfAuthenticator implements Closeable {
+public class ZeroconfServer implements Closeable {
     private final static int MAX_PORT = 65536;
     private final static int MIN_PORT = 1024;
-    private static final Logger LOGGER = Logger.getLogger(ZeroconfAuthenticator.class);
+    private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
     private static final JsonObject DEFAULT_GET_INFO_FIELDS = new JsonObject();
     private static final JsonObject DEFAULT_SUCCESSFUL_ADD_USER = new JsonObject();
@@ -42,7 +44,6 @@ public class ZeroconfAuthenticator implements Closeable {
         DEFAULT_GET_INFO_FIELDS.addProperty("statusString", "ERROR-OK");
         DEFAULT_GET_INFO_FIELDS.addProperty("spotifyError", 0);
         DEFAULT_GET_INFO_FIELDS.addProperty("version", "2.1.0");
-        DEFAULT_GET_INFO_FIELDS.addProperty("activeUser", "");
         DEFAULT_GET_INFO_FIELDS.addProperty("libraryVersion", "0.1.0");
         DEFAULT_GET_INFO_FIELDS.addProperty("accountReq", "PREMIUM");
         DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-java");
@@ -58,16 +59,16 @@ public class ZeroconfAuthenticator implements Closeable {
     private final HttpRunner runner;
     private final MulticastDNSService mDnsService;
     private final ServiceInstance spotifyConnectService;
-    private final AtomicReference<Authentication.LoginCredentials> authenticationLock = new AtomicReference<>(null);
-    private final Session.Inner session;
+    private final Session.Inner inner;
     private final DiffieHellman keys;
+    private Session session;
 
-    ZeroconfAuthenticator(Session.Inner session, Configuration conf) throws IOException {
-        this.session = session;
-        this.keys = new DiffieHellman(session.random);
+    private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
+        this.inner = inner;
+        this.keys = new DiffieHellman(inner.random);
         this.mDnsService = new MulticastDNSService();
 
-        int port = session.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+        int port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
         InetAddress[] bound;
@@ -91,6 +92,11 @@ public class ZeroconfAuthenticator implements Closeable {
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
         LOGGER.info("SpotifyConnect service registered successfully!");
+    }
+
+    @NotNull
+    public static ZeroconfServer create(@NotNull AbsConfiguration conf) throws IOException {
+        return new ZeroconfServer(Session.Inner.from(conf), conf);
     }
 
     private static void addAddressForInterfaceName(List<InetAddress> list, @NotNull String name) throws SocketException {
@@ -127,12 +133,19 @@ public class ZeroconfAuthenticator implements Closeable {
         runner.close();
     }
 
+    public boolean hasValidSession() {
+        boolean valid = session != null && session.valid();
+        if (!valid) session = null;
+        return valid;
+    }
+
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("deviceID", session.deviceId);
-        info.addProperty("remoteName", session.deviceName);
+        info.addProperty("activeUser", hasValidSession() ? session.apWelcome().getCanonicalUsername() : "");
+        info.addProperty("deviceID", inner.deviceId);
+        info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
-        info.addProperty("deviceType", session.deviceType.name.toUpperCase());
+        info.addProperty("deviceType", inner.deviceType.name.toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -151,13 +164,14 @@ public class ZeroconfAuthenticator implements Closeable {
     private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
         if (username == null) {
-            LOGGER.fatal("Missing username!");
+            LOGGER.fatal("Missing authUsername!");
             return;
         }
 
-        String blobStr = params.get("blob");
+        String blobStr = params.get("authBlob");
+        if (blobStr == null) blobStr = params.get("blob");
         if (blobStr == null) {
-            LOGGER.fatal("Missing blob!");
+            LOGGER.fatal("Missing authBlob!");
             return;
         }
 
@@ -202,6 +216,18 @@ public class ZeroconfAuthenticator implements Closeable {
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
 
+        try {
+            Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
+            if (hasValidSession()) session.close();
+            session = Session.from(inner);
+            session.connect();
+            session.authenticate(credentials);
+        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException | MercuryClient.PubSubException ex) {
+            LOGGER.fatal("Failed handling connection! Going away.", ex);
+            close();
+            return;
+        }
+
         String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
 
         out.write(httpVersion.getBytes());
@@ -215,20 +241,6 @@ public class ZeroconfAuthenticator implements Closeable {
         out.write(EOL);
         out.write(resp.getBytes());
         out.flush();
-
-        Authentication.LoginCredentials credentials = session.decryptBlob(username, decrypted);
-        synchronized (authenticationLock) {
-            authenticationLock.set(credentials);
-            authenticationLock.notifyAll();
-        }
-    }
-
-    @NotNull
-    Authentication.LoginCredentials lockUntilCredentials() throws InterruptedException {
-        synchronized (authenticationLock) {
-            authenticationLock.wait();
-            return authenticationLock.get();
-        }
     }
 
     public interface Configuration {
@@ -279,7 +291,8 @@ public class ZeroconfAuthenticator implements Closeable {
                 headers.put(split[0], split[1].trim());
             }
 
-            LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
+            if (!hasValidSession())
+                LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
 
             if (method.equals("POST") && path.equals("/")) {
                 String contentType = headers.get("Content-Type");

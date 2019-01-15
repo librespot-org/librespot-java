@@ -137,24 +137,24 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @Nullable String username() {
+    public @Nullable String authUsername() {
         return properties.getProperty("auth.username", null);
     }
 
     @Override
-    public @Nullable String password() {
+    public @Nullable String authPassword() {
         return properties.getProperty("auth.password", null);
     }
 
     @Override
-    public @Nullable String blob() {
+    public @Nullable String authBlob() {
         return properties.getProperty("auth.blob", null);
     }
 
     @NotNull
     @Override
-    public Strategy strategy() {
-        return getEnum(Strategy.class, "auth.strategy", defaults.strategy());
+    public Strategy authStrategy() {
+        return getEnum(Strategy.class, "auth.strategy", defaults.authStrategy());
     }
 
     @Override

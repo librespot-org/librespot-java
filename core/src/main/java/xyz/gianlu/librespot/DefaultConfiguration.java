@@ -79,23 +79,23 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @Nullable String username() {
+    public @Nullable String authUsername() {
         return null;
     }
 
     @Override
-    public @Nullable String password() {
+    public @Nullable String authPassword() {
         return null;
     }
 
     @Override
-    public @Nullable String blob() {
+    public @Nullable String authBlob() {
         return null;
     }
 
     @NotNull
     @Override
-    public Strategy strategy() {
+    public Strategy authStrategy() {
         return Strategy.ZEROCONF;
     }
 

@@ -1,6 +1,8 @@
 package xyz.gianlu.librespot;
 
+import xyz.gianlu.librespot.core.AuthConfiguration;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -13,11 +15,12 @@ import java.security.GeneralSecurityException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.PubSubException, InterruptedException {
-        Session session = new Session.Builder(new FileConfiguration(new File("conf.properties"), args)).create();
-
-        Thread.sleep(8000);
-
-        session.close();
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.PubSubException {
+        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
+        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
+            ZeroconfServer.create(conf);
+        } else {
+            new Session.Builder(conf).create();
+        }
     }
 }

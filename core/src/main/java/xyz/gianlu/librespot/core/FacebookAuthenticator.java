@@ -80,7 +80,7 @@ public class FacebookAuthenticator implements Closeable {
 
         JsonObject data = obj.getAsJsonObject("credentials");
         credentials = Authentication.LoginCredentials.newBuilder()
-                .setUsername(data.get("username").getAsString())
+                .setUsername(data.get("authUsername").getAsString())
                 .setTyp(Authentication.AuthenticationType.forNumber(data.get("auth_type").getAsInt()))
                 .setAuthData(ByteString.copyFrom(Base64.getDecoder().decode(data.get("encoded_auth_blob").getAsString())))
                 .build();

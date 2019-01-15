@@ -8,16 +8,16 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface AuthConfiguration {
     @Nullable
-    String username();
+    String authUsername();
 
     @Nullable
-    String password();
+    String authPassword();
 
     @Nullable
-    String blob();
+    String authBlob();
 
     @NotNull
-    Strategy strategy();
+    Strategy authStrategy();
 
     enum Strategy {
         FACEBOOK, BLOB,

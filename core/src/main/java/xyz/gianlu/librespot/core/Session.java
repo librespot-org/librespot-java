@@ -75,7 +75,12 @@ public class Session implements Closeable {
         return lo & 0x7f | hi << 7;
     }
 
-    private void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+    @NotNull
+    static Session from(@NotNull Inner inner) throws IOException {
+        return new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
+    }
+
+    void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         Accumulator acc = new Accumulator();
 
         // Send ClientHello
@@ -191,7 +196,7 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
+    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
         if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
@@ -300,6 +305,10 @@ public class Session implements Closeable {
         return apWelcome;
     }
 
+    public boolean valid() {
+        return apWelcome != null && !socket.isClosed();
+    }
+
     @NotNull
     public String deviceId() {
         return inner.deviceId;
@@ -360,6 +369,19 @@ public class Session implements Closeable {
             this.deviceId = UUID.randomUUID().toString();
         }
 
+        @NotNull
+        static Inner from(@NotNull AbsConfiguration configuration) {
+            String deviceName = configuration.deviceName();
+            if (deviceName == null || deviceName.isEmpty())
+                throw new IllegalArgumentException("Device name required: " + deviceName);
+
+            DeviceType deviceType = configuration.deviceType();
+            if (deviceType == null)
+                throw new IllegalArgumentException("Device type required!");
+
+            return new Inner(deviceType, deviceName, configuration);
+        }
+
         @NotNull Authentication.LoginCredentials decryptBlob(String username, byte[] encryptedBlob) throws GeneralSecurityException, IOException {
             encryptedBlob = Base64.getDecoder().decode(encryptedBlob);
 
@@ -408,28 +430,18 @@ public class Session implements Closeable {
         private final Inner inner;
         private Authentication.LoginCredentials loginCredentials = null;
         private AuthConfiguration authConf;
-        private ZeroconfAuthenticator.Configuration zeroconfConf;
 
         public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);
             this.authConf = configuration;
-            this.zeroconfConf = configuration;
         }
 
         public Builder(@NotNull AbsConfiguration configuration) {
-            String deviceName = configuration.deviceName();
-            if (deviceName == null || deviceName.isEmpty())
-                throw new IllegalArgumentException("Device name required: " + deviceName);
-
-            DeviceType deviceType = configuration.deviceType();
-            if (deviceType == null)
-                throw new IllegalArgumentException("Device type required!");
-
-            this.inner = new Inner(deviceType, deviceName, configuration);
+            this.inner = Inner.from(configuration);
             this.authConf = configuration;
-            this.zeroconfConf = configuration;
         }
 
+        @NotNull
         public Builder facebook() throws IOException {
             try (FacebookAuthenticator authenticator = new FacebookAuthenticator()) {
                 loginCredentials = authenticator.lockUntilCredentials();
@@ -439,20 +451,13 @@ public class Session implements Closeable {
             }
         }
 
-        public Builder zeroconf() throws IOException {
-            try (ZeroconfAuthenticator authenticator = new ZeroconfAuthenticator(inner, zeroconfConf)) {
-                loginCredentials = authenticator.lockUntilCredentials();
-                return this;
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
-
+        @NotNull
         public Builder blob(String username, byte[] blob) throws GeneralSecurityException, IOException {
             loginCredentials = inner.decryptBlob(username, blob);
             return this;
         }
 
+        @NotNull
         public Builder userPass(@NotNull String username, @NotNull String password) {
             loginCredentials = Authentication.LoginCredentials.newBuilder()
                     .setUsername(username)
@@ -466,36 +471,35 @@ public class Session implements Closeable {
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
             if (loginCredentials == null) {
                 if (authConf != null) {
-                    String blob = authConf.blob();
-                    String username = authConf.username();
-                    String password = authConf.password();
+                    String blob = authConf.authBlob();
+                    String username = authConf.authUsername();
+                    String password = authConf.authPassword();
 
-                    switch (authConf.strategy()) {
+                    switch (authConf.authStrategy()) {
                         case FACEBOOK:
                             facebook();
                             break;
                         case BLOB:
-                            if (username == null) throw new IllegalArgumentException("Missing username!");
-                            if (blob == null) throw new IllegalArgumentException("Missing blob!");
+                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                            if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
                             blob(username, Base64.getDecoder().decode(blob));
                             break;
                         case USER_PASS:
-                            if (username == null) throw new IllegalArgumentException("Missing username!");
-                            if (password == null) throw new IllegalArgumentException("Missing password!");
+                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                            if (password == null) throw new IllegalArgumentException("Missing authPassword!");
                             userPass(username, password);
                             break;
                         case ZEROCONF:
-                            zeroconf();
-                            break;
+                            throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
                         default:
-                            throw new IllegalStateException("Unknown auth strategy: " + authConf.strategy());
+                            throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
                     }
                 } else {
                     throw new IllegalStateException("Missing credentials!");
                 }
             }
 
-            Session session = new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
+            Session session = Session.from(inner);
             session.connect();
             session.authenticate(loginCredentials);
             return session;
