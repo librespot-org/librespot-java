@@ -26,14 +26,16 @@ public class SpotifyIrc implements Closeable {
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final String uri;
     private final Session session;
-    private final SpircListener internalListener;
     private final Spirc.DeviceState.Builder deviceState;
+    private SpircListener internalListener;
 
-    public SpotifyIrc(@NotNull Session session) throws IOException, IrcException, MercuryClient.PubSubException {
+    public SpotifyIrc(@NotNull Session session) {
         this.session = session;
         this.uri = String.format("hm://remote/user/%s/", session.apWelcome().getCanonicalUsername());
         this.deviceState = initializeDeviceState();
+    }
 
+    public void subscribe() throws IOException, IrcException, MercuryClient.PubSubException {
         session.mercury().subscribe(uri, internalListener = new SpircListener());
 
         send(Spirc.MessageType.kMessageTypeHello);

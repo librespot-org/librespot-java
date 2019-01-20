@@ -43,11 +43,9 @@ import java.util.concurrent.TimeUnit;
 public class Session implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
     private final DiffieHellman keys;
-    private final Socket socket;
-    private final DataInputStream in;
-    private final DataOutputStream out;
     private final Inner inner;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
+    private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
@@ -59,11 +57,8 @@ public class Session implements Closeable {
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
-        this.socket = socket;
         this.keys = new DiffieHellman(inner.random);
-
-        this.in = new DataInputStream(socket.getInputStream());
-        this.out = new DataOutputStream(socket.getOutputStream());
+        this.conn = new ConnectionHolder(socket);
 
         LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s} ", inner.deviceId, socket.getInetAddress()));
     }
@@ -107,11 +102,11 @@ public class Session implements Closeable {
 
         byte[] clientHelloBytes = clientHello.toByteArray();
         int length = 2 + 4 + clientHelloBytes.length;
-        out.writeByte(0);
-        out.writeByte(4);
-        out.writeInt(length);
-        out.write(clientHelloBytes);
-        out.flush();
+        conn.out.writeByte(0);
+        conn.out.writeByte(4);
+        conn.out.writeInt(length);
+        conn.out.write(clientHelloBytes);
+        conn.out.flush();
 
         acc.writeByte(0);
         acc.writeByte(4);
@@ -121,10 +116,10 @@ public class Session implements Closeable {
 
         // Read APResponseMessage
 
-        length = in.readInt();
+        length = conn.in.readInt();
         acc.writeInt(length);
         byte[] buffer = new byte[length - 4];
-        in.readFully(buffer);
+        conn.in.readFully(buffer);
         acc.write(buffer);
         acc.dump();
 
@@ -165,18 +160,18 @@ public class Session implements Closeable {
 
         byte[] clientResponsePlaintextBytes = clientResponsePlaintext.toByteArray();
         length = 4 + clientResponsePlaintextBytes.length;
-        out.writeInt(length);
-        out.write(clientResponsePlaintextBytes);
-        out.flush();
+        conn.out.writeInt(length);
+        conn.out.write(clientResponsePlaintextBytes);
+        conn.out.flush();
 
         try {
             byte[] scrap = new byte[4];
-            socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(1));
-            int read = in.read(scrap);
+            conn.socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(1));
+            int read = conn.in.read(scrap);
             if (read == scrap.length) {
                 length = (scrap[0] << 24) | (scrap[1] << 16) | (scrap[2] << 8) | (scrap[3] & 0xFF);
                 byte[] payload = new byte[length - 4];
-                in.readFully(payload);
+                conn.in.readFully(payload);
                 Keyexchange.APLoginFailed failed = Keyexchange.APResponseMessage.parseFrom(payload).getLoginFailed();
                 throw new SpotifyAuthenticationException(failed);
             } else if (read > 0) {
@@ -184,7 +179,7 @@ public class Session implements Closeable {
             }
         } catch (SocketTimeoutException ignored) {
         } finally {
-            socket.setSoTimeout(0);
+            conn.socket.setSoTimeout(0);
         }
 
 
@@ -197,6 +192,20 @@ public class Session implements Closeable {
     }
 
     void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
+        authenticatePartial(credentials);
+
+        mercuryClient = new MercuryClient(this);
+
+        audioKeyManager = new AudioKeyManager(this);
+        channelManager = new ChannelManager(this);
+        spirc = new SpotifyIrc(this);
+        spirc.subscribe();
+        player = new Player(inner.configuration, inner.configuration, this);
+
+        LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
+    }
+
+    private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
@@ -212,19 +221,12 @@ public class Session implements Closeable {
 
         send(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
-        Packet packet = cipherPair.receiveEncoded(in);
+        Packet packet = cipherPair.receiveEncoded(conn.in);
         if (packet.is(Packet.Type.APWelcome)) {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
-            mercuryClient = new MercuryClient(this);
+
             receiver = new Receiver();
             new Thread(receiver, "session-packet-receiver").start();
-
-            audioKeyManager = new AudioKeyManager(this);
-            channelManager = new ChannelManager(this);
-            spirc = new SpotifyIrc(this);
-            player = new Player(inner.configuration, inner.configuration, this);
-
-            LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
 
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
@@ -257,16 +259,16 @@ public class Session implements Closeable {
         receiver = null;
 
         executorService.shutdown();
-        socket.close();
+        conn.socket.close();
 
         apWelcome = null;
         cipherPair = null;
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, socket.getInetAddress()));
+        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
-        cipherPair.sendEncoded(out, cmd.val, payload);
+        cipherPair.sendEncoded(conn.out, cmd.val, payload);
     }
 
     @NotNull
@@ -306,7 +308,7 @@ public class Session implements Closeable {
     }
 
     public boolean valid() {
-        return apWelcome != null && !socket.isClosed();
+        return apWelcome != null && conn != null && !conn.socket.isClosed();
     }
 
     @NotNull
@@ -332,6 +334,29 @@ public class Session implements Closeable {
     @NotNull
     public Random random() {
         return inner.random;
+    }
+
+    private void reconnect() {
+        try {
+            if (conn != null) {
+                conn.socket.close();
+                receiver.stop();
+            }
+
+            conn = new ConnectionHolder(ApResolver.getSocketFromRandomAccessPoint());
+            connect();
+            authenticatePartial(Authentication.LoginCredentials.newBuilder()
+                    .setUsername(apWelcome.getCanonicalUsername())
+                    .setTyp(apWelcome.getReusableAuthCredentialsType())
+                    .setAuthData(apWelcome.getReusableAuthCredentials())
+                    .build());
+
+            spirc.subscribe();
+
+            LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
+        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | MercuryClient.PubSubException | SpotifyIrc.IrcException ex) {
+            throw new RuntimeException("Failed reconnecting!", ex);
+        }
     }
 
     public enum DeviceType {
@@ -530,6 +555,18 @@ public class Session implements Closeable {
         }
     }
 
+    private class ConnectionHolder {
+        final Socket socket;
+        final DataInputStream in;
+        final DataOutputStream out;
+
+        ConnectionHolder(Socket socket) throws IOException {
+            this.socket = socket;
+            this.in = new DataInputStream(socket.getInputStream());
+            this.out = new DataOutputStream(socket.getOutputStream());
+        }
+    }
+
     private class Receiver implements Runnable {
         private volatile boolean shouldStop = false;
 
@@ -546,14 +583,18 @@ public class Session implements Closeable {
                 Packet packet;
                 Packet.Type cmd;
                 try {
-                    packet = cipherPair.receiveEncoded(in);
+                    packet = cipherPair.receiveEncoded(conn.in);
                     cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
                         LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
-                    if (!shouldStop) LOGGER.fatal("Failed reading packet!", ex);
+                    if (!shouldStop) {
+                        LOGGER.fatal("Failed reading packet!", ex);
+                        reconnect();
+                    }
+
                     return;
                 }
 
