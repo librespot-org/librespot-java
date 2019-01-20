@@ -38,6 +38,26 @@ public class ZeroconfServer implements Closeable {
     private static final byte[] EOL = new byte[]{'\r', '\n'};
     private static final JsonObject DEFAULT_GET_INFO_FIELDS = new JsonObject();
     private static final JsonObject DEFAULT_SUCCESSFUL_ADD_USER = new JsonObject();
+    private static final byte[][] VIRTUAL_INTERFACES = new byte[][]{
+            new byte[]{(byte) 0x00, (byte) 0x0F, (byte) 0x4B}, // Virtual Iron Software, Inc.
+            new byte[]{(byte) 0x00, (byte) 0x13, (byte) 0x07}, // Paravirtual Corporation
+            new byte[]{(byte) 0x00, (byte) 0x13, (byte) 0xBE}, // Virtual Conexions
+            new byte[]{(byte) 0x00, (byte) 0x21, (byte) 0xF6}, // Virtual Iron Software
+            new byte[]{(byte) 0x00, (byte) 0x24, (byte) 0x0B}, // Virtual Computer Inc.
+            new byte[]{(byte) 0x00, (byte) 0xA0, (byte) 0xB1}, // First Virtual Corporation
+            new byte[]{(byte) 0x00, (byte) 0xE0, (byte) 0xC8}, // Virtual access, ltd.
+            new byte[]{(byte) 0x54, (byte) 0x52, (byte) 0x00}, // Linux kernel virtual machine (kvm)
+            new byte[]{(byte) 0x00, (byte) 0x21, (byte) 0xF6}, // Oracle Corporation
+            new byte[]{(byte) 0x18, (byte) 0x92, (byte) 0x2C}, // Virtual Instruments
+            new byte[]{(byte) 0x3C, (byte) 0xF3, (byte) 0x92}, // VirtualTek. Co. Ltd.
+            new byte[]{(byte) 0x00, (byte) 0x05, (byte) 0x69}, // VMWare 1
+            new byte[]{(byte) 0x00, (byte) 0x0C, (byte) 0x29}, // VMWare 2
+            new byte[]{(byte) 0x00, (byte) 0x50, (byte) 0x56}, // VMWare 3
+            new byte[]{(byte) 0x00, (byte) 0x1C, (byte) 0x42}, // Parallels
+            new byte[]{(byte) 0x00, (byte) 0x03, (byte) 0xFF}, // Microsoft Virtual PC
+            new byte[]{(byte) 0x00, (byte) 0x16, (byte) 0x3E}, // Red Hat Xen, Oracle VM, Xen Source, Novell Xen
+            new byte[]{(byte) 0x08, (byte) 0x00, (byte) 0x27}, // VirtualBox
+    };
 
     static {
         DEFAULT_GET_INFO_FIELDS.addProperty("status", 101);
@@ -87,7 +107,7 @@ public class ZeroconfServer implements Closeable {
 
         LOGGER.debug("Registering service on " + Arrays.toString(bound));
 
-        ServiceInstance service = new ServiceInstance(new ServiceName("librespot._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), bound, "VERSION=1.0", "CPath=/");
+        ServiceInstance service = new ServiceInstance(new ServiceName("librespot-java._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), bound, "VERSION=1.0", "CPath=/");
         spotifyConnectService = mDnsService.register(service);
         if (spotifyConnectService == null)
             throw new IOException("Failed registering SpotifyConnect service!");
@@ -106,10 +126,35 @@ public class ZeroconfServer implements Closeable {
             return;
         }
 
-        addAddressOfInterface(list, nif);
+        addAddressOfInterface(list, nif, false);
     }
 
-    private static void addAddressOfInterface(List<InetAddress> list, @NotNull NetworkInterface nif) {
+    private static boolean isVirtual(@NotNull NetworkInterface nif) throws SocketException {
+        byte[] mac = nif.getHardwareAddress();
+        if (mac == null) return true;
+
+        outer:
+        for (byte[] virtual : VIRTUAL_INTERFACES) {
+            for (int i = 0; i < Math.min(virtual.length, mac.length); i++) {
+                if (virtual[i] != mac[i])
+                    continue outer;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void addAddressOfInterface(List<InetAddress> list, @NotNull NetworkInterface nif, boolean checkVirtual) throws SocketException {
+        if (nif.isLoopback()) return;
+
+        if (isVirtual(nif)) {
+            if (checkVirtual) return;
+            else
+                LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
+        }
+
         LOGGER.trace(String.format("Adding addresses of %s (displayName: %s)", nif.getName(), nif.getDisplayName()));
         Enumeration<InetAddress> ias = nif.getInetAddresses();
         while (ias.hasMoreElements())
@@ -120,7 +165,7 @@ public class ZeroconfServer implements Closeable {
     private static InetAddress[] getAllInterfacesAddresses() throws SocketException {
         List<InetAddress> list = new ArrayList<>();
         Enumeration<NetworkInterface> is = NetworkInterface.getNetworkInterfaces();
-        while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement());
+        while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement(), true);
         return list.toArray(new InetAddress[0]);
     }
 

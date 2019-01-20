@@ -181,6 +181,8 @@ public class Utils {
 
     @NotNull
     public static String bytesToHex(byte[] bytes) {
+        if (bytes == null) return "";
+
         char[] hexChars = new char[bytes.length * 2];
         for (int j = 0; j < bytes.length; j++) {
             int v = bytes[j] & 0xFF;
