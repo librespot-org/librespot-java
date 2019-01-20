@@ -75,9 +75,9 @@
 
         <!-- mDNS -->
         <dependency>
-            <groupId>xyz.gianlu.mdnsjava</groupId>
-            <artifactId>mdnsjava</artifactId>
-            <version>2.2.1</version>
+            <groupId>org.jmdns</groupId>
+            <artifactId>jmdns</artifactId>
+            <version>3.5.5</version>
         </dependency>
     </dependencies>
 </project>

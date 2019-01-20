@@ -1,12 +1,8 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonObject;
-import net.posick.mdns.MulticastDNSService;
-import net.posick.mdns.ServiceInstance;
-import net.posick.mdns.ServiceName;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.xbill.DNS.Name;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
@@ -19,6 +15,8 @@ import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -77,16 +75,14 @@ public class ZeroconfServer implements Closeable {
     }
 
     private final HttpRunner runner;
-    private final MulticastDNSService mDnsService;
-    private final ServiceInstance spotifyConnectService;
     private final Session.Inner inner;
     private final DiffieHellman keys;
     private Session session;
+    private final JmDNS[] instances;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
-        this.mDnsService = new MulticastDNSService();
 
         int port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
@@ -107,10 +103,17 @@ public class ZeroconfServer implements Closeable {
 
         LOGGER.debug("Registering service on " + Arrays.toString(bound));
 
-        ServiceInstance service = new ServiceInstance(new ServiceName("librespot-java._spotify-connect._tcp.local."), 0, 0, port, Name.fromString("local."), bound, "VERSION=1.0", "CPath=/");
-        spotifyConnectService = mDnsService.register(service);
-        if (spotifyConnectService == null)
-            throw new IOException("Failed registering SpotifyConnect service!");
+        Map<String, String> txt = new HashMap<>();
+        txt.put("CPath", "/");
+        txt.put("VERSION", "1.0");
+
+        instances = new JmDNS[bound.length];
+        for (int i = 0; i < instances.length; i++) {
+            instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
+            ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java", port, 0, 0, txt);
+            instances[i].registerService(serviceInfo);
+        }
+
         LOGGER.info("SpotifyConnect service registered successfully!");
     }
 
@@ -150,7 +153,8 @@ public class ZeroconfServer implements Closeable {
         if (nif.isLoopback()) return;
 
         if (isVirtual(nif)) {
-            if (checkVirtual) return;
+            if (checkVirtual)
+                return;
             else
                 LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
         }
@@ -171,10 +175,10 @@ public class ZeroconfServer implements Closeable {
 
     @Override
     public void close() throws IOException {
-        mDnsService.unregister(spotifyConnectService);
-        LOGGER.trace("SpotifyConnect service unregistered successfully.");
+        for (JmDNS instance : instances)
+            instance.unregisterAllServices();
 
-        mDnsService.close();
+        LOGGER.trace("SpotifyConnect service unregistered successfully.");
         runner.close();
     }
 
