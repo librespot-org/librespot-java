@@ -110,7 +110,7 @@ public class ZeroconfServer implements Closeable {
         instances = new JmDNS[bound.length];
         for (int i = 0; i < instances.length; i++) {
             instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
-            ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java", port, 0, 0, txt);
+            ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java-" + i, port, 0, 0, txt);
             instances[i].registerService(serviceInfo);
         }
 
