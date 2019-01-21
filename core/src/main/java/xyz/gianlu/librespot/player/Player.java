@@ -83,7 +83,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 if (spirc.deviceState().getIsActive() && frame.getDeviceState().getIsActive()) {
                     spirc.deviceState().setIsActive(false);
                     state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                    if (trackHandler != null) trackHandler.sendStop();
+                    if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
                     stateUpdated();
                 }
                 break;

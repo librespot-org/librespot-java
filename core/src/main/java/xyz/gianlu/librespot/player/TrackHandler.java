@@ -87,6 +87,10 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         sendCommand(Command.Stop);
     }
 
+    boolean isStopped() {
+        return stopped;
+    }
+
     void sendLoad(@NotNull TrackId track, boolean play, int pos) {
         sendCommand(Command.Load, track, play, pos);
     }
