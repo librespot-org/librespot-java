@@ -125,8 +125,10 @@ public class PlaylistProvider implements TracksProvider {
     public int getNextTrackIndex(boolean consume) {
         int current = state.getPlayingTrackIndex();
         if (state.getTrack(current).getQueued()) {
-            if (consume) state.removeTrack(current);
-            return current;
+            if (consume) {
+                state.removeTrack(current);
+                return current;
+            }
         }
 
         return current + 1;
