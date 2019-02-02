@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Gianlu
@@ -45,6 +46,7 @@ public class Session implements Closeable {
     private final DiffieHellman keys;
     private final Inner inner;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
+    private final AtomicBoolean authLock = new AtomicBoolean(false);
     private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;
@@ -188,11 +190,20 @@ public class Session implements Closeable {
         cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
                 Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
 
+        synchronized (authLock) {
+            authLock.set(true);
+        }
+
         LOGGER.info("Connected successfully!");
     }
 
     void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
         authenticatePartial(credentials);
+
+        synchronized (authLock) {
+            authLock.set(false);
+            authLock.notifyAll();
+        }
 
         mercuryClient = new MercuryClient(this);
 
@@ -219,7 +230,7 @@ public class Session implements Closeable {
                 .setVersionString(Version.versionString())
                 .build();
 
-        send(Packet.Type.Login, clientResponseEncrypted.toByteArray());
+        sendUnchecked(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
         Packet packet = cipherPair.receiveEncoded(conn.in);
         if (packet.is(Packet.Type.APWelcome)) {
@@ -230,7 +241,7 @@ public class Session implements Closeable {
 
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
-            send(Packet.Type.Unknown_0x0f, bytes0x0f);
+            sendUnchecked(Packet.Type.Unknown_0x0f, bytes0x0f);
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
@@ -267,47 +278,71 @@ public class Session implements Closeable {
         LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
     }
 
-    public void send(Packet.Type cmd, byte[] payload) throws IOException {
+    private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
         cipherPair.sendEncoded(conn.out, cmd.val, payload);
+    }
+
+    private void waitAuthLock() {
+        synchronized (authLock) {
+            if (authLock.get()) {
+                try {
+                    authLock.wait();
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+    }
+
+    public void send(Packet.Type cmd, byte[] payload) throws IOException {
+        waitAuthLock();
+        sendUnchecked(cmd, payload);
     }
 
     @NotNull
     public MercuryClient mercury() {
+        waitAuthLock();
         if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
         return mercuryClient;
     }
 
     @NotNull
     public AudioKeyManager audioKey() {
+        waitAuthLock();
         if (audioKeyManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return audioKeyManager;
     }
 
     @NotNull
     public ChannelManager channel() {
+        waitAuthLock();
         if (channelManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return channelManager;
     }
 
     @NotNull
     public SpotifyIrc spirc() {
+        waitAuthLock();
         if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
         return spirc;
     }
 
     @NotNull
     public Player player() {
+        waitAuthLock();
         if (player == null) throw new IllegalStateException("Session isn't authenticated!");
         return player;
     }
 
     @NotNull
     public Authentication.APWelcome apWelcome() {
+        waitAuthLock();
         if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");
         return apWelcome;
     }
 
     public boolean valid() {
+        waitAuthLock();
         return apWelcome != null && conn != null && !conn.socket.isClosed();
     }
 
