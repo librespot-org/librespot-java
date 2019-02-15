@@ -42,6 +42,7 @@ public class PlayerRunner implements Runnable {
     private final int duration;
     private final Object pauseLock = new Object();
     private final AudioFormat audioFormat;
+    private final boolean preloadEnabled;
     private Controller controller;
     private byte[] buffer;
     private int count;
@@ -69,6 +70,7 @@ public class PlayerRunner implements Runnable {
 
         readHeader();
         this.audioFormat = initializeSound(conf);
+        this.preloadEnabled = conf.preloadEnabled();
 
         audioIn.mark(-1);
 
@@ -248,7 +250,7 @@ public class PlayerRunner implements Runnable {
     }
 
     private void checkPreload() {
-        if (!calledPreload && !stopped && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
+        if (preloadEnabled && !calledPreload && !stopped && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
             calledPreload = true;
             listener.preloadNextTrack();
         }

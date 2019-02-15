@@ -14,6 +14,7 @@ import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -94,7 +95,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 handlePlay();
                 break;
             case kMessageTypePause:
-                handlePause();
+                if (!Objects.equals(frame.getIdent(), "play-token"))
+                    handlePause();
                 break;
             case kMessageTypePlayPause:
                 handlePlayPause();
