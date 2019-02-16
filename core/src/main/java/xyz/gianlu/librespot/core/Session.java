@@ -284,7 +284,7 @@ public class Session implements Closeable {
 
     private void waitAuthLock() {
         synchronized (authLock) {
-            if (authLock.get()) {
+            if (cipherPair == null || authLock.get()) {
                 try {
                     authLock.wait();
                 } catch (InterruptedException ex) {
@@ -581,7 +581,7 @@ public class Session implements Closeable {
 
         void dump() throws IOException {
             bytes = ((ByteArrayOutputStream) this.out).toByteArray();
-            close();
+            this.close();
         }
 
         @NotNull
