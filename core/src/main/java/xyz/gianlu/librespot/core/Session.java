@@ -200,11 +200,6 @@ public class Session implements Closeable {
     void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
         authenticatePartial(credentials);
 
-        synchronized (authLock) {
-            authLock.set(false);
-            authLock.notifyAll();
-        }
-
         mercuryClient = new MercuryClient(this);
 
         audioKeyManager = new AudioKeyManager(this);
@@ -242,6 +237,11 @@ public class Session implements Closeable {
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
             sendUnchecked(Packet.Type.Unknown_0x0f, bytes0x0f);
+
+            synchronized (authLock) {
+                authLock.set(false);
+                authLock.notifyAll();
+            }
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
