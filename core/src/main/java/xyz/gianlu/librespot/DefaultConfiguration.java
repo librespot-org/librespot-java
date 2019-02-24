@@ -3,6 +3,7 @@ package xyz.gianlu.librespot;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.StreamFeeder;
 
 import java.io.File;
@@ -40,6 +41,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     @Override
     public boolean logAvailableMixers() {
         return true;
+    }
+
+    @Override
+    public int initialVolume() {
+        return PlayerRunner.VOLUME_MAX;
     }
 
     @Override

@@ -387,6 +387,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         String[] mixerSearchKeywords();
 
         boolean logAvailableMixers();
+
+        int initialVolume();
     }
 
     private class StateWrapper {

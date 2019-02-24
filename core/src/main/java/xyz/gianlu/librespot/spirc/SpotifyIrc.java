@@ -10,6 +10,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.SubListener;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.Closeable;
@@ -32,21 +33,20 @@ public class SpotifyIrc implements Closeable {
     public SpotifyIrc(@NotNull Session session) {
         this.session = session;
         this.uri = String.format("hm://remote/user/%s/", session.apWelcome().getCanonicalUsername());
-        this.deviceState = initializeDeviceState();
+        this.deviceState = initializeDeviceState(session.conf());
     }
 
     public void subscribe() throws IOException, IrcException, MercuryClient.PubSubException {
         session.mercury().subscribe(uri, internalListener = new SpircListener());
-
         send(Spirc.MessageType.kMessageTypeHello);
     }
 
     @NotNull
-    private Spirc.DeviceState.Builder initializeDeviceState() {
+    private Spirc.DeviceState.Builder initializeDeviceState(@NotNull Player.Configuration conf) {
         return Spirc.DeviceState.newBuilder()
                 .setCanPlay(true)
                 .setIsActive(false)
-                .setVolume(PlayerRunner.VOLUME_MAX)
+                .setVolume(conf.initialVolume())
                 .setName(session.deviceName())
                 .setSwVersion(Version.versionString())
                 .addCapabilities(Spirc.Capability.newBuilder()

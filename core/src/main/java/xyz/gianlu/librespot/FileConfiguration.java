@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.StreamFeeder;
 
 import java.io.File;
@@ -56,6 +57,14 @@ public final class FileConfiguration extends AbsConfiguration {
     private float getFloat(@NotNull String key, float fallback) {
         try {
             return Float.parseFloat(properties.getProperty(key, String.valueOf(fallback)));
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    private int getInt(@NotNull String key, int fallback) {
+        try {
+            return Integer.parseInt(properties.getProperty(key, String.valueOf(fallback)));
         } catch (NumberFormatException ex) {
             return fallback;
         }
@@ -124,6 +133,17 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public boolean logAvailableMixers() {
         return getBoolean("player.logAvailableMixers", defaults.logAvailableMixers());
+    }
+
+    @Override
+    public int initialVolume() {
+        int vol = getInt("player.initialVolume", defaults.initialVolume());
+        if (vol < 0 || vol > PlayerRunner.VOLUME_MAX) {
+            LOGGER.warn("Invalid volume: " + vol);
+            return defaults.initialVolume();
+        } else {
+            return vol;
+        }
     }
 
     @Override

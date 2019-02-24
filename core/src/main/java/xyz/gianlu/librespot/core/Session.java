@@ -394,6 +394,11 @@ public class Session implements Closeable {
         }
     }
 
+    @NotNull
+    public AbsConfiguration conf() {
+        return inner.configuration;
+    }
+
     public enum DeviceType {
         Unknown(0, "unknown"),
         Computer(1, "computer"),
