@@ -196,7 +196,7 @@ public final class FileConfiguration extends AbsConfiguration {
         if (val < ZeroconfServer.MIN_PORT || val > ZeroconfServer.MAX_PORT)
             throw new IllegalArgumentException("Illegal port number: " + val);
 
-        return 0;
+        return val;
     }
 
     @NotNull
