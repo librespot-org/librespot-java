@@ -4,20 +4,19 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.AbstractMessage;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Playlist4Changes;
-import xyz.gianlu.librespot.common.proto.Playlist4Content;
+import xyz.gianlu.librespot.common.proto.*;
 import xyz.gianlu.librespot.mercury.model.AlbumId;
 import xyz.gianlu.librespot.mercury.model.ArtistId;
 import xyz.gianlu.librespot.mercury.model.PlaylistId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -266,6 +265,11 @@ public final class MercuryRequests {
     }
 
     @NotNull
+    public static JsonMercuryRequest<StationsWrapper> getStationFor(@NotNull String context) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get("hm://radio-apollo/v3/stations/" + context), StationsWrapper.class);
+    }
+
+    @NotNull
     public static JsonMercuryRequest<ResolvedContextWrapper> resolveContext(@NotNull String uri) {
         return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://context-resolve/v1/%s", uri)), ResolvedContextWrapper.class);
     }
@@ -282,6 +286,34 @@ public final class MercuryRequests {
         JsonElement elm = obj.get(key);
         if (elm == null) return fallback;
         else return elm.getAsString();
+    }
+
+    public static final class StationsWrapper extends JsonWrapper {
+
+        public StationsWrapper(@NotNull JsonElement elm) {
+            super(elm);
+        }
+
+        @NotNull
+        public String uri() {
+            return getAsString(obj(), "uri");
+        }
+
+        @NotNull
+        public List<Spirc.TrackRef> tracks() {
+            JsonArray array = obj().getAsJsonArray("tracks");
+            List<Spirc.TrackRef> list = new ArrayList<>(array.size());
+            for (JsonElement elm : array) {
+                JsonObject obj = elm.getAsJsonObject();
+                String uri = getAsString(obj, "uri");
+                list.add(Spirc.TrackRef.newBuilder()
+                        .setUri(uri)
+                        .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
+                        .build());
+            }
+
+            return list;
+        }
     }
 
     public static final class ResolvedContextWrapper extends JsonWrapper {

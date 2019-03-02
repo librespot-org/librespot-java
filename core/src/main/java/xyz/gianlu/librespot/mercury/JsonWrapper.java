@@ -24,4 +24,9 @@ public abstract class JsonWrapper {
     public final JsonArray array() {
         return elm.getAsJsonArray();
     }
+
+    @Override
+    public String toString() {
+        return elm.toString();
+    }
 }

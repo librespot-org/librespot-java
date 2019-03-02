@@ -27,13 +27,9 @@ public class StationProvider implements TracksProvider {
     private final Spirc.State.Builder state;
     private String nextPageUri;
 
-    public StationProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame) {
+    public StationProvider(@NotNull Session session, @NotNull Spirc.State.Builder state) {
         this.mercury = session.mercury();
         this.state = state;
-
-        state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
-        state.clearTrack();
-        state.addAllTrack(frame.getState().getTrackList());
     }
 
     @Override

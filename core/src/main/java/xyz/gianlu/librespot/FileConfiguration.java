@@ -147,6 +147,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean autoplayEnabled() {
+        return getBoolean("player.autoplayEnabled", defaults.autoplayEnabled());
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return properties.getProperty("deviceName", null);
     }

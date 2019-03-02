@@ -26,14 +26,10 @@ public class PlaylistProvider implements TracksProvider {
     private final MercuryClient mercury;
     private long shuffleSeed = 0;
 
-    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Spirc.Frame frame, @NotNull Player.Configuration conf) {
+    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Player.Configuration conf) {
         this.state = state;
         this.conf = conf;
         this.mercury = session.mercury();
-
-        state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
-        state.clearTrack();
-        state.addAllTrack(frame.getState().getTrackList());
     }
 
     private static int[] getShuffleExchanges(int size, long seed) {

@@ -2,9 +2,12 @@ package xyz.gianlu.librespot.player;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
@@ -206,8 +209,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         state.update(frame);
         String context = frame.getState().getContextUri();
 
-        if (context.startsWith("spotify:station:")) tracksProvider = new StationProvider(session, state.state, frame);
-        else tracksProvider = new PlaylistProvider(session, state.state, frame, conf);
+        if (context.startsWith("spotify:station:")) tracksProvider = new StationProvider(session, state.state);
+        else tracksProvider = new PlaylistProvider(session, state.state, conf);
 
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
@@ -332,8 +335,18 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         int newTrack = tracksProvider.getNextTrackIndex(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
-            newTrack = 0;
-            play = state.getRepeat();
+            if (state.getRepeat()) {
+                newTrack = 0;
+                play = true;
+            } else {
+                if (conf.autoplayEnabled()) {
+                    loadAutoplay();
+                    return;
+                } else {
+                    newTrack = 0;
+                    play = false;
+                }
+            }
         }
 
         state.setPlayingTrackIndex(newTrack);
@@ -341,6 +354,31 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         state.setPositionMeasuredAt(System.currentTimeMillis());
 
         loadTrack(play);
+    }
+
+    private void loadAutoplay() {
+        String context = state.getContextUri();
+        if (context == null) {
+            LOGGER.fatal("Cannot load autoplay with null context!");
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
+            return;
+        }
+
+        try {
+            MercuryRequests.StationsWrapper json = session.mercury().sendSync(MercuryRequests.getStationFor(context));
+            state.update(json);
+
+            state.setPositionMs(0);
+            state.setPositionMeasuredAt(System.currentTimeMillis());
+
+            tracksProvider = new StationProvider(session, state.state);
+            loadTrack(true);
+
+            LOGGER.debug(String.format("Loading context for autoplay, uri: %s", json.uri()));
+        } catch (IOException | MercuryClient.MercuryException e) {
+            e.printStackTrace();
+        }
     }
 
     private void handlePrev() {
@@ -389,6 +427,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         boolean logAvailableMixers();
 
         int initialVolume();
+
+        boolean autoplayEnabled();
     }
 
     private class StateWrapper {
@@ -396,6 +436,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         StateWrapper(@NotNull Spirc.State.Builder state) {
             this.state = state;
+        }
+
+        @Nullable
+        String getContextUri() {
+            return state.getContextUri();
         }
 
         @NotNull
@@ -421,6 +466,18 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         void update(@NotNull Spirc.Frame frame) {
             state.setContextUri(frame.getState().getContextUri());
+
+            state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
+            state.clearTrack();
+            state.addAllTrack(frame.getState().getTrackList());
+        }
+
+        void update(@NotNull MercuryRequests.StationsWrapper json) {
+            state.setContextUri(json.uri());
+
+            state.setPlayingTrackIndex(0);
+            state.clearTrack();
+            state.addAllTrack(json.tracks());
         }
 
         long getPositionMeasuredAt() {
