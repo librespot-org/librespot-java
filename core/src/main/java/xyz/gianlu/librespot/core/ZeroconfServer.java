@@ -213,7 +213,7 @@ public class ZeroconfServer implements Closeable {
     private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
         if (username == null) {
-            LOGGER.fatal("Missing authUsername!");
+            LOGGER.fatal("Missing userName!");
             return;
         }
 
@@ -266,8 +266,14 @@ public class ZeroconfServer implements Closeable {
 
         try {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
-            if (hasValidSession()) session.close();
+            if (hasValidSession()) {
+                session.close();
+                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
+            }
+
             session = Session.from(inner);
+            LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
+
             session.connect();
             session.authenticate(credentials);
         } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException | MercuryClient.PubSubException ex) {

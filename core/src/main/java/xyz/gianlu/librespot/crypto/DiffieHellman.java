@@ -1,6 +1,5 @@
 package xyz.gianlu.librespot.crypto;
 
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 
@@ -25,7 +24,6 @@ public class DiffieHellman {
             (byte) 0x4c, (byte) 0x42, (byte) 0xe9, (byte) 0xa6, (byte) 0x3a, (byte) 0x36, (byte) 0x20, (byte) 0xff, (byte) 0xff, (byte)
             (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff};
     private static final BigInteger PRIME = new BigInteger(1, PRIME_BYTES);
-    private static final Logger LOGGER = Logger.getLogger(DiffieHellman.class);
     private final BigInteger privateKey;
     private final BigInteger publicKey;
 
@@ -40,10 +38,7 @@ public class DiffieHellman {
     @NotNull
     public BigInteger computeSharedKey(byte[] remoteKeyBytes) {
         BigInteger remoteKey = new BigInteger(1, remoteKeyBytes);
-        BigInteger sharedKey = remoteKey.modPow(privateKey, PRIME);
-
-        LOGGER.trace("Computed shared key successfully!");
-        return sharedKey;
+        return remoteKey.modPow(privateKey, PRIME);
     }
 
     @NotNull
