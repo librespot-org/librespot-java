@@ -24,7 +24,9 @@ Authenticate with Facebook. The console will provide a link to visit in order to
 This is more advanced and should only be used if you saved an authentication blob. The blob should have already been Base64-decoded.
 
 ## Run
-To run the program type `java -jar ./core/target/librespot-core-jar-with-dependencies.jar` from the project root folder.
+You can download the latest release from [here](https://github.com/librespot-org/librespot-java/releases) and then run `java -jar ./librespot-core-jar-with-dependencies.jar` from the command line.
 
 ## Build it
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`. Remember that you need to clone the project with its submodules (`git clone --recursive https://github.com/librespot-org/librespot-java`).
+
+To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
