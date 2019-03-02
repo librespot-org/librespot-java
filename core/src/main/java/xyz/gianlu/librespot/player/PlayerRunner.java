@@ -300,6 +300,8 @@ public class PlayerRunner implements Runnable {
                 audioIn.reset();
                 if (positionMs > 0) {
                     int skip = Math.round(audioIn.available() / (float) duration * positionMs);
+                    if (skip > audioIn.available()) skip = audioIn.available();
+
                     long skipped = audioIn.skip(skip);
                     if (skip != skipped)
                         throw new IOException(String.format("Failed seeking, skip: %d, skipped: %d", skip, skipped));
