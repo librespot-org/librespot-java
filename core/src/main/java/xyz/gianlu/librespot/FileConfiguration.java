@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.StreamFeeder;
 
@@ -185,6 +186,17 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public boolean zeroconfListenAll() {
         return getBoolean("zeroconf.listenAll", defaults.zeroconfListenAll());
+    }
+
+    @Override
+    public int zeroconfListenPort() {
+        int val = getInt("zeroconf.listenPort", defaults.zeroconfListenPort());
+        if (val == -1) return val;
+
+        if (val < ZeroconfServer.MIN_PORT || val > ZeroconfServer.MAX_PORT)
+            throw new IllegalArgumentException("Illegal port number: " + val);
+
+        return 0;
     }
 
     @NotNull

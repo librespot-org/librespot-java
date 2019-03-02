@@ -116,6 +116,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public int zeroconfListenPort() {
+        return -1;
+    }
+
+    @Override
     public @NotNull String[] zeroconfInterfaces() {
         return new String[0];
     }

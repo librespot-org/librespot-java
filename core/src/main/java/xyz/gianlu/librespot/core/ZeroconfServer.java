@@ -30,8 +30,8 @@ import java.util.*;
  * @author Gianlu
  */
 public class ZeroconfServer implements Closeable {
-    private final static int MAX_PORT = 65536;
-    private final static int MIN_PORT = 1024;
+    public final static int MAX_PORT = 65536;
+    public final static int MIN_PORT = 1024;
     private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
     private static final JsonObject DEFAULT_GET_INFO_FIELDS = new JsonObject();
@@ -77,14 +77,17 @@ public class ZeroconfServer implements Closeable {
     private final HttpRunner runner;
     private final Session.Inner inner;
     private final DiffieHellman keys;
-    private Session session;
     private final JmDNS[] instances;
+    private Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
 
-        int port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+        int port = conf.zeroconfListenPort();
+        if (port == -1)
+            port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
         InetAddress[] bound;
@@ -299,6 +302,8 @@ public class ZeroconfServer implements Closeable {
 
     public interface Configuration {
         boolean zeroconfListenAll();
+
+        int zeroconfListenPort();
 
         @NotNull
         String[] zeroconfInterfaces();
