@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.core;
 import com.google.gson.JsonObject;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
@@ -95,7 +96,7 @@ public class ZeroconfServer implements Closeable {
             bound = getAllInterfacesAddresses();
         } else {
             String[] interfaces = conf.zeroconfInterfaces();
-            if (interfaces.length == 0) {
+            if (interfaces == null || interfaces.length == 0) {
                 bound = new InetAddress[]{InetAddress.getLoopbackAddress()};
             } else {
                 List<InetAddress> list = new ArrayList<>();
@@ -305,7 +306,7 @@ public class ZeroconfServer implements Closeable {
 
         int zeroconfListenPort();
 
-        @NotNull
+        @Nullable
         String[] zeroconfInterfaces();
     }
 

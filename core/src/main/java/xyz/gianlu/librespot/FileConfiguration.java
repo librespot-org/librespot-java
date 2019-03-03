@@ -127,7 +127,7 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @NotNull String[] mixerSearchKeywords() {
+    public @Nullable String[] mixerSearchKeywords() {
         return getStringArray("player.mixerSearchKeywords", defaults.mixerSearchKeywords());
     }
 
@@ -199,7 +199,7 @@ public final class FileConfiguration extends AbsConfiguration {
         return val;
     }
 
-    @NotNull
+    @Nullable
     @Override
     public String[] zeroconfInterfaces() {
         return getStringArray("zeroconf.interfaces", defaults.zeroconfInterfaces());

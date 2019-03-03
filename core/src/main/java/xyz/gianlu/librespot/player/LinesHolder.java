@@ -35,11 +35,13 @@ public class LinesHolder {
     }
 
     @NotNull
-    private static Mixer findMixer(@NotNull List<Mixer> mixers, @NotNull String[] keywords) throws PlayerRunner.PlayerException {
-        if (keywords.length == 0) return mixers.get(0);
+    private static Mixer findMixer(@NotNull List<Mixer> mixers, @Nullable String[] keywords) throws PlayerRunner.PlayerException {
+        if (keywords == null || keywords.length == 0) return mixers.get(0);
 
         List<Mixer> list = new ArrayList<>(mixers);
         for (String word : keywords) {
+            if (word == null) continue;
+
             list.removeIf(mixer -> !mixer.getMixerInfo().getName().toLowerCase().contains(word.toLowerCase()));
             if (list.isEmpty())
                 throw new PlayerRunner.PlayerException("No mixers available for the specified search keywords: " + Arrays.toString(keywords));

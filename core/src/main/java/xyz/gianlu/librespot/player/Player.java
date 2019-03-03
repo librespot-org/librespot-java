@@ -421,7 +421,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         boolean defaultUnshuffleBehaviour();
 
-        @NotNull
+        @Nullable
         String[] mixerSearchKeywords();
 
         boolean logAvailableMixers();
