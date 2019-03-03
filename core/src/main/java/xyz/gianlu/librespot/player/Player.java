@@ -89,6 +89,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
                     if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
                     stateUpdated();
+
+                    LOGGER.warn("Stopping player due to kMessageTypeNotify!");
                 }
                 break;
             case kMessageTypeLoad:
