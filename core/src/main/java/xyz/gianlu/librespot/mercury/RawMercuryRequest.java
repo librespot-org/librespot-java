@@ -39,11 +39,6 @@ public class RawMercuryRequest {
     }
 
     @NotNull
-    public static RawMercuryRequest post(String uri, byte[] part) {
-        return RawMercuryRequest.newBuilder().setUri(uri).setMethod("POST").addPayloadPart(part).build();
-    }
-
-    @NotNull
     public static Builder newBuilder() {
         return new Builder();
     }

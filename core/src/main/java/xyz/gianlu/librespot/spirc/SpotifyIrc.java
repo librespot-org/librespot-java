@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class SpotifyIrc implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(SpotifyIrc.class);
-    private static final String REMOTE_PREFIX = "hm://remote/3/user/";
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final String uri;
     private final Session session;
@@ -33,13 +32,12 @@ public class SpotifyIrc implements Closeable {
 
     public SpotifyIrc(@NotNull Session session) {
         this.session = session;
-        this.uri = String.format("%s%s/", REMOTE_PREFIX, session.apWelcome().getCanonicalUsername());
+        this.uri = String.format("hm://remote/user/%s/", session.apWelcome().getCanonicalUsername());
         this.deviceState = initializeDeviceState(session.conf());
-
-        session.mercury().interestedIn(REMOTE_PREFIX, internalListener = new SpircListener());
     }
 
-    public void sayHello() throws IOException, IrcException {
+    public void subscribe() throws IOException, IrcException, MercuryClient.PubSubException {
+        session.mercury().subscribe(uri, internalListener = new SpircListener());
         send(Spirc.MessageType.kMessageTypeHello);
     }
 
@@ -107,12 +105,12 @@ public class SpotifyIrc implements Closeable {
                 .setTyp(type)
                 .setSeqNr(seqHolder.getAndIncrement())
                 .setIdent(session.deviceId())
-                .setProtocolVersion("3.2.6")
+                .setProtocolVersion("2.0.0")
                 .setDeviceState(deviceState)
                 .setStateUpdateId(System.currentTimeMillis())
                 .build();
 
-        MercuryClient.Response response = session.mercury().sendSync(RawMercuryRequest.post(uri, frame.toByteArray()));
+        MercuryClient.Response response = session.mercury().sendSync(RawMercuryRequest.send(uri, frame.toByteArray()));
         if (response.statusCode == 200) {
             LOGGER.trace("Frame sent successfully, type: " + type);
         } else {
@@ -158,7 +156,8 @@ public class SpotifyIrc implements Closeable {
     public void close() throws IOException {
         try {
             send(Spirc.MessageType.kMessageTypeGoodbye);
-        } catch (IrcException ex) {
+            session.mercury().unsubscribe(uri);
+        } catch (SpotifyIrc.IrcException | MercuryClient.PubSubException ex) {
             throw new IOException(ex);
         }
 
