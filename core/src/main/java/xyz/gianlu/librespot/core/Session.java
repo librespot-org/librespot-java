@@ -197,7 +197,7 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
+    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
         authenticatePartial(credentials);
 
         mercuryClient = new MercuryClient(this);
@@ -205,7 +205,7 @@ public class Session implements Closeable {
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
         spirc = new SpotifyIrc(this);
-        spirc.subscribe();
+        spirc.sayHello();
         player = new Player(inner.configuration, inner.configuration, this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
@@ -386,10 +386,10 @@ public class Session implements Closeable {
                     .setAuthData(apWelcome.getReusableAuthCredentials())
                     .build());
 
-            spirc.subscribe();
+            spirc.sayHello();
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
-        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | MercuryClient.PubSubException | SpotifyIrc.IrcException ex) {
+        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             throw new RuntimeException("Failed reconnecting!", ex);
         }
     }
@@ -533,7 +533,7 @@ public class Session implements Closeable {
         }
 
         @NotNull
-        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.PubSubException, SpotifyIrc.IrcException {
+        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.authBlob();
@@ -665,7 +665,7 @@ public class Session implements Closeable {
                         break;
                     case MercurySub:
                     case MercuryUnsub:
-                    case MercurySubEvent:
+                    case MercuryEvent:
                     case MercuryReq:
                         mercuryClient.dispatch(packet);
                         break;

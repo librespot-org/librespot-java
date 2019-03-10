@@ -160,7 +160,7 @@ public class MercuryClient extends PacketsManager {
         Mercury.Header header = Mercury.Header.parseFrom(partial.get(0));
         Response resp = new Response(header, partial);
 
-        if (packet.is(Packet.Type.MercurySubEvent)) {
+        if (packet.is(Packet.Type.MercuryEvent)) {
             boolean dispatched = false;
             for (InternalSubListener sub : subscriptions) {
                 if (sub.matches(header.getUri())) {
@@ -186,6 +186,10 @@ public class MercuryClient extends PacketsManager {
     @Override
     protected void exception(@NotNull Exception ex) {
         LOGGER.fatal("Failed handling packet!", ex);
+    }
+
+    public void interestedIn(@NotNull String uri, @NotNull SubListener listener) {
+        subscriptions.add(new InternalSubListener(uri, listener));
     }
 
     public interface Callback {
