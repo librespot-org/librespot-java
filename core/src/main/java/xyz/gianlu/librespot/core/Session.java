@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Session implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
+    private static final String PREFERRED_LOCALE = "en";
     private final DiffieHellman keys;
     private final Inner inner;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
@@ -237,6 +238,12 @@ public class Session implements Closeable {
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
             sendUnchecked(Packet.Type.Unknown_0x0f, bytes0x0f);
+
+            ByteBuffer preferredLocale = ByteBuffer.allocate(18 + 5);
+            preferredLocale.put((byte) 0x0).put((byte) 0x0).put((byte) 0x10).put((byte) 0x0).put((byte) 0x02);
+            preferredLocale.put("preferred-locale".getBytes());
+            preferredLocale.put(PREFERRED_LOCALE.getBytes());
+            sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
             synchronized (authLock) {
                 authLock.set(false);

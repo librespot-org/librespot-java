@@ -52,6 +52,7 @@ public class Packet {
         MercuryUnsub(0xb4),
         MercuryEvent(0xb5),
         UnknownData_AllZeros(0x1f),
+        PreferredLocale(0x74),
         Unknown_0x4f(0x4f),
         Unknown_0x0f(0x0f),
         Unknown_0x10(0x10);
