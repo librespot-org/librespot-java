@@ -211,8 +211,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         state.update(frame);
         String context = frame.getState().getContextUri();
 
-        if (context.startsWith("spotify:station:")) tracksProvider = new StationProvider(session, state.state);
-        else tracksProvider = new PlaylistProvider(session, state.state, conf);
+        if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
+            tracksProvider = new StationProvider(session, state.state);
+        else
+            tracksProvider = new PlaylistProvider(session, state.state, conf);
 
         state.setRepeat(frame.getState().getRepeat());
         state.setShuffle(frame.getState().getShuffle());
