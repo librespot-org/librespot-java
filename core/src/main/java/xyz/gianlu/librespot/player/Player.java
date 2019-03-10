@@ -82,6 +82,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     @Override
     public void frame(@NotNull Spirc.Frame frame) {
+        if (Objects.equals(frame.getIdent(), "play-token")) {
+            LOGGER.debug(String.format("Skipping frame. {ident: %s, type: %s}", frame.getIdent(), frame.getTyp()));
+            return;
+        }
+
         switch (frame.getTyp()) {
             case kMessageTypeNotify:
                 if (spirc.deviceState().getIsActive() && frame.getDeviceState().getIsActive()) {
@@ -100,8 +105,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 handlePlay();
                 break;
             case kMessageTypePause:
-                if (!Objects.equals(frame.getIdent(), "play-token"))
-                    handlePause();
+                handlePause();
                 break;
             case kMessageTypePlayPause:
                 handlePlayPause();
@@ -222,10 +226,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
-    public void finishedLoading(@NotNull TrackHandler handler, boolean play) {
+    public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
             if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+
+            state.setPositionMs(pos);
+            state.setPositionMeasuredAt(System.currentTimeMillis());
+
             stateUpdated();
         } else if (handler == preloadTrackHandler) {
             LOGGER.trace("Preloaded track is ready.");
@@ -283,9 +291,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             loadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay);
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
         }
-
-        stateUpdated();
     }
 
     private void loadTrack(boolean play) {
@@ -380,8 +387,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             loadTrack(true);
 
             LOGGER.debug(String.format("Loading context for autoplay, uri: %s", json.uri()));
-        } catch (IOException | MercuryClient.MercuryException e) {
-            e.printStackTrace();
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading autoplay station!", ex);
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
         }
     }
 

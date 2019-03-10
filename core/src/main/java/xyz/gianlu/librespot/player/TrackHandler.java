@@ -56,7 +56,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
             playerRunner.seek(pos);
 
-            listener.finishedLoading(this, play);
+            listener.finishedLoading(this, pos, play);
 
             if (play) playerRunner.play();
         } catch (PlayerRunner.PlayerException ex) {
@@ -142,7 +142,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     public interface Listener {
-        void finishedLoading(@NotNull TrackHandler handler, boolean play);
+        void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play);
 
         void loadingError(@NotNull TrackHandler handler, @NotNull TrackId track, @NotNull Exception ex);
 
