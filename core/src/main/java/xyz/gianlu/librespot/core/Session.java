@@ -251,6 +251,9 @@ public class Session implements Closeable {
 
     @Override
     public void close() throws IOException {
+        receiver.stop();
+        receiver = null;
+
         player.close();
         player = null;
 
@@ -265,9 +268,6 @@ public class Session implements Closeable {
 
         mercuryClient.close();
         mercuryClient = null;
-
-        receiver.stop();
-        receiver = null;
 
         executorService.shutdown();
         conn.socket.close();
