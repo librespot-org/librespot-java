@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -9,6 +11,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
@@ -24,6 +27,7 @@ import java.util.Objects;
  */
 public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
+    private static final JsonParser PARSER = new JsonParser();
     private final Session session;
     private final SpotifyIrc spirc;
     private final StateWrapper state;
@@ -80,66 +84,28 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 .setStatus(Spirc.PlayStatus.kPlayStatusStop);
     }
 
+    private void handleFrame(@NotNull Spirc.MessageType type, @NotNull Remote3Frame frame) {
+        System.out.println("GOT: " + type + " --> " + frame);  // TODO
+    }
+
     @Override
     public void frame(@NotNull Spirc.Frame frame) {
         if (Objects.equals(frame.getIdent(), "play-token")) {
-            LOGGER.debug(String.format("Skipping frame. {ident: %s, type: %s}", frame.getIdent(), frame.getTyp()));
+            LOGGER.debug(String.format("Skipping frame. {ident: %s}", frame.getIdent()));
             return;
         }
 
-        switch (frame.getTyp()) {
-            case kMessageTypeNotify:
-                if (spirc.deviceState().getIsActive() && frame.getDeviceState().getIsActive()) {
-                    spirc.deviceState().setIsActive(false);
-                    state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                    if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
-                    stateUpdated();
+        try {
+            String json = Utils.decodeGZip(frame.getContextPlayerState());
+            if (json.isEmpty()) {
+                LOGGER.debug(String.format("Skipping empty frame. {ident: %s}", frame.getIdent()));
+                return;
+            }
 
-                    LOGGER.warn("Stopping player due to kMessageTypeNotify!");
-                }
-                break;
-            case kMessageTypeLoad:
-                handleLoad(frame);
-                break;
-            case kMessageTypePlay:
-                handlePlay();
-                break;
-            case kMessageTypePause:
-                handlePause();
-                break;
-            case kMessageTypePlayPause:
-                handlePlayPause();
-                break;
-            case kMessageTypeNext:
-                handleNext();
-                break;
-            case kMessageTypePrev:
-                handlePrev();
-                break;
-            case kMessageTypeSeek:
-                handleSeek(frame.getPosition());
-                break;
-            case kMessageTypeReplace:
-                updatedTracks(frame);
-                stateUpdated();
-                break;
-            case kMessageTypeRepeat:
-                state.setRepeat(frame.getState().getRepeat());
-                stateUpdated();
-                break;
-            case kMessageTypeShuffle:
-                state.setShuffle(frame.getState().getShuffle());
-                handleShuffle();
-                break;
-            case kMessageTypeVolume:
-                handleSetVolume(frame.getVolume());
-                break;
-            case kMessageTypeVolumeDown:
-                handleVolumeDown();
-                break;
-            case kMessageTypeVolumeUp:
-                handleVolumeUp();
-                break;
+            System.out.println("JSON: " + json);
+            handleFrame(frame.getTyp(), new Remote3Frame(PARSER.parse(json).getAsJsonObject()));
+        } catch (IOException | JsonSyntaxException ex) {
+            LOGGER.warn(String.format("Failed parsing frame. {ident: %s}", frame.getIdent()), ex);
         }
     }
 
