@@ -9,7 +9,6 @@ import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
-import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
@@ -280,7 +279,7 @@ public class ZeroconfServer implements Closeable {
 
             session.connect();
             session.authenticate(credentials);
-        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException | MercuryClient.PubSubException ex) {
+        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
             return;
