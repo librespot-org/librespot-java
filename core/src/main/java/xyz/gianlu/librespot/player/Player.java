@@ -539,7 +539,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                         .setUri(track.uri)
                         .build());
 
-                if (track.uri.equals(trackUid) || track.uid.equals(trackUid))
+                if (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid))
                     index = i;
             }
 
