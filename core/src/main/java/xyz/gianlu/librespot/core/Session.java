@@ -633,7 +633,7 @@ public class Session implements Closeable {
                     packet = cipherPair.receiveEncoded(conn.in);
                     cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
-                        LOGGER.info("Skipping unknown CMD 0x" + Integer.toHexString(packet.cmd));
+                        LOGGER.info(String.format("Skipping unknown command {cmd: 0x%s, payload: %s}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload)));
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
