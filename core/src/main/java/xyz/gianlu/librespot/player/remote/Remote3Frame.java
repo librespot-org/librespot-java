@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player.remote;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +35,7 @@ public class Remote3Frame {
     public final PlayOrigin playOrigin;
     public final PlayOptions playOptions;
     public final Options options;
+    public final JsonPrimitive value;
 
     public Remote3Frame(@NotNull JsonObject obj) {
         playbackId = optString(obj, "playback_id", null);
@@ -54,6 +56,7 @@ public class Remote3Frame {
         playOrigin = PlayOrigin.opt(obj, "play_origin");
         playOptions = PlayOptions.opt(obj, "play_options");
         options = Options.opt(obj, "options");
+        value = obj.getAsJsonPrimitive("value");
     }
 
     @Contract("_, _, !null -> !null")
@@ -97,7 +100,13 @@ public class Remote3Frame {
     public enum Endpoint {
         Play("play"),
         Pause("pause"),
-        Resume("resume");
+        Resume("resume"),
+        SeekTo("seek_to"),
+        SkipNext("skip_next"),
+        SkipPrev("skip_prev"),
+        SetShufflingContext("set_shuffling_context"),
+        SetRepeatingContext("set_repeating_context"),
+        SetRepeatingTrack("set_repeating_track");
 
         private final String val;
 
@@ -368,13 +377,9 @@ public class Remote3Frame {
             metadata = Metadata.opt(obj, "metadata");
 
             JsonArray pagesArray = obj.getAsJsonArray("pages");
-            if (pagesArray != null) {
-                pages = new ArrayList<>(pagesArray.size());
-                for (JsonElement elm : pagesArray)
-                    pages.add(new Page(elm.getAsJsonObject()));
-            } else {
-                pages = null;
-            }
+            pages = new ArrayList<>(pagesArray.size());
+            for (JsonElement elm : pagesArray)
+                pages.add(new Page(elm.getAsJsonObject()));
         }
 
         @Nullable
@@ -385,15 +390,29 @@ public class Remote3Frame {
         }
 
         public static class Page {
-            public final List<TrackId> tracks;
+            public final List<Track> tracks;
 
             private Page(@NotNull JsonObject obj) {
                 JsonArray array = obj.getAsJsonArray("tracks");
                 tracks = new ArrayList<>(array.size());
+                for (JsonElement elm : array)
+                    tracks.add(new Track(elm.getAsJsonObject()));
+            }
 
-                for (JsonElement elm : array) {
-                    JsonObject o = elm.getAsJsonObject();
-                    tracks.add(TrackId.fromUri(o.get("uri").getAsString()));
+            public static class Track {
+                public final String uri;
+                public final String uid;
+                private TrackId id;
+
+                Track(@NotNull JsonObject obj) {
+                    uri = optString(obj, "uri", null);
+                    uid = optString(obj, "uid", null);
+                }
+
+                @NotNull
+                public TrackId id() {
+                    if (id == null) id = TrackId.fromUri(uri);
+                    return id;
                 }
             }
         }
