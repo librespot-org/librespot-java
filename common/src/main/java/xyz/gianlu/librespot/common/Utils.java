@@ -236,4 +236,9 @@ public class Utils {
 
         return builder.toString();
     }
+
+    @NotNull
+    public static String removeLineBreaks(@NotNull String str) {
+        return str.replace("\n", "").replace("\r", "");
+    }
 }

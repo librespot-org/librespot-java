@@ -175,7 +175,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         try {
             String json = Utils.decodeGZip(frame.getContextPlayerState());
-            if (!json.isEmpty()) LOGGER.trace("Frame has context_player_state: " + json);
+            if (!json.isEmpty()) LOGGER.trace("Frame has context_player_state: " + Utils.removeLineBreaks(json));
             handleFrame(frame.getTyp(), frame, json.isEmpty() ? null : new Remote3Frame(PARSER.parse(json).getAsJsonObject()));
         } catch (IOException | JsonSyntaxException ex) {
             LOGGER.warn(String.format("Failed parsing frame. {ident: %s}", frame.getIdent()), ex);
