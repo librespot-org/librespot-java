@@ -3,7 +3,7 @@ package xyz.gianlu.librespot.api;
 import xyz.gianlu.librespot.FileConfiguration;
 import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.File;
@@ -15,7 +15,9 @@ import java.security.GeneralSecurityException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, MercuryClient.PubSubException, SpotifyIrc.IrcException, Session.SpotifyAuthenticationException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, SpotifyIrc.IrcException, Session.SpotifyAuthenticationException {
+        TimeProvider.init();
+
         Session session = new Session.Builder(new FileConfiguration(new File("conf.properties"), args)).create();
 
         ApiServer server = new ApiServer(24879);

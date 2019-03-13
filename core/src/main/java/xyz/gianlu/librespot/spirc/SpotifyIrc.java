@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.SubListener;
@@ -109,7 +110,7 @@ public class SpotifyIrc implements Closeable {
                 .setIdent(session.deviceId())
                 .setProtocolVersion("3.2.6")
                 .setDeviceState(deviceState)
-                .setStateUpdateId(System.currentTimeMillis())
+                .setStateUpdateId(TimeProvider.currentTimeMillis())
                 .build();
 
         MercuryClient.Response response = session.mercury().sendSync(RawMercuryRequest.post(uri, frame.toByteArray()));

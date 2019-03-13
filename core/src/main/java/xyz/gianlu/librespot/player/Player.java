@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
@@ -218,7 +219,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private int getPosition() {
-        int diff = (int) (System.currentTimeMillis() - state.getPositionMeasuredAt());
+        int diff = (int) (TimeProvider.currentTimeMillis() - state.getPositionMeasuredAt());
         return state.getPositionMs() + diff;
     }
 
@@ -244,7 +245,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private void handleSeek(int pos) {
         state.setPositionMs(pos);
-        state.setPositionMeasuredAt(System.currentTimeMillis());
+        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
         if (trackHandler != null) trackHandler.sendSeek(pos);
         stateUpdated();
     }
@@ -270,7 +271,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
 
             state.setPositionMs(pos);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
             stateUpdated();
         } else if (handler == preloadTrackHandler) {
@@ -315,7 +316,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
                     .setIsActive(true)
-                    .setBecameActiveAt(System.currentTimeMillis());
+                    .setBecameActiveAt(TimeProvider.currentTimeMillis());
         }
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
@@ -324,7 +325,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         if (state.getTrackCount() > 0) {
             state.setPositionMs(frame.options.seekTo);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             loadTrack(!frame.options.initiallyPaused);
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
@@ -360,7 +361,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (state.isStatus(Spirc.PlayStatus.kPlayStatusPause)) {
             if (trackHandler != null) trackHandler.sendPlay();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             stateUpdated();
         }
     }
@@ -370,7 +371,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             if (trackHandler != null) trackHandler.sendPause();
             state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
 
-            long now = System.currentTimeMillis();
+            long now = TimeProvider.currentTimeMillis();
             int pos = state.getPositionMs();
             int diff = (int) (now - state.getPositionMeasuredAt());
             state.setPositionMs(pos + diff);
@@ -399,7 +400,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         state.setPlayingTrackIndex(newTrack);
         state.setPositionMs(0);
-        state.setPositionMeasuredAt(System.currentTimeMillis());
+        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
         loadTrack(play);
     }
@@ -418,7 +419,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.update(json);
 
             state.setPositionMs(0);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
             tracksProvider = new StationProvider(session, state.state);
             loadTrack(true);
@@ -435,12 +436,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (getPosition() < 3000) {
             state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex(true));
             state.setPositionMs(0);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
             loadTrack(true);
         } else {
             state.setPositionMs(0);
-            state.setPositionMeasuredAt(System.currentTimeMillis());
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             if (trackHandler != null) trackHandler.sendSeek(0);
             stateUpdated();
         }

@@ -79,5 +79,12 @@
             <artifactId>jmdns</artifactId>
             <version>3.5.5</version>
         </dependency>
+
+        <!-- Commons Net -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.6</version>
+        </dependency>
     </dependencies>
 </project>
