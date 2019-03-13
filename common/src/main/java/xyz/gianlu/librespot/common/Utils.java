@@ -7,6 +7,7 @@ import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
 import javax.sound.sampled.Mixer;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +22,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.GZIPInputStream;
 
 /**
  * @author Gianlu
@@ -29,6 +31,20 @@ public class Utils {
     public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    @NotNull
+    public static String decodeGZip(@NotNull ByteString bytes) throws IOException {
+        if (bytes.isEmpty()) return "";
+
+        try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(bytes.toByteArray()));
+             ByteArrayOutputStream dataOut = new ByteArrayOutputStream(bytes.size() /* At least */)) {
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = gzis.read(buffer)) != -1)
+                dataOut.write(buffer, 0, count);
+            return new String(dataOut.toByteArray(), "UTF-8");
+        }
+    }
 
     @NotNull
     public static String toBase64(@NotNull ByteString bytes) {

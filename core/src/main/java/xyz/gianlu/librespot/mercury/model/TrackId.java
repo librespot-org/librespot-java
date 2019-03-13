@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * @author Gianlu
  */
 public final class TrackId implements SpotifyId {
-    private static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22})");
+    private static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22}|.{21})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
