@@ -50,7 +50,7 @@ public class Packet {
         MercuryReq(0xb2),
         MercurySub(0xb3),
         MercuryUnsub(0xb4),
-        MercurySubEvent(0xb5),
+        MercuryEvent(0xb5),
         UnknownData_AllZeros(0x1f),
         PreferredLocale(0x74),
         Unknown_0x4f(0x4f),
