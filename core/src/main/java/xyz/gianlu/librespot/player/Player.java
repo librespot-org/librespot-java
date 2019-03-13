@@ -264,6 +264,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
+    public void startedLoading() {
+        state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+        stateUpdated();
+    }
+
+    @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
             if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
