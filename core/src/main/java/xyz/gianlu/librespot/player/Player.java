@@ -127,7 +127,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     handleSeek(frame.value.getAsInt());
                 break;
             case kMessageTypeReplace:
-                if (frame != null) {
+                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
                     updatedTracks(frame);
                     stateUpdated();
                 }
@@ -515,14 +515,19 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
 
         void update(@NotNull Remote3Frame frame) {
-            if (frame.context == null || frame.options == null || frame.options.skipTo == null)
+            if (frame.context == null)
                 throw new IllegalArgumentException("Invalid frame received!");
 
             state.setContextUri(frame.context.uri);
             state.clearTrack();
 
-            String trackUid = frame.options.skipTo.trackUid;
-            int pageIndex = frame.options.skipTo.pageIndex;
+            String trackUid = null;
+            int pageIndex = -1;
+            if (frame.options != null && frame.options.skipTo != null) {
+                trackUid = frame.options.skipTo.trackUid;
+                pageIndex = frame.options.skipTo.pageIndex;
+            }
+
             if (pageIndex == -1) pageIndex = 0;
 
             int index = -1;
@@ -538,14 +543,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     index = i;
             }
 
-            if (index == -1) {
+            if (index == -1)
                 index = 0;
-                LOGGER.warn("Did not found track in list!");
-            }
 
             state.setPlayingTrackIndex(index);
 
-            if (frame.options.playerOptionsOverride != null) {
+            if (frame.options != null && frame.options.playerOptionsOverride != null) {
                 state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);
                 state.setShuffle(frame.options.playerOptionsOverride.shufflingContext);
             }

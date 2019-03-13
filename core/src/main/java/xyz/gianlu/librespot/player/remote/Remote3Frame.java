@@ -106,7 +106,8 @@ public class Remote3Frame {
         SkipPrev("skip_prev"),
         SetShufflingContext("set_shuffling_context"),
         SetRepeatingContext("set_repeating_context"),
-        SetRepeatingTrack("set_repeating_track");
+        SetRepeatingTrack("set_repeating_track"),
+        UpdateContext("update_context");
 
         private final String val;
 
