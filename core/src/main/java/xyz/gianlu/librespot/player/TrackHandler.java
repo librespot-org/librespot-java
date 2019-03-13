@@ -42,7 +42,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        listener.startedLoading();
+        listener.startedLoading(this);
+
         StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
         track = stream.track;
 
@@ -143,7 +144,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     public interface Listener {
-        void startedLoading();
+        void startedLoading(@NotNull TrackHandler handler);
 
         void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play);
 
