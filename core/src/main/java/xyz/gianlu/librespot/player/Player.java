@@ -265,6 +265,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
+    public void startedLoading(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+            stateUpdated();
+        }
+    }
+
+    @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
             if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
@@ -344,7 +352,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         } else {
             trackHandler = new TrackHandler(session, lines, cacheManager, conf, this);
             trackHandler.sendLoad(id, play, state.getPositionMs());
-            state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
         }
 
         if (play) {
