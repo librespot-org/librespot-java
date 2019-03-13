@@ -24,7 +24,7 @@ public class ApResolver {
     @NotNull
     public static List<String> getAccessPoints() throws IOException {
         try {
-            return getAccessPoints("http://apresolve.spotify.com/");
+            return getAccessPoints(String.format("http://apresolve.spotify.com/?type=accesspoint&time=%d", System.currentTimeMillis() / 1000));
         } catch (Exception ex) {
             return getAccessPoints("http://ap.spotify.com:443/");
         }
@@ -36,7 +36,7 @@ public class ApResolver {
         conn.connect();
 
         JsonObject obj = PARSER.parse(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
-        JsonArray aps = obj.getAsJsonArray("ap_list");
+        JsonArray aps = obj.getAsJsonArray("accesspoint");
 
         List<String> list = new ArrayList<>(aps.size());
         for (JsonElement ap : aps) list.add(ap.getAsString());
