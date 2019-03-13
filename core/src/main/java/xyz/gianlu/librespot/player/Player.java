@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,6 +21,7 @@ import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -86,6 +88,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private void handleFrame(@NotNull Spirc.MessageType type, @NotNull Remote3Frame frame) {
         System.out.println("GOT: " + type + " --> " + frame);  // TODO
+
+        switch (type) {
+            case kMessageTypeLoad:
+                handleLoad(frame);
+                break;
+        }
     }
 
     @Override
@@ -102,7 +110,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 return;
             }
 
-            System.out.println("JSON: " + json);
+            System.out.println("JSON: " + json.replace('\n', ' ')); // FIXME
             handleFrame(frame.getTyp(), new Remote3Frame(PARSER.parse(json).getAsJsonObject()));
         } catch (IOException | JsonSyntaxException ex) {
             LOGGER.warn(String.format("Failed parsing frame. {ident: %s}", frame.getIdent()), ex);
@@ -177,17 +185,17 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void updatedTracks(@NotNull Spirc.Frame frame) {
+    private void updatedTracks(@NotNull Remote3Frame frame) {
         state.update(frame);
-        String context = frame.getState().getContextUri();
+        String context = frame.context.uri;
 
         if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
             tracksProvider = new StationProvider(session, state.state);
         else
             tracksProvider = new PlaylistProvider(session, state.state, conf);
 
-        state.setRepeat(frame.getState().getRepeat());
-        state.setShuffle(frame.getState().getShuffle());
+        state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);
+        state.setShuffle(frame.options.playerOptionsOverride.shufflingContext);
         if (state.getShuffle() && conf.defaultUnshuffleBehaviour()) shuffleTracks();
     }
 
@@ -239,22 +247,22 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
     }
 
-    private void handleLoad(@NotNull Spirc.Frame frame) {
+    private void handleLoad(@NotNull Remote3Frame frame) {
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
                     .setIsActive(true)
                     .setBecameActiveAt(System.currentTimeMillis());
         }
 
-        LOGGER.debug(String.format("Loading context, uri: %s", frame.getState().getContextUri()));
+        LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
         updatedTracks(frame);
 
         if (state.getTrackCount() > 0) {
-            state.setPositionMs(frame.getState().getPositionMs());
+            state.setPositionMs(frame.options.seekTo);
             state.setPositionMeasuredAt(System.currentTimeMillis());
 
-            loadTrack(frame.getState().getStatus() == Spirc.PlayStatus.kPlayStatusPlay);
+            loadTrack(frame.playOptions.trigger == Remote3Frame.PlayOptions.Trigger.Immediately);
         } else {
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
@@ -443,12 +451,29 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setShuffle(shuffle && (tracksProvider == null || tracksProvider.canShuffle()));
         }
 
-        void update(@NotNull Spirc.Frame frame) {
-            state.setContextUri(frame.getState().getContextUri());
-
-            state.setPlayingTrackIndex(frame.getState().getPlayingTrackIndex());
+        void update(@NotNull Remote3Frame frame) {
+            state.setContextUri(frame.context.uri);
             state.clearTrack();
-            state.addAllTrack(frame.getState().getTrackList());
+
+            int index = -1;
+            List<TrackId> tracks = frame.context.pages.get(frame.options.skipTo.pageIndex).tracks;
+            for (int i = 0; i < tracks.size(); i++) {
+                TrackId id = tracks.get(i);
+                state.addTrack(Spirc.TrackRef.newBuilder()
+                        .setGid(ByteString.copyFrom(id.getGid()))
+                        .setUri(id.toSpotifyUri())
+                        .build());
+
+                if (id.toSpotifyUri().equals(frame.options.skipTo.trackUid))
+                    index = i;
+            }
+
+            if (index == -1) {
+                index = 0;
+                LOGGER.warn("Did not found track in list!");
+            }
+
+            state.setPlayingTrackIndex(index);
         }
 
         void update(@NotNull MercuryRequests.StationsWrapper json) {

@@ -96,7 +96,8 @@ public class Remote3Frame {
 
     public enum Endpoint {
         Play("play"),
-        Pause("pause");
+        Pause("pause"),
+        Resume("resume");
 
         private final String val;
 
