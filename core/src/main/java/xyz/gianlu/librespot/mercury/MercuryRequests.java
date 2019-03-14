@@ -86,6 +86,7 @@ public final class MercuryRequests {
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER;
+    private static final String KEYMASTER_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd";
 
     static {
         SALE_PERIOD_JSON_CONVERTER = proto -> {
@@ -275,6 +276,11 @@ public final class MercuryRequests {
     }
 
     @NotNull
+    public static JsonMercuryRequest<KeymasterToken> requestToken(@NotNull String deviceId, @NotNull String scope) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://keymaster/token/authenticated?scope=%s&client_id=%s&device_id=%s", scope, KEYMASTER_CLIENT_ID, deviceId)), KeymasterToken.class);
+    }
+
+    @NotNull
     private static String getAsString(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement elm = obj.get(key);
         if (elm == null) throw new NullPointerException("Unexpected null value for " + key);
@@ -340,6 +346,13 @@ public final class MercuryRequests {
         @NotNull
         public String url() {
             return getAsString(obj(), "url");
+        }
+    }
+
+    public static final class KeymasterToken extends JsonWrapper {
+
+        public KeymasterToken(@NotNull JsonElement elm) {
+            super(elm);
         }
     }
 }

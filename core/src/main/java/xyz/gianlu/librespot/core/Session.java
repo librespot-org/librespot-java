@@ -57,6 +57,7 @@ public class Session implements Closeable {
     private Player player;
     private AudioKeyManager audioKeyManager;
     private ChannelManager channelManager;
+    private TokenProvider tokenProvider;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -202,7 +203,7 @@ public class Session implements Closeable {
         authenticatePartial(credentials);
 
         mercuryClient = new MercuryClient(this);
-
+        tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
         spirc = new SpotifyIrc(this);
@@ -325,6 +326,13 @@ public class Session implements Closeable {
         waitAuthLock();
         if (channelManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return channelManager;
+    }
+
+    @NotNull
+    public TokenProvider tokens() {
+        waitAuthLock();
+        if (tokenProvider == null) throw new IllegalStateException("Session isn't authenticated!");
+        return tokenProvider;
     }
 
     @NotNull
