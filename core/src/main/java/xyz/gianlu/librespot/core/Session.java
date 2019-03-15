@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
@@ -58,6 +59,7 @@ public class Session implements Closeable {
     private AudioKeyManager audioKeyManager;
     private ChannelManager channelManager;
     private TokenProvider tokenProvider;
+    private CdnManager cdnManager;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -206,6 +208,7 @@ public class Session implements Closeable {
         tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
+        cdnManager = new CdnManager(this);
         spirc = new SpotifyIrc(this);
         spirc.sayHello();
         player = new Player(inner.configuration, inner.configuration, this);
@@ -319,6 +322,13 @@ public class Session implements Closeable {
         waitAuthLock();
         if (audioKeyManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return audioKeyManager;
+    }
+
+    @NotNull
+    public CdnManager cdn() {
+        waitAuthLock();
+        if (cdnManager == null) throw new IllegalStateException("Session isn't authenticated!");
+        return cdnManager;
     }
 
     @NotNull

@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
@@ -47,7 +48,18 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException {
+    public LoadedStream loadWithCdn(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException {
+        byte[] key = session.audioKey().getAudioKey(track, file);
+        CdnManager.Streamer streamer = session.cdn().stream(file.getFileId(), key);
+        return new LoadedStream(track, streamer, null /* TODO: Missing normalization data */);
+    }
+
+    @NotNull
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException {
+        if (true) { // TODO
+            return loadWithCdn(track, file);
+        }
+
         session.send(Packet.Type.Unknown_0x4f, new byte[0]);
 
         byte[] key = session.audioKey().getAudioKey(track, file);
@@ -66,7 +78,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference) throws IOException {
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track);
         if (file == null) {
             LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
@@ -143,10 +155,10 @@ public class StreamFeeder {
 
     public static class LoadedStream {
         public final Metadata.Track track;
-        public final AudioFileStreaming in;
+        public final GeneralAudioStream in;
         public final NormalizationData normalizationData;
 
-        LoadedStream(@NotNull Metadata.Track track, @NotNull AudioFileStreaming in, @NotNull NormalizationData normalizationData) {
+        LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
             this.track = track;
             this.in = in;
             this.normalizationData = normalizationData;

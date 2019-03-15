@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+message InteractiveAudioFiles {
+    // optional uint32 unknown = 1;
+    repeated string uris = 2;
+    optional bytes file_id = 4;
+}

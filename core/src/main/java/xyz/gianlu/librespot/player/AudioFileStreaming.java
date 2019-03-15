@@ -13,14 +13,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
  */
-public class AudioFileStreaming implements AudioFile {
+public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
     private final ByteString fileId;
@@ -38,7 +37,8 @@ public class AudioFileStreaming implements AudioFile {
     }
 
     @NotNull
-    String getFileIdHex() {
+    @Override
+    public String getFileIdHex() {
         return Utils.bytesToHex(fileId);
     }
 
@@ -72,22 +72,13 @@ public class AudioFileStreaming implements AudioFile {
 
         chunksBuffer = new ChunksBuffer(size, chunks);
         requestChunk(0);
-        chunksBuffer.waitFor(0);
+
+        chunksBuffer.internalStream.waitFor(0);
     }
 
     private void requestChunk(int index) throws IOException {
         requestChunk(fileId, index, this);
         chunksBuffer.requested[index] = true; // Just to be sure
-    }
-
-    private void requestChunkFromStream(int index) {
-        executorService.submit(() -> {
-            try {
-                requestChunk(index);
-            } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
-            }
-        });
     }
 
     @Override
@@ -139,8 +130,7 @@ public class AudioFileStreaming implements AudioFile {
         private final boolean[] available;
         private final boolean[] requested;
         private final AudioDecrypt audioDecrypt;
-        private final AtomicInteger waitForChunk = new AtomicInteger(-1);
-        private InternalStream internalStream;
+        private final InternalStream internalStream;
 
         ChunksBuffer(int size, int chunks) {
             this.size = size;
@@ -149,153 +139,67 @@ public class AudioFileStreaming implements AudioFile {
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
             this.audioDecrypt = new AudioDecrypt(key);
+            this.internalStream = new InternalStream();
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
-            if (internalStream != null && internalStream.closed) return;
+            if (internalStream.isClosed()) return;
 
             if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
-            available[chunkIndex] = true;
-
-            if (chunkIndex == waitForChunk.get()) {
-                synchronized (waitForChunk) {
-                    waitForChunk.set(-1);
-                    waitForChunk.notifyAll();
-                }
-            }
-        }
-
-        private void waitFor(int chunkIndex) throws IOException {
-            if (internalStream != null && internalStream.closed) return;
-
-            synchronized (waitForChunk) {
-                try {
-                    waitForChunk.set(chunkIndex);
-                    waitForChunk.wait();
-                } catch (InterruptedException ex) {
-                    throw new IOException(ex);
-                }
-            }
+            internalStream.notifyChunkAvailable(chunkIndex);
         }
 
         @NotNull
         InputStream stream() {
-            if (internalStream == null) internalStream = new InternalStream();
             return internalStream;
         }
 
         @Override
         public void close() {
-            if (internalStream != null)
-                internalStream.close();
+            internalStream.close();
         }
 
-        private class InternalStream extends InputStream {
-            private int pos = 0;
-            private int mark = 0;
-            private volatile boolean closed = false;
-
+        private class InternalStream extends AbsChunckedInputStream {
             private InternalStream() {
             }
 
             @Override
-            public void close() {
-                closed = true;
+            protected byte[][] buffer() {
+                return buffer;
             }
 
             @Override
-            public synchronized int available() {
-                return size - pos;
+            protected int size() {
+                return size;
             }
 
             @Override
-            public boolean markSupported() {
-                return true;
+            protected boolean[] requestedChunks() {
+                return requested;
             }
 
             @Override
-            public synchronized void mark(int readAheadLimit) {
-                mark = pos;
+            protected boolean[] availableChunks() {
+                return available;
             }
 
             @Override
-            public synchronized void reset() {
-                pos = mark;
+            protected int chunks() {
+                return chunks;
             }
 
             @Override
-            public synchronized long skip(long n) throws IOException {
-                if (closed) throw new IOException("Stream is closed!");
-
-                long k = size - pos;
-                if (n < k) k = n < 0 ? 0 : n;
-                pos += k;
-
-                int chunk = pos / CHUNK_SIZE;
-                checkAvailability(chunk, false);
-
-                return k;
-            }
-
-            private void checkAvailability(int chunk, boolean wait) throws IOException {
-                if (!requested[chunk]) {
-                    requestChunkFromStream(chunk);
-                    requested[chunk] = true;
-                }
-
-                if (chunk < chunks - 1 && !requested[chunk + 1]) {
-                    requestChunkFromStream(chunk + 1);
-                    requested[chunk + 1] = true;
-                }
-
-                if (wait && !available[chunk])
-                    waitFor(chunk);
-            }
-
-            @Override
-            public int read(@NotNull byte[] b, int off, int len) throws IOException {
-                if (closed) throw new IOException("Stream is closed!");
-
-                if (off < 0 || len < 0 || len > b.length - off) {
-                    throw new IndexOutOfBoundsException(String.format("off: %d, len: %d, buffer: %d", off, len, buffer.length));
-                } else if (len == 0) {
-                    return 0;
-                }
-
-                if (pos >= size)
-                    return -1;
-
-                int i = 0;
-                while (true) {
-                    int chunk = pos / CHUNK_SIZE;
-                    int chunkOff = pos % CHUNK_SIZE;
-
-                    checkAvailability(chunk, true);
-
-                    int copy = Math.min(buffer[chunk].length - chunkOff, len - i);
-                    System.arraycopy(buffer[chunk], chunkOff, b, off + i, copy);
-                    i += copy;
-                    pos += copy;
-
-                    if (i == len || pos >= size)
-                        return i;
-                }
-            }
-
-            @Override
-            public synchronized int read() throws IOException {
-                if (closed) throw new IOException("Stream is closed!");
-
-                if (pos >= size)
-                    return -1;
-
-                int chunk = pos / CHUNK_SIZE;
-                checkAvailability(chunk, true);
-
-                return buffer[chunk][pos++ % CHUNK_SIZE] & 0xff;
+            protected void requestChunkFromStream(int index) {
+                executorService.submit(() -> {
+                    try {
+                        requestChunk(index);
+                    } catch (IOException ex) {
+                        LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+                    }
+                });
             }
         }
     }

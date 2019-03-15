@@ -56,13 +56,13 @@ public class PlayerRunner implements Runnable {
     private long pcm_offset;
     private boolean calledPreload = false;
 
-    PlayerRunner(@NotNull AudioFileStreaming audioFile, @NotNull NormalizationData normalizationData, @NotNull LinesHolder lines,
+    PlayerRunner(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull LinesHolder lines,
                  @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, PlayerException {
         this.audioIn = audioFile.stream();
         this.lines = lines;
         this.duration = duration;
         this.listener = listener;
-        this.normalizationFactor = normalizationData.getFactor(conf);
+        this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);

@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 
+import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+
 /**
  * @author Gianlu
  */
@@ -22,7 +24,7 @@ public class AudioDecrypt {
     }
 
     public synchronized void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
-        int pos = ChannelManager.CHUNK_SIZE * chunkIndex;
+        int pos = CHUNK_SIZE * chunkIndex;
 
         if (pos % 16 != 0) throw new IllegalArgumentException("Position not multiple of 16: " + pos);
 

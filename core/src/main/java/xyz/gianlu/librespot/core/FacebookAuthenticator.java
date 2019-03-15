@@ -6,6 +6,7 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 
@@ -131,17 +132,15 @@ public class FacebookAuthenticator implements Closeable {
                     out.write(EOL);
                     out.flush();
 
-                    String[] status = Utils.split(Utils.readLine(in), ' ');
-                    int code = Integer.parseInt(status[1]);
-
+                    NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
                     int length = 0;
                     String header;
                     while (!(header = Utils.readLine(in)).isEmpty()) {
-                        if (header.startsWith("Content-Length") && code == 200)
+                        if (header.startsWith("Content-Length") && sl.statusCode == 200)
                             length = Integer.parseInt(header.substring(16));
                     }
 
-                    if (code == 200) {
+                    if (sl.statusCode == 200) {
                         String json;
                         if (length != 0) {
                             byte[] buffer = new byte[length];
