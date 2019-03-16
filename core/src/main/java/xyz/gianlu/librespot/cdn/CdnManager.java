@@ -67,19 +67,23 @@ public class CdnManager {
         conn.addRequestProperty("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         conn.connect();
 
-        byte[] protoBytes;
-        try (InputStream in = conn.getInputStream();
-             ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
-            int count;
-            byte[] buffer = new byte[4096];
-            while ((count = in.read(buffer)) != -1)
-                bytesOut.write(buffer, 0, count);
+        try {
+            byte[] protoBytes;
+            try (InputStream in = conn.getInputStream();
+                 ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
+                int count;
+                byte[] buffer = new byte[4096];
+                while ((count = in.read(buffer)) != -1)
+                    bytesOut.write(buffer, 0, count);
 
-            protoBytes = bytesOut.toByteArray();
+                protoBytes = bytesOut.toByteArray();
+            }
+
+            StorageResolve.InteractiveAudioFiles proto = StorageResolve.InteractiveAudioFiles.parseFrom(protoBytes);
+            return new AudioUrl(proto.getUris(session.random().nextInt(proto.getUrisCount())));
+        } finally {
+            conn.disconnect();
         }
-
-        StorageResolve.InteractiveAudioFiles proto = StorageResolve.InteractiveAudioFiles.parseFrom(protoBytes);
-        return new AudioUrl(proto.getUris(session.random().nextInt(proto.getUrisCount())));
     }
 
     private static class AudioUrl {
