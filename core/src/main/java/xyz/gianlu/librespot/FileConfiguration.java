@@ -126,8 +126,9 @@ public final class FileConfiguration extends AbsConfiguration {
         return getBoolean("player.defaultUnshuffleBehaviour", defaults.defaultUnshuffleBehaviour());
     }
 
+    @NotNull
     @Override
-    public @Nullable String[] mixerSearchKeywords() {
+    public String[] mixerSearchKeywords() {
         return getStringArray("player.mixerSearchKeywords", defaults.mixerSearchKeywords());
     }
 
@@ -150,6 +151,11 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public boolean autoplayEnabled() {
         return getBoolean("player.autoplayEnabled", defaults.autoplayEnabled());
+    }
+
+    @Override
+    public boolean useCdn() {
+        return getBoolean("player.useCdn", defaults.useCdn());
     }
 
     @Override
@@ -199,7 +205,7 @@ public final class FileConfiguration extends AbsConfiguration {
         return val;
     }
 
-    @Nullable
+    @NotNull
     @Override
     public String[] zeroconfInterfaces() {
         return getStringArray("zeroconf.interfaces", defaults.zeroconfInterfaces());

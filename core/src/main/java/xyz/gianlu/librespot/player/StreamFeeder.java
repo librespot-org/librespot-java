@@ -48,7 +48,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream loadWithCdn(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException {
+    public LoadedStream loadWithCdn(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         byte[] key = session.audioKey().getAudioKey(track, file);
         CdnManager.Streamer streamer = session.cdn().stream(file.getFileId(), key);
         InputStream in = streamer.stream();
@@ -64,10 +64,8 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException {
-        if (true) { // TODO
-            return loadWithCdn(track, file);
-        }
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+        if (cdn) return loadWithCdn(track, file);
 
         session.send(Packet.Type.Unknown_0x4f, new byte[0]);
 
@@ -87,18 +85,18 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
+    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track);
         if (file == null) {
             LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
             throw new FeederException();
         }
 
-        return load(track, file);
+        return load(track, file, cdn);
     }
 
     @NotNull
-    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
+    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         Metadata.Track track = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
         track = pickAlternativeIfNecessary(track);
         if (track == null) {
@@ -106,12 +104,12 @@ public class StreamFeeder {
             throw new FeederException();
         }
 
-        return load(track, audioQualityPreference);
+        return load(track, audioQualityPreference, cdn);
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException {
-        return load(TrackId.fromTrackRef(ref), audioQualityPreference);
+    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+        return load(TrackId.fromTrackRef(ref), audioQualityPreference, cdn);
     }
 
     public enum AudioQuality {

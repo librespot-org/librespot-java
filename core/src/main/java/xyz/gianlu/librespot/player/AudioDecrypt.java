@@ -36,7 +36,7 @@ public class AudioDecrypt {
                 int endBytes = Math.min(i + 4096, in.length);
                 int count = cipher.doFinal(in, 0, endBytes, out, 0);
                 if (count != endBytes)
-                    throw new IOException(String.format("Could process all data, actual: %d, expected: %d", count, endBytes));
+                    throw new IOException(String.format("Couldn't process all data, actual: %d, expected: %d", count, endBytes));
             }
         } catch (GeneralSecurityException ex) {
             throw new IOException(ex);

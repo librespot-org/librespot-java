@@ -32,7 +32,7 @@ public class CdnManager {
     }
 
     @NotNull
-    private InputStream getHead(@NotNull ByteString fileId) throws IOException {
+    private InputStream getHead(@NotNull ByteString fileId) throws IOException { // TODO: Use this
         Socket socket = new Socket();
         socket.connect(new InetSocketAddress("heads-fa.spotify.com", 80));
 
@@ -50,13 +50,13 @@ public class CdnManager {
         if (sl.statusCode != 200)
             throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
 
-        Map<String, String> headers = NetUtils.parseHeaders(in); // FIXME
+        Map<String, String> headers = NetUtils.parseHeaders(in);
         LOGGER.debug(String.format("Headers for %s: %s", Utils.bytesToHex(fileId), headers));
         return in;
     }
 
     @NotNull
-    public Streamer stream(@NotNull ByteString fileId, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException {
+    public Streamer stream(@NotNull ByteString fileId, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
         AudioUrl moreAudio = getAudioUrl(fileId);
         return new Streamer(fileId, key, moreAudio);
     }
@@ -117,6 +117,13 @@ public class CdnManager {
         }
     }
 
+    public static class CdnException extends Exception {
+
+        CdnException(@NotNull String message) {
+            super(message);
+        }
+    }
+
     public static class Streamer implements GeneralAudioStream {
         private final ByteString fileId;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -129,7 +136,7 @@ public class CdnManager {
         private final int chunks;
         private final InternalStream internalStream;
 
-        private Streamer(@NotNull ByteString fileId, byte[] key, AudioUrl moreAudio) throws IOException {
+        private Streamer(@NotNull ByteString fileId, byte[] key, AudioUrl moreAudio) throws IOException, CdnException {
             this.fileId = fileId;
             this.audioDecrypt = new AudioDecrypt(key);
             this.loader = new CdnLoader(moreAudio);
@@ -137,11 +144,11 @@ public class CdnManager {
             CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
             String contentRange = resp.headers.get("Content-Range");
             if (contentRange == null)
-                throw new IllegalStateException("NOOOOOOO!"); // FIXME
+                throw new CdnException("Missing Content-Range header!");
 
             String[] split = Utils.split(contentRange, '/');
             size = Integer.parseInt(split[1]);
-            chunks = size / CHUNK_SIZE;
+            chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
@@ -155,6 +162,8 @@ public class CdnManager {
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
+
+            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, fileId: %s", chunkIndex, chunks, loader.moreAudio.host, Utils.bytesToHex(fileId)));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -184,9 +193,12 @@ public class CdnManager {
             }
 
             @NotNull
-            public synchronized Response request(int rangeStart, int rangeEnd) throws IOException {
-                LOGGER.trace(String.format("Sending request for %d to %d", rangeStart, rangeEnd));
+            public synchronized Response request(int chunk) throws IOException, CdnException {
+                return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1);
+            }
 
+            @NotNull
+            public synchronized Response request(int rangeStart, int rangeEnd) throws IOException, CdnException {
                 moreAudio.sendRequest(out, rangeStart, rangeEnd);
 
                 NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
@@ -196,7 +208,7 @@ public class CdnManager {
                 Map<String, String> headers = NetUtils.parseHeaders(in);
                 String contentLengthStr = headers.get("Content-Length");
                 if (contentLengthStr == null)
-                    throw new IllegalStateException("OH NO!"); // FIXME
+                    throw new CdnException("Missing Content-Length header!");
 
                 int contentLength = Integer.parseInt(contentLengthStr);
                 byte[] buffer = new byte[contentLength];
@@ -247,10 +259,10 @@ public class CdnManager {
             protected void requestChunkFromStream(int index) {
                 executorService.execute(() -> {
                     try {
-                        CdnLoader.Response resp = loader.request(index * CHUNK_SIZE, (index + 1) * CHUNK_SIZE - 1);
+                        CdnLoader.Response resp = loader.request(index);
                         writeChunk(resp.buffer, index);
-                    } catch (IOException e) {
-                        e.printStackTrace(); // FIXME
+                    } catch (IOException | CdnException ex) {
+                        ex.printStackTrace(); // FIXME
                     }
                 });
             }

@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
@@ -41,10 +42,10 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
     }
 
-    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
+    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         listener.startedLoading(this);
 
-        StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()));
+        StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdn());
         track = stream.track;
 
         if (stopped) return;
@@ -168,7 +169,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
                             try {
                                 load(id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
-                            } catch (IOException | MercuryClient.MercuryException ex) {
+                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                                 listener.loadingError(TrackHandler.this, id, ex);
                             }
                             break;
