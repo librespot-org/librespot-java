@@ -90,8 +90,6 @@ public class CdnManager {
         private AudioUrl(@NotNull String str) throws MalformedURLException {
             URL url = new URL(str);
 
-            System.out.println("URL: " + url);
-
             this.host = url.getHost();
             this.port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
             this.path = url.getPath() + "?" + url.getQuery();
@@ -135,7 +133,6 @@ public class CdnManager {
             this.fileId = fileId;
             this.audioDecrypt = new AudioDecrypt(key);
             this.loader = new CdnLoader(moreAudio);
-            this.internalStream = new InternalStream();
 
             CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
             String contentRange = resp.headers.get("Content-Range");
@@ -146,24 +143,18 @@ public class CdnManager {
             size = Integer.parseInt(split[1]);
             chunks = size / CHUNK_SIZE;
 
-            System.out.println("SIZE: " + size);
-            System.out.println("CHUNKS: " + chunks);
-
             available = new boolean[chunks];
             requested = new boolean[chunks];
 
             buffer = new byte[chunks][CHUNK_SIZE];
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
+            this.internalStream = new InternalStream();
             writeChunk(resp.buffer, 0);
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
-
-            // in.readFully(buffer[chunkIndex]);
-
-            System.out.println("LENGTH: " + buffer[chunkIndex].length);
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -203,8 +194,6 @@ public class CdnManager {
                     throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
 
                 Map<String, String> headers = NetUtils.parseHeaders(in);
-                System.out.println(headers);
-
                 String contentLengthStr = headers.get("Content-Length");
                 if (contentLengthStr == null)
                     throw new IllegalStateException("OH NO!"); // FIXME
@@ -226,7 +215,6 @@ public class CdnManager {
                 }
             }
         }
-
 
         private class InternalStream extends AbsChunckedInputStream {
 

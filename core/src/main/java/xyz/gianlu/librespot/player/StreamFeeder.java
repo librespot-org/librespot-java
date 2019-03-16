@@ -26,7 +26,7 @@ public class StreamFeeder {
     private final Session session;
     private final CacheManager cacheManager;
 
-    public StreamFeeder(@NotNull Session session, @NotNull CacheManager cacheManager) {
+    public StreamFeeder(@NotNull Session session, @Nullable CacheManager cacheManager) {
         this.session = session;
         this.cacheManager = cacheManager;
     }
@@ -51,7 +51,16 @@ public class StreamFeeder {
     public LoadedStream loadWithCdn(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException {
         byte[] key = session.audioKey().getAudioKey(track, file);
         CdnManager.Streamer streamer = session.cdn().stream(file.getFileId(), key);
-        return new LoadedStream(track, streamer, null /* TODO: Missing normalization data */);
+        InputStream in = streamer.stream();
+
+        NormalizationData normalizationData = NormalizationData.read(in);
+        LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
+                normalizationData.track_gain_db, normalizationData.track_peak, normalizationData.album_gain_db, normalizationData.album_peak));
+
+        if (in.skip(0xa7) != 0xa7)
+            throw new IOException("Couldn't skip 0xa7 bytes!");
+
+        return new LoadedStream(track, streamer, normalizationData);
     }
 
     @NotNull

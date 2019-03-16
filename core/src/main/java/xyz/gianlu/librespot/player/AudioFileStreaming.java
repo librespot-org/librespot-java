@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
@@ -29,10 +30,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    AudioFileStreaming(@NotNull Session session, @NotNull CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
+    AudioFileStreaming(@NotNull Session session, @Nullable CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
         this.session = session;
         this.fileId = file.getFileId();
-        this.cacheHandler = cacheManager.handler(fileId);
+        this.cacheHandler = cacheManager != null ? cacheManager.handler(fileId) : null;
         this.key = key;
     }
 
