@@ -35,12 +35,15 @@ public class ApResolver {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.connect();
 
-        JsonObject obj = PARSER.parse(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
-        JsonArray aps = obj.getAsJsonArray("accesspoint");
-
-        List<String> list = new ArrayList<>(aps.size());
-        for (JsonElement ap : aps) list.add(ap.getAsString());
-        return list;
+        try {
+            JsonObject obj = PARSER.parse(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+            JsonArray aps = obj.getAsJsonArray("accesspoint");
+            List<String> list = new ArrayList<>(aps.size());
+            for (JsonElement ap : aps) list.add(ap.getAsString());
+            return list;
+        } finally {
+            conn.disconnect();
+        }
     }
 
     @NotNull
