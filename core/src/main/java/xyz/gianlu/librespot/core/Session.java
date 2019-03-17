@@ -25,6 +25,7 @@ import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
@@ -676,14 +677,16 @@ public class Session implements Closeable {
                 switch (cmd) {
                     case Ping:
                         try {
+                            long serverTime = new BigInteger(packet.payload).longValue();
+                            TimeProvider.init((int) (serverTime - System.currentTimeMillis() / 1000));
                             send(Packet.Type.Pong, packet.payload);
-                            LOGGER.trace("Handled Ping");
+                            LOGGER.trace(String.format("Handled Ping {payload: %s}", Utils.bytesToHex(packet.payload)));
                         } catch (IOException ex) {
                             LOGGER.fatal("Failed sending Pong!", ex);
                         }
                         break;
                     case PongAck:
-                        LOGGER.trace("Handled PongAck");
+                        LOGGER.trace(String.format("Handled PongAck {payload: %s}", Utils.bytesToHex(packet.payload)));
                         break;
                     case CountryCode:
                         LOGGER.info("Received CountryCode: " + new String(packet.payload));

@@ -80,13 +80,6 @@
             <version>3.5.5</version>
         </dependency>
 
-        <!-- Commons Net (NTP) -->
-        <dependency>
-            <groupId>commons-net</groupId>
-            <artifactId>commons-net</artifactId>
-            <version>3.6</version>
-        </dependency>
-
         <!-- JDBC (cache) -->
         <dependency>
             <groupId>org.xerial</groupId>

@@ -1,11 +1,7 @@
 package xyz.gianlu.librespot.core;
 
-import org.apache.commons.net.ntp.NTPUDPClient;
-import org.apache.commons.net.ntp.TimeInfo;
 import org.apache.log4j.Logger;
 
-import java.io.IOException;
-import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -18,15 +14,10 @@ public final class TimeProvider {
     private TimeProvider() {
     }
 
-    public static void init() throws IOException {
+    public static void init(int delta) {
         synchronized (offset) {
-            NTPUDPClient client = new NTPUDPClient();
-            client.open();
-            TimeInfo info = client.getTime(InetAddress.getByName("time.google.com"));
-            info.computeDetails();
-            Long offsetValue = info.getOffset();
-            LOGGER.debug(String.format("Loaded time offset from NTP: %dms", offsetValue));
-            offset.set(offsetValue == null ? 0 : offsetValue);
+            offset.set(System.currentTimeMillis() + delta * 1000);
+            LOGGER.debug(String.format("Corrected time offset, delta: %ds", delta));
         }
     }
 
