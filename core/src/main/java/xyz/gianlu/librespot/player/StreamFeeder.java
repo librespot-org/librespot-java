@@ -24,11 +24,9 @@ import java.util.List;
 public class StreamFeeder {
     private static final Logger LOGGER = Logger.getLogger(StreamFeeder.class);
     private final Session session;
-    private final CacheManager cacheManager;
 
-    public StreamFeeder(@NotNull Session session, @Nullable CacheManager cacheManager) {
+    public StreamFeeder(@NotNull Session session) {
         this.session = session;
-        this.cacheManager = cacheManager;
     }
 
     @Nullable
@@ -48,32 +46,20 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream loadWithCdn(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
-        byte[] key = session.audioKey().getAudioKey(track, file);
-        CdnManager.Streamer streamer = session.cdn().stream(file.getFileId(), key);
-        InputStream in = streamer.stream();
-
-        NormalizationData normalizationData = NormalizationData.read(in);
-        LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
-                normalizationData.track_gain_db, normalizationData.track_peak, normalizationData.album_gain_db, normalizationData.album_peak));
-
-        if (in.skip(0xa7) != 0xa7)
-            throw new IOException("Couldn't skip 0xa7 bytes!");
-
-        return new LoadedStream(track, streamer, normalizationData);
-    }
-
-    @NotNull
     public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
-        if (cdn) return loadWithCdn(track, file);
-
-        session.send(Packet.Type.Unknown_0x4f, new byte[0]);
-
+        GeneralAudioStream generalStream;
         byte[] key = session.audioKey().getAudioKey(track, file);
-        AudioFileStreaming audioStreaming = new AudioFileStreaming(session, cacheManager, file, key);
-        audioStreaming.open();
+        if (cdn) {
+            generalStream = session.cdn().stream(file.getFileId(), key);
+        } else {
+            session.send(Packet.Type.Unknown_0x4f, new byte[0]);
 
-        InputStream in = audioStreaming.stream();
+            AudioFileStreaming stream = new AudioFileStreaming(session, file, key);
+            stream.open();
+            generalStream = stream;
+        }
+
+        InputStream in = generalStream.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
         LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
                 normalizationData.track_gain_db, normalizationData.track_peak, normalizationData.album_gain_db, normalizationData.album_peak));
@@ -81,7 +67,7 @@ public class StreamFeeder {
         if (in.skip(0xa7) != 0xa7)
             throw new IOException("Couldn't skip 0xa7 bytes!");
 
-        return new LoadedStream(track, audioStreaming, normalizationData);
+        return new LoadedStream(track, generalStream, normalizationData);
     }
 
     @NotNull

@@ -210,6 +210,15 @@ public class Utils {
     }
 
     @NotNull
+    public static String byteToHex(byte b) {
+        char[] hexChars = new char[2];
+        int v = b & 0xFF;
+        hexChars[0] = hexArray[v >>> 4];
+        hexChars[1] = hexArray[v & 0x0F];
+        return new String(hexChars);
+    }
+
+    @NotNull
     public static String artistsToString(List<Metadata.Artist> artists) {
         StringBuilder builder = new StringBuilder();
         boolean first = true;

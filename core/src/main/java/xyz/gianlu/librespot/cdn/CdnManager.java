@@ -3,16 +3,19 @@ package xyz.gianlu.librespot.cdn;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
-import xyz.gianlu.librespot.player.AudioDecrypt;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.*;
 
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -58,7 +61,7 @@ public class CdnManager {
     @NotNull
     public Streamer stream(@NotNull ByteString fileId, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
         AudioUrl moreAudio = getAudioUrl(fileId);
-        return new Streamer(fileId, key, moreAudio);
+        return new Streamer(fileId, key, moreAudio, session.cache());
     }
 
     @NotNull
@@ -132,7 +135,7 @@ public class CdnManager {
         }
     }
 
-    public static class Streamer implements GeneralAudioStream {
+    public static class Streamer implements GeneralAudioStream, GeneralWritableStream {
         private final ByteString fileId;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
         private final AudioDecrypt audioDecrypt;
@@ -143,20 +146,44 @@ public class CdnManager {
         private final CdnLoader loader;
         private final int chunks;
         private final InternalStream internalStream;
+        private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull ByteString fileId, byte[] key, AudioUrl moreAudio) throws IOException, CdnException {
+        private Streamer(@NotNull ByteString fileId, byte[] key, @NotNull AudioUrl moreAudio, @Nullable CacheManager cache) throws IOException, CdnException {
             this.fileId = fileId;
             this.audioDecrypt = new AudioDecrypt(key);
             this.loader = new CdnLoader(moreAudio);
+            this.cacheHandler = cache != null ? cache.forFileId(fileId) : null;
 
-            CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
-            String contentRange = resp.headers.get("Content-Range");
-            if (contentRange == null)
-                throw new CdnException("Missing Content-Range header!");
+            byte[] firstChunk;
+            try {
+                List<CacheManager.Header> headers;
+                if (cacheHandler == null || (headers = cacheHandler.getAllHeaders()).isEmpty()) {
+                    CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
+                    String contentRange = resp.headers.get("Content-Range");
+                    if (contentRange == null)
+                        throw new CdnException("Missing Content-Range header!");
 
-            String[] split = Utils.split(contentRange, '/');
-            size = Integer.parseInt(split[1]);
-            chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
+                    String[] split = Utils.split(contentRange, '/');
+                    size = Integer.parseInt(split[1]);
+                    chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
+
+                    firstChunk = resp.buffer;
+
+                    if (cacheHandler != null)
+                        cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
+                } else {
+                    CacheManager.Header sizeHeader = CacheManager.Header.find(headers, AudioFileFetch.HEADER_SIZE);
+                    if (sizeHeader == null)
+                        throw new CdnException("Missing size header!");
+
+                    size = ByteBuffer.wrap(sizeHeader.value).getInt() * 4;
+                    chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                    firstChunk = cacheHandler.readChunk(0);
+                }
+            } catch (SQLException ex) {
+                throw new IOException(ex);
+            }
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
@@ -165,13 +192,22 @@ public class CdnManager {
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
             this.internalStream = new InternalStream();
-            writeChunk(resp.buffer, 0);
+            writeChunk(firstChunk, 0, false);
         }
 
-        void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
+        @Override
+        public void writeChunk(@NotNull byte[] chunk, int chunkIndex, boolean cached) throws IOException {
             if (internalStream.isClosed()) return;
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, fileId: %s", chunkIndex, chunks, loader.moreAudio.host, Utils.bytesToHex(fileId)));
+            if (!cached && cacheHandler != null) {
+                try {
+                    cacheHandler.writeChunk(chunk, chunkIndex);
+                } catch (SQLException ex) {
+                    throw new IOException(ex);
+                }
+            }
+
+            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.moreAudio.host, cached, Utils.bytesToHex(fileId)));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -185,6 +221,19 @@ public class CdnManager {
         @Override
         public @NotNull String getFileIdHex() {
             return Utils.bytesToHex(fileId);
+        }
+
+        private void requestChunk(int index) {
+            try {
+                if (cacheHandler != null && cacheHandler.hasChunk(index)) {
+                    cacheHandler.readChunk(index, this);
+                } else {
+                    CdnLoader.Response resp = loader.request(index);
+                    writeChunk(resp.buffer, index, false);
+                }
+            } catch (SQLException | IOException | CdnException ex) {
+                LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+            }
         }
 
         private static class CdnLoader {
@@ -265,14 +314,7 @@ public class CdnManager {
 
             @Override
             protected void requestChunkFromStream(int index) {
-                executorService.execute(() -> {
-                    try {
-                        CdnLoader.Response resp = loader.request(index);
-                        writeChunk(resp.buffer, index);
-                    } catch (IOException | CdnException ex) {
-                        LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
-                    }
-                });
+                executorService.execute(() -> requestChunk(index));
             }
         }
     }

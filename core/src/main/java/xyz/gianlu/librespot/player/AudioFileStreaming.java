@@ -3,7 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
@@ -12,6 +12,8 @@ import xyz.gianlu.librespot.core.Session;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,10 +32,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    AudioFileStreaming(@NotNull Session session, @Nullable CacheManager cacheManager, @NotNull Metadata.AudioFile file, byte[] key) {
+    AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
         this.session = session;
         this.fileId = file.getFileId();
-        this.cacheHandler = cacheManager != null ? cacheManager.handler(fileId) : null;
+        this.cacheHandler = session.cache().forFileId(fileId);
         this.key = key;
     }
 
@@ -50,15 +52,41 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
-        if (cacheHandler != null && cacheHandler.has(index)) cacheHandler.requestChunk(index, file);
-        else session.channel().requestChunk(fileId, index, file);
+        if (cacheHandler == null || !tryCacheChunk(index))
+            session.channel().requestChunk(fileId, index, file);
+    }
+
+    private boolean tryCacheChunk(int index) throws IOException {
+        try {
+            if (!cacheHandler.hasChunk(index)) return false;
+            cacheHandler.readChunk(index, this);
+            return true;
+        } catch (SQLException ex) {
+            throw new IOException(ex);
+        }
+    }
+
+    private boolean tryCacheHeaders(@NotNull AudioFileFetch fetch) throws IOException {
+        try {
+            List<CacheManager.Header> headers = cacheHandler.getAllHeaders();
+            if (headers.isEmpty())
+                return false;
+
+            for (CacheManager.Header header : headers)
+                fetch.writeHeader(header.id, header.value, true);
+
+            return true;
+        } catch (SQLException ex) {
+            throw new IOException(ex);
+        }
     }
 
     @NotNull
     private AudioFileFetch requestHeaders() throws IOException {
         AudioFileFetch fetch = new AudioFileFetch(cacheHandler);
-        if (cacheHandler != null && cacheHandler.hasHeaders()) cacheHandler.requestHeaders(fetch);
-        else requestChunk(fileId, 0, fetch);
+        if (cacheHandler == null || !tryCacheHeaders(fetch))
+            requestChunk(fileId, 0, fetch);
+
         fetch.waitChunk();
         return fetch;
     }
@@ -84,8 +112,13 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void writeChunk(byte[] buffer, int chunkIndex, boolean cached) throws IOException {
-        if (!cached && cacheHandler != null)
-            cacheHandler.write(buffer, chunkIndex);
+        if (!cached && cacheHandler != null) {
+            try {
+                cacheHandler.writeChunk(buffer, chunkIndex);
+            } catch (SQLException ex) {
+                throw new IOException(ex);
+            }
+        }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
         LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, getFileIdHex()));
@@ -93,24 +126,6 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void writeHeader(byte id, byte[] bytes, boolean cached) {
-    }
-
-    @Override
-    public void cacheFailedHeader(@NotNull AudioFile file) {
-    }
-
-    @Override
-    public void cacheFailedChunk(int index, @NotNull AudioFile file) {
-        try {
-            session.channel().requestChunk(fileId, index, file);
-        } catch (IOException ex) {
-            LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
-        }
-    }
-
-    @Override
-    public void headerEnd(boolean cached) {
-        // Never called
     }
 
     @Override

@@ -35,24 +35,17 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private final SpotifyIrc spirc;
     private final StateWrapper state;
     private final Configuration conf;
-    private final CacheManager cacheManager;
     private final LinesHolder lines;
     private TracksProvider tracksProvider;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
 
-    public Player(@NotNull Player.Configuration conf, @NotNull CacheManager.CacheConfiguration cacheConfiguration, @NotNull Session session) {
+    public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.spirc = session.spirc();
         this.state = new StateWrapper(initState());
         this.lines = new LinesHolder();
-
-        try {
-            this.cacheManager = new CacheManager(cacheConfiguration);
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
 
         spirc.addListener(this);
     }
@@ -332,7 +325,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             int index = tracksProvider.getNextTrackIndex(false);
             if (index < state.getTrackCount()) {
                 TrackId next = tracksProvider.getTrackAt(index);
-                preloadTrackHandler = new TrackHandler(session, lines, cacheManager, conf, this);
+                preloadTrackHandler = new TrackHandler(session, lines, conf, this);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
@@ -369,7 +362,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler = null;
             trackHandler.sendSeek(state.getPositionMs());
         } else {
-            trackHandler = new TrackHandler(session, lines, cacheManager, conf, this);
+            trackHandler = new TrackHandler(session, lines, conf, this);
             trackHandler.sendLoad(id, play, state.getPositionMs());
         }
 
@@ -474,7 +467,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;
@@ -484,8 +477,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler.close();
             preloadTrackHandler = null;
         }
-
-        cacheManager.close();
     }
 
     public interface Configuration {

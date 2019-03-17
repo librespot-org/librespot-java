@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
@@ -60,6 +61,7 @@ public class Session implements Closeable {
     private ChannelManager channelManager;
     private TokenProvider tokenProvider;
     private CdnManager cdnManager;
+    private CacheManager cacheManager;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -209,9 +211,10 @@ public class Session implements Closeable {
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
         cdnManager = new CdnManager(this);
+        cacheManager = new CacheManager(inner.configuration);
         spirc = new SpotifyIrc(this);
         spirc.sayHello();
-        player = new Player(inner.configuration, inner.configuration, this);
+        player = new Player(inner.configuration, this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
@@ -322,6 +325,13 @@ public class Session implements Closeable {
         waitAuthLock();
         if (audioKeyManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return audioKeyManager;
+    }
+
+    @NotNull
+    public CacheManager cache() {
+        waitAuthLock();
+        if (cacheManager == null) throw new IllegalStateException("Session isn't authenticated!");
+        return cacheManager;
     }
 
     @NotNull

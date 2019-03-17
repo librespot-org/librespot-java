@@ -136,7 +136,6 @@ public class ChannelManager extends PacketsManager {
                     file.writeHeader(headerId, headerData, false);
                 }
 
-                file.headerEnd(false);
                 header = false;
             } else {
                 byte[] bytes = new byte[payload.remaining()];

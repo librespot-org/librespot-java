@@ -1,24 +1,23 @@
 package xyz.gianlu.librespot.player;
 
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.BytesArrayList;
+import xyz.gianlu.librespot.cache.CacheManager;
 
-import java.io.ByteArrayOutputStream;
-import java.math.BigInteger;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 
 import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
  */
-class AudioFileFetch implements AudioFile {
+public class AudioFileFetch implements AudioFile {
+    public static final byte HEADER_SIZE = 0x3;
+    public static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
     private static final Logger LOGGER = Logger.getLogger(AudioFileFetch.class);
     private final CacheManager.Handler cache;
-    private final ByteArrayOutputStream headersId = new ByteArrayOutputStream();
-    private final BytesArrayList headersData = new BytesArrayList();
     private int size = -1;
     private int chunks = -1;
     private volatile boolean closed = false;
@@ -34,15 +33,18 @@ class AudioFileFetch implements AudioFile {
     }
 
     @Override
-    public synchronized void writeHeader(byte id, byte[] bytes, boolean cached) {
+    public synchronized void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException {
         if (closed) return;
 
         if (!cached && cache != null) {
-            headersId.write(id);
-            headersData.add(bytes);
+            try {
+                cache.setHeader(id, bytes);
+            } catch (SQLException ex) {
+                throw new IOException(ex);
+            }
         }
 
-        if (id == 0x3) {
+        if (id == HEADER_SIZE) {
             size = ByteBuffer.wrap(bytes).getInt();
             size *= 4;
             chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
@@ -51,30 +53,8 @@ class AudioFileFetch implements AudioFile {
     }
 
     @Override
-    public void cacheFailedHeader(@NotNull AudioFile file) {
-        LOGGER.fatal("Failed loading headers from cache!");
-    }
-
-    @Override
-    public synchronized void headerEnd(boolean cached) {
-        if (closed) return;
-
-        if (!cached && cache != null) {
-            headersId.write(CacheManager.BYTE_CREATED_AT);
-            headersData.add(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray());
-
-            cache.writeHeaders(headersId.toByteArray(), headersData.toArray(), (short) chunks);
-        }
-    }
-
-    @Override
     public void streamError(short code) {
         LOGGER.fatal(String.format("Stream error, code: %d", code));
-    }
-
-    @Override
-    public synchronized void cacheFailedChunk(int index, @NotNull AudioFile file) {
-        // Never called
     }
 
     synchronized void waitChunk() {

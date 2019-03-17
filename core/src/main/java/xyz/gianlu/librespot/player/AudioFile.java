@@ -1,23 +1,15 @@
 package xyz.gianlu.librespot.player;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * @author Gianlu
  */
-public interface AudioFile extends Closeable {
+public interface AudioFile extends Closeable, GeneralWritableStream {
     void writeChunk(byte[] chunk, int chunkIndex, boolean cached) throws IOException;
 
-    void cacheFailedChunk(int index, @NotNull AudioFile file);
-
-    void writeHeader(byte id, byte[] bytes, boolean cached);
-
-    void cacheFailedHeader(@NotNull AudioFile file);
-
-    void headerEnd(boolean cached);
+    void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException;
 
     void streamError(short code);
 }

@@ -71,6 +71,8 @@ public abstract class AbsChunckedInputStream extends InputStream {
     public void waitFor(int chunkIndex) throws IOException {
         if (isClosed()) return;
 
+        if (availableChunks()[chunkIndex]) return;
+
         synchronized (waitForChunk) {
             try {
                 waitForChunk.set(chunkIndex);
@@ -105,8 +107,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
             }
         }
 
-        if (wait && !availableChunks()[chunk])
-            waitFor(chunk);
+        if (wait) waitFor(chunk);
     }
 
     @Override

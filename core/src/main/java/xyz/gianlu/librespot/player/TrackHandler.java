@@ -31,12 +31,12 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private Metadata.Track track;
     private volatile boolean stopped = false;
 
-    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull CacheManager cacheManager, @NotNull Player.Configuration conf, @NotNull Listener listener) {
+    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
         this.lines = lines;
         this.conf = conf;
         this.listener = listener;
-        this.feeder = new StreamFeeder(session, cacheManager);
+        this.feeder = new StreamFeeder(session);
 
         Looper looper;
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
