@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 
+import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+
 /**
  * @author Gianlu
  */
@@ -22,7 +24,7 @@ public class AudioDecrypt {
     }
 
     public synchronized void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
-        int pos = ChannelManager.CHUNK_SIZE * chunkIndex;
+        int pos = CHUNK_SIZE * chunkIndex;
 
         if (pos % 16 != 0) throw new IllegalArgumentException("Position not multiple of 16: " + pos);
 
@@ -34,7 +36,7 @@ public class AudioDecrypt {
                 int endBytes = Math.min(i + 4096, in.length);
                 int count = cipher.doFinal(in, 0, endBytes, out, 0);
                 if (count != endBytes)
-                    throw new IOException(String.format("Could process all data, actual: %d, expected: %d", count, endBytes));
+                    throw new IOException(String.format("Couldn't process all data, actual: %d, expected: %d", count, endBytes));
             }
         } catch (GeneralSecurityException ex) {
             throw new IOException(ex);

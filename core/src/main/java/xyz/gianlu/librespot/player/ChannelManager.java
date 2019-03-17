@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Gianlu
  */
 public class ChannelManager extends PacketsManager {
-    public static final int CHUNK_SIZE = 0x20000;
+    public static final int CHUNK_SIZE = 128 * 1024;
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);

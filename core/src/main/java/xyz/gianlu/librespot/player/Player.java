@@ -487,6 +487,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         int initialVolume();
 
         boolean autoplayEnabled();
+
+        boolean useCdn();
     }
 
     private class StateWrapper {

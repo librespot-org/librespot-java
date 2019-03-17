@@ -54,6 +54,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean useCdn() {
+        return true;
+    }
+
+    @Override
     public boolean preloadEnabled() {
         return true;
     }
