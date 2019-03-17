@@ -188,21 +188,19 @@ public class CacheManager implements Closeable {
         }
 
         public void setHeader(byte id, byte[] value) throws SQLException {
-            updateTimestamp();
-
             try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
                 statement.setString(2, Utils.byteToHex(id));
                 statement.setString(3, Utils.bytesToHex(value));
 
                 statement.executeUpdate();
+            } finally {
+                updateTimestamp();
             }
         }
 
         @NotNull
         public List<Header> getAllHeaders() throws SQLException {
-            updateTimestamp();
-
             try (PreparedStatement statement = table.prepareStatement("SELECT id, value FROM Headers WHERE fileId=?")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
 
@@ -217,8 +215,6 @@ public class CacheManager implements Closeable {
 
         @Nullable
         public byte[] getHeader(byte id) throws SQLException {
-            updateTimestamp();
-
             try (PreparedStatement statement = table.prepareStatement("SELECT value FROM Headers WHERE fileId=? AND id=? LIMIT 1")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
                 statement.setString(2, Utils.byteToHex(id));
@@ -264,8 +260,6 @@ public class CacheManager implements Closeable {
         }
 
         public void writeChunk(byte[] buffer, int index) throws IOException, SQLException {
-            updateTimestamp();
-
             io.seek(index * CHUNK_SIZE);
             io.write(buffer);
 
@@ -275,6 +269,8 @@ public class CacheManager implements Closeable {
                 statement.setInt(3, 1);
 
                 statement.executeUpdate();
+            } finally {
+                updateTimestamp();
             }
         }
 
