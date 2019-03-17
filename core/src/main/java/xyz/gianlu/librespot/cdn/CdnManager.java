@@ -15,7 +15,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,7 +34,7 @@ public class CdnManager {
     }
 
     @NotNull
-    private InputStream getHead(@NotNull ByteString fileId) throws IOException { // TODO: Use this
+    private InputStream getHead(@NotNull ByteString fileId) throws IOException {
         Socket socket = new Socket();
         socket.connect(new InetSocketAddress("heads-fa.spotify.com", 80));
 
@@ -156,8 +155,8 @@ public class CdnManager {
 
             byte[] firstChunk;
             try {
-                List<CacheManager.Header> headers;
-                if (cacheHandler == null || (headers = cacheHandler.getAllHeaders()).isEmpty()) {
+                byte[] sizeHeader;
+                if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
                     CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
                     String contentRange = resp.headers.get("Content-Range");
                     if (contentRange == null)
@@ -172,11 +171,7 @@ public class CdnManager {
                     if (cacheHandler != null)
                         cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
                 } else {
-                    CacheManager.Header sizeHeader = CacheManager.Header.find(headers, AudioFileFetch.HEADER_SIZE);
-                    if (sizeHeader == null)
-                        throw new CdnException("Missing size header!");
-
-                    size = ByteBuffer.wrap(sizeHeader.value).getInt() * 4;
+                    size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
                     chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
                     firstChunk = cacheHandler.readChunk(0);
@@ -203,7 +198,7 @@ public class CdnManager {
                 try {
                     cacheHandler.writeChunk(chunk, chunkIndex);
                 } catch (SQLException ex) {
-                    throw new IOException(ex);
+                    LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
                 }
             }
 

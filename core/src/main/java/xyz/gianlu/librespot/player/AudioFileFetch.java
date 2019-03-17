@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -40,7 +41,8 @@ public class AudioFileFetch implements AudioFile {
             try {
                 cache.setHeader(id, bytes);
             } catch (SQLException ex) {
-                throw new IOException(ex);
+                if (id == HEADER_SIZE) throw new IOException(ex);
+                else LOGGER.warn(String.format("Failed writing header to cache! {id: %s}", Utils.byteToHex(id)));
             }
         }
 

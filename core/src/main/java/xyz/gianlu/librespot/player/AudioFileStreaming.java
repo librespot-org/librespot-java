@@ -116,7 +116,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 cacheHandler.writeChunk(buffer, chunkIndex);
             } catch (SQLException ex) {
-                throw new IOException(ex);
+                LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
             }
         }
 
