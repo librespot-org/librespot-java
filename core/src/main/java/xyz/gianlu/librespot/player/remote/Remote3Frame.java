@@ -36,6 +36,7 @@ public class Remote3Frame {
     public final PlayOptions playOptions;
     public final Options options;
     public final JsonPrimitive value;
+    public final Track track;
 
     public Remote3Frame(@NotNull JsonObject obj) {
         playbackId = optString(obj, "playback_id", null);
@@ -57,6 +58,7 @@ public class Remote3Frame {
         playOptions = PlayOptions.opt(obj, "play_options");
         options = Options.opt(obj, "options");
         value = obj.getAsJsonPrimitive("value");
+        track = Track.opt(obj, "track");
     }
 
     @Contract("_, _, !null -> !null")
@@ -399,23 +401,6 @@ public class Remote3Frame {
                 for (JsonElement elm : array)
                     tracks.add(new Track(elm.getAsJsonObject()));
             }
-
-            public static class Track {
-                public final String uri;
-                public final String uid;
-                private TrackId id;
-
-                Track(@NotNull JsonObject obj) {
-                    uri = optString(obj, "uri", null);
-                    uid = optString(obj, "uid", null);
-                }
-
-                @NotNull
-                public TrackId id() {
-                    if (id == null) id = TrackId.fromUri(uri);
-                    return id;
-                }
-            }
         }
 
         public static class Metadata extends HashMap<String, String> {
@@ -433,6 +418,32 @@ public class Remote3Frame {
                 if (elm == null || !elm.isJsonObject()) return null;
                 return new Metadata(elm.getAsJsonObject());
             }
+        }
+    }
+
+    public static class Track {
+        public final String uri;
+        public final String uid;
+        public final JsonObject metadata;
+        private TrackId id;
+
+        Track(@NotNull JsonObject obj) {
+            uri = optString(obj, "uri", null);
+            uid = optString(obj, "uid", null);
+            metadata = obj.getAsJsonObject("metadata");
+        }
+
+        @Nullable
+        public static Track opt(@NotNull JsonObject obj, @NotNull String key) {
+            JsonElement elm = obj.get(key);
+            if (elm == null || !elm.isJsonObject()) return null;
+            return new Track(elm.getAsJsonObject());
+        }
+
+        @NotNull
+        public TrackId id() {
+            if (id == null) id = TrackId.fromUri(uri);
+            return id;
         }
     }
 }

@@ -100,8 +100,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 }
                 break;
             case kMessageTypeLoad:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.Play)
+                if (frame == null)
+                    break;
+
+                if (frame.endpoint == Remote3Frame.Endpoint.Play) {
                     handleLoad(frame);
+                } else if (frame.endpoint == Remote3Frame.Endpoint.SkipNext) {
+                    handleSkipNext(frame);
+                }
                 break;
             case kMessageTypePlay:
                 if (frame != null && (frame.endpoint == Remote3Frame.Endpoint.Play ||
@@ -164,6 +170,19 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 }
                 break;
         }
+    }
+
+    private void handleSkipNext(@NotNull Remote3Frame frame) {
+        if (frame.track == null) {
+            LOGGER.fatal("Received invalid request, track is missing!");
+            return;
+        }
+
+        state.seekTo(frame.track.uri);
+        state.setPositionMs(0);
+        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+
+        loadTrack(true);
     }
 
     @Override
@@ -524,6 +543,23 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setShuffle(shuffle && (tracksProvider == null || tracksProvider.canShuffle()));
         }
 
+        void seekTo(@Nullable String uri) {
+            int pos = -1;
+            List<Spirc.TrackRef> tracks = state.getTrackList();
+            for (int i = 0; i < tracks.size(); i++) {
+                Spirc.TrackRef track = tracks.get(i);
+                if (track.getUri().equals(uri)) {
+                    pos = i;
+                    break;
+                }
+            }
+
+            if (pos == -1)
+                pos = 0;
+
+            state.setPlayingTrackIndex(pos);
+        }
+
         void update(@NotNull Remote3Frame frame) {
             if (frame.context == null)
                 throw new IllegalArgumentException("Invalid frame received!");
@@ -541,9 +577,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             if (pageIndex == -1) pageIndex = 0;
 
             int index = -1;
-            List<Remote3Frame.Context.Page.Track> tracks = frame.context.pages.get(pageIndex).tracks;
+            List<Remote3Frame.Track> tracks = frame.context.pages.get(pageIndex).tracks;
             for (int i = 0; i < tracks.size(); i++) {
-                Remote3Frame.Context.Page.Track track = tracks.get(i);
+                Remote3Frame.Track track = tracks.get(i);
                 state.addTrack(Spirc.TrackRef.newBuilder()
                         .setGid(ByteString.copyFrom(track.id().getGid()))
                         .setUri(track.uri)
