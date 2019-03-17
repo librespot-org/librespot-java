@@ -62,7 +62,7 @@ public class CdnManager {
     }
 
     @NotNull
-    private AudioUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException {
+    private AudioUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
         HttpURLConnection conn = (HttpURLConnection) new URL(String.format(STORAGE_RESOLVE_AUDIO_URL, Utils.bytesToHex(fileId))).openConnection();
         conn.addRequestProperty("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         conn.connect();
@@ -79,8 +79,12 @@ public class CdnManager {
                 protoBytes = bytesOut.toByteArray();
             }
 
-            StorageResolve.InteractiveAudioFiles proto = StorageResolve.InteractiveAudioFiles.parseFrom(protoBytes);
-            return new AudioUrl(proto.getUris(session.random().nextInt(proto.getUrisCount())));
+            StorageResolve.StorageResolveResponse proto = StorageResolve.StorageResolveResponse.parseFrom(protoBytes);
+            if (proto.getResult() == StorageResolve.StorageResolveResponse.Result.CDN) {
+                return new AudioUrl(proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount())));
+            } else {
+                throw new CdnException(String.format("Could not retrieve CDN url! {result: %s}", proto.getResult()));
+            }
         } finally {
             conn.disconnect();
         }

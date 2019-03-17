@@ -1,7 +1,13 @@
 syntax = "proto2";
 
-message InteractiveAudioFiles {
-    // optional uint32 unknown = 1;
-    repeated string uris = 2;
-    optional bytes file_id = 4;
+message StorageResolveResponse {
+    enum Result {
+        CDN = 0;
+        STORAGE = 1;
+        RESTRICTED = 3;
+    }
+
+    optional Result result = 1;
+    repeated string cdnurl = 2;
+    optional bytes fileid = 4;
 }
