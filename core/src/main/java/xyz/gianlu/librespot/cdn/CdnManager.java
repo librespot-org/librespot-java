@@ -270,7 +270,7 @@ public class CdnManager {
                         CdnLoader.Response resp = loader.request(index);
                         writeChunk(resp.buffer, index);
                     } catch (IOException | CdnException ex) {
-                        ex.printStackTrace(); // FIXME
+                        LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
                     }
                 });
             }
