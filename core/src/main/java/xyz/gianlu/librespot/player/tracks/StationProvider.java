@@ -78,8 +78,7 @@ public class StationProvider implements TracksProvider {
             throw new IOException("Missing context URI!");
 
         MercuryRequests.ResolvedContextWrapper json = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
-        JsonObject firstPage = json.pages().get(0).getAsJsonObject();
-        nextPageUri = firstPage.get("next_page_url").getAsString();
+        nextPageUri = json.pages().get(0).nextPageUrl;
         LOGGER.trace("Next page URI: " + nextPageUri);
     }
 

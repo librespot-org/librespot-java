@@ -1,9 +1,5 @@
 package xyz.gianlu.librespot.player.tracks;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Spirc;
@@ -12,6 +8,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.remote.Remote3Track;
 
 import java.io.IOException;
 import java.util.*;
@@ -64,10 +61,10 @@ public class PlaylistProvider implements TracksProvider {
 
     public void unshuffleTracks() {
         if (shuffleSeed == 0 && !conf.defaultUnshuffleBehaviour() && state.hasContextUri()) {
-            JsonArray tracks;
+            List<Remote3Track> tracks;
             try {
                 MercuryRequests.ResolvedContextWrapper context = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
-                tracks = context.pages().get(0).getAsJsonObject().getAsJsonArray("tracks");
+                tracks = context.pages().get(0).tracks;
             } catch (IOException | MercuryClient.MercuryException ex) {
                 LOGGER.fatal("Failed requesting context!", ex);
                 return;
@@ -80,14 +77,9 @@ public class PlaylistProvider implements TracksProvider {
             String currentTrackUri = currentTrackId.toSpotifyUri();
             boolean add = false;
             int count = 80;
-            for (JsonElement elm : tracks) {
-                JsonObject track = elm.getAsJsonObject();
-                String uri = track.get("uri").getAsString();
-                if (add || uri.equals(currentTrackUri)) {
-                    rebuildState.add(Spirc.TrackRef.newBuilder()
-                            .setUri(uri)
-                            .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
-                            .build());
+            for (Remote3Track track : tracks) {
+                if (add || track.uri.equals(currentTrackUri)) {
+                    rebuildState.add(track.toTrackRef());
 
                     add = true;
                     count--;

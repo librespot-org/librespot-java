@@ -1,8 +1,13 @@
 package xyz.gianlu.librespot.common;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 
@@ -207,6 +212,44 @@ public class Utils {
         }
 
         return new String(hexChars);
+    }
+
+    @Contract("_, _, !null -> !null")
+    public static String optString(@NotNull JsonObject obj, @NotNull String key, @Nullable String fallback) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.getAsJsonPrimitive().isString()) return fallback;
+        return elm.getAsString();
+    }
+
+    public static long optLong(@NotNull JsonObject obj, @NotNull String key, long fallback) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.getAsJsonPrimitive().isNumber()) return fallback;
+        return elm.getAsLong();
+    }
+
+    public static boolean optBoolean(@NotNull JsonObject obj, @NotNull String key, boolean fallback) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.getAsJsonPrimitive().isBoolean()) return fallback;
+        return elm.getAsBoolean();
+    }
+
+    public static double optDouble(@NotNull JsonObject obj, @NotNull String key, double fallback) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.getAsJsonPrimitive().isNumber()) return fallback;
+        return elm.getAsDouble();
+    }
+
+    @Nullable
+    public static String[] optStringArray(@NotNull JsonObject obj, @NotNull String key) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.isJsonArray()) return null;
+
+        JsonArray a = elm.getAsJsonArray();
+        String[] str = new String[a.size()];
+        for (int i = 0; i < a.size(); i++)
+            str[i] = a.get(i).getAsString();
+
+        return str;
     }
 
     @NotNull

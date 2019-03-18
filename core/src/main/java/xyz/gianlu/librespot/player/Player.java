@@ -2,7 +2,6 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,6 +13,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
+import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
@@ -558,32 +558,47 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setContextUri(frame.context.uri);
             state.clearTrack();
 
-            String trackUid = null;
-            int pageIndex = -1;
-            if (frame.options != null && frame.options.skipTo != null) {
-                trackUid = frame.options.skipTo.trackUid;
-                pageIndex = frame.options.skipTo.pageIndex;
+            if (frame.context.pages != null) {
+                String trackUid = null;
+                int pageIndex = -1;
+                if (frame.options != null && frame.options.skipTo != null) {
+                    trackUid = frame.options.skipTo.trackUid;
+                    pageIndex = frame.options.skipTo.pageIndex;
+                }
+
+                if (pageIndex == -1) pageIndex = 0;
+
+                int index = -1;
+                List<Remote3Track> tracks = frame.context.pages.get(pageIndex).tracks;
+                for (int i = 0; i < tracks.size(); i++) {
+                    Remote3Track track = tracks.get(i);
+                    state.addTrack(track.toTrackRef());
+
+                    if (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid))
+                        index = i;
+                }
+
+                if (index == -1)
+                    index = 0;
+
+                state.setPlayingTrackIndex(index);
+            } else {
+                List<Remote3Track> tracks;
+                try {
+                    MercuryRequests.ResolvedContextWrapper context = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
+                    tracks = context.pages().get(0).tracks;
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    LOGGER.fatal("Failed resolving context: " + frame.context.uri, ex);
+                    return;
+                }
+
+                for (Remote3Track track : tracks) state.addTrack(track.toTrackRef());
+
+                if (frame.options != null && frame.options.skipTo != null)
+                    state.setPlayingTrackIndex(frame.options.skipTo.trackIndex);
+                else
+                    state.setPlayingTrackIndex(0);
             }
-
-            if (pageIndex == -1) pageIndex = 0;
-
-            int index = -1;
-            List<Remote3Frame.Track> tracks = frame.context.pages.get(pageIndex).tracks;
-            for (int i = 0; i < tracks.size(); i++) {
-                Remote3Frame.Track track = tracks.get(i);
-                state.addTrack(Spirc.TrackRef.newBuilder()
-                        .setGid(ByteString.copyFrom(track.id().getGid()))
-                        .setUri(track.uri)
-                        .build());
-
-                if (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid))
-                    index = i;
-            }
-
-            if (index == -1)
-                index = 0;
-
-            state.setPlayingTrackIndex(index);
 
             if (frame.options != null && frame.options.playerOptionsOverride != null) {
                 state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);

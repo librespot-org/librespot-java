@@ -1,15 +1,12 @@
 package xyz.gianlu.librespot.player.remote;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.common.Utils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -36,68 +33,31 @@ public class Remote3Frame {
     public final PlayOptions playOptions;
     public final Options options;
     public final JsonPrimitive value;
-    public final Track track;
+    public final Remote3Track track;
 
     public Remote3Frame(@NotNull JsonObject obj) {
-        playbackId = optString(obj, "playback_id", null);
-        contextUrl = optString(obj, "context_url", null);
-        contextUri = optString(obj, "context_uri", null);
-        sessionId = optString(obj, "session_id", null);
-        queueRevision = optString(obj, "queue_revision", null);
-        entityUrl = optString(obj, "entity_url", null);
-        duration = (int) optLong(obj, "duration", 0);
-        positionAsOfTimestamp = (int) optLong(obj, "position_as_of_timestamp", 0);
-        timestamp = optLong(obj, "timestamp", 0);
-        isPlaying = optBoolean(obj, "is_playing", false);
-        isPaused = optBoolean(obj, "is_paused", false);
-        isSystemInitiated = optBoolean(obj, "is_system_initiated", false);
-        playbackSpeed = (float) optDouble(obj, "playback_speed", 0);
+        playbackId = Utils.optString(obj, "playback_id", null);
+        contextUrl = Utils.optString(obj, "context_url", null);
+        contextUri = Utils.optString(obj, "context_uri", null);
+        sessionId = Utils.optString(obj, "session_id", null);
+        queueRevision = Utils.optString(obj, "queue_revision", null);
+        entityUrl = Utils.optString(obj, "entity_url", null);
+        duration = (int) Utils.optLong(obj, "duration", 0);
+        positionAsOfTimestamp = (int) Utils.optLong(obj, "position_as_of_timestamp", 0);
+        timestamp = Utils.optLong(obj, "timestamp", 0);
+        isPlaying = Utils.optBoolean(obj, "is_playing", false);
+        isPaused = Utils.optBoolean(obj, "is_paused", false);
+        isSystemInitiated = Utils.optBoolean(obj, "is_system_initiated", false);
+        playbackSpeed = (float) Utils.optDouble(obj, "playback_speed", 0);
         endpoint = Endpoint.opt(obj, "endpoint");
         context = Context.opt(obj, "context");
         playOrigin = PlayOrigin.opt(obj, "play_origin");
         playOptions = PlayOptions.opt(obj, "play_options");
         options = Options.opt(obj, "options");
         value = obj.getAsJsonPrimitive("value");
-        track = Track.opt(obj, "track");
+        track = Remote3Track.opt(obj, "track");
     }
 
-    @Contract("_, _, !null -> !null")
-    private static String optString(@NotNull JsonObject obj, @NotNull String key, @Nullable String fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null || !elm.getAsJsonPrimitive().isString()) return fallback;
-        return elm.getAsString();
-    }
-
-    private static long optLong(@NotNull JsonObject obj, @NotNull String key, long fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null || !elm.getAsJsonPrimitive().isNumber()) return fallback;
-        return elm.getAsLong();
-    }
-
-    private static boolean optBoolean(@NotNull JsonObject obj, @NotNull String key, boolean fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null || !elm.getAsJsonPrimitive().isBoolean()) return fallback;
-        return elm.getAsBoolean();
-    }
-
-    private static double optDouble(@NotNull JsonObject obj, @NotNull String key, double fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null || !elm.getAsJsonPrimitive().isNumber()) return fallback;
-        return elm.getAsDouble();
-    }
-
-    @Nullable
-    private static String[] optStringArray(@NotNull JsonObject obj, @NotNull String key) {
-        JsonElement elm = obj.get(key);
-        if (elm == null || !elm.isJsonArray()) return null;
-
-        JsonArray a = elm.getAsJsonArray();
-        String[] str = new String[a.size()];
-        for (int i = 0; i < a.size(); i++)
-            str[i] = a.get(i).getAsString();
-
-        return str;
-    }
 
     public enum Endpoint {
         Play("play"),
@@ -119,7 +79,7 @@ public class Remote3Frame {
 
         @Nullable
         public static Endpoint opt(@NotNull JsonObject obj, @NotNull String key) {
-            String str = optString(obj, key, null);
+            String str = Utils.optString(obj, key, null);
             if (str == null || str.isEmpty()) return null;
 
             for (Endpoint e : values())
@@ -138,11 +98,11 @@ public class Remote3Frame {
         public final String[] featureClasses;
 
         private PlayOrigin(@NotNull JsonObject obj) {
-            featureIdentifier = optString(obj, "feature_identifier", null);
-            featureVersion = optString(obj, "feature_version", null);
-            viewUri = optString(obj, "view_uri", null);
-            referrerIdentifier = optString(obj, "referrer_identifier", null);
-            featureClasses = optStringArray(obj, "feature_classes");
+            featureIdentifier = Utils.optString(obj, "feature_identifier", null);
+            featureVersion = Utils.optString(obj, "feature_version", null);
+            viewUri = Utils.optString(obj, "view_uri", null);
+            referrerIdentifier = Utils.optString(obj, "referrer_identifier", null);
+            featureClasses = Utils.optStringArray(obj, "feature_classes");
         }
 
         @Nullable
@@ -182,7 +142,7 @@ public class Remote3Frame {
 
             @Nullable
             public static Operation opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (Operation e : values())
@@ -204,7 +164,7 @@ public class Remote3Frame {
 
             @Nullable
             public static Trigger opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (Trigger e : values())
@@ -226,7 +186,7 @@ public class Remote3Frame {
 
             @Nullable
             public static Reason opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (Reason e : values())
@@ -249,8 +209,8 @@ public class Remote3Frame {
         public final JsonObject suppressions;
 
         private Options(@NotNull JsonObject obj) {
-            seekTo = (int) optLong(obj, "seek_to", 0);
-            initiallyPaused = optBoolean(obj, "initially_paused", false);
+            seekTo = (int) Utils.optLong(obj, "seek_to", 0);
+            initiallyPaused = Utils.optBoolean(obj, "initially_paused", false);
             playerOptionsOverride = PlayerOptionsOverride.opt(obj, "player_options_override");
             skipTo = SkipTo.opt(obj, "skip_to");
             license = License.opt(obj, "license");
@@ -278,7 +238,7 @@ public class Remote3Frame {
 
             @Nullable
             public static License opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (License e : values())
@@ -300,7 +260,7 @@ public class Remote3Frame {
 
             @Nullable
             public static PrefetchLevel opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (PrefetchLevel e : values())
@@ -322,7 +282,7 @@ public class Remote3Frame {
 
             @Nullable
             public static AudioStream opt(@NotNull JsonObject obj, @NotNull String key) {
-                String str = optString(obj, key, null);
+                String str = Utils.optString(obj, key, null);
                 if (str == null || str.isEmpty()) return null;
 
                 for (AudioStream e : values())
@@ -335,11 +295,13 @@ public class Remote3Frame {
 
         public static class SkipTo {
             public final int pageIndex;
+            public final int trackIndex;
             public final String trackUid;
 
             private SkipTo(@NotNull JsonObject obj) {
-                pageIndex = (int) optLong(obj, "page_index", -1);
-                trackUid = optString(obj, "track_uid", null);
+                pageIndex = (int) Utils.optLong(obj, "page_index", -1);
+                trackIndex = (int) Utils.optLong(obj, "track_index", -1);
+                trackUid = Utils.optString(obj, "track_uid", null);
             }
 
             @Nullable
@@ -356,9 +318,9 @@ public class Remote3Frame {
             public final boolean repeatingTrack;
 
             private PlayerOptionsOverride(@NotNull JsonObject obj) {
-                shufflingContext = optBoolean(obj, "shuffling_context", false);
-                repeatingContext = optBoolean(obj, "repeating_context", false);
-                repeatingTrack = optBoolean(obj, "repeating_track", false);
+                shufflingContext = Utils.optBoolean(obj, "shuffling_context", false);
+                repeatingContext = Utils.optBoolean(obj, "repeating_context", false);
+                repeatingTrack = Utils.optBoolean(obj, "repeating_track", false);
             }
 
             @Nullable
@@ -372,17 +334,15 @@ public class Remote3Frame {
 
     public static class Context {
         public final String uri;
+        public final String url;
         public final Metadata metadata;
-        public final List<Page> pages;
+        public final List<Remote3Page> pages;
 
         private Context(@NotNull JsonObject obj) {
-            uri = optString(obj, "uri", null);
+            uri = Utils.optString(obj, "uri", null);
+            url = Utils.optString(obj, "url", null);
             metadata = Metadata.opt(obj, "metadata");
-
-            JsonArray pagesArray = obj.getAsJsonArray("pages");
-            pages = new ArrayList<>(pagesArray.size());
-            for (JsonElement elm : pagesArray)
-                pages.add(new Page(elm.getAsJsonObject()));
+            pages = Remote3Page.opt(obj.getAsJsonArray("pages"));
         }
 
         @Nullable
@@ -390,17 +350,6 @@ public class Remote3Frame {
             JsonElement elm = obj.get(key);
             if (elm == null || !elm.isJsonObject()) return null;
             return new Context(elm.getAsJsonObject());
-        }
-
-        public static class Page {
-            public final List<Track> tracks;
-
-            private Page(@NotNull JsonObject obj) {
-                JsonArray array = obj.getAsJsonArray("tracks");
-                tracks = new ArrayList<>(array.size());
-                for (JsonElement elm : array)
-                    tracks.add(new Track(elm.getAsJsonObject()));
-            }
         }
 
         public static class Metadata extends HashMap<String, String> {
@@ -421,29 +370,4 @@ public class Remote3Frame {
         }
     }
 
-    public static class Track {
-        public final String uri;
-        public final String uid;
-        public final JsonObject metadata;
-        private TrackId id;
-
-        Track(@NotNull JsonObject obj) {
-            uri = optString(obj, "uri", null);
-            uid = optString(obj, "uid", null);
-            metadata = obj.getAsJsonObject("metadata");
-        }
-
-        @Nullable
-        public static Track opt(@NotNull JsonObject obj, @NotNull String key) {
-            JsonElement elm = obj.get(key);
-            if (elm == null || !elm.isJsonObject()) return null;
-            return new Track(elm.getAsJsonObject());
-        }
-
-        @NotNull
-        public TrackId id() {
-            if (id == null) id = TrackId.fromUri(uri);
-            return id;
-        }
-    }
 }

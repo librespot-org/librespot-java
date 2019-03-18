@@ -15,6 +15,7 @@ import xyz.gianlu.librespot.mercury.model.AlbumId;
 import xyz.gianlu.librespot.mercury.model.ArtistId;
 import xyz.gianlu.librespot.mercury.model.PlaylistId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.remote.Remote3Page;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -329,8 +330,10 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public JsonArray pages() {
-            return obj().getAsJsonArray("pages");
+        public List<Remote3Page> pages() {
+            List<Remote3Page> list = Remote3Page.opt(obj().getAsJsonArray("pages"));
+            if (list == null) throw new IllegalArgumentException("Invalid context!");
+            return list;
         }
 
         @NotNull
