@@ -16,14 +16,18 @@ public final class NetUtils {
     }
 
     @NotNull
-    public static StatusLine parseStatusLine(@NotNull String line) {
-        int index = line.indexOf(' ');
-        String httpVersion = line.substring(0, index);
-        line = line.substring(index + 1);
-        index = line.indexOf(' ');
-        String statusCode = line.substring(0, index);
-        String statusPhrase = line.substring(index + 1);
-        return new StatusLine(httpVersion, Integer.parseInt(statusCode), statusPhrase);
+    public static StatusLine parseStatusLine(@NotNull String line) throws IOException {
+        try {
+            int index = line.indexOf(' ');
+            String httpVersion = line.substring(0, index);
+            line = line.substring(index + 1);
+            index = line.indexOf(' ');
+            String statusCode = line.substring(0, index);
+            String statusPhrase = line.substring(index + 1);
+            return new StatusLine(httpVersion, Integer.parseInt(statusCode), statusPhrase);
+        } catch (Exception ex) {
+            throw new IOException(line, ex);
+        }
     }
 
     @NotNull

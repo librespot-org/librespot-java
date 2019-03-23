@@ -16,6 +16,7 @@ import java.net.*;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -232,13 +233,18 @@ public class CdnManager {
         }
 
         private static class CdnLoader {
-            private final Socket socket;
-            private final DataInputStream in;
-            private final OutputStream out;
             private final AudioUrl moreAudio;
+            private Socket socket;
+            private DataInputStream in;
+            private OutputStream out;
 
             CdnLoader(@NotNull AudioUrl moreAudio) throws IOException {
                 this.moreAudio = moreAudio;
+
+                populateSocket();
+            }
+
+            private synchronized void populateSocket() throws IOException {
                 this.socket = moreAudio.createSocket();
                 this.in = new DataInputStream(socket.getInputStream());
                 this.out = socket.getOutputStream();
@@ -251,11 +257,18 @@ public class CdnManager {
 
             @NotNull
             public synchronized Response request(int rangeStart, int rangeEnd) throws IOException, CdnException {
+                if (socket == null || socket.isClosed())
+                    populateSocket();
+
                 moreAudio.sendRequest(out, rangeStart, rangeEnd);
 
                 NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
-                if (sl.statusCode != 206)
+                if (sl.statusCode == 408) {
+                    socket.close();
+                    return request(rangeStart, rangeEnd);
+                } else if (sl.statusCode != 206) {
                     throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
+                }
 
                 Map<String, String> headers = NetUtils.parseHeaders(in);
                 String contentLengthStr = headers.get("Content-Length");
@@ -265,6 +278,10 @@ public class CdnManager {
                 int contentLength = Integer.parseInt(contentLengthStr);
                 byte[] buffer = new byte[contentLength];
                 in.readFully(buffer);
+
+                String connectionStr = headers.get("Connection");
+                if (Objects.equals(connectionStr, "close"))
+                    socket.close();
 
                 return new Response(buffer, headers);
             }
