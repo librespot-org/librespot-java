@@ -158,7 +158,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
                 switch (frame.endpoint) {
                     case SetRepeatingTrack:
-                        // TODO: Handle repeating track
+                        state.setRepeatingTrack(frame.value.getAsBoolean());
                         break;
                 }
                 break;
@@ -314,8 +314,16 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void endOfTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            LOGGER.trace("End of track. Proceeding with next.");
-            handleNext();
+            if (state.isRepeatingTrack()) {
+                state.setPositionMs(0);
+                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+
+                LOGGER.trace("End of track. Repeating.");
+                loadTrack(true);
+            } else {
+                LOGGER.trace("End of track. Proceeding with next.");
+                handleNext();
+            }
         }
     }
 
@@ -503,9 +511,18 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private class StateWrapper {
         private final Spirc.State.Builder state;
+        private boolean repeatingTrack = false;
 
         StateWrapper(@NotNull Spirc.State.Builder state) {
             this.state = state;
+        }
+
+        boolean isRepeatingTrack() {
+            return repeatingTrack;
+        }
+
+        void setRepeatingTrack(boolean repeatingTrack) {
+            this.repeatingTrack = repeatingTrack;
         }
 
         @Nullable
