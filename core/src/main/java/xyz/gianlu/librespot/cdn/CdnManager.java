@@ -158,7 +158,7 @@ public class CdnManager {
             try {
                 byte[] sizeHeader;
                 if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
-                    CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1);
+                    CdnLoader.Response resp = loader.request(0, CHUNK_SIZE - 1, false);
                     String contentRange = resp.headers.get("Content-Range");
                     if (contentRange == null)
                         throw new CdnException("Missing Content-Range header!");
@@ -252,38 +252,47 @@ public class CdnManager {
 
             @NotNull
             public synchronized Response request(int chunk) throws IOException, CdnException {
-                return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1);
+                return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1, false);
             }
 
             @NotNull
-            public synchronized Response request(int rangeStart, int rangeEnd) throws IOException, CdnException {
-                if (socket == null || socket.isClosed())
-                    populateSocket();
+            public synchronized Response request(int rangeStart, int rangeEnd, boolean retried) throws IOException, CdnException {
+                try {
+                    if (socket == null || socket.isClosed())
+                        populateSocket();
 
-                moreAudio.sendRequest(out, rangeStart, rangeEnd);
+                    moreAudio.sendRequest(out, rangeStart, rangeEnd);
 
-                NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
-                if (sl.statusCode == 408) {
-                    socket.close();
-                    return request(rangeStart, rangeEnd);
-                } else if (sl.statusCode != 206) {
-                    throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
+                    NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
+                    if (sl.statusCode == 408) {
+                        socket.close();
+                        return request(rangeStart, rangeEnd, false);
+                    } else if (sl.statusCode != 206) {
+                        throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
+                    }
+
+                    Map<String, String> headers = NetUtils.parseHeaders(in);
+                    String contentLengthStr = headers.get("Content-Length");
+                    if (contentLengthStr == null)
+                        throw new CdnException("Missing Content-Length header!");
+
+                    int contentLength = Integer.parseInt(contentLengthStr);
+                    byte[] buffer = new byte[contentLength];
+                    in.readFully(buffer);
+
+                    String connectionStr = headers.get("Connection");
+                    if (Objects.equals(connectionStr, "close"))
+                        socket.close();
+
+                    return new Response(buffer, headers);
+                } catch (IOException ex) {
+                    if (!retried) {
+                        if (socket != null) socket.close();
+                        return request(rangeStart, rangeEnd, true);
+                    } else {
+                        throw ex;
+                    }
                 }
-
-                Map<String, String> headers = NetUtils.parseHeaders(in);
-                String contentLengthStr = headers.get("Content-Length");
-                if (contentLengthStr == null)
-                    throw new CdnException("Missing Content-Length header!");
-
-                int contentLength = Integer.parseInt(contentLengthStr);
-                byte[] buffer = new byte[contentLength];
-                in.readFully(buffer);
-
-                String connectionStr = headers.get("Connection");
-                if (Objects.equals(connectionStr, "close"))
-                    socket.close();
-
-                return new Response(buffer, headers);
             }
 
             private static class Response {
