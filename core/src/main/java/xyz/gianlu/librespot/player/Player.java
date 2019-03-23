@@ -24,6 +24,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @author Gianlu
@@ -128,7 +129,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 break;
             case kMessageTypeReplace:
                 if (frame != null && frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    updatedTracks(frame);
+                    updatedTracks(frame, true);
                     stateUpdated();
                 }
                 break;
@@ -236,14 +237,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleShuffle() {
-        if (state.getShuffle()) shuffleTracks();
+        if (state.getShuffle()) shuffleTracks(false);
         else unshuffleTracks();
         stateUpdated();
     }
 
-    private void shuffleTracks() {
+    private void shuffleTracks(boolean fully) {
         if (tracksProvider instanceof PlaylistProvider)
-            ((PlaylistProvider) tracksProvider).shuffleTracks(session.random());
+            ((PlaylistProvider) tracksProvider).shuffleTracks(session.random(), fully);
         else
             LOGGER.warn("Cannot shuffle TracksProvider: " + tracksProvider);
     }
@@ -262,7 +263,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void updatedTracks(@NotNull Remote3Frame frame) {
+    private void updatedTracks(@NotNull Remote3Frame frame, boolean fromFrame) {
         if (frame.context.uri != null) {
             state.update(frame);
 
@@ -273,9 +274,16 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 tracksProvider = new PlaylistProvider(session, state.state, conf);
         }
 
-        state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);
-        state.setShuffle(frame.options.playerOptionsOverride.shufflingContext);
-        if (state.getShuffle() && conf.defaultUnshuffleBehaviour()) shuffleTracks();
+        Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
+        Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
+
+        if (fromFrame) {
+            if (state.getShuffle() && conf.defaultUnshuffleBehaviour())
+                shuffleTracks(true);
+        } else {
+            if (state.getShuffle())
+                shuffleTracks(true);
+        }
     }
 
     @Override
@@ -351,10 +359,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
-        updatedTracks(frame);
+        updatedTracks(frame, frame.context.pages != null);
 
         if (state.getTrackCount() > 0) {
-            state.setPositionMs(frame.options.seekTo);
+            state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             loadTrack(!frame.options.initiallyPaused);
         } else {
@@ -613,15 +621,15 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
                 for (Remote3Track track : tracks) state.addTrack(track.toTrackRef());
 
-                if (frame.options != null && frame.options.skipTo != null)
+                if (frame.options != null && frame.options.skipTo != null && frame.options.skipTo.trackIndex != -1)
                     state.setPlayingTrackIndex(frame.options.skipTo.trackIndex);
                 else
                     state.setPlayingTrackIndex(0);
             }
 
             if (frame.options != null && frame.options.playerOptionsOverride != null) {
-                state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);
-                state.setShuffle(frame.options.playerOptionsOverride.shufflingContext);
+                Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
+                Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
             }
         }
 

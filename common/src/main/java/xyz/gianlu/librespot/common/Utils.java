@@ -233,6 +233,13 @@ public class Utils {
         return elm.getAsBoolean();
     }
 
+    @Nullable
+    public static Boolean optBoolean(@NotNull JsonObject obj, @NotNull String key) {
+        JsonElement elm = obj.get(key);
+        if (elm == null || !elm.getAsJsonPrimitive().isBoolean()) return null;
+        return elm.getAsBoolean();
+    }
+
     public static double optDouble(@NotNull JsonObject obj, @NotNull String key, double fallback) {
         JsonElement elm = obj.get(key);
         if (elm == null || !elm.getAsJsonPrimitive().isNumber()) return fallback;

@@ -39,20 +39,24 @@ public class PlaylistProvider implements TracksProvider {
         return exchanges;
     }
 
-    public void shuffleTracks(@NotNull Random random) {
+    public void shuffleTracks(@NotNull Random random, boolean fully) {
         shuffleSeed = random.nextLong();
 
         List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
-        if (state.getPlayingTrackIndex() != 0) {
-            Collections.swap(tracks, 0, state.getPlayingTrackIndex());
-            state.setPlayingTrackIndex(0);
-        }
+        if (fully) {
+            Collections.shuffle(tracks, new Random(shuffleSeed));
+        } else {
+            if (state.getPlayingTrackIndex() != 0) {
+                Collections.swap(tracks, 0, state.getPlayingTrackIndex());
+                state.setPlayingTrackIndex(0);
+            }
 
-        int size = tracks.size() - 1;
-        int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-        for (int i = size - 1; i > 1; i--) {
-            int n = exchanges[size - 1 - i];
-            Collections.swap(tracks, i, n + 1);
+            int size = tracks.size() - 1;
+            int[] exchanges = getShuffleExchanges(size, shuffleSeed);
+            for (int i = size - 1; i > 1; i--) {
+                int n = exchanges[size - 1 - i];
+                Collections.swap(tracks, i, n + 1);
+            }
         }
 
         state.clearTrack();

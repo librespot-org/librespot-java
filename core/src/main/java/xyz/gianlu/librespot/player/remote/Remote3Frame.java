@@ -313,14 +313,14 @@ public class Remote3Frame {
         }
 
         public static class PlayerOptionsOverride {
-            public final boolean shufflingContext;
-            public final boolean repeatingContext;
-            public final boolean repeatingTrack;
+            public final Boolean shufflingContext;
+            public final Boolean repeatingContext;
+            public final Boolean repeatingTrack;
 
             private PlayerOptionsOverride(@NotNull JsonObject obj) {
-                shufflingContext = Utils.optBoolean(obj, "shuffling_context", false);
-                repeatingContext = Utils.optBoolean(obj, "repeating_context", false);
-                repeatingTrack = Utils.optBoolean(obj, "repeating_track", false);
+                shufflingContext = Utils.optBoolean(obj, "shuffling_context");
+                repeatingContext = Utils.optBoolean(obj, "repeating_context");
+                repeatingTrack = Utils.optBoolean(obj, "repeating_track");
             }
 
             @Nullable
