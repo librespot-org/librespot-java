@@ -263,13 +263,15 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void updatedTracks(@NotNull Remote3Frame frame) {
-        state.update(frame);
+        if (frame.context.uri != null) {
+            state.update(frame);
 
-        String context = frame.context.uri;
-        if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
-            tracksProvider = new StationProvider(session, state.state);
-        else
-            tracksProvider = new PlaylistProvider(session, state.state, conf);
+            String context = frame.context.uri;
+            if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
+                tracksProvider = new StationProvider(session, state.state);
+            else
+                tracksProvider = new PlaylistProvider(session, state.state, conf);
+        }
 
         state.setRepeat(frame.options.playerOptionsOverride.repeatingContext);
         state.setShuffle(frame.options.playerOptionsOverride.shufflingContext);
