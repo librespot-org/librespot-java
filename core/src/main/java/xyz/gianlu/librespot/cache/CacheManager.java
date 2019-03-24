@@ -229,7 +229,9 @@ public class CacheManager implements Closeable {
         public boolean hasChunk(int index) throws SQLException, IOException {
             updateTimestamp();
 
-            if (io.length() < (index + 1) * CHUNK_SIZE) return false;
+            synchronized (io) {
+                if (io.length() < (index + 1) * CHUNK_SIZE) return false;
+            }
 
             try (PreparedStatement statement = table.prepareStatement("SELECT available FROM Chunks WHERE fileId=? AND chunkIndex=? LIMIT 1")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
@@ -249,19 +251,23 @@ public class CacheManager implements Closeable {
         public byte[] readChunk(int index) throws IOException {
             updateTimestamp();
 
-            io.seek(index * CHUNK_SIZE);
+            synchronized (io) {
+                io.seek(index * CHUNK_SIZE);
 
-            byte[] buffer = new byte[CHUNK_SIZE];
-            int read = io.read(buffer);
-            if (read != buffer.length)
-                throw new IOException(String.format("Couldn't read full chunk, read: %d, needed: %d", read, buffer.length));
+                byte[] buffer = new byte[CHUNK_SIZE];
+                int read = io.read(buffer);
+                if (read != buffer.length)
+                    throw new IOException(String.format("Couldn't read full chunk, read: %d, needed: %d", read, buffer.length));
 
-            return buffer;
+                return buffer;
+            }
         }
 
         public void writeChunk(byte[] buffer, int index) throws IOException, SQLException {
-            io.seek(index * CHUNK_SIZE);
-            io.write(buffer);
+            synchronized (io) {
+                io.seek(index * CHUNK_SIZE);
+                io.write(buffer);
+            }
 
             try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Chunks (fileId, chunkIndex, available) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
@@ -276,8 +282,10 @@ public class CacheManager implements Closeable {
 
         @Override
         public void close() throws IOException {
-            io.close();
             handlers.remove(fileId);
+            synchronized (io) {
+                io.close();
+            }
         }
     }
 }
