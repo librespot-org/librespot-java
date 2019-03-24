@@ -129,7 +129,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 break;
             case kMessageTypeReplace:
                 if (frame != null && frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    updatedTracks(frame, true);
+                    updatedTracks(frame);
                     stateUpdated();
                 }
                 break;
@@ -263,7 +263,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void updatedTracks(@NotNull Remote3Frame frame, boolean fromFrame) {
+    private void updatedTracks(@NotNull Remote3Frame frame) {
         if (frame.context.uri != null) {
             state.update(frame);
 
@@ -274,16 +274,13 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 tracksProvider = new PlaylistProvider(session, state.state, conf);
         }
 
-        Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
-        Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
-
-        if (fromFrame) {
-            if (state.getShuffle() && conf.defaultUnshuffleBehaviour())
-                shuffleTracks(true);
-        } else {
-            if (state.getShuffle())
-                shuffleTracks(true);
+        if (frame.options != null && frame.options.playerOptionsOverride != null) {
+            Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
+            Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
         }
+
+        if (state.getShuffle())
+            shuffleTracks(frame.options == null || frame.options.skipTo.trackUid == null);
     }
 
     @Override
@@ -359,7 +356,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
-        updatedTracks(frame, frame.context.pages != null);
+        updatedTracks(frame);
 
         if (state.getTrackCount() > 0) {
             state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
