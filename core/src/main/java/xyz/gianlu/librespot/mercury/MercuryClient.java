@@ -156,8 +156,14 @@ public class MercuryClient extends PacketsManager {
 
         partials.remove(seq);
 
+        Mercury.Header header;
+        try {
+            header = Mercury.Header.parseFrom(partial.get(0));
+        } catch (InvalidProtocolBufferException ex) {
+            LOGGER.fatal(String.format("Couldn't parse header! {bytes: %s}", Utils.bytesToHex(partial.get(0))));
+            throw ex;
+        }
 
-        Mercury.Header header = Mercury.Header.parseFrom(partial.get(0));
         Response resp = new Response(header, partial);
 
         if (packet.is(Packet.Type.MercuryEvent)) {
