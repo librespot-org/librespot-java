@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.sound.sampled.*;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
@@ -26,7 +27,7 @@ public class PlayerRunner implements Runnable {
     private static final int BUFFER_SIZE = 2048;
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
-    private static final long TRACK_PRELOAD_THRESHOLD = 10; // sec
+    private static final long TRACK_PRELOAD_THRESHOLD = TimeUnit.SECONDS.toMillis(10);
     private final SyncState joggSyncState = new SyncState();
     private final InputStream audioIn;
     private final Listener listener;
@@ -250,14 +251,14 @@ public class PlayerRunner implements Runnable {
     }
 
     private void checkPreload() {
-        if (preloadEnabled && !calledPreload && !stopped && (duration / 1000) - time() <= TRACK_PRELOAD_THRESHOLD) {
+        if (preloadEnabled && !calledPreload && !stopped && duration - time() <= TRACK_PRELOAD_THRESHOLD) {
             calledPreload = true;
             listener.preloadNextTrack();
         }
     }
 
     public int time() {
-        return (int) (pcm_offset / jorbisInfo.rate);
+        return (int) (((float) pcm_offset / (float) jorbisInfo.rate) * 1000f);
     }
 
     private void cleanup() {

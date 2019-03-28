@@ -139,6 +139,10 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         return track != null && track.hasGid() && Arrays.equals(id.getGid(), track.getGid().toByteArray());
     }
 
+    public int getPosition() {
+        return playerRunner == null ? 0 : playerRunner.time();
+    }
+
     public enum Command {
         Load, Play, Pause,
         Stop, Seek, Terminate
