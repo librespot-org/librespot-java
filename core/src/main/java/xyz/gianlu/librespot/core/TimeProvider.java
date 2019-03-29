@@ -16,7 +16,7 @@ public final class TimeProvider {
 
     public static void init(int delta) {
         synchronized (offset) {
-            offset.set(System.currentTimeMillis() + delta * 1000);
+            offset.set(delta * 1000);
             LOGGER.debug(String.format("Corrected time offset, delta: %ds", delta));
         }
     }
