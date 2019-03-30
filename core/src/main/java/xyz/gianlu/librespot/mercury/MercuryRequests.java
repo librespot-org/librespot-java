@@ -5,16 +5,14 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ProtocolMessageEnum;
 import com.google.protobuf.ProtocolStringList;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.*;
-import xyz.gianlu.librespot.mercury.model.AlbumId;
-import xyz.gianlu.librespot.mercury.model.ArtistId;
-import xyz.gianlu.librespot.mercury.model.PlaylistId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.*;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
 
 import java.util.ArrayList;
@@ -42,7 +40,8 @@ public final class MercuryRequests {
         obj.addProperty("allowed", proto.getCountriesAllowed());
         obj.addProperty("forbidden", proto.getCountriesForbidden());
         obj.addProperty("type", proto.getType().name());
-        putArray(obj, "catalogues", proto.getCatalogueStrList());
+        putArray(obj, "catalogueStrings", proto.getCatalogueStrList());
+        putArray(obj, "catalogues", proto.getCatalogueList());
         return obj;
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Copyright> COPYRIGHT_JSON_CONVERTER = proto -> {
@@ -78,18 +77,32 @@ public final class MercuryRequests {
         obj.addProperty("format", proto.getFormat().name());
         return obj;
     };
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.VideoFile> VIDEO_FILE_JSON_CONVERTER = proto -> {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("fileId", Utils.toBase64(proto.getFileId()));
+        return obj;
+    };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist> ARTIST_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Episode> EPISODE_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Show> SHOW_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Album> ALBUM_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AlbumGroup> ALBUM_GROUP_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Track> TRACK_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Disc> DISC_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.TopTracks> TOP_TRACKS_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER;
+    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Availability> AVAILABILITY_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER;
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER;
     private static final String KEYMASTER_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd";
 
     static {
+        AVAILABILITY_JSON_CONVERTER = proto -> {
+            JsonObject obj = new JsonObject();
+            obj.add("start", DATE_JSON_CONVERTER.convert(proto.getStart()));
+            putArray(obj, "catalogueStrings", proto.getCatalogueStrList());
+            return obj;
+        };
         SALE_PERIOD_JSON_CONVERTER = proto -> {
             JsonObject obj = new JsonObject();
             obj.add("start", DATE_JSON_CONVERTER.convert(proto.getStart()));
@@ -130,6 +143,7 @@ public final class MercuryRequests {
                 putArray(obj, "biographies", proto.getBiographyList(), BIOGRAPHY_JSON_CONVERTER);
                 putArray(obj, "topTracks", proto.getTopTrackList(), TOP_TRACKS_JSON_CONVERTER);
                 putArray(obj, "activityPeriods", proto.getActivityPeriodList(), ACTIVITY_PERIOD_JSON_CONVERTER);
+                putArray(obj, "availabilities", proto.getAvailabilityList(), AVAILABILITY_JSON_CONVERTER);
                 return obj;
             }
         };
@@ -154,6 +168,7 @@ public final class MercuryRequests {
                 obj.add("coverGroup", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getCoverGroup()));
                 putArray(obj, "covers", proto.getCoverList(), IMAGE_JSON_CONVERTER);
                 putArray(obj, "externalIds", proto.getExternalIdList(), EXTERNAL_ID_JSON_CONVERTER);
+                putArray(obj, "availabilities", proto.getAvailabilityList(), AVAILABILITY_JSON_CONVERTER);
                 return obj;
             }
         };
@@ -181,6 +196,55 @@ public final class MercuryRequests {
                 putArray(obj, "salePeriods", proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER);
                 putArray(obj, "previews", proto.getPreviewList(), AUDIO_FILE_JSON_CONVERTER);
                 putArray(obj, "files", proto.getFileList(), AUDIO_FILE_JSON_CONVERTER);
+                putArray(obj, "availabilities", proto.getAvailabilityList(), AVAILABILITY_JSON_CONVERTER);
+                return obj;
+            }
+        };
+        EPISODE_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Episode>() {
+            @Override
+            public @NotNull JsonElement convert(Metadata.@NotNull Episode proto) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("gid", Utils.bytesToHex(proto.getGid()));
+                putArray(obj, "audio", proto.getAudioList(), AUDIO_FILE_JSON_CONVERTER);
+                obj.addProperty("description", proto.getDescription());
+                obj.add("publishTime", DATE_JSON_CONVERTER.convert(proto.getPublishTime()));
+                obj.addProperty("language", proto.getLanguage());
+                putArray(obj, "keywords", proto.getKeywordList());
+                obj.addProperty("allowBackgroundPlayback", proto.getAllowBackgroundPlayback());
+                obj.addProperty("externalUrl", proto.getExternalUrl());
+                obj.addProperty("name", proto.getName());
+                obj.addProperty("number", proto.getNumber());
+                obj.addProperty("duration", proto.getDuration());
+                obj.addProperty("explicit", proto.getExplicit());
+                obj.add("freezeFrame", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getFreezeFrame()));
+                obj.add("coverImage", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getCoverImage()));
+                putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
+                putArray(obj, "audioPreviews", proto.getAudioPreviewList(), AUDIO_FILE_JSON_CONVERTER);
+                putArray(obj, "availabilities", proto.getAvailabilityList(), AVAILABILITY_JSON_CONVERTER);
+                obj.add("show", SHOW_JSON_CONVERTER.convert(proto.getShow()));
+                putArray(obj, "videos", proto.getVideoList(), VIDEO_FILE_JSON_CONVERTER);
+                putArray(obj, "videoPreviews", proto.getVideoPreviewList(), VIDEO_FILE_JSON_CONVERTER);
+                return obj;
+            }
+        };
+        SHOW_JSON_CONVERTER = new ProtoJsonMercuryRequest.JsonConverter<Metadata.Show>() {
+            @Override
+            public @NotNull JsonElement convert(Metadata.@NotNull Show proto) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("gid", Utils.bytesToHex(proto.getGid()));
+                obj.addProperty("description", proto.getDescription());
+                obj.addProperty("language", proto.getLanguage());
+                putArray(obj, "keywords", proto.getKeywordList());
+                obj.addProperty("name", proto.getName());
+                obj.addProperty("explicit", proto.getExplicit());
+                obj.add("coverImage", IMAGE_GROUP_JSON_CONVERTER.convert(proto.getCoverImage()));
+                obj.addProperty("publisher", proto.getPublisher());
+                putArray(obj, "restrictions", proto.getRestrictionList(), RESTRICTION_JSON_CONVERTER);
+                putArray(obj, "episodes", proto.getEpisodeList(), EPISODE_JSON_CONVERTER);
+                putArray(obj, "copyrights", proto.getCopyrightList(), COPYRIGHT_JSON_CONVERTER);
+                putArray(obj, "availabilities", proto.getAvailabilityList(), AVAILABILITY_JSON_CONVERTER);
+                obj.addProperty("mediaType", proto.getMediaType().name());
+                obj.addProperty("consumptionOrder", proto.getConsumptionOrder().name());
                 return obj;
             }
         };
@@ -210,10 +274,21 @@ public final class MercuryRequests {
         if (!list.isEmpty()) dest.add(key, makeArray(list));
     }
 
+    private static void putArray(@NotNull JsonObject dest, @NotNull String key, @NotNull List<? extends Enum<? extends ProtocolMessageEnum>> list) {
+        if (!list.isEmpty()) dest.add(key, makeArray(list));
+    }
+
     @NotNull
     private static JsonArray makeArray(@NotNull ProtocolStringList list) {
         JsonArray array = new JsonArray(list.size());
         for (String item : list) array.add(item);
+        return array;
+    }
+
+    @NotNull
+    private static JsonArray makeArray(@NotNull List<? extends Enum<? extends ProtocolMessageEnum>> list) {
+        JsonArray array = new JsonArray(list.size());
+        for (Enum item : list) array.add(item.name());
         return array;
     }
 
@@ -249,6 +324,16 @@ public final class MercuryRequests {
     @NotNull
     public static ProtoJsonMercuryRequest<Metadata.Album> getAlbum(@NotNull AlbumId id) {
         return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Album.parser(), ALBUM_JSON_CONVERTER);
+    }
+
+    @NotNull
+    public static ProtoJsonMercuryRequest<Metadata.Episode> getEpisode(@NotNull EpisodeId id) {
+        return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Episode.parser(), EPISODE_JSON_CONVERTER);
+    }
+
+    @NotNull
+    public static ProtoJsonMercuryRequest<Metadata.Show> getShow(@NotNull ShowId id) {
+        return new ProtoJsonMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()), Metadata.Show.parser(), SHOW_JSON_CONVERTER);
     }
 
     @NotNull
