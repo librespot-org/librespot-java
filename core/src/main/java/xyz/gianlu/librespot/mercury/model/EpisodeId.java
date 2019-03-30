@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 /**
  * @author Gianlu
  */
-public final class EpisodeId implements SpotifyId {
+public final class EpisodeId implements SpotifyId, PlayableId {
     private static final Pattern PATTERN = Pattern.compile("spotify:episode:(.{22})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
@@ -48,5 +48,16 @@ public final class EpisodeId implements SpotifyId {
     @Override
     public @NotNull String toSpotifyUri() {
         return "spotify:episode:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
+    }
+
+    @Override
+    public @NotNull String hexId() {
+        return hexId;
+    }
+
+    @Override
+    @NotNull
+    public byte[] getGid() {
+        return Utils.hexToBytes(hexId);
     }
 }

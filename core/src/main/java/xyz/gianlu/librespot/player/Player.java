@@ -11,7 +11,8 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
@@ -243,14 +244,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void shuffleTracks(boolean fully) {
-        if (tracksProvider instanceof PlaylistProvider)
+        if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
             ((PlaylistProvider) tracksProvider).shuffleTracks(session.random(), fully);
         else
             LOGGER.warn("Cannot shuffle TracksProvider: " + tracksProvider);
     }
 
     private void unshuffleTracks() {
-        if (tracksProvider instanceof PlaylistProvider)
+        if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
             ((PlaylistProvider) tracksProvider).unshuffleTracks();
         else
             LOGGER.warn("Cannot unshuffle TracksProvider: " + tracksProvider);
@@ -307,7 +308,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
-    public void loadingError(@NotNull TrackHandler handler, @NotNull TrackId id, @NotNull Exception ex) {
+    public void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId id, @NotNull Exception ex) {
         if (handler == trackHandler) {
             LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
@@ -339,7 +340,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (handler == trackHandler) {
             int index = tracksProvider.getNextTrackIndex(false);
             if (index < state.getTrackCount()) {
-                TrackId next = tracksProvider.getTrackAt(index);
+                PlayableId next = tracksProvider.getTrackAt(index);
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
@@ -371,7 +372,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
-        TrackId id = tracksProvider.getCurrentTrack();
+        PlayableId id = tracksProvider.getCurrentTrack();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
@@ -500,7 +501,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     public interface Configuration {
         @NotNull
-        StreamFeeder.AudioQuality preferredQuality();
+        TrackStreamFeeder.AudioQuality preferredQuality();
 
         boolean preloadEnabled();
 

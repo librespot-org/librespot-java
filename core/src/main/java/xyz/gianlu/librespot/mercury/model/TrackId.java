@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 /**
  * @author Gianlu
  */
-public final class TrackId implements SpotifyId {
+public final class TrackId implements SpotifyId, PlayableId {
     private static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22}|.{21})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
@@ -64,6 +64,13 @@ public final class TrackId implements SpotifyId {
         return "spotify:track:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
     }
 
+    @Override
+    public @NotNull String hexId() {
+        return hexId;
+    }
+
+    @Override
+    @NotNull
     public byte[] getGid() {
         return Utils.hexToBytes(hexId);
     }

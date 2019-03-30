@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +12,10 @@ import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.AudioFileStreaming;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.SuperAudioFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,11 +25,11 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public class StreamFeeder {
-    private static final Logger LOGGER = Logger.getLogger(StreamFeeder.class);
+public class TrackStreamFeeder {
+    private static final Logger LOGGER = Logger.getLogger(TrackStreamFeeder.class);
     private final Session session;
 
-    public StreamFeeder(@NotNull Session session) {
+    public TrackStreamFeeder(@NotNull Session session) {
         this.session = session;
     }
 
@@ -180,7 +184,7 @@ public class StreamFeeder {
     public static class VorbisOnlyAudioQuality implements AudioQualityPreference {
         private final AudioQuality preferred;
 
-        public VorbisOnlyAudioQuality(@NotNull StreamFeeder.AudioQuality preferred) {
+        public VorbisOnlyAudioQuality(@NotNull TrackStreamFeeder.AudioQuality preferred) {
             this.preferred = preferred;
         }
 

@@ -3,10 +3,10 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,7 +30,7 @@ public class AudioKeyManager extends PacketsManager {
         super(session);
     }
 
-    byte[] getAudioKey(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException {
+    public byte[] getAudioKey(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException {
         int seq;
         synchronized (seqHolder) {
             seq = seqHolder.getAndIncrement();
