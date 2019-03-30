@@ -41,14 +41,14 @@ public final class MercuryRequests {
         JsonObject obj = new JsonObject();
         obj.addProperty("allowed", proto.getCountriesAllowed());
         obj.addProperty("forbidden", proto.getCountriesForbidden());
-        obj.addProperty("type", proto.getTyp().name());
+        obj.addProperty("type", proto.getType().name());
         putArray(obj, "catalogues", proto.getCatalogueStrList());
         return obj;
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Copyright> COPYRIGHT_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("text", proto.getText());
-        obj.addProperty("type", proto.getTyp().name());
+        obj.addProperty("type", proto.getType().name());
         return obj;
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Image> IMAGE_JSON_CONVERTER = proto -> {
@@ -61,7 +61,7 @@ public final class MercuryRequests {
     };
     private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ExternalId> EXTERNAL_ID_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
-        obj.addProperty("type", proto.getTyp());
+        obj.addProperty("type", proto.getType());
         obj.addProperty("id", proto.getId());
         return obj;
     };
@@ -145,7 +145,7 @@ public final class MercuryRequests {
                 putArray(obj, "reviews", proto.getReviewList());
                 putArray(obj, "artists", proto.getArtistList(), ARTIST_JSON_CONVERTER);
                 putArray(obj, "related", proto.getRelatedList(), ALBUM_JSON_CONVERTER);
-                obj.addProperty("type", proto.getTyp().name());
+                obj.addProperty("type", proto.getType().name());
                 obj.add("date", DATE_JSON_CONVERTER.convert(proto.getDate()));
                 putArray(obj, "discs", proto.getDiscList(), DISC_JSON_CONVERTER);
                 putArray(obj, "salePeriods", proto.getSalePeriodList(), SALE_PERIOD_JSON_CONVERTER);

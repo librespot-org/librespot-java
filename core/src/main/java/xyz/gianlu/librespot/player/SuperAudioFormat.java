@@ -7,7 +7,7 @@ import xyz.gianlu.librespot.common.proto.Metadata;
  * @author Gianlu
  */
 public enum SuperAudioFormat {
-    MP3, VORBIS, AAC, OTHER;
+    MP3, VORBIS, AAC;
 
     @NotNull
     public static SuperAudioFormat get(@NotNull Metadata.AudioFile.Format format) {
@@ -22,14 +22,9 @@ public enum SuperAudioFormat {
             case MP3_96:
             case MP3_160_ENC:
                 return MP3;
-            case AAC_160:
-            case AAC_320:
+            case AAC_24:
+            case AAC_48:
                 return AAC;
-            case OTHER2:
-            case OTHER3:
-            case OTHER4:
-            case OTHER5:
-                return OTHER;
             default:
                 throw new IllegalArgumentException("Unknown audio format: " + format);
         }
