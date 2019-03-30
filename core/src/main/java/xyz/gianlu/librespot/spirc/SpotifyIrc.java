@@ -91,6 +91,7 @@ public class SpotifyIrc implements Closeable {
                         .setTyp(Spirc.CapabilityType.kSupportedTypes)
                         .addStringValue("audio/local")
                         .addStringValue("audio/track")
+                        .addStringValue("audio/episode")
                         .addStringValue("local")
                         .addStringValue("track")
                         .build());
