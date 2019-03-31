@@ -18,7 +18,6 @@ public interface GeneralAudioStream {
     Codec codec();
 
     enum Codec {
-        VORBIS,
-        STANDARD
+        VORBIS, MP3
     }
 }

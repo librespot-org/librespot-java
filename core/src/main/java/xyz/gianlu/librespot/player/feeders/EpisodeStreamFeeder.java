@@ -130,7 +130,7 @@ public class EpisodeStreamFeeder {
 
         @Override
         public @NotNull Codec codec() {
-            return Codec.STANDARD;
+            return Codec.MP3;
         }
 
         @Override

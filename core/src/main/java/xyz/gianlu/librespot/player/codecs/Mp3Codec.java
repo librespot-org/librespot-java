@@ -13,15 +13,15 @@ import java.io.InputStream;
 /**
  * @author Gianlu
  */
-public class StandardCodec extends Codec {
+public class Mp3Codec extends Codec {
     private final LinesHolder.LineWrapper outputLine;
     private final byte[] buffer = new byte[BUFFER_SIZE];
     private final int size;
     private final Sound sound;
     private long readSoFar = 0;
 
-    public StandardCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                         PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
+    public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
+                    PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
         skipMp3Tags(audioIn);

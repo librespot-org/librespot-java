@@ -4,7 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.codecs.Codec;
-import xyz.gianlu.librespot.player.codecs.StandardCodec;
+import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 
 import javax.sound.sampled.FloatControl;
@@ -27,8 +27,8 @@ public class PlayerRunner implements Runnable {
             case VORBIS:
                 codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration);
                 break;
-            case STANDARD:
-                codec = new StandardCodec(audioFile, normalizationData, conf, listener, lines, duration);
+            case MP3:
+                codec = new Mp3Codec(audioFile, normalizationData, conf, listener, lines, duration);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown codec: " + audioFile.codec());
