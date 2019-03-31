@@ -16,6 +16,7 @@ import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
+import xyz.gianlu.librespot.player.tracks.ShowProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
 import xyz.gianlu.librespot.spirc.FrameListener;
@@ -271,6 +272,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             String context = frame.context.uri;
             if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
                 tracksProvider = new StationProvider(session, state.state);
+            else if (context.startsWith("spotify:show:"))
+                tracksProvider = new ShowProvider(state.state);
             else
                 tracksProvider = new PlaylistProvider(session, state.state, conf);
         }

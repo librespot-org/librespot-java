@@ -12,13 +12,13 @@ import java.util.regex.Pattern;
  * @author Gianlu
  */
 public final class TrackId implements SpotifyId, PlayableId {
-    private static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22}|.{21})");
+    static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22}|.{21})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
     private TrackId(@NotNull String hex) {
-        if (hex.length() == 32) this.hexId = hex;
-        else if (hex.length() == 34 && hex.startsWith("00")) this.hexId = hex.substring(2);
+        if (hex.length() == 32) this.hexId = hex.toLowerCase();
+        else if (hex.length() == 34 && hex.startsWith("00")) this.hexId = hex.substring(2).toLowerCase();
         else throw new IllegalArgumentException("Illegal track id: " + hex);
     }
 

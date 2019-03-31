@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 /**
  * @author Gianlu
@@ -16,7 +16,7 @@ public class Remote3Track {
     public final String uri;
     public final String uid;
     public final JsonObject metadata;
-    private TrackId id;
+    private PlayableId id;
 
     Remote3Track(@NotNull JsonObject obj) {
         uri = Utils.optString(obj, "uri", null);
@@ -37,8 +37,8 @@ public class Remote3Track {
     }
 
     @NotNull
-    public TrackId id() {
-        if (id == null) id = TrackId.fromUri(uri);
+    public PlayableId id() {
+        if (id == null) id = PlayableId.fromUri(uri);
         return id;
     }
 }
