@@ -587,6 +587,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             if (frame.context == null)
                 throw new IllegalArgumentException("Invalid frame received!");
 
+            TrackId oldPlaying = state.getTrackCount() > 0 ? TrackId.fromTrackRef(state.getTrack(state.getPlayingTrackIndex())) : null;
+
             state.setContextUri(frame.context.uri);
             state.clearTrack();
 
@@ -599,6 +601,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 }
 
                 if (pageIndex == -1) pageIndex = 0;
+                if (trackUid == null && oldPlaying != null) trackUid = oldPlaying.toSpotifyUri();
 
                 int index = -1;
                 List<Remote3Track> tracks = frame.context.pages.get(pageIndex).tracks;
