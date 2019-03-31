@@ -22,7 +22,7 @@ public class PlayerRunner implements Runnable {
     private final Codec codec;
 
     PlayerRunner(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull LinesHolder lines,
-                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, Codec.CodecException, PlayerException {
+                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, Codec.CodecException, LinesHolder.MixerException {
         switch (audioFile.codec()) {
             case VORBIS:
                 codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration);
@@ -43,7 +43,7 @@ public class PlayerRunner implements Runnable {
 
     @Override
     public void run() {
-        codec.read();
+        codec.run();
     }
 
     void play() {
@@ -109,20 +109,6 @@ public class PlayerRunner implements Runnable {
         int volumeUp() {
             setVolume(volume + VOLUME_STEP);
             return volume;
-        }
-    }
-
-    public static class PlayerException extends Exception {
-
-        public PlayerException() {
-        }
-
-        private PlayerException(@NotNull Throwable ex) {
-            super(ex);
-        }
-
-        PlayerException(String message) {
-            super(message);
         }
     }
 }

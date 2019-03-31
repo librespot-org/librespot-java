@@ -71,7 +71,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             listener.finishedLoading(this, pos, play);
 
             if (play) playerRunner.play();
-        } catch (PlayerRunner.PlayerException | Codec.CodecException ex) {
+        } catch (Codec.CodecException | LinesHolder.MixerException ex) {
             listener.loadingError(this, id, ex);
         }
 
@@ -101,7 +101,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             listener.finishedLoading(this, pos, play);
 
             if (play) playerRunner.play();
-        } catch (PlayerRunner.PlayerException | Codec.CodecException ex) {
+        } catch (LinesHolder.MixerException | Codec.CodecException ex) {
             listener.loadingError(this, id, ex);
         }
 

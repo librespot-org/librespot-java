@@ -8,7 +8,6 @@ import com.jcraft.jorbis.Block;
 import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.*;
@@ -23,7 +22,6 @@ import java.io.IOException;
  */
 public class VorbisCodec extends Codec {
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
-    private static final Logger LOGGER = Logger.getLogger(VorbisCodec.class);
     private final StreamState joggStreamState = new StreamState();
     private final DspState jorbisDspState = new DspState();
     private final Block jorbisBlock = new Block(jorbisDspState);
@@ -43,7 +41,7 @@ public class VorbisCodec extends Codec {
     private long pcm_offset;
 
     public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                       PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, PlayerRunner.PlayerException {
+                       PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
         this.joggSyncState.init();
@@ -64,8 +62,8 @@ public class VorbisCodec extends Codec {
     /**
      * Reads the body. All "holes" (-1) in data will stop the playback.
      *
-     * @throws xyz.gianlu.librespot.player.codecs.Codec.CodecException if a player exception occurs
-     * @throws IOException                                             if an I/O exception occurs
+     * @throws Codec.CodecException if a decoding exception occurs
+     * @throws IOException          if an I/O exception occurs
      */
     private void readHeader() throws IOException, CodecException {
         boolean finished = false;
@@ -111,7 +109,7 @@ public class VorbisCodec extends Codec {
     }
 
     @NotNull
-    private AudioFormat initializeSound(Player.Configuration conf) throws CodecException, PlayerRunner.PlayerException {
+    private AudioFormat initializeSound(Player.Configuration conf) throws CodecException, LinesHolder.MixerException {
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
         jorbisDspState.synthesis_init(jorbisInfo);
@@ -137,10 +135,11 @@ public class VorbisCodec extends Codec {
     /**
      * Reads the body. All "holes" (-1) are skipped, and the playback continues
      *
-     * @throws PlayerRunner.PlayerException if a player exception occurs
-     * @throws IOException                  if an I/O exception occurs
+     * @throws Codec.CodecException if a decoding exception occurs
+     * @throws IOException          if an I/O exception occurs
      */
-    public void readBody() throws PlayerRunner.PlayerException, IOException, LineUnavailableException {
+    @Override
+    protected void readBody() throws IOException, LineUnavailableException, CodecException {
         SourceDataLine line = outputLine.waitAndOpen(audioFormat);
         this.controller = new PlayerRunner.Controller(line, listener.getVolume());
 
@@ -153,7 +152,7 @@ public class VorbisCodec extends Codec {
                     // Read more
                 } else if (result == 1) {
                     if (joggStreamState.pagein(joggPage) == -1)
-                        throw new PlayerRunner.PlayerException();
+                        throw new CodecException();
 
                     if (joggPage.granulepos() == 0)
                         break;
@@ -233,36 +232,6 @@ public class VorbisCodec extends Codec {
         }
     }
 
-    public void read() {
-        try {
-            readBody();
-            if (!stopped) listener.endOfTrack();
-        } catch (PlayerRunner.PlayerException | IOException | LineUnavailableException ex) {
-            if (!stopped) listener.playbackError(ex);
-        } finally {
-            cleanup();
-        }
-    }
-
-    @Override
-    public void seek(int positionMs) {
-        if (positionMs >= 0) {
-            try {
-                audioIn.reset();
-                if (positionMs > 0) {
-                    int skip = Math.round(audioIn.available() / (float) duration * positionMs);
-                    if (skip > audioIn.available()) skip = audioIn.available();
-
-                    long skipped = audioIn.skip(skip);
-                    if (skip != skipped)
-                        throw new IOException(String.format("Failed seeking, skip: %d, skipped: %d", skip, skipped));
-                }
-            } catch (IOException ex) {
-                LOGGER.fatal("Failed seeking!", ex);
-            }
-        }
-    }
-
     @Override
     public void cleanup() {
         joggStreamState.clear();
@@ -271,6 +240,7 @@ public class VorbisCodec extends Codec {
         jorbisInfo.clear();
         joggSyncState.clear();
         outputLine.close();
+        super.cleanup();
     }
 
     private static class NotVorbisException extends CodecException {

@@ -8,6 +8,7 @@ import xyz.gianlu.librespot.player.*;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * @author Gianlu
@@ -20,46 +21,47 @@ public class StandardCodec extends Codec {
     private long readSoFar = 0;
 
     public StandardCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                         PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, PlayerRunner.PlayerException, IOException {
+                         PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
-        audioIn.skip(3 + 2 + 1);
-
-        byte[] sizeb = new byte[4];
-        audioIn.read(sizeb);
-
-        int tagsize = (sizeb[0] << 21) + (sizeb[1] << 14) + (sizeb[2] << 7) + sizeb[3];
-
-        audioIn.skip(tagsize - 10);
-
+        skipMp3Tags(audioIn);
         sound = new Sound(audioIn);
-
-        try {
-            size = sound.available();
-        } catch (IOException ex) {
-            throw new CodecException(ex);
-        }
+        size = sound.available();
 
         try {
             outputLine = lines.getLineFor(conf, sound.getAudioFormat());
         } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
             throw new CodecException(ex);
         }
+
+        audioIn.mark(-1);
+    }
+
+    private static void skipMp3Tags(@NotNull InputStream in) throws IOException {
+        byte[] buffer = new byte[3];
+        if (in.read(buffer) != 3)
+            throw new IOException();
+
+        if (!new String(buffer).equals("ID3")) {
+            in.reset();
+            return;
+        }
+
+        if (in.skip(3) != 3)
+            throw new IOException();
+
+        buffer = new byte[4];
+        if (in.read(buffer) != 4)
+            throw new IOException();
+
+        int tagSize = (buffer[0] << 21) + (buffer[1] << 14) + (buffer[2] << 7) + buffer[3];
+        tagSize -= 10;
+        if (in.skip(tagSize) != tagSize)
+            throw new IOException();
     }
 
     @Override
-    public void read() {
-        try {
-            readBody();
-            if (!stopped) listener.endOfTrack();
-        } catch (IOException | LineUnavailableException ex) {
-            if (!stopped) listener.playbackError(ex);
-        } finally {
-            cleanup();
-        }
-    }
-
-    private void readBody() throws LineUnavailableException, IOException {
+    protected void readBody() throws LineUnavailableException, IOException {
         SourceDataLine line = outputLine.waitAndOpen(sound.getAudioFormat());
         this.controller = new PlayerRunner.Controller(line, listener.getVolume());
 
@@ -95,10 +97,6 @@ public class StandardCodec extends Codec {
     @Override
     public void cleanup() {
         outputLine.close();
-    }
-
-    @Override
-    public void seek(int positionMs) {
-
+        super.cleanup();
     }
 }
