@@ -2,10 +2,7 @@ package xyz.gianlu.librespot.player.feeders;
 
 
 import javafx.fxml.LoadException;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
@@ -36,9 +33,15 @@ public class EpisodeStreamFeeder {
         this.session = session;
     }
 
+    private static byte[] readBytes(@NotNull Response response) throws IOException {
+        ResponseBody body = response.body();
+        if (body == null) throw new IOException("Empty body!");
+        return body.bytes();
+    }
+
     @NotNull
     public LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
-        if (!cdn) throw new UnsupportedOperationException("NOT IMPLEMENTED YET!" /* FIXME */);
+        if (!cdn) throw new UnsupportedOperationException("Episodes are support only through CDN!" /* TODO */);
 
         Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
 
@@ -46,8 +49,7 @@ public class EpisodeStreamFeeder {
         if (externalUrl == null)
             throw new IllegalArgumentException("Missing external_url!");
 
-        Loader loader = new Loader(externalUrl);
-        return new LoadedStream(resp, new EpisodeStream(id.hexId(), loader));
+        return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl));
     }
 
     private static class Loader {
@@ -90,9 +92,9 @@ public class EpisodeStreamFeeder {
         private final InternalStream internalStream;
         private final Loader loader;
 
-        EpisodeStream(@NotNull String fileId, @NotNull Loader loader) throws IOException {
+        EpisodeStream(@NotNull String fileId, @NotNull String url) throws IOException {
             this.fileId = fileId;
-            this.loader = loader;
+            this.loader = new Loader(url);
 
             byte[] firstChunk;
             Response resp = loader.request(0, CHUNK_SIZE - 1);
@@ -104,7 +106,7 @@ public class EpisodeStreamFeeder {
             size = Integer.parseInt(split[1]);
             chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-            firstChunk = resp.body().bytes();
+            firstChunk = readBytes(resp);
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
@@ -140,7 +142,7 @@ public class EpisodeStreamFeeder {
 
             LOGGER.trace(String.format("Chunk %d/%d completed, host: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.url, cached, fileId));
 
-            buffer[chunkIndex] = chunk; // FIXME: We may need a copy
+            buffer[chunkIndex] = chunk;
 
             internalStream.notifyChunkAvailable(chunkIndex);
         }
@@ -148,7 +150,7 @@ public class EpisodeStreamFeeder {
         private void requestChunk(int index) {
             try {
                 Response resp = loader.request(index);
-                writeChunk(resp.body().bytes(), index, false);
+                writeChunk(readBytes(resp), index, false);
             } catch (IOException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
             }
