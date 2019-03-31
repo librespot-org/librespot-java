@@ -187,6 +187,11 @@ public class CdnManager {
             return Utils.bytesToHex(fileId);
         }
 
+        @Override
+        public @NotNull Codec codec() {
+            return Codec.VORBIS;
+        }
+
         private void requestChunk(int index) {
             try {
                 if (cacheHandler != null && cacheHandler.hasChunk(index)) {

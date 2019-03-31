@@ -45,6 +45,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return Utils.bytesToHex(fileId);
     }
 
+    @Override
+    public @NotNull Codec codec() {
+        return Codec.VORBIS;
+    }
+
     @NotNull
     public InputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");

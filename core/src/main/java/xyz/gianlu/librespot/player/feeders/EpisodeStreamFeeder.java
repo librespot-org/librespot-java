@@ -79,12 +79,6 @@ public class EpisodeStreamFeeder {
         }
     }
 
-    public static class LoaderException extends Exception {
-        LoaderException(String message) {
-            super(message);
-        }
-    }
-
     public static class EpisodeStream implements GeneralAudioStream, GeneralWritableStream {
         private final String fileId;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -130,6 +124,11 @@ public class EpisodeStreamFeeder {
         @Override
         public @NotNull String getFileIdHex() {
             return fileId;
+        }
+
+        @Override
+        public @NotNull Codec codec() {
+            return Codec.STANDARD;
         }
 
         @Override

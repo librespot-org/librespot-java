@@ -11,6 +11,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.feeders.EpisodeStreamFeeder;
 import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
 
@@ -70,14 +71,14 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             listener.finishedLoading(this, pos, play);
 
             if (play) playerRunner.play();
-        } catch (PlayerRunner.PlayerException ex) {
+        } catch (PlayerRunner.PlayerException | Codec.CodecException ex) {
             listener.loadingError(this, id, ex);
         }
 
         if (stopped && playerRunner != null) playerRunner.stop();
     }
 
-    private void load(@NotNull EpisodeId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, EpisodeStreamFeeder.LoaderException {
+    private void load(@NotNull EpisodeId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
         if (episodeFeeder == null)
             this.episodeFeeder = new EpisodeStreamFeeder(session);
 
@@ -100,7 +101,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
             listener.finishedLoading(this, pos, play);
 
             if (play) playerRunner.play();
-        } catch (PlayerRunner.PlayerException ex) {
+        } catch (PlayerRunner.PlayerException | Codec.CodecException ex) {
             listener.loadingError(this, id, ex);
         }
 
@@ -212,7 +213,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                                     load((EpisodeId) id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                                 else
                                     throw new IllegalArgumentException("Unknown PlayableId: " + id);
-                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException | EpisodeStreamFeeder.LoaderException ex) {
+                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                                 listener.loadingError(TrackHandler.this, id, ex);
                             }
                             break;
