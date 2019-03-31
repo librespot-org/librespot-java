@@ -1,10 +1,13 @@
 package xyz.gianlu.librespot.player.feeders;
 
+
 import javafx.fxml.LoadException;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.BasicConnectionHolder;
-import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
@@ -15,13 +18,8 @@ import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
 import xyz.gianlu.librespot.player.GeneralWritableStream;
 
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -38,31 +36,8 @@ public class EpisodeStreamFeeder {
         this.session = session;
     }
 
-    private static void resolveRedirects(@NotNull Loader loader) throws IOException {
-        while (true) {
-            if (loader.socket == null || loader.socket.isClosed())
-                loader.populateSocket();
-
-            loader.connHolder.sendHeadRequest(loader.out);
-
-            NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(loader.in));
-            Map<String, String> headers = NetUtils.parseHeaders(loader.in);
-            if (sl.statusCode == 408) {
-                loader.socket.close();
-            } else if (sl.statusCode == 206) {
-                break;
-            } else if (sl.statusCode == 302) {
-                String locationStr = headers.get("Location");
-                if (locationStr == null)
-                    throw new IllegalStateException("WTF?!" /* FIXME */);
-
-                loader.connHolder = new BasicConnectionHolder(locationStr);
-            }
-        }
-    }
-
     @NotNull
-    public LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException, LoaderException {
+    public LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
         if (!cdn) throw new UnsupportedOperationException("NOT IMPLEMENTED YET!" /* FIXME */);
 
         Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
@@ -71,82 +46,36 @@ public class EpisodeStreamFeeder {
         if (externalUrl == null)
             throw new IllegalArgumentException("Missing external_url!");
 
-        Loader loader = new Loader(new BasicConnectionHolder(externalUrl));
-        resolveRedirects(loader);
-
+        Loader loader = new Loader(externalUrl);
         return new LoadedStream(resp, new EpisodeStream(id.hexId(), loader));
     }
 
     private static class Loader {
-        private BasicConnectionHolder connHolder;
-        private Socket socket;
-        private DataInputStream in;
-        private OutputStream out;
+        private final OkHttpClient client;
+        private final HttpUrl url;
 
-        Loader(@NotNull BasicConnectionHolder connHolder) throws IOException {
-            this.connHolder = connHolder;
-            populateSocket();
-        }
+        Loader(@NotNull String url) throws IOException {
+            this.client = new OkHttpClient();
 
-        private synchronized void populateSocket() throws IOException {
-            this.socket = connHolder.createSocket();
-            this.in = new DataInputStream(socket.getInputStream());
-            this.out = socket.getOutputStream();
-        }
+            Response resp = client.newCall(new Request.Builder().head()
+                    .url(url).build()).execute();
 
-        @NotNull
-        public synchronized Response request(int chunk) throws IOException, LoaderException {
-            return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1, false);
+            if (resp.code() != 200)
+                LOGGER.warn("Couldn't resolve redirect!");
+
+            this.url = resp.request().url();
         }
 
         @NotNull
-        public synchronized Response request(int rangeStart, int rangeEnd, boolean retried) throws IOException, LoaderException {
-            try {
-                if (socket == null || socket.isClosed())
-                    populateSocket();
-
-                connHolder.sendGetRequest(out, rangeStart, rangeEnd);
-
-                NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
-                Map<String, String> headers = NetUtils.parseHeaders(in);
-                if (sl.statusCode == 408) {
-                    socket.close();
-                    return request(rangeStart, rangeEnd, false);
-                } else if (sl.statusCode != 206) {
-                    throw new IOException(sl.statusCode + ": " + sl.statusPhrase);
-                }
-
-                String contentLengthStr = headers.get("Content-Length");
-                if (contentLengthStr == null)
-                    throw new LoaderException("Missing Content-Length header!");
-
-                int contentLength = Integer.parseInt(contentLengthStr);
-                byte[] buffer = new byte[contentLength];
-                in.readFully(buffer);
-
-                String connectionStr = headers.get("Connection");
-                if (Objects.equals(connectionStr, "close"))
-                    socket.close();
-
-                return new Loader.Response(buffer, headers);
-            } catch (IOException ex) {
-                if (!retried) {
-                    if (socket != null) socket.close();
-                    return request(rangeStart, rangeEnd, true);
-                } else {
-                    throw ex;
-                }
-            }
+        public synchronized Response request(int chunk) throws IOException {
+            return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1);
         }
 
-        private static class Response {
-            private final byte[] buffer;
-            private final Map<String, String> headers;
-
-            Response(byte[] buffer, Map<String, String> headers) {
-                this.buffer = buffer;
-                this.headers = headers;
-            }
+        @NotNull
+        public synchronized Response request(int rangeStart, int rangeEnd) throws IOException {
+            return client.newCall(new Request.Builder().get()
+                    .addHeader("Range", "bytes=" + rangeStart + "-" + rangeEnd)
+                    .url(url).build()).execute();
         }
     }
 
@@ -167,13 +96,13 @@ public class EpisodeStreamFeeder {
         private final InternalStream internalStream;
         private final Loader loader;
 
-        EpisodeStream(@NotNull String fileId, @NotNull Loader loader) throws IOException, LoaderException {
+        EpisodeStream(@NotNull String fileId, @NotNull Loader loader) throws IOException {
             this.fileId = fileId;
             this.loader = loader;
 
             byte[] firstChunk;
-            Loader.Response resp = loader.request(0, CHUNK_SIZE - 1, false);
-            String contentRange = resp.headers.get("Content-Range");
+            Response resp = loader.request(0, CHUNK_SIZE - 1);
+            String contentRange = resp.header("Content-Range");
             if (contentRange == null)
                 throw new LoadException("Missing Content-Range header!");
 
@@ -181,7 +110,7 @@ public class EpisodeStreamFeeder {
             size = Integer.parseInt(split[1]);
             chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-            firstChunk = resp.buffer;
+            firstChunk = resp.body().bytes();
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
@@ -210,7 +139,7 @@ public class EpisodeStreamFeeder {
             if (chunk.length != buffer[chunkIndex].length)
                 throw new IOException(String.format("Invalid buffer length, required: %d, provided: %d", buffer[chunkIndex].length, chunk.length));
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, host: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.connHolder.host, cached, fileId));
+            LOGGER.trace(String.format("Chunk %d/%d completed, host: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.url, cached, fileId));
 
             buffer[chunkIndex] = chunk; // FIXME: We may need a copy
 
@@ -219,9 +148,9 @@ public class EpisodeStreamFeeder {
 
         private void requestChunk(int index) {
             try {
-                Loader.Response resp = loader.request(index);
-                writeChunk(resp.buffer, index, false);
-            } catch (IOException | LoaderException ex) {
+                Response resp = loader.request(index);
+                writeChunk(resp.body().bytes(), index, false);
+            } catch (IOException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
             }
         }
@@ -259,7 +188,6 @@ public class EpisodeStreamFeeder {
             }
         }
     }
-
 
     public static class LoadedStream {
         public final Metadata.Episode episode;

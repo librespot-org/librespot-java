@@ -86,5 +86,12 @@
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.27.2</version>
         </dependency>
+
+        <!-- HTTP -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.14.0</version>
+        </dependency>
     </dependencies>
 </project>

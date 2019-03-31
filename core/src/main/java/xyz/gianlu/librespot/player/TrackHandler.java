@@ -92,7 +92,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(stream.in, null, lines, conf, this, track.getDuration());
+            playerRunner = new PlayerRunner(stream.in, null, lines, conf, this, episode.getDuration());
             new Thread(playerRunner, "player-runner-" + playerRunner.hashCode()).start();
 
             playerRunner.seek(pos);
@@ -169,7 +169,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     boolean isTrack(@NotNull PlayableId id) {
-        return track != null && track.hasGid() && Arrays.equals(id.getGid(), track.getGid().toByteArray());
+        return (track != null && track.hasGid() && Arrays.equals(id.getGid(), track.getGid().toByteArray()))
+                || (episode != null && episode.hasGid() && Arrays.equals(id.getGid(), episode.getGid().toByteArray()));
     }
 
     public int getPosition() {
