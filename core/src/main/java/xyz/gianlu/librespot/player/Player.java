@@ -11,7 +11,9 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
@@ -587,7 +589,19 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             if (frame.context == null)
                 throw new IllegalArgumentException("Invalid frame received!");
 
-            TrackId oldPlaying = state.getTrackCount() > 0 ? TrackId.fromTrackRef(state.getTrack(state.getPlayingTrackIndex())) : null;
+            String oldPlayingUri = null;
+            if (state.getTrackCount() > 0) {
+                Spirc.TrackRef playingTrack = state.getTrack(state.getPlayingTrackIndex());
+
+                if (playingTrack.hasUri()) {
+                    oldPlayingUri = playingTrack.getUri();
+                } else if (playingTrack.hasGid()) {
+                    if (frame.context.uri.startsWith("spotify:show:"))
+                        oldPlayingUri = EpisodeId.fromTrackRef(playingTrack).toSpotifyUri();
+                    else
+                        oldPlayingUri = TrackId.fromTrackRef(playingTrack).toSpotifyUri();
+                }
+            }
 
             state.setContextUri(frame.context.uri);
             state.clearTrack();
@@ -601,7 +615,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 }
 
                 if (pageIndex == -1) pageIndex = 0;
-                if (trackUid == null && oldPlaying != null) trackUid = oldPlaying.toSpotifyUri();
+                if (trackUid == null) trackUid = oldPlayingUri;
 
                 int index = -1;
                 List<Remote3Track> tracks = frame.context.pages.get(pageIndex).tracks;
