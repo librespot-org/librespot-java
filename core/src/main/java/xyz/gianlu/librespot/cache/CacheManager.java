@@ -129,6 +129,11 @@ public class CacheManager implements Closeable {
         return handler;
     }
 
+    @Nullable
+    public CacheManager.Handler forFileId(@NotNull String fileId) throws IOException {
+        return forFileId(ByteString.copyFrom(Utils.hexToBytes(fileId)));
+    }
+
     public interface Configuration {
         boolean cacheEnabled();
 

@@ -5,6 +5,8 @@ import javafx.fxml.LoadException;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
@@ -12,11 +14,14 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.AudioFileFetch;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
 import xyz.gianlu.librespot.player.GeneralWritableStream;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -49,7 +54,7 @@ public class EpisodeStreamFeeder {
         if (externalUrl == null)
             throw new IllegalArgumentException("Missing external_url!");
 
-        return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl));
+        return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()));
     }
 
     private static class Loader {
@@ -91,22 +96,39 @@ public class EpisodeStreamFeeder {
         private final int chunks;
         private final InternalStream internalStream;
         private final Loader loader;
+        private final CacheManager.Handler cacheHandler;
 
-        EpisodeStream(@NotNull String fileId, @NotNull String url) throws IOException {
+        EpisodeStream(@NotNull String fileId, @NotNull String url, @Nullable CacheManager cache) throws IOException {
             this.fileId = fileId;
             this.loader = new Loader(url);
+            this.cacheHandler = cache != null ? cache.forFileId(fileId) : null;
 
             byte[] firstChunk;
-            Response resp = loader.request(0, CHUNK_SIZE - 1);
-            String contentRange = resp.header("Content-Range");
-            if (contentRange == null)
-                throw new LoadException("Missing Content-Range header!");
+            try {
+                byte[] sizeHeader;
+                if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
+                    Response resp = loader.request(0, CHUNK_SIZE - 1);
+                    String contentRange = resp.header("Content-Range");
+                    if (contentRange == null)
+                        throw new LoadException("Missing Content-Range header!");
 
-            String[] split = Utils.split(contentRange, '/');
-            size = Integer.parseInt(split[1]);
-            chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
+                    String[] split = Utils.split(contentRange, '/');
+                    size = Integer.parseInt(split[1]);
+                    chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-            firstChunk = readBytes(resp);
+                    firstChunk = readBytes(resp);
+
+                    if (cacheHandler != null)
+                        cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
+                } else {
+                    size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
+                    chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                    firstChunk = cacheHandler.readChunk(0);
+                }
+            } catch (SQLException ex) {
+                throw new IOException(ex);
+            }
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
@@ -137,10 +159,18 @@ public class EpisodeStreamFeeder {
         public void writeChunk(@NotNull byte[] chunk, int chunkIndex, boolean cached) throws IOException {
             if (internalStream.isClosed()) return;
 
+            if (!cached && cacheHandler != null) {
+                try {
+                    cacheHandler.writeChunk(chunk, chunkIndex);
+                } catch (SQLException ex) {
+                    LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
+                }
+            }
+
             if (chunk.length != buffer[chunkIndex].length)
                 throw new IOException(String.format("Invalid buffer length, required: %d, provided: %d", buffer[chunkIndex].length, chunk.length));
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, host: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.url, cached, fileId));
+            LOGGER.trace(String.format("Chunk %d/%d completed, host: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.url.host(), cached, fileId));
 
             buffer[chunkIndex] = chunk;
 
@@ -149,9 +179,13 @@ public class EpisodeStreamFeeder {
 
         private void requestChunk(int index) {
             try {
-                Response resp = loader.request(index);
-                writeChunk(readBytes(resp), index, false);
-            } catch (IOException ex) {
+                if (cacheHandler != null && cacheHandler.hasChunk(index)) {
+                    cacheHandler.readChunk(index, this);
+                } else {
+                    Response resp = loader.request(index);
+                    writeChunk(readBytes(resp), index, false);
+                }
+            } catch (SQLException | IOException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
             }
         }
