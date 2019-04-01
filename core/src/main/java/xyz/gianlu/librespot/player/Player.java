@@ -279,7 +279,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
         }
 
-        if (state.getShuffle())
+        if (state.getShuffle() && frame.endpoint != Remote3Frame.Endpoint.UpdateContext)
             shuffleTracks(frame.options == null || frame.options.skipTo.trackUid == null);
     }
 
