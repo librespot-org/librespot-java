@@ -59,7 +59,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         listener.startedLoading(this);
 
-        LoadedStream stream = trackFeeder.load(id, new TrackStreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdn());
+        LoadedStream stream = trackFeeder.load(id, new TrackStreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdnForTracks());
         track = stream.track;
 
         if (stopped) return;
@@ -75,7 +75,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         listener.startedLoading(this);
 
-        LoadedStream stream = episodeFeeder.load(id, conf.useCdn());
+        LoadedStream stream = episodeFeeder.load(id, conf.useCdnForEpisodes());
         episode = stream.episode;
 
         if (stopped) return;

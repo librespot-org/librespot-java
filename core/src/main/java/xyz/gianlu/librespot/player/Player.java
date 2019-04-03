@@ -544,7 +544,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         boolean autoplayEnabled();
 
-        boolean useCdn();
+        boolean useCdnForTracks();
+
+        boolean useCdnForEpisodes();
     }
 
     private class StateWrapper {

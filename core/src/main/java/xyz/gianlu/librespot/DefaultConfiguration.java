@@ -54,8 +54,13 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public boolean useCdn() {
+    public boolean useCdnForTracks() {
         return true;
+    }
+
+    @Override
+    public boolean useCdnForEpisodes() {
+        return false;
     }
 
     @Override

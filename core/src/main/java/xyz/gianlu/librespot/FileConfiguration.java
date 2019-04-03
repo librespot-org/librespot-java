@@ -153,9 +153,15 @@ public final class FileConfiguration extends AbsConfiguration {
         return getBoolean("player.autoplayEnabled", defaults.autoplayEnabled());
     }
 
+
     @Override
-    public boolean useCdn() {
-        return getBoolean("player.useCdn", defaults.useCdn());
+    public boolean useCdnForTracks() {
+        return getBoolean("player.tracks.useCdn", defaults.useCdnForTracks());
+    }
+
+    @Override
+    public boolean useCdnForEpisodes() {
+        return getBoolean("player.episodes.useCdn", defaults.useCdnForTracks());
     }
 
     @Override
