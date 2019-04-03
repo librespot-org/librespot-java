@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.core;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -63,6 +64,7 @@ public class Session implements Closeable {
     private TokenProvider tokenProvider;
     private CdnManager cdnManager;
     private CacheManager cacheManager;
+    private String countryCode = null;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -435,6 +437,11 @@ public class Session implements Closeable {
         return inner.configuration;
     }
 
+    @Nullable
+    public String countryCode() {
+        return countryCode;
+    }
+
     public enum DeviceType {
         Unknown(0, "unknown"),
         Computer(1, "computer"),
@@ -689,7 +696,8 @@ public class Session implements Closeable {
                         LOGGER.trace(String.format("Handled PongAck {payload: %s}", Utils.bytesToHex(packet.payload)));
                         break;
                     case CountryCode:
-                        LOGGER.info("Received CountryCode: " + new String(packet.payload));
+                        countryCode = new String(packet.payload);
+                        LOGGER.info("Received CountryCode: " + countryCode);
                         break;
                     case LicenseVersion:
                         ByteBuffer licenseVersion = ByteBuffer.wrap(packet.payload);

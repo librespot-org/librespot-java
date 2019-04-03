@@ -48,7 +48,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
     }
 
-    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         if (trackFeeder == null)
             this.trackFeeder = new TrackStreamFeeder(session);
 
@@ -213,7 +213,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                                     load((EpisodeId) id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                                 else
                                     throw new IllegalArgumentException("Unknown PlayableId: " + id);
-                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException | ContentRestrictedException ex) {
                                 listener.loadingError(TrackHandler.this, id, ex);
                             }
                             break;

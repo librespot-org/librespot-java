@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 
@@ -24,7 +25,7 @@ public class JsonMercuryRequest<W extends JsonWrapper> {
     public W instantiate(@NotNull MercuryClient.Response resp) {
         try {
             JsonElement elm = PARSER.parse(new InputStreamReader(resp.payload.stream()));
-            return wrapperClass.getConstructor(JsonElement.class).newInstance(elm);
+            return wrapperClass.getConstructor(JsonObject.class).newInstance(elm.getAsJsonObject());
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
             throw new RuntimeException(ex);
         }

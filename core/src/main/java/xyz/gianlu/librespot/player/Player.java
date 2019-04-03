@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -285,7 +286,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
         }
 
-        if (state.getShuffle())
+        if (state.getShuffle() && frame.endpoint != Remote3Frame.Endpoint.UpdateContext)
             shuffleTracks(frame.options == null || frame.options.skipTo.trackUid == null);
     }
 
@@ -315,6 +316,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId id, @NotNull Exception ex) {
         if (handler == trackHandler) {
+            if (ex instanceof ContentRestrictedException) {
+                LOGGER.fatal(String.format("Can't load track (content restricted), gid: %s", Utils.bytesToHex(id.getGid())), ex);
+                handleNext();
+                return;
+            }
+
             LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
@@ -402,7 +409,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             if (trackHandler != null) {
                 trackHandler.sendPlay();
-                state.setPositionMs(trackHandler.getPosition());
                 state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             }
 
@@ -502,6 +508,16 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler.close();
             preloadTrackHandler = null;
         }
+    }
+
+    @Nullable
+    public Metadata.Track currentTrack() {
+        return trackHandler.track();
+    }
+
+    @Nullable
+    public TrackId currentTrackId() {
+        return tracksProvider == null ? null : tracksProvider.getCurrentTrack();
     }
 
     public interface Configuration {

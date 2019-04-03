@@ -1,14 +1,14 @@
 package xyz.gianlu.librespot.api;
 
 import com.google.gson.JsonElement;
-import com.google.protobuf.AbstractMessageLite;
+import com.google.protobuf.Message;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.ProtoJsonMercuryRequest;
+import xyz.gianlu.librespot.mercury.ProtobufMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.AlbumId;
 import xyz.gianlu.librespot.mercury.model.ArtistId;
 import xyz.gianlu.librespot.mercury.model.PlaylistId;
@@ -48,7 +48,7 @@ public class MetadataHandler extends AbsApiHandler {
     }
 
     @NotNull
-    private <P extends AbstractMessageLite> JsonElement handle(@NotNull ProtoJsonMercuryRequest<P> req) throws HandlingException {
+    private <P extends Message> JsonElement handle(@NotNull ProtobufMercuryRequest<P> req) throws HandlingException {
         try {
             return client.sendSync(req).json();
         } catch (MercuryClient.MercuryException ex) {

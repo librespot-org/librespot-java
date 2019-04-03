@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -45,12 +44,10 @@ public class TokenProvider {
 
         private StoredToken(@NotNull MercuryRequests.KeymasterToken token) {
             timestamp = TimeProvider.currentTimeMillis();
+            expiresIn = token.obj.get("expiresIn").getAsInt();
+            accessToken = token.obj.get("accessToken").getAsString();
 
-            JsonObject obj = token.obj();
-            expiresIn = obj.get("expiresIn").getAsInt();
-            accessToken = obj.get("accessToken").getAsString();
-
-            JsonArray scopesArray = obj.getAsJsonArray("scope");
+            JsonArray scopesArray = token.obj.getAsJsonArray("scope");
             scopes = new String[scopesArray.size()];
             for (int i = 0; i < scopesArray.size(); i++)
                 scopes[i] = scopesArray.get(i).getAsString();

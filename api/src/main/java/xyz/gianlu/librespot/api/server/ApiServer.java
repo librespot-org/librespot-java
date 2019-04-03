@@ -48,10 +48,10 @@ public class ApiServer implements Receiver {
         return new Request(sender, id, method.getAsString(), params);
     }
 
-    private static void sendError(@NotNull Sender sender, @Nullable JsonElement id, @NotNull PredefinedJsonRpcError error) {
+    private static void sendError(@NotNull Sender sender, @Nullable JsonElement id, @NotNull JsonRpcError error) {
         JsonObject errorObj = new JsonObject();
-        errorObj.addProperty("code", error.code);
-        errorObj.addProperty("message", error.msg);
+        errorObj.addProperty("code", error.code());
+        errorObj.addProperty("message", error.msg());
 
         JsonObject resp = new JsonObject();
         resp.addProperty("jsonrpc", "2.0");
@@ -98,7 +98,7 @@ public class ApiServer implements Receiver {
     public void onReceivedBytes(@NotNull Sender sender, @NotNull byte[] payload) {
     }
 
-    public enum PredefinedJsonRpcError {
+    public enum PredefinedJsonRpcError implements JsonRpcError {
         PARSE_ERROR(-32700, "Parse error"),
         INVALID_REQUEST(-32600, "Invalid Request"),
         METHOD_NOT_FOUND(-32601, "Method not found"),
@@ -112,6 +112,23 @@ public class ApiServer implements Receiver {
             this.code = code;
             this.msg = msg;
         }
+
+        @Override
+        public int code() {
+            return code;
+        }
+
+        @Override
+        public @NotNull String msg() {
+            return msg;
+        }
+    }
+
+    public interface JsonRpcError {
+        int code();
+
+        @NotNull
+        String msg();
     }
 
     public static class Request {
@@ -152,7 +169,7 @@ public class ApiServer implements Receiver {
         }
 
         void answerError(@NotNull PredefinedJsonRpcException ex) {
-            answerError(ex.error.code, ex.error.msg, null);
+            answerError(ex.error.code(), ex.error.msg(), null);
         }
 
         void answerResult(@NotNull JsonElement result) {
@@ -183,21 +200,21 @@ public class ApiServer implements Receiver {
 
     public static class PredefinedJsonRpcException extends GeneralJsonException {
         final JsonElement id;
-        final PredefinedJsonRpcError error;
+        final JsonRpcError error;
 
-        PredefinedJsonRpcException(@Nullable JsonElement id, @NotNull String msg, @NotNull PredefinedJsonRpcError error) {
+        PredefinedJsonRpcException(@Nullable JsonElement id, @NotNull String msg, @NotNull JsonRpcError error) {
             super(msg);
             this.id = id;
             this.error = error;
         }
 
-        PredefinedJsonRpcException(@Nullable JsonElement id, @NotNull PredefinedJsonRpcError error) {
+        PredefinedJsonRpcException(@Nullable JsonElement id, @NotNull JsonRpcError error) {
             this.id = id;
             this.error = error;
         }
 
         @NotNull
-        public static PredefinedJsonRpcException from(@NotNull Request request, @NotNull PredefinedJsonRpcError error) {
+        public static PredefinedJsonRpcException from(@NotNull Request request, @NotNull JsonRpcError error) {
             return new PredefinedJsonRpcException(request.id, error);
         }
     }
