@@ -521,7 +521,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Nullable
-    public PlayableId currentTrackId() {
+    public PlayableId currentPlayableId() {
         return tracksProvider == null ? null : tracksProvider.getCurrentTrack();
     }
 

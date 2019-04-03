@@ -41,17 +41,22 @@ public class PlayerHandler extends AbsApiHandler {
             case "playPause":
                 player.playPause();
                 break;
-            case "currentTrack": // FIXME: What if episode is playing?
+            case "currentlyPlaying":
                 Metadata.Track track = player.currentTrack();
                 if (track == null) {
-                    PlayableId id = player.currentTrackId();
-                    if (id == null) {
-                        throw ApiServer.PredefinedJsonRpcException.from(request, PlayerRpcError.NO_TRACK);
+                    Metadata.Episode episode = player.currentEpisode();
+                    if (episode == null) {
+                        PlayableId id = player.currentPlayableId();
+                        if (id == null) {
+                            throw ApiServer.PredefinedJsonRpcException.from(request, PlayerRpcError.NO_TRACK);
+                        } else {
+                            JsonObject obj = new JsonObject();
+                            obj.addProperty("gid", Utils.bytesToHex(id.getGid()));
+                            obj.addProperty("uri", id.toSpotifyUri());
+                            return obj;
+                        }
                     } else {
-                        JsonObject obj = new JsonObject();
-                        obj.addProperty("gid", Utils.bytesToHex(id.getGid()));
-                        obj.addProperty("uri", id.toSpotifyUri());
-                        return obj;
+                        return ProtobufToJson.convert(episode);
                     }
                 } else {
                     return ProtobufToJson.convert(track);
