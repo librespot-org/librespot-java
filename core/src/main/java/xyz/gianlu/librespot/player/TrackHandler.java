@@ -42,7 +42,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
     }
 
-    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         listener.startedLoading(this);
 
         StreamFeeder.LoadedStream stream = feeder.load(id, new StreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdn());
@@ -173,7 +173,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
                             try {
                                 load(id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
-                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                            } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException | ContentRestrictedException ex) {
                                 listener.loadingError(TrackHandler.this, id, ex);
                             }
                             break;

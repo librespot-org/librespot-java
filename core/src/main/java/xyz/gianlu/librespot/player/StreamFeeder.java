@@ -82,10 +82,13 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
-        Metadata.Track track = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
-        track = pickAlternativeIfNecessary(track);
+    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+        Metadata.Track original = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
+        Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
+            String country = session.countryCode();
+            if (country != null) ContentRestrictedException.checkRestrictions(country, original.getRestrictionList());
+
             LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(id.getGid()));
             throw new FeederException();
         }
@@ -94,7 +97,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         return load(TrackId.fromTrackRef(ref), audioQualityPreference, cdn);
     }
 

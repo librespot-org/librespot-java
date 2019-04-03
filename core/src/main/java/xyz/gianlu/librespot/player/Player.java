@@ -310,6 +310,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void loadingError(@NotNull TrackHandler handler, @NotNull TrackId id, @NotNull Exception ex) {
         if (handler == trackHandler) {
+            if (ex instanceof ContentRestrictedException) {
+                LOGGER.fatal(String.format("Can't load track (content restricted), gid: %s", Utils.bytesToHex(id.getGid())), ex);
+                handleNext();
+                return;
+            }
+
             LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
