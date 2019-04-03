@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -496,6 +497,16 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler.close();
             preloadTrackHandler = null;
         }
+    }
+
+    @Nullable
+    public Metadata.Track currentTrack() {
+        return trackHandler.track();
+    }
+
+    @Nullable
+    public TrackId currentTrackId() {
+        return tracksProvider == null ? null : tracksProvider.getCurrentTrack();
     }
 
     public interface Configuration {

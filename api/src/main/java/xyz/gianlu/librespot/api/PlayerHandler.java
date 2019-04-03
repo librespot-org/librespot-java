@@ -1,10 +1,15 @@
 package xyz.gianlu.librespot.api;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
+import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.Player;
 
 /**
@@ -36,6 +41,21 @@ public class PlayerHandler extends AbsApiHandler {
             case "playPause":
                 player.playPause();
                 break;
+            case "currentTrack":
+                Metadata.Track track = player.currentTrack();
+                if (track == null) {
+                    TrackId id = player.currentTrackId();
+                    if (id == null) {
+                        throw ApiServer.PredefinedJsonRpcException.from(request, PlayerRpcError.NO_TRACK);
+                    } else {
+                        JsonObject obj = new JsonObject();
+                        obj.addProperty("gid", Utils.bytesToHex(id.getGid()));
+                        obj.addProperty("uri", id.toSpotifyUri());
+                        return obj;
+                    }
+                } else {
+                    return MercuryRequests.TRACK_JSON_CONVERTER.convert(track);
+                }
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
         }
@@ -45,5 +65,27 @@ public class PlayerHandler extends AbsApiHandler {
 
     @Override
     protected void handleNotification(ApiServer.@NotNull Request request) {
+    }
+
+    public enum PlayerRpcError implements ApiServer.JsonRpcError {
+        NO_TRACK(10001, "No track found.");
+
+        private final int code;
+        private final String msg;
+
+        PlayerRpcError(int code, @NotNull String msg) {
+            this.code = code;
+            this.msg = msg;
+        }
+
+        @Override
+        public int code() {
+            return code;
+        }
+
+        @Override
+        public @NotNull String msg() {
+            return msg;
+        }
     }
 }

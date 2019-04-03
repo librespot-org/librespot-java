@@ -22,20 +22,20 @@ import java.util.List;
  * @author Gianlu
  */
 public final class MercuryRequests {
-    private static final ProtoJsonMercuryRequest.JsonConverter<Playlist4Changes.SelectedListContent> SELECTED_LIST_CONTENT_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Playlist4Changes.SelectedListContent> SELECTED_LIST_CONTENT_JSON_CONVERTER = proto -> {
         List<Playlist4Content.Item> items = proto.getContents().getItemsList();
         JsonArray array = new JsonArray(items.size());
         for (Playlist4Content.Item item : items) array.add(item.getUri());
         return array;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Date> DATE_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Date> DATE_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("year", proto.getYear());
         obj.addProperty("month", proto.getMonth());
         obj.addProperty("day", proto.getDay());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Restriction> RESTRICTION_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Restriction> RESTRICTION_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("allowed", proto.getCountriesAllowed());
         obj.addProperty("forbidden", proto.getCountriesForbidden());
@@ -44,13 +44,13 @@ public final class MercuryRequests {
         putArray(obj, "catalogues", proto.getCatalogueList());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Copyright> COPYRIGHT_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Copyright> COPYRIGHT_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("text", proto.getText());
         obj.addProperty("type", proto.getType().name());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Image> IMAGE_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Image> IMAGE_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("width", proto.getWidth());
         obj.addProperty("height", proto.getHeight());
@@ -58,42 +58,42 @@ public final class MercuryRequests {
         obj.addProperty("fileId", Utils.toBase64(proto.getFileId()));
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ExternalId> EXTERNAL_ID_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ExternalId> EXTERNAL_ID_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("type", proto.getType());
         obj.addProperty("id", proto.getId());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ActivityPeriod> ACTIVITY_PERIOD_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ActivityPeriod> ACTIVITY_PERIOD_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("startYear", proto.getStartYear());
         obj.addProperty("endYear", proto.getEndYear());
         obj.addProperty("decade", proto.getDecade());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AudioFile> AUDIO_FILE_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AudioFile> AUDIO_FILE_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("fileId", Utils.toBase64(proto.getFileId()));
         obj.addProperty("format", proto.getFormat().name());
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.VideoFile> VIDEO_FILE_JSON_CONVERTER = proto -> {
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.VideoFile> VIDEO_FILE_JSON_CONVERTER = proto -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("fileId", Utils.toBase64(proto.getFileId()));
         return obj;
     };
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist> ARTIST_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Episode> EPISODE_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Show> SHOW_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Album> ALBUM_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AlbumGroup> ALBUM_GROUP_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Track> TRACK_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Disc> DISC_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.TopTracks> TOP_TRACKS_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Availability> AVAILABILITY_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER;
-    private static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Artist> ARTIST_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Episode> EPISODE_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Show> SHOW_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Album> ALBUM_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.AlbumGroup> ALBUM_GROUP_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Track> TRACK_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Disc> DISC_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.TopTracks> TOP_TRACKS_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.SalePeriod> SALE_PERIOD_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Availability> AVAILABILITY_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.ImageGroup> IMAGE_GROUP_JSON_CONVERTER;
+    public static final ProtoJsonMercuryRequest.JsonConverter<Metadata.Biography> BIOGRAPHY_JSON_CONVERTER;
     private static final String KEYMASTER_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd";
 
     static {
