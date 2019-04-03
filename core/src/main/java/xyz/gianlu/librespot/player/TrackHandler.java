@@ -48,34 +48,25 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
     }
 
+    @NotNull
+    private PlayerRunner createRunner(@NotNull LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
+        return new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track == null ? episode.getDuration() : track.getDuration());
+    }
+
     private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         if (trackFeeder == null)
             this.trackFeeder = new TrackStreamFeeder(session);
 
         listener.startedLoading(this);
 
-        TrackStreamFeeder.LoadedStream stream = trackFeeder.load(id, new TrackStreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdn());
+        LoadedStream stream = trackFeeder.load(id, new TrackStreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdn());
         track = stream.track;
 
         if (stopped) return;
 
         LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.artistsToString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
 
-        try {
-            if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track.getDuration());
-            new Thread(playerRunner, "player-runner-" + playerRunner.hashCode()).start();
-
-            playerRunner.seek(pos);
-
-            listener.finishedLoading(this, pos, play);
-
-            if (play) playerRunner.play();
-        } catch (Codec.CodecException | LinesHolder.MixerException ex) {
-            listener.loadingError(this, id, ex);
-        }
-
-        if (stopped && playerRunner != null) playerRunner.stop();
+        loadRunner(id, stream, play, pos);
     }
 
     private void load(@NotNull EpisodeId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
@@ -84,16 +75,20 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         listener.startedLoading(this);
 
-        EpisodeStreamFeeder.LoadedStream stream = episodeFeeder.load(id, conf.useCdn());
+        LoadedStream stream = episodeFeeder.load(id, conf.useCdn());
         episode = stream.episode;
 
         if (stopped) return;
 
         LOGGER.info(String.format("Loaded episode, name: '%s', gid: %s", episode.getName(), Utils.bytesToHex(id.getGid())));
 
+        loadRunner(id, stream, play, pos);
+    }
+
+    private void loadRunner(@NotNull PlayableId id, @NotNull LoadedStream stream, boolean play, int pos) throws IOException {
         try {
             if (playerRunner != null) playerRunner.stop();
-            playerRunner = new PlayerRunner(stream.in, null, lines, conf, this, episode.getDuration());
+            playerRunner = createRunner(stream);
             new Thread(playerRunner, "player-runner-" + playerRunner.hashCode()).start();
 
             playerRunner.seek(pos);
@@ -199,6 +194,27 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         void endOfTrack(@NotNull TrackHandler handler);
 
         void preloadNextTrack(@NotNull TrackHandler handler);
+    }
+
+    public static class LoadedStream {
+        private final Metadata.Episode episode;
+        private final Metadata.Track track;
+        private final GeneralAudioStream in;
+        private final NormalizationData normalizationData;
+
+        public LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
+            this.track = track;
+            this.in = in;
+            this.normalizationData = normalizationData;
+            this.episode = null;
+        }
+
+        public LoadedStream(@NotNull Metadata.Episode episode, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
+            this.episode = episode;
+            this.in = in;
+            this.normalizationData = normalizationData;
+            this.track = null;
+        }
     }
 
     private class Looper implements Runnable {

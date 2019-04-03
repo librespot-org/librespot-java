@@ -25,6 +25,9 @@ public class NormalizationData {
         this.track_peak = track_peak;
         this.album_gain_db = album_gain_db;
         this.album_peak = album_peak;
+
+        LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
+                track_gain_db, track_peak, album_gain_db, album_peak));
     }
 
     @NotNull

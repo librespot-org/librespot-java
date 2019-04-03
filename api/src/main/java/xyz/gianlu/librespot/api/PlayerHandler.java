@@ -41,7 +41,7 @@ public class PlayerHandler extends AbsApiHandler {
             case "playPause":
                 player.playPause();
                 break;
-            case "currentTrack":
+            case "currentTrack": // FIXME: What if episode is playing?
                 Metadata.Track track = player.currentTrack();
                 if (track == null) {
                     PlayableId id = player.currentTrackId();

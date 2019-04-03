@@ -13,10 +13,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
-import xyz.gianlu.librespot.player.AudioFileFetch;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.GeneralWritableStream;
+import xyz.gianlu.librespot.player.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,22 +42,46 @@ public class EpisodeStreamFeeder {
     }
 
     @NotNull
-    private LoadedStream loadWithoutCdn(@NotNull EpisodeId id) {
-        throw new UnsupportedOperationException();
+    private TrackHandler.LoadedStream loadWithoutCdn(@NotNull EpisodeId id, @NotNull Metadata.Episode episode) throws IOException {
+        Metadata.AudioFile file = null;
+        for (Metadata.AudioFile f : episode.getAudioList()) {
+            if (!f.hasFormat())
+                continue;
+
+            if (SuperAudioFormat.get(f.getFormat()) == SuperAudioFormat.VORBIS) {
+                file = f;
+                break;
+            }
+        }
+
+        if (file == null)
+            throw new IllegalArgumentException();
+
+        byte[] key = session.audioKey().getAudioKey(episode.getGid(), file.getFileId());
+        AudioFileStreaming stream = new AudioFileStreaming(session, file, key);
+        stream.open();
+
+        InputStream in = stream.stream();
+        NormalizationData normalizationData = NormalizationData.read(in);
+
+        if (in.skip(0xa7) != 0xa7)
+            throw new IOException("Couldn't skip 0xa7 bytes!");
+
+        return new TrackHandler.LoadedStream(episode, stream, normalizationData);
     }
 
     @NotNull
-    public LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
-        if (cdn) {
-            Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
+    public TrackHandler.LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
+        Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
 
+        if (cdn) {
             String externalUrl = resp.getExternalUrl();
             if (externalUrl == null)
                 throw new IllegalArgumentException("Missing external_url!");
 
-            return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()));
+            return new TrackHandler.LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()), null);
         } else {
-            return loadWithoutCdn(id);
+            return loadWithoutCdn(id, resp);
         }
     }
 
@@ -228,16 +249,6 @@ public class EpisodeStreamFeeder {
             protected void requestChunkFromStream(int index) {
                 executorService.execute(() -> requestChunk(index));
             }
-        }
-    }
-
-    public static class LoadedStream {
-        public final Metadata.Episode episode;
-        public final GeneralAudioStream in;
-
-        LoadedStream(@NotNull Metadata.Episode episode, @NotNull GeneralAudioStream in) {
-            this.episode = episode;
-            this.in = in;
         }
     }
 }
