@@ -7,14 +7,23 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.AudioFileFetch;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.GeneralWritableStream;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
+import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
+import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
+import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +45,11 @@ public class CdnManager {
     }
 
     @NotNull
+    public OkHttpClient client() {
+        return client;
+    }
+
+    @NotNull
     private InputStream getHead(@NotNull ByteString fileId) throws IOException {
         Response resp = client.newCall(new Request.Builder()
                 .get().url("https://heads-fa.spotify.com/head/" + Utils.bytesToHex(fileId).toLowerCase())
@@ -52,8 +66,13 @@ public class CdnManager {
     }
 
     @NotNull
-    public Streamer stream(@NotNull ByteString fileId, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
-        return new Streamer(fileId, key, getAudioUrl(fileId), session.cache());
+    public Streamer streamEpisode(@NotNull HttpUrl externalUrl) throws IOException {
+        return new Streamer(AudioFileSurrogate.from(externalUrl), externalUrl, session.cache(), new NoopAudioDecrypt());
+    }
+
+    @NotNull
+    public Streamer streamTrack(@NotNull Metadata.AudioFile file, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
+        return new Streamer(AudioFileSurrogate.from(file), getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key));
     }
 
     @NotNull
@@ -79,6 +98,43 @@ public class CdnManager {
         }
     }
 
+    private static class AudioFileSurrogate {
+        private final String fileId;
+        private final SuperAudioFormat format;
+
+        AudioFileSurrogate(@NotNull String fileId, @NotNull SuperAudioFormat format) {
+            this.fileId = fileId;
+            this.format = format;
+        }
+
+        @NotNull
+        static AudioFileSurrogate from(@NotNull Metadata.AudioFile file) {
+            return new AudioFileSurrogate(Utils.bytesToHex(file.getFileId()), SuperAudioFormat.get(file.getFormat()));
+        }
+
+        @NotNull
+        static AudioFileSurrogate from(@NotNull HttpUrl url) {
+            // Generating fake file id!
+
+            try {
+                byte[] hash = MessageDigest.getInstance("SHA1").digest(url.toString().getBytes());
+                return new AudioFileSurrogate(Utils.bytesToHex(hash, 0, 20), SuperAudioFormat.MP3);
+            } catch (NoSuchAlgorithmException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
+        @NotNull
+        SuperAudioFormat getFormat() {
+            return format;
+        }
+
+        @NotNull
+        String getFileId() {
+            return fileId;
+        }
+    }
+
     public static class CdnException extends Exception {
 
         CdnException(@NotNull String message) {
@@ -97,7 +153,7 @@ public class CdnManager {
     }
 
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
-        private final ByteString fileId;
+        private final AudioFileSurrogate file;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
         private final AudioDecrypt audioDecrypt;
         private final HttpUrl cdnUrl;
@@ -109,11 +165,11 @@ public class CdnManager {
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull ByteString fileId, byte[] key, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache) throws IOException {
-            this.fileId = fileId;
-            this.audioDecrypt = new AudioDecrypt(key);
+        private Streamer(@NotNull AudioFileSurrogate file, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache, @Nullable AudioDecrypt audioDecrypt) throws IOException {
+            this.file = file;
+            this.audioDecrypt = audioDecrypt;
             this.cdnUrl = cdnUrl;
-            this.cacheHandler = cache != null ? cache.forFileId(fileId) : null;
+            this.cacheHandler = cache != null ? cache.forFileId(file.getFileId()) : null;
 
             byte[] firstChunk;
             try {
@@ -164,7 +220,7 @@ public class CdnManager {
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, cdnUrl.host(), cached, Utils.bytesToHex(fileId)));
+            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, cdnUrl.host(), cached, file.getFileId()));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -177,12 +233,12 @@ public class CdnManager {
 
         @Override
         public @NotNull String getFileIdHex() {
-            return Utils.bytesToHex(fileId);
+            return file.getFileId();
         }
 
         @Override
         public @NotNull SuperAudioFormat codec() {
-            return SuperAudioFormat.VORBIS;
+            return file.getFormat();
         }
 
         private void requestChunk(int index) {

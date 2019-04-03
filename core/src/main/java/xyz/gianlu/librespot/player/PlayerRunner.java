@@ -34,7 +34,7 @@ public class PlayerRunner implements Runnable {
                 throw new IllegalArgumentException("Unknown codec: " + audioFile.codec());
         }
 
-        LOGGER.trace(String.format("Player ready for playback, fileId: %s", audioFile.getFileIdHex()));
+        LOGGER.trace(String.format("Player ready for playback, codec: %s, fileId: %s", audioFile.codec(), audioFile.getFileIdHex()));
     }
 
     int time() {

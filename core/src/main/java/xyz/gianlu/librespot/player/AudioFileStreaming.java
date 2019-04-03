@@ -9,6 +9,8 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
+import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
+import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -160,7 +162,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             this.buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
-            this.audioDecrypt = new AudioDecrypt(key);
+            this.audioDecrypt = new AesAudioDecrypt(key);
             this.internalStream = new InternalStream();
         }
 
