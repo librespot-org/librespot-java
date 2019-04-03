@@ -11,7 +11,10 @@ import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
 /**
  * @author Gianlu
@@ -127,27 +130,8 @@ public class PlaylistProvider implements TracksProvider {
     }
 
     @Override
-    public int getPrevTrackIndex(boolean consume) {
-        List<Spirc.TrackRef> queueTracks = new ArrayList<>();
-        Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
-        while (iter.hasNext()) {
-            Spirc.TrackRef track = iter.next();
-            if (track.getQueued()) {
-                queueTracks.add(track);
-                iter.remove();
-            }
-        }
-
-        int current = state.getPlayingTrackIndex();
-        int newIndex;
-        if (current > 0) newIndex = current - 1;
-        else if (state.getRepeat()) newIndex = state.getTrackCount() - 1;
-        else newIndex = 0;
-
-        for (int i = 0; i < queueTracks.size(); i++)
-            state.getTrackList().add(newIndex + 1 + i, queueTracks.get(i));
-
-        return newIndex;
+    public int getPrevTrackIndex() {
+        return TracksProvider.getPrevTrackIndex(state);
     }
 
     @NotNull

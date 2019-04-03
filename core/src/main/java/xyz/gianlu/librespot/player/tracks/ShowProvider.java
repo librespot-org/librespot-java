@@ -4,10 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
 /**
  * @author Gianlu
  */
@@ -32,27 +28,8 @@ public class ShowProvider implements TracksProvider {
     }
 
     @Override
-    public int getPrevTrackIndex(boolean consume) { // TODO
-        List<Spirc.TrackRef> queueTracks = new ArrayList<>();
-        Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
-        while (iter.hasNext()) {
-            Spirc.TrackRef track = iter.next();
-            if (track.getQueued()) {
-                queueTracks.add(track);
-                iter.remove();
-            }
-        }
-
-        int current = state.getPlayingTrackIndex();
-        int newIndex;
-        if (current > 0) newIndex = current - 1;
-        else if (state.getRepeat()) newIndex = state.getTrackCount() - 1;
-        else newIndex = 0;
-
-        for (int i = 0; i < queueTracks.size(); i++)
-            state.getTrackList().add(newIndex + 1 + i, queueTracks.get(i));
-
-        return newIndex;
+    public int getPrevTrackIndex() {
+        return TracksProvider.getPrevTrackIndex(state);
     }
 
     @Override

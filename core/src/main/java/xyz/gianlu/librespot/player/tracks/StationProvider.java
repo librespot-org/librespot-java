@@ -83,7 +83,7 @@ public class StationProvider implements TracksProvider {
     }
 
     @Override
-    public int getPrevTrackIndex(boolean consume) {
+    public int getPrevTrackIndex() {
         int prev = state.getPlayingTrackIndex() - 1;
         if (prev < 0) return state.getPlayingTrackIndex();
         else return prev;

@@ -484,7 +484,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private void handlePrev() {
         if (getPosition() < 3000) {
-            state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex(true));
+            state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex());
             state.setPositionMs(0);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
