@@ -32,7 +32,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
+    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
         this.session = session;
         this.fileId = file.getFileId();
         this.cacheHandler = session.cache().forFileId(fileId);
@@ -43,6 +43,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     @Override
     public String getFileIdHex() {
         return Utils.bytesToHex(fileId);
+    }
+
+    @Override
+    public @NotNull Codec codec() {
+        return Codec.VORBIS;
     }
 
     @NotNull
@@ -91,7 +96,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return fetch;
     }
 
-    void open() throws IOException {
+    public void open() throws IOException {
         AudioFileFetch fetch = requestHeaders();
 
         int size = fetch.getSize();

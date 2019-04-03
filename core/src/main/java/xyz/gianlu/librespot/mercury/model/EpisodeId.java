@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.mercury.model;
 import io.seruco.encoding.base62.Base62;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -10,13 +11,13 @@ import java.util.regex.Pattern;
 /**
  * @author Gianlu
  */
-public final class EpisodeId implements SpotifyId {
-    private static final Pattern PATTERN = Pattern.compile("spotify:episode:(.{22})");
+public final class EpisodeId implements SpotifyId, PlayableId {
+    static final Pattern PATTERN = Pattern.compile("spotify:episode:(.{22})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
     private EpisodeId(@NotNull String hex) {
-        this.hexId = hex;
+        this.hexId = hex.toLowerCase();
     }
 
     @NotNull
@@ -27,6 +28,17 @@ public final class EpisodeId implements SpotifyId {
             return new EpisodeId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
         } else {
             throw new IllegalArgumentException("Not a Spotify episode ID: " + uri);
+        }
+    }
+
+    @NotNull
+    public static EpisodeId fromTrackRef(@NotNull Spirc.TrackRef ref) {
+        if (ref.hasGid()) {
+            return new EpisodeId(Utils.bytesToHex(ref.getGid()));
+        } else if (ref.hasUri()) {
+            return fromUri(ref.getUri());
+        } else {
+            throw new IllegalArgumentException("Not enough data to extract the episode ID!");
         }
     }
 
@@ -48,5 +60,16 @@ public final class EpisodeId implements SpotifyId {
     @Override
     public @NotNull String toSpotifyUri() {
         return "spotify:episode:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
+    }
+
+    @Override
+    public @NotNull String hexId() {
+        return hexId;
+    }
+
+    @Override
+    @NotNull
+    public byte[] getGid() {
+        return Utils.hexToBytes(hexId);
     }
 }

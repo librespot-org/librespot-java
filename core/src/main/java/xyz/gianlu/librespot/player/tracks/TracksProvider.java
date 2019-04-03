@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.tracks;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 /**
  * @author Gianlu
@@ -13,10 +13,10 @@ public interface TracksProvider {
     int getPrevTrackIndex(boolean consume);
 
     @NotNull
-    TrackId getCurrentTrack();
+    PlayableId getCurrentTrack();
 
     @NotNull
-    TrackId getTrackAt(int index);
+    PlayableId getTrackAt(int index);
 
     boolean canShuffle();
 

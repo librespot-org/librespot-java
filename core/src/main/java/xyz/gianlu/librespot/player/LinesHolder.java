@@ -20,7 +20,7 @@ public class LinesHolder {
     }
 
     @NotNull
-    private static List<Mixer> findSupportingMixersFor(@NotNull Line.Info info) throws PlayerRunner.PlayerException {
+    private static List<Mixer> findSupportingMixersFor(@NotNull Line.Info info) throws MixerException {
         List<Mixer> mixers = new ArrayList<>();
         for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
             Mixer mixer = AudioSystem.getMixer(mixerInfo);
@@ -29,13 +29,13 @@ public class LinesHolder {
         }
 
         if (mixers.isEmpty())
-            throw new PlayerRunner.PlayerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
+            throw new MixerException(String.format("Couldn't find a suitable mixer, line: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
         else
             return mixers;
     }
 
     @NotNull
-    private static Mixer findMixer(@NotNull List<Mixer> mixers, @Nullable String[] keywords) throws PlayerRunner.PlayerException {
+    private static Mixer findMixer(@NotNull List<Mixer> mixers, @Nullable String[] keywords) throws MixerException {
         if (keywords == null || keywords.length == 0) return mixers.get(0);
 
         List<Mixer> list = new ArrayList<>(mixers);
@@ -44,7 +44,7 @@ public class LinesHolder {
 
             list.removeIf(mixer -> !mixer.getMixerInfo().getName().toLowerCase().contains(word.toLowerCase()));
             if (list.isEmpty())
-                throw new PlayerRunner.PlayerException("No mixers available for the specified search keywords: " + Arrays.toString(keywords));
+                throw new MixerException("No mixers available for the specified search keywords: " + Arrays.toString(keywords));
         }
 
         if (list.size() > 1)
@@ -98,7 +98,7 @@ public class LinesHolder {
     }
 
     @NotNull
-    public LineWrapper getLineFor(@NotNull Player.Configuration conf, @NotNull AudioFormat format) throws PlayerRunner.PlayerException, LineUnavailableException {
+    public LineWrapper getLineFor(@NotNull Player.Configuration conf, @NotNull AudioFormat format) throws LineUnavailableException, MixerException {
         DataLine.Info info = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
         List<Mixer> mixers = findSupportingMixersFor(info);
         if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
@@ -118,6 +118,12 @@ public class LinesHolder {
                     }
                 }
             }
+        }
+    }
+
+    public static class MixerException extends Exception {
+        MixerException(String message) {
+            super(message);
         }
     }
 

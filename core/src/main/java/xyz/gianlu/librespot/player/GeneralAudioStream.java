@@ -13,4 +13,11 @@ public interface GeneralAudioStream {
 
     @NotNull
     String getFileIdHex();
+
+    @NotNull
+    Codec codec();
+
+    enum Codec {
+        VORBIS, MP3
+    }
 }

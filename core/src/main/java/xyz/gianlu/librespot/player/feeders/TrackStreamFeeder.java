@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +12,7 @@ import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.player.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,11 +22,11 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public class StreamFeeder {
-    private static final Logger LOGGER = Logger.getLogger(StreamFeeder.class);
+public class TrackStreamFeeder {
+    private static final Logger LOGGER = Logger.getLogger(TrackStreamFeeder.class);
     private final Session session;
 
-    public StreamFeeder(@NotNull Session session) {
+    public TrackStreamFeeder(@NotNull Session session) {
         this.session = session;
     }
 
@@ -46,9 +47,9 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    public TrackHandler.LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         GeneralAudioStream generalStream;
-        byte[] key = session.audioKey().getAudioKey(track, file);
+        byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
         if (cdn) {
             generalStream = session.cdn().stream(file.getFileId(), key);
         } else {
@@ -61,17 +62,14 @@ public class StreamFeeder {
 
         InputStream in = generalStream.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
-        LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
-                normalizationData.track_gain_db, normalizationData.track_peak, normalizationData.album_gain_db, normalizationData.album_peak));
-
         if (in.skip(0xa7) != 0xa7)
             throw new IOException("Couldn't skip 0xa7 bytes!");
 
-        return new LoadedStream(track, generalStream, normalizationData);
+        return new TrackHandler.LoadedStream(track, generalStream, normalizationData);
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    public TrackHandler.LoadedStream load(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track);
         if (file == null) {
             LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
@@ -82,7 +80,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+    public TrackHandler.LoadedStream load(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         Metadata.Track original = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
         Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
@@ -97,7 +95,7 @@ public class StreamFeeder {
     }
 
     @NotNull
-    public LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+    public TrackHandler.LoadedStream load(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         return load(TrackId.fromTrackRef(ref), audioQualityPreference, cdn);
     }
 
@@ -149,18 +147,6 @@ public class StreamFeeder {
         Metadata.AudioFile getFile(@NotNull Metadata.Track track);
     }
 
-    public static class LoadedStream {
-        public final Metadata.Track track;
-        public final GeneralAudioStream in;
-        public final NormalizationData normalizationData;
-
-        LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
-            this.track = track;
-            this.in = in;
-            this.normalizationData = normalizationData;
-        }
-    }
-
     public static class SuperAudioQuality implements AudioQualityPreference {
         private final SuperAudioFormat format;
 
@@ -183,7 +169,7 @@ public class StreamFeeder {
     public static class VorbisOnlyAudioQuality implements AudioQualityPreference {
         private final AudioQuality preferred;
 
-        public VorbisOnlyAudioQuality(@NotNull StreamFeeder.AudioQuality preferred) {
+        public VorbisOnlyAudioQuality(@NotNull TrackStreamFeeder.AudioQuality preferred) {
             this.preferred = preferred;
         }
 

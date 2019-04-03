@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.PlayerRunner;
-import xyz.gianlu.librespot.player.StreamFeeder;
+import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
 
 import java.io.File;
 
@@ -19,8 +19,8 @@ public final class DefaultConfiguration extends AbsConfiguration {
 
     @NotNull
     @Override
-    public StreamFeeder.AudioQuality preferredQuality() {
-        return StreamFeeder.AudioQuality.VORBIS_160;
+    public TrackStreamFeeder.AudioQuality preferredQuality() {
+        return TrackStreamFeeder.AudioQuality.VORBIS_160;
     }
 
     @Override
@@ -54,8 +54,13 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public boolean useCdn() {
+    public boolean useCdnForTracks() {
         return true;
+    }
+
+    @Override
+    public boolean useCdnForEpisodes() {
+        return false;
     }
 
     @Override

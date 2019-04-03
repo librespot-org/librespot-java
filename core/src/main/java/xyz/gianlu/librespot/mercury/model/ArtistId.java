@@ -16,7 +16,7 @@ public final class ArtistId implements SpotifyId {
     private final String hexId;
 
     private ArtistId(@NotNull String hex) {
-        this.hexId = hex;
+        this.hexId = hex.toLowerCase();
     }
 
     @NotNull

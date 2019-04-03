@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
+import xyz.gianlu.librespot.common.BasicConnectionHolder;
 import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
@@ -12,7 +13,10 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.*;
 
 import java.io.*;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Map;
@@ -60,12 +64,11 @@ public class CdnManager {
 
     @NotNull
     public Streamer stream(@NotNull ByteString fileId, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
-        AudioUrl moreAudio = getAudioUrl(fileId);
-        return new Streamer(fileId, key, moreAudio, session.cache());
+        return new Streamer(fileId, key, getAudioUrl(fileId), session.cache());
     }
 
     @NotNull
-    private AudioUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
+    private BasicConnectionHolder getAudioUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
         HttpURLConnection conn = (HttpURLConnection) new URL(String.format(STORAGE_RESOLVE_AUDIO_URL, Utils.bytesToHex(fileId))).openConnection();
         conn.addRequestProperty("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         conn.connect();
@@ -84,47 +87,12 @@ public class CdnManager {
 
             StorageResolve.StorageResolveResponse proto = StorageResolve.StorageResolveResponse.parseFrom(protoBytes);
             if (proto.getResult() == StorageResolve.StorageResolveResponse.Result.CDN) {
-                return new AudioUrl(proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount())));
+                return new BasicConnectionHolder(proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount())));
             } else {
                 throw new CdnException(String.format("Could not retrieve CDN url! {result: %s}", proto.getResult()));
             }
         } finally {
             conn.disconnect();
-        }
-    }
-
-    private static class AudioUrl {
-        private final String host;
-        private final String path;
-        private final int port;
-
-        private AudioUrl(@NotNull String str) throws MalformedURLException {
-            URL url = new URL(str);
-
-            this.host = url.getHost();
-            this.port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
-            this.path = url.getPath() + "?" + url.getQuery();
-        }
-
-        @NotNull
-        private Socket createSocket() throws IOException {
-            Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(host, port));
-            return socket;
-        }
-
-        private void sendRequest(@NotNull OutputStream out, int rangeStart, int rangeEnd) throws IOException {
-            out.write("GET ".getBytes());
-            out.write(path.getBytes());
-            out.write(" HTTP/1.1".getBytes());
-            out.write("\r\nHost: ".getBytes());
-            out.write(host.getBytes());
-            out.write("\r\nRange: bytes=".getBytes());
-            out.write(String.valueOf(rangeStart).getBytes());
-            out.write("-".getBytes());
-            out.write(String.valueOf(rangeEnd).getBytes());
-            out.write("\r\n\r\n".getBytes());
-            out.flush();
         }
     }
 
@@ -148,7 +116,7 @@ public class CdnManager {
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull ByteString fileId, byte[] key, @NotNull AudioUrl moreAudio, @Nullable CacheManager cache) throws IOException, CdnException {
+        private Streamer(@NotNull ByteString fileId, byte[] key, @NotNull BasicConnectionHolder moreAudio, @Nullable CacheManager cache) throws IOException, CdnException {
             this.fileId = fileId;
             this.audioDecrypt = new AudioDecrypt(key);
             this.loader = new CdnLoader(moreAudio);
@@ -203,7 +171,7 @@ public class CdnManager {
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.moreAudio.host, cached, Utils.bytesToHex(fileId)));
+            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, loader.connHolder.host, cached, Utils.bytesToHex(fileId)));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -217,6 +185,11 @@ public class CdnManager {
         @Override
         public @NotNull String getFileIdHex() {
             return Utils.bytesToHex(fileId);
+        }
+
+        @Override
+        public @NotNull Codec codec() {
+            return Codec.VORBIS;
         }
 
         private void requestChunk(int index) {
@@ -233,19 +206,19 @@ public class CdnManager {
         }
 
         private static class CdnLoader {
-            private final AudioUrl moreAudio;
+            private final BasicConnectionHolder connHolder;
             private Socket socket;
             private DataInputStream in;
             private OutputStream out;
 
-            CdnLoader(@NotNull AudioUrl moreAudio) throws IOException {
-                this.moreAudio = moreAudio;
+            CdnLoader(@NotNull BasicConnectionHolder connHolder) throws IOException {
+                this.connHolder = connHolder;
 
                 populateSocket();
             }
 
             private synchronized void populateSocket() throws IOException {
-                this.socket = moreAudio.createSocket();
+                this.socket = connHolder.createSocket();
                 this.in = new DataInputStream(socket.getInputStream());
                 this.out = socket.getOutputStream();
             }
@@ -261,7 +234,7 @@ public class CdnManager {
                     if (socket == null || socket.isClosed())
                         populateSocket();
 
-                    moreAudio.sendRequest(out, rangeStart, rangeEnd);
+                    connHolder.sendGetRequest(out, rangeStart, rangeEnd);
 
                     NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
                     if (sl.statusCode == 408) {
