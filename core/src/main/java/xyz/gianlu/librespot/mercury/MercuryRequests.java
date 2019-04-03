@@ -109,22 +109,21 @@ public final class MercuryRequests {
 
     public static final class StationsWrapper extends JsonWrapper {
 
-        public StationsWrapper(@NotNull JsonElement elm) {
-            super(elm);
+        public StationsWrapper(@NotNull JsonObject obj) {
+            super(obj);
         }
 
         @NotNull
         public String uri() {
-            return getAsString(obj(), "uri");
+            return getAsString(obj, "uri");
         }
 
         @NotNull
         public List<Spirc.TrackRef> tracks() {
-            JsonArray array = obj().getAsJsonArray("tracks");
+            JsonArray array = obj.getAsJsonArray("tracks");
             List<Spirc.TrackRef> list = new ArrayList<>(array.size());
             for (JsonElement elm : array) {
-                JsonObject obj = elm.getAsJsonObject();
-                String uri = getAsString(obj, "uri");
+                String uri = getAsString(elm.getAsJsonObject(), "uri");
                 list.add(Spirc.TrackRef.newBuilder()
                         .setUri(uri)
                         .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
@@ -137,37 +136,37 @@ public final class MercuryRequests {
 
     public static final class ResolvedContextWrapper extends JsonWrapper {
 
-        public ResolvedContextWrapper(@NotNull JsonElement elm) {
-            super(elm);
+        public ResolvedContextWrapper(@NotNull JsonObject obj) {
+            super(obj);
         }
 
         @NotNull
         public List<Remote3Page> pages() {
-            List<Remote3Page> list = Remote3Page.opt(obj().getAsJsonArray("pages"));
+            List<Remote3Page> list = Remote3Page.opt(obj.getAsJsonArray("pages"));
             if (list == null) throw new IllegalArgumentException("Invalid context!");
             return list;
         }
 
         @NotNull
         public JsonObject metadata() {
-            return obj().getAsJsonObject("metadata");
+            return obj.getAsJsonObject("metadata");
         }
 
         @NotNull
         public String uri() {
-            return getAsString(obj(), "uri");
+            return getAsString(obj, "uri");
         }
 
         @NotNull
         public String url() {
-            return getAsString(obj(), "url");
+            return getAsString(obj, "url");
         }
     }
 
     public static final class KeymasterToken extends JsonWrapper {
 
-        public KeymasterToken(@NotNull JsonElement elm) {
-            super(elm);
+        public KeymasterToken(@NotNull JsonObject obj) {
+            super(obj);
         }
     }
 }
