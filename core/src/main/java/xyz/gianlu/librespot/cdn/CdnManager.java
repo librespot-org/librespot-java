@@ -11,6 +11,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -188,8 +189,8 @@ public class CdnManager {
         }
 
         @Override
-        public @NotNull Codec codec() {
-            return Codec.VORBIS;
+        public @NotNull SuperAudioFormat codec() {
+            return SuperAudioFormat.VORBIS;
         }
 
         private void requestChunk(int index) {

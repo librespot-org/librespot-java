@@ -8,7 +8,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.PlayerRunner;
-import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
+import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
 import java.io.FileReader;
@@ -107,8 +107,8 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @NotNull TrackStreamFeeder.AudioQuality preferredQuality() {
-        return TrackStreamFeeder.AudioQuality.valueOf(properties.getProperty("player.preferredAudioQuality", defaults.preferredQuality().name()));
+    public @NotNull AudioQuality preferredQuality() {
+        return AudioQuality.valueOf(properties.getProperty("player.preferredAudioQuality", defaults.preferredQuality().name()));
     }
 
     @Override

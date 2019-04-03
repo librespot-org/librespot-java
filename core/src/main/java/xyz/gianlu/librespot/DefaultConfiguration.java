@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.PlayerRunner;
-import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
+import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
 
@@ -19,8 +19,8 @@ public final class DefaultConfiguration extends AbsConfiguration {
 
     @NotNull
     @Override
-    public TrackStreamFeeder.AudioQuality preferredQuality() {
-        return TrackStreamFeeder.AudioQuality.VORBIS_160;
+    public AudioQuality preferredQuality() {
+        return AudioQuality.VORBIS_160;
     }
 
     @Override

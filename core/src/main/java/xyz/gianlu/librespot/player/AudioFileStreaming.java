@@ -8,6 +8,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -46,8 +47,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @Override
-    public @NotNull Codec codec() {
-        return Codec.VORBIS;
+    public @NotNull SuperAudioFormat codec() {
+        return SuperAudioFormat.VORBIS;
     }
 
     @NotNull

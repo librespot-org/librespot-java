@@ -12,8 +12,8 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.codecs.Codec;
-import xyz.gianlu.librespot.player.feeders.EpisodeStreamFeeder;
-import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
+import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
+import xyz.gianlu.librespot.player.feeders.BaseFeeder;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -31,8 +31,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private final LinesHolder lines;
     private final Player.Configuration conf;
     private final Listener listener;
-    private TrackStreamFeeder trackFeeder;
-    private EpisodeStreamFeeder episodeFeeder;
+    private BaseFeeder feeder;
     private Metadata.Track track;
     private Metadata.Episode episode;
     private PlayerRunner playerRunner;
@@ -49,43 +48,30 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     }
 
     @NotNull
-    private PlayerRunner createRunner(@NotNull LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
+    private PlayerRunner createRunner(@NotNull BaseFeeder.LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
         return new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track == null ? episode.getDuration() : track.getDuration());
     }
 
-    private void load(@NotNull TrackId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        if (trackFeeder == null)
-            this.trackFeeder = new TrackStreamFeeder(session);
+    private void load(@NotNull PlayableId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+        if (feeder == null) feeder = BaseFeeder.feederFor(session, id, conf);
 
         listener.startedLoading(this);
 
-        LoadedStream stream = trackFeeder.load(id, new TrackStreamFeeder.VorbisOnlyAudioQuality(conf.preferredQuality()), conf.useCdnForTracks());
+        BaseFeeder.LoadedStream stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
         track = stream.track;
-
-        if (stopped) return;
-
-        LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.artistsToString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
-
-        loadRunner(id, stream, play, pos);
-    }
-
-    private void load(@NotNull EpisodeId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException {
-        if (episodeFeeder == null)
-            this.episodeFeeder = new EpisodeStreamFeeder(session);
-
-        listener.startedLoading(this);
-
-        LoadedStream stream = episodeFeeder.load(id, conf.useCdnForEpisodes());
         episode = stream.episode;
 
         if (stopped) return;
 
-        LOGGER.info(String.format("Loaded episode, name: '%s', gid: %s", episode.getName(), Utils.bytesToHex(id.getGid())));
+        if (id instanceof EpisodeId)
+            LOGGER.info(String.format("Loaded episode, name: '%s', gid: %s", episode.getName(), Utils.bytesToHex(id.getGid())));
+        else if (id instanceof TrackId)
+            LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", track.getName(), Utils.artistsToString(track.getArtistList()), Utils.bytesToHex(id.getGid())));
 
         loadRunner(id, stream, play, pos);
     }
 
-    private void loadRunner(@NotNull PlayableId id, @NotNull LoadedStream stream, boolean play, int pos) throws IOException {
+    private void loadRunner(@NotNull PlayableId id, @NotNull BaseFeeder.LoadedStream stream, boolean play, int pos) throws IOException {
         try {
             if (playerRunner != null) playerRunner.stop();
             playerRunner = createRunner(stream);
@@ -196,27 +182,6 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         void preloadNextTrack(@NotNull TrackHandler handler);
     }
 
-    public static class LoadedStream {
-        private final Metadata.Episode episode;
-        private final Metadata.Track track;
-        private final GeneralAudioStream in;
-        private final NormalizationData normalizationData;
-
-        public LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
-            this.track = track;
-            this.in = in;
-            this.normalizationData = normalizationData;
-            this.episode = null;
-        }
-
-        public LoadedStream(@NotNull Metadata.Episode episode, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData) {
-            this.episode = episode;
-            this.in = in;
-            this.normalizationData = normalizationData;
-            this.track = null;
-        }
-    }
-
     private class Looper implements Runnable {
 
         @Override
@@ -229,12 +194,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                             PlayableId id = (PlayableId) cmd.args[0];
 
                             try {
-                                if (id instanceof TrackId)
-                                    load((TrackId) id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
-                                else if (id instanceof EpisodeId)
-                                    load((EpisodeId) id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
-                                else
-                                    throw new IllegalArgumentException("Unknown PlayableId: " + id);
+                                load(id, (Boolean) cmd.args[1], (Integer) cmd.args[2]);
                             } catch (IOException | MercuryClient.MercuryException | CdnManager.CdnException | ContentRestrictedException ex) {
                                 listener.loadingError(TrackHandler.this, id, ex);
                             }

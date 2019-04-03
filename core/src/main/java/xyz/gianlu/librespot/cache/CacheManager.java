@@ -5,7 +5,6 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.player.AudioFileFetch;
 import xyz.gianlu.librespot.player.GeneralWritableStream;
 
 import java.io.Closeable;
@@ -29,6 +28,7 @@ import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
+    private static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
     private final boolean enabled;
     private final File parent;
     private final Map<ByteString, Handler> handlers = new ConcurrentHashMap<>();
@@ -71,7 +71,7 @@ public class CacheManager implements Closeable {
 
     private void doCleanUp() throws SQLException, IOException {
         try (PreparedStatement statement = table.prepareStatement("SELECT fileId, value FROM Headers WHERE id=?")) {
-            statement.setString(1, Utils.byteToHex(AudioFileFetch.HEADER_TIMESTAMP));
+            statement.setString(1, Utils.byteToHex(HEADER_TIMESTAMP));
 
             ResultSet set = statement.executeQuery();
             while (set.next()) {
@@ -182,7 +182,7 @@ public class CacheManager implements Closeable {
 
             try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
-                statement.setString(2, Utils.byteToHex(AudioFileFetch.HEADER_TIMESTAMP));
+                statement.setString(2, Utils.byteToHex(HEADER_TIMESTAMP));
                 statement.setString(3, Utils.bytesToHex(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray()));
 
                 statement.executeUpdate();

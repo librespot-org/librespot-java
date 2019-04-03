@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.codecs;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Metadata;

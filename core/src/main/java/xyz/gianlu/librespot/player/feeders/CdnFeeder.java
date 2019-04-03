@@ -1,19 +1,19 @@
 package xyz.gianlu.librespot.player.feeders;
 
-
 import javafx.fxml.LoadException;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
+import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.model.EpisodeId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,12 +27,11 @@ import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 /**
  * @author Gianlu
  */
-public class EpisodeStreamFeeder {
-    private static final Logger LOGGER = Logger.getLogger(EpisodeStreamFeeder.class);
-    private final Session session;
+public class CdnFeeder extends BaseFeeder {
+    private static final Logger LOGGER = Logger.getLogger(CdnFeeder.class);
 
-    public EpisodeStreamFeeder(@NotNull Session session) {
-        this.session = session;
+    protected CdnFeeder(@NotNull Session session, @NotNull PlayableId id) {
+        super(session, id);
     }
 
     private static byte[] readBytes(@NotNull Response response) throws IOException {
@@ -41,48 +40,26 @@ public class EpisodeStreamFeeder {
         return body.bytes();
     }
 
-    @NotNull
-    private TrackHandler.LoadedStream loadWithoutCdn(@NotNull EpisodeId id, @NotNull Metadata.Episode episode) throws IOException {
-        Metadata.AudioFile file = null;
-        for (Metadata.AudioFile f : episode.getAudioList()) {
-            if (!f.hasFormat())
-                continue;
+    @Override
+    public @NotNull LoadedStream loadTrack(Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
+        byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
+        CdnManager.Streamer streamer = session.cdn().stream(file.getFileId(), key);
 
-            if (SuperAudioFormat.get(f.getFormat()) == SuperAudioFormat.VORBIS) {
-                file = f;
-                break;
-            }
-        }
-
-        if (file == null)
-            throw new IllegalArgumentException();
-
-        byte[] key = session.audioKey().getAudioKey(episode.getGid(), file.getFileId());
-        AudioFileStreaming stream = new AudioFileStreaming(session, file, key);
-        stream.open();
-
-        InputStream in = stream.stream();
+        InputStream in = streamer.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
-
         if (in.skip(0xa7) != 0xa7)
             throw new IOException("Couldn't skip 0xa7 bytes!");
 
-        return new TrackHandler.LoadedStream(episode, stream, normalizationData);
+        return new LoadedStream(track, streamer, normalizationData);
     }
 
-    @NotNull
-    public TrackHandler.LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
-        Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
+    @Override
+    public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file) throws IOException {
+        String externalUrl = episode.getExternalUrl();
+        if (externalUrl == null)
+            throw new IllegalArgumentException("Missing external_url!");
 
-        if (cdn) {
-            String externalUrl = resp.getExternalUrl();
-            if (externalUrl == null)
-                throw new IllegalArgumentException("Missing external_url!");
-
-            return new TrackHandler.LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()), null);
-        } else {
-            return loadWithoutCdn(id, resp);
-        }
+        return new LoadedStream(episode, new EpisodeStream(id.hexId(), externalUrl, session.cache()), null);
     }
 
     private static class Loader {
@@ -179,8 +156,8 @@ public class EpisodeStreamFeeder {
         }
 
         @Override
-        public @NotNull Codec codec() {
-            return Codec.MP3;
+        public @NotNull SuperAudioFormat codec() {
+            return SuperAudioFormat.MP3;
         }
 
         @Override

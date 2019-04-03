@@ -15,7 +15,7 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.feeders.TrackStreamFeeder;
+import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
@@ -527,7 +527,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     public interface Configuration {
         @NotNull
-        TrackStreamFeeder.AudioQuality preferredQuality();
+        AudioQuality preferredQuality();
 
         boolean preloadEnabled();
 

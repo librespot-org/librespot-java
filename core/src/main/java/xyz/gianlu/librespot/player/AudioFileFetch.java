@@ -16,7 +16,6 @@ import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
  */
 public class AudioFileFetch implements AudioFile {
     public static final byte HEADER_SIZE = 0x3;
-    public static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
     private static final Logger LOGGER = Logger.getLogger(AudioFileFetch.class);
     private final CacheManager.Handler cache;
     private int size = -1;
