@@ -1,15 +1,13 @@
 package xyz.gianlu.librespot.mercury;
 
-import com.google.protobuf.AbstractMessageLite;
+import com.google.protobuf.Message;
 import com.google.protobuf.Parser;
 import org.jetbrains.annotations.NotNull;
-
-import java.io.IOException;
 
 /**
  * @author Gianlu
  */
-public class ProtobufMercuryRequest<P extends AbstractMessageLite> {
+public class ProtobufMercuryRequest<P extends Message> {
     final RawMercuryRequest request;
     final Parser<P> parser;
 

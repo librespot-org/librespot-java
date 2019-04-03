@@ -5,10 +5,10 @@ import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
+import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.Player;
 
@@ -54,7 +54,7 @@ public class PlayerHandler extends AbsApiHandler {
                         return obj;
                     }
                 } else {
-                    return MercuryRequests.TRACK_JSON_CONVERTER.convert(track);
+                    return ProtobufToJson.convert(track);
                 }
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
