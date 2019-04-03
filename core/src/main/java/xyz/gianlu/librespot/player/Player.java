@@ -397,7 +397,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             if (trackHandler != null) {
                 trackHandler.sendPlay();
-                state.setPositionMs(trackHandler.getPosition());
                 state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             }
 
