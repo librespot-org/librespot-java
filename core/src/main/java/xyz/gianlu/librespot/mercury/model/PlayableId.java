@@ -20,4 +20,6 @@ public interface PlayableId {
     @NotNull byte[] getGid();
 
     @NotNull String hexId();
+
+    @NotNull String toSpotifyUri();
 }

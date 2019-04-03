@@ -9,7 +9,7 @@ import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
 /**
@@ -44,7 +44,7 @@ public class PlayerHandler extends AbsApiHandler {
             case "currentTrack":
                 Metadata.Track track = player.currentTrack();
                 if (track == null) {
-                    TrackId id = player.currentTrackId();
+                    PlayableId id = player.currentTrackId();
                     if (id == null) {
                         throw ApiServer.PredefinedJsonRpcException.from(request, PlayerRpcError.NO_TRACK);
                     } else {

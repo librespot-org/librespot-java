@@ -174,8 +174,14 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
                 || (episode != null && episode.hasGid() && Arrays.equals(id.getGid(), episode.getGid().toByteArray()));
     }
 
-    public int getPosition() {
-        return playerRunner == null ? 0 : playerRunner.time();
+    @Nullable
+    public Metadata.Track track() {
+        return track;
+    }
+
+    @Nullable
+    public Metadata.Episode episode() {
+        return episode;
     }
 
     public enum Command {
