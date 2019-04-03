@@ -91,7 +91,7 @@ public class Mp3Codec extends Codec {
 
     @Override
     public int time() {
-        return (int) (readSoFar * duration / size);
+        return (int) (readSoFar * duration / size); // FIXME: Completely wrong when we'll be able to seek
     }
 
     @Override

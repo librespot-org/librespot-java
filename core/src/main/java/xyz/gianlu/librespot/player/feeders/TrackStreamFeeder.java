@@ -52,7 +52,7 @@ public class TrackStreamFeeder {
     @NotNull
     public LoadedStream load(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean cdn) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         GeneralAudioStream generalStream;
-        byte[] key = session.audioKey().getAudioKey(track, file);
+        byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
         if (cdn) {
             generalStream = session.cdn().stream(file.getFileId(), key);
         } else {

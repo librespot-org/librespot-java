@@ -45,16 +45,23 @@ public class EpisodeStreamFeeder {
     }
 
     @NotNull
+    private LoadedStream loadWithoutCdn(@NotNull EpisodeId id) {
+        throw new UnsupportedOperationException();
+    }
+
+    @NotNull
     public LoadedStream load(@NotNull EpisodeId id, boolean cdn) throws IOException, MercuryClient.MercuryException {
-        if (!cdn) throw new UnsupportedOperationException("Episodes are support only through CDN!" /* TODO */);
+        if (cdn) {
+            Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
 
-        Metadata.Episode resp = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
+            String externalUrl = resp.getExternalUrl();
+            if (externalUrl == null)
+                throw new IllegalArgumentException("Missing external_url!");
 
-        String externalUrl = resp.getExternalUrl();
-        if (externalUrl == null)
-            throw new IllegalArgumentException("Missing external_url!");
-
-        return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()));
+            return new LoadedStream(resp, new EpisodeStream(id.hexId(), externalUrl, session.cache()));
+        } else {
+            return loadWithoutCdn(id);
+        }
     }
 
     private static class Loader {
