@@ -122,7 +122,16 @@ public class CacheManager implements Closeable {
 
         Handler handler = handlers.get(fileId);
         if (handler == null) {
-            handler = new Handler(fileId);
+            File file = getCacheFile(parent, fileId);
+            if (!file.exists()) {
+                try {
+                    remove(Utils.bytesToHex(fileId));
+                } catch (SQLException ex) {
+                    throw new IOException(ex);
+                }
+            }
+
+            handler = new Handler(fileId, file);
             handlers.put(fileId, handler);
         }
 
@@ -162,14 +171,12 @@ public class CacheManager implements Closeable {
     }
 
     public class Handler implements Closeable {
-        private final File file;
         private final ByteString fileId;
         private final RandomAccessFile io;
         private boolean updatedTimestamp = false;
 
-        private Handler(@NotNull ByteString fileId) throws IOException {
+        private Handler(@NotNull ByteString fileId, @NotNull File file) throws IOException {
             this.fileId = fileId;
-            this.file = getCacheFile(parent, fileId);
 
             if (!file.exists() && !file.createNewFile())
                 throw new IOException("Couldn't create cache file!");
