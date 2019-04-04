@@ -275,7 +275,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             String context = frame.context.uri;
             if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
                 tracksProvider = new StationProvider(session, state.state);
-            else if (context.startsWith("spotify:show:"))
+            else if (context.startsWith("spotify:show:") || context.startsWith("spotify:episode:"))
                 tracksProvider = new ShowProvider(state.state);
             else
                 tracksProvider = new PlaylistProvider(session, state.state, conf);
