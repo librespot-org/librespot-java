@@ -31,7 +31,7 @@ public abstract class BaseFeeder {
     protected final Session session;
     protected final PlayableId id;
 
-    protected BaseFeeder(@NotNull Session session, @NotNull PlayableId id) {
+    public BaseFeeder(@NotNull Session session, @NotNull PlayableId id) {
         this.session = session;
         this.id = id;
     }
@@ -71,7 +71,6 @@ public abstract class BaseFeeder {
         else if (id instanceof EpisodeId) return loadEpisode((EpisodeId) id, audioQualityPreference);
         else throw new IllegalArgumentException("Unknown PlayableId: " + id);
     }
-
 
     public final @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
         Metadata.Track original = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
@@ -154,6 +153,10 @@ public abstract class BaseFeeder {
 
     public static class FeederException extends IOException {
         protected FeederException() {
+        }
+
+        protected FeederException(String message) {
+            super(message);
         }
     }
 }

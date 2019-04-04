@@ -20,7 +20,7 @@ import java.io.InputStream;
 public class CdnFeeder extends BaseFeeder {
     private static final Logger LOGGER = Logger.getLogger(CdnFeeder.class);
 
-    protected CdnFeeder(@NotNull Session session, @NotNull PlayableId id) {
+    public CdnFeeder(@NotNull Session session, @NotNull PlayableId id) {
         super(session, id);
     }
 
@@ -39,17 +39,22 @@ public class CdnFeeder extends BaseFeeder {
 
     @Override
     public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file) throws IOException {
-        String externalUrl = episode.getExternalUrl();
-        if (externalUrl == null)
-            throw new IllegalArgumentException("Missing external_url!");
+        if (!episode.hasExternalUrl())
+            throw new CanNotAvailable("Missing external_url!");
 
         Response resp = session.cdn().client().newCall(new Request.Builder().head()
-                .url(externalUrl).build()).execute();
+                .url(episode.getExternalUrl()).build()).execute();
 
         if (resp.code() != 200)
             LOGGER.warn("Couldn't resolve redirect!");
 
         CdnManager.Streamer streamer = session.cdn().streamEpisode(resp.request().url());
         return new LoadedStream(episode, streamer, null);
+    }
+
+    public static class CanNotAvailable extends FeederException {
+        CanNotAvailable(String message) {
+            super(message);
+        }
     }
 }

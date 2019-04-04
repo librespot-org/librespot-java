@@ -14,6 +14,8 @@ import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.feeders.BaseFeeder;
+import xyz.gianlu.librespot.player.feeders.CdnFeeder;
+import xyz.gianlu.librespot.player.feeders.StorageFeeder;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -57,7 +59,15 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         listener.startedLoading(this);
 
-        BaseFeeder.LoadedStream stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
+        BaseFeeder.LoadedStream stream;
+        try {
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
+        } catch (CdnFeeder.CanNotAvailable ex) {
+            LOGGER.warn(String.format("Cdn not available for %s, using storage", Utils.bytesToHex(id.getGid())));
+            feeder = new StorageFeeder(session, id);
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
+        }
+
         track = stream.track;
         episode = stream.episode;
 

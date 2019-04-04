@@ -18,7 +18,7 @@ import java.io.InputStream;
 public class StorageFeeder extends BaseFeeder {
     private static final Logger LOGGER = Logger.getLogger(StorageFeeder.class);
 
-    protected StorageFeeder(@NotNull Session session, @NotNull PlayableId id) {
+    public StorageFeeder(@NotNull Session session, @NotNull PlayableId id) {
         super(session, id);
     }
 
