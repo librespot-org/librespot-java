@@ -36,6 +36,12 @@ public class CacheManager implements Closeable {
 
     public CacheManager(@NotNull Configuration conf) throws IOException {
         this.enabled = conf.cacheEnabled();
+        if (!enabled) {
+            parent = null;
+            table = null;
+            return;
+        }
+
         this.parent = conf.cacheDir();
 
         if (!parent.exists() && !parent.mkdir())
@@ -70,6 +76,8 @@ public class CacheManager implements Closeable {
     }
 
     private void doCleanUp() throws SQLException, IOException {
+        if (!enabled) return;
+
         try (PreparedStatement statement = table.prepareStatement("SELECT fileId, value FROM Headers WHERE id=?")) {
             statement.setString(1, Utils.byteToHex(HEADER_TIMESTAMP));
 
@@ -83,6 +91,8 @@ public class CacheManager implements Closeable {
     }
 
     private void remove(@NotNull String fileIdHex) throws SQLException, IOException {
+        if (!enabled) return;
+
         try (PreparedStatement statement = table.prepareStatement("DELETE FROM Headers WHERE fileId=?")) {
             statement.setString(1, fileIdHex);
             statement.executeUpdate();
@@ -101,6 +111,8 @@ public class CacheManager implements Closeable {
     }
 
     private void createTablesIfNeeded() throws SQLException {
+        if (!enabled) return;
+
         try (Statement statement = table.createStatement()) {
             statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `fileId` TEXT NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`fileId`,`chunkIndex`) )");
         }
