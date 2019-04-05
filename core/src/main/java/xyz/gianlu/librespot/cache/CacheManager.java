@@ -48,10 +48,11 @@ public class CacheManager implements Closeable {
             throw new IOException("Couldn't create cache directory!");
 
         try {
-            File tableFile = new File(parent, "table.sqlite");
-            this.table = DriverManager.getConnection("jdbc:sqlite:" + tableFile.getAbsolutePath());
+            File tableFile = new File(parent, "table");
+            this.table = DriverManager.getConnection("jdbc:h2:" + tableFile.getAbsolutePath());
             createTablesIfNeeded();
 
+            deleteCorruptedEntries();
             if (conf.doCleanUp()) doCleanUp();
         } catch (SQLException ex) {
             throw new IOException(ex);
@@ -73,6 +74,31 @@ public class CacheManager implements Closeable {
             throw new IOException("Couldn't create cache directories!");
 
         return new File(parent, hex);
+    }
+
+    private static boolean exists(@NotNull File parent, @NotNull String hex) {
+        String firstLevel = hex.substring(0, 2);
+        String secondLevel = hex.substring(2, 4);
+
+        parent = new File(parent, "/" + firstLevel + "/" + secondLevel + "/");
+        return new File(parent, hex).exists();
+    }
+
+    private void deleteCorruptedEntries() throws SQLException, IOException {
+        if (!enabled) return;
+
+        List<String> toRemove = new ArrayList<>();
+        try (PreparedStatement statement = table.prepareStatement("SELECT DISTINCT fileId FROM Headers")) {
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
+                String fileId = set.getString("fileId");
+                if (!exists(parent, fileId))
+                    toRemove.add(fileId);
+            }
+        }
+
+        for (String fileId : toRemove)
+            remove(fileId);
     }
 
     private void doCleanUp() throws SQLException, IOException {
@@ -104,7 +130,7 @@ public class CacheManager implements Closeable {
         }
 
         File file = getCacheFile(parent, fileIdHex);
-        if (!file.delete())
+        if (file.exists() && !file.delete())
             LOGGER.warn("Couldn't delete cache file: " + file.getAbsolutePath());
 
         LOGGER.trace(String.format("Removed %s from cache.", fileIdHex));
@@ -114,11 +140,11 @@ public class CacheManager implements Closeable {
         if (!enabled) return;
 
         try (Statement statement = table.createStatement()) {
-            statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `fileId` TEXT NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`fileId`,`chunkIndex`) )");
+            statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `fileId` VARCHAR NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`fileId`,`chunkIndex`) )");
         }
 
         try (Statement statement = table.createStatement()) {
-            statement.execute("CREATE TABLE IF NOT EXISTS Headers ( `fileId` TEXT NOT NULL, `id` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`fileId`,`id`) )");
+            statement.execute("CREATE TABLE IF NOT EXISTS Headers ( `fileId` VARCHAR NOT NULL, `id` VARCHAR NOT NULL, `value` VARCHAR NOT NULL, PRIMARY KEY(`fileId`,`id`) )");
         }
     }
 
@@ -134,16 +160,7 @@ public class CacheManager implements Closeable {
 
         Handler handler = handlers.get(fileId);
         if (handler == null) {
-            File file = getCacheFile(parent, fileId);
-            if (!file.exists()) {
-                try {
-                    remove(Utils.bytesToHex(fileId));
-                } catch (SQLException ex) {
-                    throw new IOException(ex);
-                }
-            }
-
-            handler = new Handler(fileId, file);
+            handler = new Handler(fileId, getCacheFile(parent, fileId));
             handlers.put(fileId, handler);
         }
 
@@ -199,7 +216,7 @@ public class CacheManager implements Closeable {
         private void updateTimestamp() {
             if (updatedTimestamp) return;
 
-            try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
                 statement.setString(2, Utils.byteToHex(HEADER_TIMESTAMP));
                 statement.setString(3, Utils.bytesToHex(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray()));
@@ -212,7 +229,7 @@ public class CacheManager implements Closeable {
         }
 
         public void setHeader(byte id, byte[] value) throws SQLException {
-            try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
                 statement.setString(2, Utils.byteToHex(id));
                 statement.setString(3, Utils.bytesToHex(value));
@@ -293,7 +310,7 @@ public class CacheManager implements Closeable {
                 io.write(buffer);
             }
 
-            try (PreparedStatement statement = table.prepareStatement("INSERT OR REPLACE INTO Chunks (fileId, chunkIndex, available) VALUES (?, ?, ?)")) {
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Chunks (fileId, chunkIndex, available) VALUES (?, ?, ?)")) {
                 statement.setString(1, Utils.bytesToHex(fileId));
                 statement.setInt(2, index);
                 statement.setInt(3, 1);
