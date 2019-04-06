@@ -629,7 +629,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setContextUri(frame.context.uri);
             state.clearTrack();
 
-            if (frame.context.pages != null) {
+            if (frame.context.pages != null && !frame.context.pages.isEmpty()) {
                 String trackUid = null;
                 int pageIndex = -1;
                 if (frame.options != null && frame.options.skipTo != null) {
