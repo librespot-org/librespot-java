@@ -1,11 +1,11 @@
 package xyz.gianlu.librespot.cache;
 
-import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.player.GeneralWritableStream;
+import xyz.gianlu.librespot.player.StreamId;
 
 import java.io.Closeable;
 import java.io.File;
@@ -31,7 +31,8 @@ public class CacheManager implements Closeable {
     private static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
     private final boolean enabled;
     private final File parent;
-    private final Map<ByteString, Handler> handlers = new ConcurrentHashMap<>();
+    private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
+    private final Map<String, Handler> episodeHandlers = new ConcurrentHashMap<>();
     private final Connection table;
 
     public CacheManager(@NotNull Configuration conf) throws IOException {
@@ -60,11 +61,6 @@ public class CacheManager implements Closeable {
     }
 
     @NotNull
-    private static File getCacheFile(@NotNull File parent, @NotNull ByteString fileId) throws IOException {
-        return getCacheFile(parent, Utils.bytesToHex(fileId));
-    }
-
-    @NotNull
     private static File getCacheFile(@NotNull File parent, @NotNull String hex) throws IOException {
         String firstLevel = hex.substring(0, 2);
         String secondLevel = hex.substring(2, 4);
@@ -88,88 +84,104 @@ public class CacheManager implements Closeable {
         if (!enabled) return;
 
         List<String> toRemove = new ArrayList<>();
-        try (PreparedStatement statement = table.prepareStatement("SELECT DISTINCT fileId FROM Headers")) {
+        try (PreparedStatement statement = table.prepareStatement("SELECT DISTINCT streamId FROM Headers")) {
             ResultSet set = statement.executeQuery();
             while (set.next()) {
-                String fileId = set.getString("fileId");
-                if (!exists(parent, fileId))
-                    toRemove.add(fileId);
+                String streamId = set.getString("streamId");
+                if (!exists(parent, streamId))
+                    toRemove.add(streamId);
             }
         }
 
-        for (String fileId : toRemove)
-            remove(fileId);
+        for (String streamId : toRemove)
+            remove(streamId);
     }
 
     private void doCleanUp() throws SQLException, IOException {
         if (!enabled) return;
 
-        try (PreparedStatement statement = table.prepareStatement("SELECT fileId, value FROM Headers WHERE id=?")) {
+        try (PreparedStatement statement = table.prepareStatement("SELECT streamId, value FROM Headers WHERE id=?")) {
             statement.setString(1, Utils.byteToHex(HEADER_TIMESTAMP));
 
             ResultSet set = statement.executeQuery();
             while (set.next()) {
                 long timestamp = Long.parseLong(set.getString("value"), 16) * 1000;
                 if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
-                    remove(set.getString("fileId"));
+                    remove(set.getString("streamId"));
             }
         }
     }
 
-    private void remove(@NotNull String fileIdHex) throws SQLException, IOException {
+    private void remove(@NotNull String streamId) throws SQLException, IOException {
         if (!enabled) return;
 
-        try (PreparedStatement statement = table.prepareStatement("DELETE FROM Headers WHERE fileId=?")) {
-            statement.setString(1, fileIdHex);
+        try (PreparedStatement statement = table.prepareStatement("DELETE FROM Headers WHERE streamId=?")) {
+            statement.setString(1, streamId);
             statement.executeUpdate();
         }
 
-        try (PreparedStatement statement = table.prepareStatement("DELETE FROM Chunks WHERE fileId=?")) {
-            statement.setString(1, fileIdHex);
+        try (PreparedStatement statement = table.prepareStatement("DELETE FROM Chunks WHERE streamId=?")) {
+            statement.setString(1, streamId);
             statement.executeUpdate();
         }
 
-        File file = getCacheFile(parent, fileIdHex);
+        File file = getCacheFile(parent, streamId);
         if (file.exists() && !file.delete())
             LOGGER.warn("Couldn't delete cache file: " + file.getAbsolutePath());
 
-        LOGGER.trace(String.format("Removed %s from cache.", fileIdHex));
+        LOGGER.trace(String.format("Removed %s from cache.", streamId));
     }
 
     private void createTablesIfNeeded() throws SQLException {
         if (!enabled) return;
 
         try (Statement statement = table.createStatement()) {
-            statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `fileId` VARCHAR NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`fileId`,`chunkIndex`) )");
+            statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `streamId` VARCHAR NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`streamId`,`chunkIndex`) )");
         }
 
         try (Statement statement = table.createStatement()) {
-            statement.execute("CREATE TABLE IF NOT EXISTS Headers ( `fileId` VARCHAR NOT NULL, `id` VARCHAR NOT NULL, `value` VARCHAR NOT NULL, PRIMARY KEY(`fileId`,`id`) )");
+            statement.execute("CREATE TABLE IF NOT EXISTS Headers ( `streamId` VARCHAR NOT NULL, `id` VARCHAR NOT NULL, `value` VARCHAR NOT NULL, PRIMARY KEY(`streamId`,`id`) )");
         }
     }
 
     @Override
     public void close() throws IOException {
-        for (Handler handler : new ArrayList<>(handlers.values()))
+        for (Handler handler : new ArrayList<>(fileHandlers.values()))
             handler.close();
     }
 
     @Nullable
-    public CacheManager.Handler forFileId(@NotNull ByteString fileId) throws IOException {
+    public Handler forWhatever(@NotNull StreamId id) throws IOException {
         if (!enabled) return null;
 
-        Handler handler = handlers.get(fileId);
+        if (id.isEpisode()) return forEpisode(id.getEpisodeGid());
+        else return forFileId(id.getFileId());
+    }
+
+    @Nullable
+    public Handler forFileId(@NotNull String fileId) throws IOException {
+        if (!enabled) return null;
+
+        Handler handler = fileHandlers.get(fileId);
         if (handler == null) {
             handler = new Handler(fileId, getCacheFile(parent, fileId));
-            handlers.put(fileId, handler);
+            fileHandlers.put(fileId, handler);
         }
 
         return handler;
     }
 
     @Nullable
-    public CacheManager.Handler forFileId(@NotNull String fileId) throws IOException {
-        return forFileId(ByteString.copyFrom(Utils.hexToBytes(fileId)));
+    public Handler forEpisode(@NotNull String gid) throws IOException {
+        if (!enabled) return null;
+
+        Handler handler = episodeHandlers.get(gid);
+        if (handler == null) {
+            handler = new Handler(gid, getCacheFile(parent, gid));
+            episodeHandlers.put(gid, handler);
+        }
+
+        return handler;
     }
 
     public interface Configuration {
@@ -200,12 +212,12 @@ public class CacheManager implements Closeable {
     }
 
     public class Handler implements Closeable {
-        private final ByteString fileId;
+        private final String streamId;
         private final RandomAccessFile io;
         private boolean updatedTimestamp = false;
 
-        private Handler(@NotNull ByteString fileId, @NotNull File file) throws IOException {
-            this.fileId = fileId;
+        private Handler(@NotNull String streamId, @NotNull File file) throws IOException {
+            this.streamId = streamId;
 
             if (!file.exists() && !file.createNewFile())
                 throw new IOException("Couldn't create cache file!");
@@ -216,21 +228,21 @@ public class CacheManager implements Closeable {
         private void updateTimestamp() {
             if (updatedTimestamp) return;
 
-            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (streamId, id, value) VALUES (?, ?, ?)")) {
+                statement.setString(1, streamId);
                 statement.setString(2, Utils.byteToHex(HEADER_TIMESTAMP));
                 statement.setString(3, Utils.bytesToHex(BigInteger.valueOf(System.currentTimeMillis() / 1000).toByteArray()));
 
                 statement.executeUpdate();
                 updatedTimestamp = true;
             } catch (SQLException ex) {
-                LOGGER.warn("Failed updating timestamp for " + Utils.bytesToHex(fileId), ex);
+                LOGGER.warn("Failed updating timestamp for " + streamId, ex);
             }
         }
 
         public void setHeader(byte id, byte[] value) throws SQLException {
-            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (fileId, id, value) VALUES (?, ?, ?)")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Headers (streamId, id, value) VALUES (?, ?, ?)")) {
+                statement.setString(1, streamId);
                 statement.setString(2, Utils.byteToHex(id));
                 statement.setString(3, Utils.bytesToHex(value));
 
@@ -242,8 +254,8 @@ public class CacheManager implements Closeable {
 
         @NotNull
         public List<Header> getAllHeaders() throws SQLException {
-            try (PreparedStatement statement = table.prepareStatement("SELECT id, value FROM Headers WHERE fileId=?")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("SELECT id, value FROM Headers WHERE streamId=?")) {
+                statement.setString(1, streamId);
 
                 List<Header> headers = new ArrayList<>();
                 ResultSet set = statement.executeQuery();
@@ -256,8 +268,8 @@ public class CacheManager implements Closeable {
 
         @Nullable
         public byte[] getHeader(byte id) throws SQLException {
-            try (PreparedStatement statement = table.prepareStatement("SELECT value FROM Headers WHERE fileId=? AND id=? LIMIT 1")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("SELECT value FROM Headers WHERE streamId=? AND id=? LIMIT 1")) {
+                statement.setString(1, streamId);
                 statement.setString(2, Utils.byteToHex(id));
 
                 ResultSet set = statement.executeQuery();
@@ -274,8 +286,8 @@ public class CacheManager implements Closeable {
                 if (io.length() < (index + 1) * CHUNK_SIZE) return false;
             }
 
-            try (PreparedStatement statement = table.prepareStatement("SELECT available FROM Chunks WHERE fileId=? AND chunkIndex=? LIMIT 1")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("SELECT available FROM Chunks WHERE streamId=? AND chunkIndex=? LIMIT 1")) {
+                statement.setString(1, streamId);
                 statement.setInt(2, index);
 
                 ResultSet set = statement.executeQuery();
@@ -310,8 +322,8 @@ public class CacheManager implements Closeable {
                 io.write(buffer);
             }
 
-            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Chunks (fileId, chunkIndex, available) VALUES (?, ?, ?)")) {
-                statement.setString(1, Utils.bytesToHex(fileId));
+            try (PreparedStatement statement = table.prepareStatement("MERGE INTO Chunks (streamId, chunkIndex, available) VALUES (?, ?, ?)")) {
+                statement.setString(1, streamId);
                 statement.setInt(2, index);
                 statement.setInt(3, 1);
 
@@ -323,7 +335,7 @@ public class CacheManager implements Closeable {
 
         @Override
         public void close() throws IOException {
-            handlers.remove(fileId);
+            fileHandlers.remove(streamId);
             synchronized (io) {
                 io.close();
             }

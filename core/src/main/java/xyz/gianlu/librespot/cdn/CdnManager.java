@@ -10,10 +10,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
-import xyz.gianlu.librespot.player.AudioFileFetch;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.GeneralWritableStream;
+import xyz.gianlu.librespot.player.*;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
@@ -22,8 +19,6 @@ import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,13 +61,14 @@ public class CdnManager {
     }
 
     @NotNull
-    public Streamer streamEpisode(@NotNull HttpUrl externalUrl) throws IOException {
-        return new Streamer(AudioFileSurrogate.from(externalUrl), externalUrl, session.cache(), new NoopAudioDecrypt());
+    public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl) throws IOException {
+        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, externalUrl, session.cache(), new NoopAudioDecrypt());
     }
 
     @NotNull
     public Streamer streamTrack(@NotNull Metadata.AudioFile file, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
-        return new Streamer(AudioFileSurrogate.from(file), getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key));
+        return new Streamer(new StreamId(file), SuperAudioFormat.get(file.getFormat()),
+                getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key));
     }
 
     @NotNull
@@ -98,43 +94,6 @@ public class CdnManager {
         }
     }
 
-    private static class AudioFileSurrogate {
-        private final String fileId;
-        private final SuperAudioFormat format;
-
-        AudioFileSurrogate(@NotNull String fileId, @NotNull SuperAudioFormat format) {
-            this.fileId = fileId;
-            this.format = format;
-        }
-
-        @NotNull
-        static AudioFileSurrogate from(@NotNull Metadata.AudioFile file) {
-            return new AudioFileSurrogate(Utils.bytesToHex(file.getFileId()), SuperAudioFormat.get(file.getFormat()));
-        }
-
-        @NotNull
-        static AudioFileSurrogate from(@NotNull HttpUrl url) {
-            // Generating fake file id!
-
-            try {
-                byte[] hash = MessageDigest.getInstance("SHA1").digest(url.toString().getBytes());
-                return new AudioFileSurrogate(Utils.bytesToHex(hash, 0, 20), SuperAudioFormat.MP3);
-            } catch (NoSuchAlgorithmException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-
-        @NotNull
-        SuperAudioFormat getFormat() {
-            return format;
-        }
-
-        @NotNull
-        String getFileId() {
-            return fileId;
-        }
-    }
-
     public static class CdnException extends Exception {
 
         CdnException(@NotNull String message) {
@@ -153,8 +112,9 @@ public class CdnManager {
     }
 
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
-        private final AudioFileSurrogate file;
+        private final StreamId streamId;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
+        private final SuperAudioFormat format;
         private final AudioDecrypt audioDecrypt;
         private final HttpUrl cdnUrl;
         private final int size;
@@ -165,11 +125,12 @@ public class CdnManager {
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull AudioFileSurrogate file, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache, @Nullable AudioDecrypt audioDecrypt) throws IOException {
-            this.file = file;
+        private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache, @Nullable AudioDecrypt audioDecrypt) throws IOException {
+            this.streamId = streamId;
+            this.format = format;
             this.audioDecrypt = audioDecrypt;
             this.cdnUrl = cdnUrl;
-            this.cacheHandler = cache != null ? cache.forFileId(file.getFileId()) : null;
+            this.cacheHandler = cache != null ? cache.forWhatever(streamId) : null;
 
             byte[] firstChunk;
             try {
@@ -220,7 +181,7 @@ public class CdnManager {
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, fileId: %s", chunkIndex, chunks, cdnUrl.host(), cached, file.getFileId()));
+            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, stream: %s", chunkIndex, chunks, cdnUrl.host(), cached, describe()));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -232,13 +193,14 @@ public class CdnManager {
         }
 
         @Override
-        public @NotNull String getFileIdHex() {
-            return file.getFileId();
+        public @NotNull SuperAudioFormat codec() {
+            return format;
         }
 
         @Override
-        public @NotNull SuperAudioFormat codec() {
-            return file.getFormat();
+        public @NotNull String describe() {
+            if (streamId.isEpisode()) return "{episodeGid: " + streamId.getEpisodeGid() + "}";
+            else return "{fileId: " + streamId.getFileId() + "}";
         }
 
         private void requestChunk(int index) {

@@ -48,7 +48,7 @@ public class CdnFeeder extends BaseFeeder {
         if (resp.code() != 200)
             LOGGER.warn("Couldn't resolve redirect!");
 
-        CdnManager.Streamer streamer = session.cdn().streamEpisode(resp.request().url());
+        CdnManager.Streamer streamer = session.cdn().streamEpisode(episode, resp.request().url());
         return new LoadedStream(episode, streamer, null);
     }
 

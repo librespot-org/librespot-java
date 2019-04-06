@@ -13,8 +13,8 @@ public interface GeneralAudioStream {
     InputStream stream();
 
     @NotNull
-    String getFileIdHex();
+    SuperAudioFormat codec();
 
     @NotNull
-    SuperAudioFormat codec();
+    String describe();
 }

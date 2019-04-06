@@ -38,19 +38,18 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
         this.session = session;
         this.fileId = file.getFileId();
-        this.cacheHandler = session.cache().forFileId(fileId);
+        this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(fileId));
         this.key = key;
-    }
-
-    @NotNull
-    @Override
-    public String getFileIdHex() {
-        return Utils.bytesToHex(fileId);
     }
 
     @Override
     public @NotNull SuperAudioFormat codec() {
         return SuperAudioFormat.VORBIS;
+    }
+
+    @Override
+    public @NotNull String describe() {
+        return "{fileId: " + Utils.bytesToHex(fileId) + "}";
     }
 
     @NotNull
@@ -129,7 +128,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, getFileIdHex()));
+        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, Utils.bytesToHex(fileId)));
     }
 
     @Override
