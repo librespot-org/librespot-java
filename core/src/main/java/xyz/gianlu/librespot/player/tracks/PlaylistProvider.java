@@ -86,7 +86,7 @@ public class PlaylistProvider implements TracksProvider {
             int count = 80;
             for (Remote3Track track : tracks) {
                 if (add || track.uri.equals(currentTrackUri)) {
-                    rebuildState.add(track.toTrackRef());
+                    track.addTo(rebuildState);
 
                     add = true;
                     count--;

@@ -34,6 +34,8 @@ public class Remote3Frame {
     public final Options options;
     public final JsonPrimitive value;
     public final Remote3Track track;
+    public final List<Remote3Track> prevTracks;
+    public final List<Remote3Track> nextTracks;
 
     public Remote3Frame(@NotNull JsonObject obj) {
         playbackId = Utils.optString(obj, "playback_id", null);
@@ -56,20 +58,15 @@ public class Remote3Frame {
         options = Options.opt(obj, "options");
         value = obj.getAsJsonPrimitive("value");
         track = Remote3Track.opt(obj, "track");
+        prevTracks = Remote3Track.optArray(obj, "prev_tracks");
+        nextTracks = Remote3Track.optArray(obj, "next_tracks");
     }
 
 
     public enum Endpoint {
-        Play("play"),
-        Pause("pause"),
-        Resume("resume"),
-        SeekTo("seek_to"),
-        SkipNext("skip_next"),
-        SkipPrev("skip_prev"),
-        SetShufflingContext("set_shuffling_context"),
-        SetRepeatingContext("set_repeating_context"),
-        SetRepeatingTrack("set_repeating_track"),
-        UpdateContext("update_context");
+        Play("play"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
+        SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),
+        SetRepeatingTrack("set_repeating_track"), UpdateContext("update_context"), SetQueue("set_queue");
 
         private final String val;
 

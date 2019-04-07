@@ -133,9 +133,13 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     handleSeek(frame.value.getAsInt());
                 break;
             case kMessageTypeReplace:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    updatedTracks(frame);
+                if (frame == null) break;
+
+                if (frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
+                    updateContext(frame);
                     stateUpdated();
+                } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
+                    updateTracks(frame);
                 }
                 break;
             case kMessageTypeRepeat:
@@ -268,9 +272,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void updatedTracks(@NotNull Remote3Frame frame) {
+    private void updateTracks(@NotNull Remote3Frame frame) {
+        state.updateTracks(frame);
+        stateUpdated();
+    }
+
+    private void updateContext(@NotNull Remote3Frame frame) {
         if (frame.context.uri != null) {
-            state.update(frame);
+            state.updateContext(frame);
 
             String context = frame.context.uri;
             if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
@@ -369,7 +378,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
-        updatedTracks(frame);
+        updateContext(frame);
 
         if (state.getTrackCount() > 0) {
             state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
@@ -466,7 +475,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         try {
             MercuryRequests.StationsWrapper json = session.mercury().sendSync(MercuryRequests.getStationFor(context));
-            state.update(json);
+            state.updateContext(json);
 
             state.setPositionMs(0);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
@@ -608,7 +617,31 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setPlayingTrackIndex(pos);
         }
 
-        void update(@NotNull Remote3Frame frame) {
+        void updateTracks(@NotNull Remote3Frame frame) {
+            if (state.getTrackCount() == 0) {
+                LOGGER.warn("Couldn't update tracks, there are none right now!");
+                return;
+            }
+
+            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
+            state.clearTrack();
+
+            if (frame.prevTracks != null) {
+                for (Remote3Track track : frame.prevTracks)
+                    track.addToState(state);
+            }
+
+            if (current != null)
+                state.addTrack(current);
+            state.setPlayingTrackIndex(state.getTrackCount() - 1);
+
+            if (frame.nextTracks != null) {
+                for (Remote3Track track : frame.nextTracks)
+                    track.addToState(state);
+            }
+        }
+
+        void updateContext(@NotNull Remote3Frame frame) {
             if (frame.context == null)
                 throw new IllegalArgumentException("Invalid frame received!");
 
@@ -644,7 +677,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 List<Remote3Track> tracks = frame.context.pages.get(pageIndex).tracks;
                 for (int i = 0; i < tracks.size(); i++) {
                     Remote3Track track = tracks.get(i);
-                    state.addTrack(track.toTrackRef());
+                    track.addToState(state);
 
                     if (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid))
                         index = i;
@@ -664,7 +697,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     return;
                 }
 
-                for (Remote3Track track : tracks) state.addTrack(track.toTrackRef());
+                for (Remote3Track track : tracks) track.addToState(state);
 
                 if (frame.options != null && frame.options.skipTo != null && frame.options.skipTo.trackIndex != -1)
                     state.setPlayingTrackIndex(frame.options.skipTo.trackIndex);
@@ -678,7 +711,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
         }
 
-        void update(@NotNull MercuryRequests.StationsWrapper json) {
+        void updateContext(@NotNull MercuryRequests.StationsWrapper json) {
             state.setContextUri(json.uri());
 
             state.setPlayingTrackIndex(0);
@@ -717,5 +750,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         int getTrackCount() {
             return state.getTrackCount();
         }
+
+
     }
 }
