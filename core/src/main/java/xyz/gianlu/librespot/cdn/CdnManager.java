@@ -204,15 +204,22 @@ public class CdnManager {
         }
 
         private void requestChunk(int index) {
-            try {
-                if (cacheHandler != null && cacheHandler.hasChunk(index)) {
-                    cacheHandler.readChunk(index, this);
-                } else {
-                    InternalResponse resp = request(index);
-                    writeChunk(resp.buffer, index, false);
+            if (cacheHandler != null) {
+                try {
+                    if (cacheHandler.hasChunk(index)) {
+                        cacheHandler.readChunk(index, this);
+                        return;
+                    }
+                } catch (SQLException | IOException ex) {
+                    LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
                 }
-            } catch (SQLException | IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
+            }
+
+            try {
+                InternalResponse resp = request(index);
+                writeChunk(resp.buffer, index, false);
+            } catch (IOException ex) {
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
             }
         }
 

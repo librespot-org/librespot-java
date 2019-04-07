@@ -28,7 +28,7 @@ import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
 public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
-    private final ByteString fileId;
+    private final Metadata.AudioFile file;
     private final byte[] key;
     private final Session session;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "request-chunk-" + r.hashCode()));
@@ -37,19 +37,19 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
         this.session = session;
-        this.fileId = file.getFileId();
-        this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(fileId));
+        this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
+        this.file = file;
         this.key = key;
     }
 
     @Override
     public @NotNull SuperAudioFormat codec() {
-        return SuperAudioFormat.VORBIS;
+        return SuperAudioFormat.get(file.getFormat());
     }
 
     @Override
     public @NotNull String describe() {
-        return "{fileId: " + Utils.bytesToHex(fileId) + "}";
+        return "{fileId: " + Utils.bytesToHex(file.getFileId()) + "}";
     }
 
     @NotNull
@@ -58,18 +58,24 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return chunksBuffer.stream();
     }
 
-    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
-        if (cacheHandler == null || !tryCacheChunk(index))
-            session.channel().requestChunk(fileId, index, file);
+    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) {
+        if (cacheHandler == null || !tryCacheChunk(index)) {
+            try {
+                session.channel().requestChunk(fileId, index, file);
+            } catch (IOException ex) {
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+            }
+        }
     }
 
-    private boolean tryCacheChunk(int index) throws IOException {
+    private boolean tryCacheChunk(int index) {
         try {
             if (!cacheHandler.hasChunk(index)) return false;
             cacheHandler.readChunk(index, this);
             return true;
-        } catch (SQLException ex) {
-            throw new IOException(ex);
+        } catch (SQLException | IOException ex) {
+            LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
+            return false;
         }
     }
 
@@ -92,7 +98,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private AudioFileFetch requestHeaders() throws IOException {
         AudioFileFetch fetch = new AudioFileFetch(cacheHandler);
         if (cacheHandler == null || !tryCacheHeaders(fetch))
-            requestChunk(fileId, 0, fetch);
+            requestChunk(file.getFileId(), 0, fetch);
 
         fetch.waitChunk();
         return fetch;
@@ -112,8 +118,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         chunksBuffer.internalStream.waitFor(0);
     }
 
-    private void requestChunk(int index) throws IOException {
-        requestChunk(fileId, index, this);
+    private void requestChunk(int index) {
+        requestChunk(file.getFileId(), index, this);
         chunksBuffer.requested[index] = true; // Just to be sure
     }
 
@@ -128,7 +134,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, Utils.bytesToHex(fileId)));
+        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, Utils.bytesToHex(file.getFileId())));
     }
 
     @Override
@@ -216,13 +222,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
             @Override
             protected void requestChunkFromStream(int index) {
-                executorService.submit(() -> {
-                    try {
-                        requestChunk(index);
-                    } catch (IOException ex) {
-                        LOGGER.fatal(String.format("Failed requesting chunk, index: %d", index), ex);
-                    }
-                });
+                executorService.submit(() -> requestChunk(index));
             }
         }
     }
