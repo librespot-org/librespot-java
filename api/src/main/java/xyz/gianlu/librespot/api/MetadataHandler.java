@@ -9,10 +9,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.ProtobufMercuryRequest;
-import xyz.gianlu.librespot.mercury.model.AlbumId;
-import xyz.gianlu.librespot.mercury.model.ArtistId;
-import xyz.gianlu.librespot.mercury.model.PlaylistId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.*;
 
 import java.io.IOException;
 
@@ -42,6 +39,8 @@ public class MetadataHandler extends AbsApiHandler {
                 return handle(MercuryRequests.getArtist(ApiUtils.extractId(ArtistId.class, request, request.params)));
             case "album":
                 return handle(MercuryRequests.getAlbum(ApiUtils.extractId(AlbumId.class, request, request.params)));
+            case "episode":
+                return handle(MercuryRequests.getEpisode(ApiUtils.extractId(EpisodeId.class, request, request.params)));
             default:
                 throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
         }
