@@ -252,6 +252,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void shuffleTracks(boolean fully) {
+        if (tracksProvider == null) return;
+
         if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
             ((PlaylistProvider) tracksProvider).shuffleTracks(session.random(), fully);
         else
@@ -259,6 +261,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void unshuffleTracks() {
+        if (tracksProvider == null) return;
+
         if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
             ((PlaylistProvider) tracksProvider).unshuffleTracks();
         else
