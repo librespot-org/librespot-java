@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import fr.delthas.javamp3.Sound;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.codecs.mp3.Mp3Sound;
 
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
@@ -16,14 +16,14 @@ import java.io.InputStream;
 public class Mp3Codec extends Codec {
     private final LinesHolder.LineWrapper outputLine;
     private final byte[] buffer = new byte[BUFFER_SIZE];
-    private final Sound sound;
+    private final Mp3Sound sound;
 
     public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
                     PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
         skipMp3Tags(audioIn);
-        sound = new Sound(audioIn);
+        sound = new Mp3Sound(audioIn);
 
         try {
             outputLine = lines.getLineFor(conf, sound.getAudioFormat());
