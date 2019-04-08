@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu

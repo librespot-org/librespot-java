@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 
 /**

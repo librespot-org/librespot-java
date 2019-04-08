@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
@@ -153,7 +153,7 @@ public class ChannelManager extends PacketsManager {
         }
 
         void streamError(short code) {
-            file.streamError(code);
+            file.streamError(chunkIndex, code);
         }
 
         private class Handler implements Runnable {

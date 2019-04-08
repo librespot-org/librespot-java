@@ -10,11 +10,15 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.GeneralWritableStream;
+import xyz.gianlu.librespot.player.StreamId;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +27,7 @@ import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
@@ -203,7 +207,7 @@ public class CdnManager {
             else return "{fileId: " + streamId.getFileId() + "}";
         }
 
-        private void requestChunk(int index) {
+        private void requestChunk(int index, boolean retried) {
             if (cacheHandler != null) {
                 try {
                     if (cacheHandler.hasChunk(index)) {
@@ -219,7 +223,12 @@ public class CdnManager {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
             } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
+                if (retried) {
+                    // TODO: Fatal
+                } else {
+                    requestChunk(index, true);
+                }
             }
         }
 
@@ -274,7 +283,7 @@ public class CdnManager {
 
             @Override
             protected void requestChunkFromStream(int index) {
-                executorService.execute(() -> requestChunk(index));
+                executorService.execute(() -> requestChunk(index, false));
             }
         }
     }

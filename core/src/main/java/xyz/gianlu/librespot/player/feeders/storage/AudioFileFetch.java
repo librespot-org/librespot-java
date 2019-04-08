@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders.storage;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 
-import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
@@ -54,8 +54,8 @@ public class AudioFileFetch implements AudioFile {
     }
 
     @Override
-    public void streamError(short code) {
-        LOGGER.fatal(String.format("Stream error, code: %d", code));
+    public void streamError(int chunkIndex, short code) {
+        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code)); // TODO: Fatal
     }
 
     synchronized void waitChunk() {

@@ -18,8 +18,8 @@ import xyz.gianlu.librespot.crypto.PBKDF2;
 import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
-import xyz.gianlu.librespot.player.ChannelManager;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;

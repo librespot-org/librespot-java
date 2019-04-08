@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
@@ -8,6 +8,8 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
@@ -20,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static xyz.gianlu.librespot.player.ChannelManager.CHUNK_SIZE;
+import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
@@ -58,12 +60,17 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return chunksBuffer.stream();
     }
 
-    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) {
+    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file, boolean retried) {
         if (cacheHandler == null || !tryCacheChunk(index)) {
             try {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
+                if (retried) {
+                    // TODO: Fatal
+                } else {
+                    requestChunk(fileId, index, file, true);
+                }
             }
         }
     }
@@ -98,7 +105,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private AudioFileFetch requestHeaders() throws IOException {
         AudioFileFetch fetch = new AudioFileFetch(cacheHandler);
         if (cacheHandler == null || !tryCacheHeaders(fetch))
-            requestChunk(file.getFileId(), 0, fetch);
+            requestChunk(file.getFileId(), 0, fetch, false);
 
         fetch.waitChunk();
         return fetch;
@@ -119,7 +126,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     private void requestChunk(int index) {
-        requestChunk(file.getFileId(), index, this);
+        requestChunk(file.getFileId(), index, this, false);
         chunksBuffer.requested[index] = true; // Just to be sure
     }
 
@@ -142,8 +149,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @Override
-    public void streamError(short code) {
-        LOGGER.fatal(String.format("Stream error, code: %d", code));
+    public void streamError(int chunkIndex, short code) {
+        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code)); // TODO: Fatal
     }
 
     @Override

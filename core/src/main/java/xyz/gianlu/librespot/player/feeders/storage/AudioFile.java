@@ -1,4 +1,6 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders.storage;
+
+import xyz.gianlu.librespot.player.GeneralWritableStream;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -11,5 +13,5 @@ public interface AudioFile extends Closeable, GeneralWritableStream {
 
     void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException;
 
-    void streamError(short code);
+    void streamError(int chunkIndex, short code);
 }

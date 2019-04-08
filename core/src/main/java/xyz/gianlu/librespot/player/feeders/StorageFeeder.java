@@ -6,8 +6,8 @@ import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.AudioFileStreaming;
 import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.feeders.storage.AudioFileStreaming;
 
 import java.io.IOException;
 import java.io.InputStream;
