@@ -16,9 +16,7 @@ import java.io.InputStream;
 public class Mp3Codec extends Codec {
     private final LinesHolder.LineWrapper outputLine;
     private final byte[] buffer = new byte[BUFFER_SIZE];
-    private final int size;
     private final Sound sound;
-    private long readSoFar = 0;
 
     public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
                     PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
@@ -26,7 +24,6 @@ public class Mp3Codec extends Codec {
 
         skipMp3Tags(audioIn);
         sound = new Sound(audioIn);
-        size = sound.available();
 
         try {
             outputLine = lines.getLineFor(conf, sound.getAudioFormat());
@@ -72,8 +69,6 @@ public class Mp3Codec extends Codec {
                 int count = sound.read(buffer);
                 if (count == -1) break;
 
-                readSoFar += count;
-
                 line.write(buffer, 0, count);
             } else {
                 line.stop();
@@ -90,8 +85,8 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    public int time() {
-        return (int) (readSoFar * duration / size); // FIXME: Completely wrong when we'll be able to seek
+    public int time() throws CannotGetTimeException {
+       throw new CannotGetTimeException();
     }
 
     @Override

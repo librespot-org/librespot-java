@@ -37,10 +37,6 @@ public class PlayerRunner implements Runnable {
         LOGGER.trace(String.format("Player ready for playback, codec: %s, fileId: %s", audioFile.codec(), audioFile.describe()));
     }
 
-    int time() {
-        return codec.time();
-    }
-
     @Override
     public void run() {
         codec.run();

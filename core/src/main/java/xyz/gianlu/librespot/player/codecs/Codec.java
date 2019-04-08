@@ -76,7 +76,7 @@ public abstract class Codec implements Runnable {
 
     protected abstract void readBody() throws IOException, LineUnavailableException, CodecException;
 
-    public abstract int time();
+    public abstract int time() throws CannotGetTimeException;
 
     public void cleanup() {
         try {
@@ -104,9 +104,21 @@ public abstract class Codec implements Runnable {
     }
 
     protected final void checkPreload() {
-        if (preloadEnabled && !calledPreload && !stopped && duration - time() <= TRACK_PRELOAD_THRESHOLD) {
+        int time;
+        try {
+            time = time();
+        } catch (CannotGetTimeException ex) {
+            return;
+        }
+
+        if (preloadEnabled && !calledPreload && !stopped && duration - time <= TRACK_PRELOAD_THRESHOLD) {
             calledPreload = true;
             listener.preloadNextTrack();
+        }
+    }
+
+    public static class CannotGetTimeException extends Exception {
+        protected CannotGetTimeException() {
         }
     }
 
