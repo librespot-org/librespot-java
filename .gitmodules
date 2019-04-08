@@ -1,0 +1,3 @@
+[submodule "JavaMP3"]
+	path = JavaMP3
+	url = https://github.com/devgianlu/JavaMP3
