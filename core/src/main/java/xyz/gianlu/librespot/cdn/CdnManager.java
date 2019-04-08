@@ -224,11 +224,8 @@ public class CdnManager {
                 writeChunk(resp.buffer, index, false);
             } catch (IOException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
-                if (retried) {
-                    // TODO: Fatal
-                } else {
-                    requestChunk(index, true);
-                }
+                if (retried) internalStream.notifyChunkError(index, new AbsChunckedInputStream.ChunkException(ex));
+                else requestChunk(index, true);
             }
         }
 

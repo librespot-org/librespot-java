@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,6 +22,7 @@ public class AudioFileFetch implements AudioFile {
     private int size = -1;
     private int chunks = -1;
     private volatile boolean closed = false;
+    private Short streamError = null;
 
     AudioFileFetch(@Nullable CacheManager.Handler cache) {
         this.cache = cache;
@@ -49,20 +51,29 @@ public class AudioFileFetch implements AudioFile {
             size = ByteBuffer.wrap(bytes).getInt();
             size *= 4;
             chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+            streamError = null;
             notifyAll();
         }
     }
 
     @Override
-    public void streamError(int chunkIndex, short code) {
-        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code)); // TODO: Fatal
+    public synchronized void streamError(int chunkIndex, short code) {
+        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
+
+        streamError = code;
+        notifyAll();
     }
 
-    synchronized void waitChunk() {
+    synchronized void waitChunk() throws AbsChunckedInputStream.ChunkException {
         if (size != -1) return;
 
         try {
+            streamError = null;
             wait();
+
+            if (streamError != null)
+                throw AbsChunckedInputStream.ChunkException.from(streamError);
         } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
         }

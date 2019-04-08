@@ -135,7 +135,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
     @Override
     public void playbackError(@NotNull Exception ex) {
-        LOGGER.fatal("Playback failed!", ex);
+        listener.playbackError(this, ex);
     }
 
     @Override
@@ -190,6 +190,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         void endOfTrack(@NotNull TrackHandler handler);
 
         void preloadNextTrack(@NotNull TrackHandler handler);
+
+        void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex);
     }
 
     private class Looper implements Runnable {

@@ -66,11 +66,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
-                if (retried) {
-                    // TODO: Fatal
-                } else {
+                if (retried)
+                    chunksBuffer.internalStream.notifyChunkError(index, new AbsChunckedInputStream.ChunkException(ex));
+                else
                     requestChunk(fileId, index, file, true);
-                }
             }
         }
     }
@@ -150,7 +149,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void streamError(int chunkIndex, short code) {
-        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code)); // TODO: Fatal
+        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
+        chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunckedInputStream.ChunkException.from(code));
     }
 
     @Override

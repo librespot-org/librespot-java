@@ -14,6 +14,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
 public abstract class AbsChunckedInputStream extends InputStream {
     private static final int PRELOAD_AHEAD = 3;
     private final AtomicInteger waitForChunk = new AtomicInteger(-1);
+    private ChunkException chunkException = null;
     private int pos = 0;
     private int mark = 0;
     private volatile boolean closed = false;
@@ -75,8 +76,13 @@ public abstract class AbsChunckedInputStream extends InputStream {
 
         synchronized (waitForChunk) {
             try {
+                chunkException = null;
+
                 waitForChunk.set(chunkIndex);
                 waitForChunk.wait();
+
+                if (chunkException != null)
+                    throw chunkException;
             } catch (InterruptedException ex) {
                 throw new IOException(ex);
             }
@@ -161,6 +167,34 @@ public abstract class AbsChunckedInputStream extends InputStream {
                 waitForChunk.set(-1);
                 waitForChunk.notifyAll();
             }
+        }
+    }
+
+    public final void notifyChunkError(int index, @NotNull ChunkException ex) {
+        availableChunks()[index] = false;
+        requestedChunks()[index] = false;
+
+        if (index == waitForChunk.get()) {
+            synchronized (waitForChunk) {
+                chunkException = ex;
+                waitForChunk.set(-1);
+                waitForChunk.notifyAll();
+            }
+        }
+    }
+
+    public static class ChunkException extends IOException {
+        public ChunkException(@NotNull Throwable cause) {
+            super(cause);
+        }
+
+        private ChunkException(@NotNull String message) {
+            super(message);
+        }
+
+        @NotNull
+        public static ChunkException from(short streamError) {
+            return new ChunkException("Failed due to stream error, code: " + streamError);
         }
     }
 }

@@ -373,6 +373,22 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
     }
 
+    @Override
+    public void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex) {
+        if (handler == trackHandler) {
+            if (ex instanceof AbsChunckedInputStream.ChunkException)
+                LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
+            else
+                LOGGER.fatal("Playback error!", ex);
+
+            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+            stateUpdated();
+        } else if (handler == preloadTrackHandler) {
+            LOGGER.warn("Preloaded track loading failed!", ex);
+            preloadTrackHandler = null;
+        }
+    }
+
     private void handleLoad(@NotNull Remote3Frame frame) {
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
