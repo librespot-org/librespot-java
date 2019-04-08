@@ -186,7 +186,7 @@ public class SpotifyIrc implements Closeable {
             String ident = session.deviceId();
 
             try {
-                Spirc.Frame frame = Spirc.Frame.parseFrom(resp.payload.get(0));
+                Spirc.Frame frame = Spirc.Frame.parseFrom(resp.payload.stream());
                 if (ident.equals(frame.getIdent()) || (frame.getRecipientCount() > 0 && !frame.getRecipientList().contains(ident))) {
                     LOGGER.trace(String.format("Skipping message, not for us, ident: %s, recipients: %s", frame.getIdent(), frame.getRecipientList()));
                     return;
