@@ -24,7 +24,7 @@ public final class ShowId implements SpotifyId {
         Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
-            return new ShowId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
+            return new ShowId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true));
         } else {
             throw new IllegalArgumentException("Not a Spotify show ID: " + uri);
         }
@@ -32,7 +32,7 @@ public final class ShowId implements SpotifyId {
 
     @NotNull
     public static ShowId fromBase62(@NotNull String base62) {
-        return new ShowId(Utils.bytesToHex(BASE62.decode(base62.getBytes())));
+        return new ShowId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true));
     }
 
     @NotNull

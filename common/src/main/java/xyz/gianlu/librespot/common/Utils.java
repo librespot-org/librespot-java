@@ -202,22 +202,37 @@ public class Utils {
 
     @NotNull
     public static String bytesToHex(byte[] bytes) {
-        if (bytes == null) return "";
-        return bytesToHex(bytes, 0, bytes.length);
+        return bytesToHex(bytes, 0, bytes.length, false);
     }
 
     @NotNull
-    public static String bytesToHex(byte[] bytes, int offset, int length) {
+    public static String bytesToHex(byte[] bytes, boolean trim) {
+        return bytesToHex(bytes, 0, bytes.length, trim);
+    }
+
+    @NotNull
+    public static String bytesToHex(byte[] bytes, int offset, int length, boolean trim) {
         if (bytes == null) return "";
 
+        int newOffset = 0;
+        boolean trimming = trim;
         char[] hexChars = new char[length * 2];
         for (int j = offset; j < length; j++) {
             int v = bytes[j] & 0xFF;
+            if (trimming) {
+                if (v == 0) {
+                    newOffset = j  + 1;
+                    continue;
+                } else {
+                    trimming = false;
+                }
+            }
+
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
 
-        return new String(hexChars);
+        return new String(hexChars, newOffset * 2, hexChars.length - newOffset * 2);
     }
 
     @Contract("_, _, !null -> !null")

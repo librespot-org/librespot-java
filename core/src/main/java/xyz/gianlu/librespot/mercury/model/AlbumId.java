@@ -24,7 +24,7 @@ public final class AlbumId implements SpotifyId {
         Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
-            return new AlbumId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
+            return new AlbumId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true));
         } else {
             throw new IllegalArgumentException("Not a Spotify album ID: " + uri);
         }
@@ -32,7 +32,7 @@ public final class AlbumId implements SpotifyId {
 
     @NotNull
     public static AlbumId fromBase62(@NotNull String base62) {
-        return new AlbumId(Utils.bytesToHex(BASE62.decode(base62.getBytes())));
+        return new AlbumId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true));
     }
 
     @NotNull

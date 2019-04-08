@@ -25,7 +25,7 @@ public final class EpisodeId implements SpotifyId, PlayableId {
         Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
-            return new EpisodeId(Utils.bytesToHex(BASE62.decode(id.getBytes())));
+            return new EpisodeId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true));
         } else {
             throw new IllegalArgumentException("Not a Spotify episode ID: " + uri);
         }
@@ -44,7 +44,7 @@ public final class EpisodeId implements SpotifyId, PlayableId {
 
     @NotNull
     public static EpisodeId fromBase62(@NotNull String base62) {
-        return new EpisodeId(Utils.bytesToHex(BASE62.decode(base62.getBytes())));
+        return new EpisodeId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true));
     }
 
     @NotNull
