@@ -109,7 +109,7 @@ public class BytesArrayList implements Iterable<byte[]> {
                 if (offset >= elementData[sub].length) {
                     offset = 0;
                     if (++sub >= elementData.length)
-                        return i;
+                        return i == 0 ? -1 : i;
                 }
             }
         }
