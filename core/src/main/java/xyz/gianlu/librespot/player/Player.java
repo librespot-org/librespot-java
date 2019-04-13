@@ -391,6 +391,31 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
     }
 
+    @Override
+    public void playbackHalted(@NotNull TrackHandler handler, int chunk) {
+        if (handler == trackHandler) {
+            LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
+
+            if (conf.enableLoadingState()) {
+                state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+                stateUpdated();
+            }
+        }
+    }
+
+    @Override
+    public void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff) {
+        if (handler == trackHandler) {
+            LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
+
+            long now = TimeProvider.currentTimeMillis();
+            state.setPositionMs(state.getPositionMs() + (int) (now - state.getPositionMeasuredAt() - diff));
+            state.setPositionMeasuredAt(now);
+            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            stateUpdated();
+        }
+    }
+
     private void handleLoad(@NotNull Remote3Frame frame) {
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
@@ -453,9 +478,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
 
             long now = TimeProvider.currentTimeMillis();
-            int pos = state.getPositionMs();
-            int diff = (int) (now - state.getPositionMeasuredAt());
-            state.setPositionMs(pos + diff);
+            state.setPositionMs(state.getPositionMs() + (int) (now - state.getPositionMeasuredAt()));
             state.setPositionMeasuredAt(now);
             stateUpdated();
         }

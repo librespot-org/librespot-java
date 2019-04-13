@@ -13,10 +13,7 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.ContentRestrictedException;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.NormalizationData;
-import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.*;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.AudioQualityPreference;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
@@ -66,13 +63,13 @@ public abstract class BaseFeeder {
     }
 
     @NotNull
-    public final LoadedStream load(@NotNull PlayableId id, @NotNull AudioQualityPreference audioQualityPreference) throws CdnManager.CdnException, ContentRestrictedException, MercuryClient.MercuryException, IOException {
-        if (id instanceof TrackId) return loadTrack((TrackId) id, audioQualityPreference);
-        else if (id instanceof EpisodeId) return loadEpisode((EpisodeId) id, audioQualityPreference);
+    public final LoadedStream load(@NotNull PlayableId id, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws CdnManager.CdnException, ContentRestrictedException, MercuryClient.MercuryException, IOException {
+        if (id instanceof TrackId) return loadTrack((TrackId) id, audioQualityPreference, haltListener);
+        else if (id instanceof EpisodeId) return loadEpisode((EpisodeId) id, haltListener);
         else throw new IllegalArgumentException("Unknown PlayableId: " + id);
     }
 
-    public final @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
+    public final @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
         Metadata.Track original = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
         Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
@@ -83,29 +80,29 @@ public abstract class BaseFeeder {
             throw new FeederException();
         }
 
-        return loadTrack(track, audioQualityPreference);
+        return loadTrack(track, audioQualityPreference, haltListener);
     }
 
     @NotNull
-    public final LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    public final LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track);
         if (file == null) {
             LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track)));
             throw new FeederException();
         }
 
-        return loadTrack(track, file);
+        return loadTrack(track, file, haltListener);
     }
 
     @NotNull
-    public final LoadedStream loadTrack(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        return loadTrack(TrackId.fromTrackRef(ref), audioQualityPreference);
+    public final LoadedStream loadTrack(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+        return loadTrack(TrackId.fromTrackRef(ref), audioQualityPreference, haltListener);
     }
 
     @NotNull
-    public abstract LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException;
+    public abstract LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException;
 
-    public final @NotNull LoadedStream loadEpisode(@NotNull EpisodeId id, @NotNull AudioQualityPreference audioQualityPreference) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    public final @NotNull LoadedStream loadEpisode(@NotNull EpisodeId id, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         Metadata.Episode episode = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
 
         Metadata.AudioFile file = null;
@@ -124,11 +121,11 @@ public abstract class BaseFeeder {
             throw new FeederException();
         }
 
-        return loadEpisode(episode, file);
+        return loadEpisode(episode, file, haltListener);
     }
 
     @NotNull
-    public abstract LoadedStream loadEpisode(@NotNull Metadata.Episode episode, @NotNull Metadata.AudioFile file) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException;
+    public abstract LoadedStream loadEpisode(@NotNull Metadata.Episode episode, @NotNull Metadata.AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException;
 
     public static class LoadedStream {
         public final Metadata.Episode episode;

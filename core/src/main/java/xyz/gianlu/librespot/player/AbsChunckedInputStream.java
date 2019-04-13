@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,12 +15,14 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
 public abstract class AbsChunckedInputStream extends InputStream {
     private static final int PRELOAD_AHEAD = 3;
     private final AtomicInteger waitForChunk = new AtomicInteger(-1);
+    private final HaltListener haltListener;
     private ChunkException chunkException = null;
     private int pos = 0;
     private int mark = 0;
     private volatile boolean closed = false;
 
-    protected AbsChunckedInputStream() {
+    protected AbsChunckedInputStream(@Nullable HaltListener haltListener) {
+        this.haltListener = haltListener;
     }
 
     public final boolean isClosed() {
@@ -113,7 +116,13 @@ public abstract class AbsChunckedInputStream extends InputStream {
             }
         }
 
-        if (wait) waitFor(chunk);
+        if (availableChunks()[chunk]) return;
+
+        if (wait) {
+            if (haltListener != null) haltListener.streamReadHalted(chunk, System.currentTimeMillis());
+            waitFor(chunk);
+            if (haltListener != null) haltListener.streamReadResumed(chunk, System.currentTimeMillis());
+        }
     }
 
     @Override
@@ -181,6 +190,12 @@ public abstract class AbsChunckedInputStream extends InputStream {
                 waitForChunk.notifyAll();
             }
         }
+    }
+
+    public interface HaltListener {
+        void streamReadHalted(int chunk, long time);
+
+        void streamReadResumed(int chunk, long time);
     }
 
     public static class ChunkException extends IOException {

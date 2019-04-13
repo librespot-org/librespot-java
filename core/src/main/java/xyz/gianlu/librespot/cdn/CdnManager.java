@@ -65,14 +65,14 @@ public class CdnManager {
     }
 
     @NotNull
-    public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl) throws IOException {
-        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, externalUrl, session.cache(), new NoopAudioDecrypt());
+    public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
+        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, externalUrl, session.cache(), new NoopAudioDecrypt(), haltListener);
     }
 
     @NotNull
-    public Streamer streamTrack(@NotNull Metadata.AudioFile file, @NotNull byte[] key) throws IOException, MercuryClient.MercuryException, CdnException {
+    public Streamer streamTrack(@NotNull Metadata.AudioFile file, @NotNull byte[] key, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnException {
         return new Streamer(new StreamId(file), SuperAudioFormat.get(file.getFormat()),
-                getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key));
+                getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key), haltListener);
     }
 
     @NotNull
@@ -129,7 +129,8 @@ public class CdnManager {
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache, @Nullable AudioDecrypt audioDecrypt) throws IOException {
+        private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache,
+                         @Nullable AudioDecrypt audioDecrypt, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
             this.streamId = streamId;
             this.format = format;
             this.audioDecrypt = audioDecrypt;
@@ -169,7 +170,7 @@ public class CdnManager {
             buffer = new byte[chunks][CHUNK_SIZE];
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
-            this.internalStream = new InternalStream();
+            this.internalStream = new InternalStream(haltListener);
             writeChunk(firstChunk, 0, false);
         }
 
@@ -252,6 +253,10 @@ public class CdnManager {
         }
 
         private class InternalStream extends AbsChunckedInputStream {
+
+            protected InternalStream(@Nullable HaltListener haltListener) {
+                super(haltListener);
+            }
 
             @Override
             protected byte[][] buffer() {

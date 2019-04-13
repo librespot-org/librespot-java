@@ -26,7 +26,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * @author Gianlu
  */
-public class TrackHandler implements PlayerRunner.Listener, Closeable {
+public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunckedInputStream.HaltListener {
     private static final Logger LOGGER = Logger.getLogger(TrackHandler.class);
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Session session;
@@ -38,6 +38,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
     private Metadata.Episode episode;
     private PlayerRunner playerRunner;
     private volatile boolean stopped = false;
+    private long haltedAt = -1;
 
     TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
@@ -61,11 +62,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
 
         BaseFeeder.LoadedStream stream;
         try {
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
         } catch (CdnFeeder.CanNotAvailable ex) {
             LOGGER.warn(String.format("Cdn not available for %s, using storage", Utils.bytesToHex(id.getGid())));
             feeder = new StorageFeeder(session, id);
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()));
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
         }
 
         track = stream.track;
@@ -175,6 +176,22 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         return episode;
     }
 
+    @Override
+    public void streamReadHalted(int chunk, long time) {
+        haltedAt = time;
+        listener.playbackHalted(this, chunk);
+    }
+
+    @Override
+    public void streamReadResumed(int chunk, long time) {
+        if (haltedAt != -1) {
+            long diff = time - haltedAt;
+            haltedAt = -1;
+
+            listener.playbackResumedFromHalt(this, chunk, diff);
+        }
+    }
+
     public enum Command {
         Load, Play, Pause,
         Stop, Seek, Terminate
@@ -192,6 +209,10 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable {
         void preloadNextTrack(@NotNull TrackHandler handler);
 
         void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex);
+
+        void playbackHalted(@NotNull TrackHandler handler, int chunk);
+
+        void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
     }
 
     private class Looper implements Runnable {

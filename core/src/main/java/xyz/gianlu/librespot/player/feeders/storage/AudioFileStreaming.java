@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player.feeders.storage;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
@@ -33,12 +34,14 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private final Metadata.AudioFile file;
     private final byte[] key;
     private final Session session;
+    private final AbsChunckedInputStream.HaltListener haltListener;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "request-chunk-" + r.hashCode()));
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key) throws IOException {
+    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
         this.session = session;
+        this.haltListener = haltListener;
         this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
         this.file = file;
         this.key = key;
@@ -175,7 +178,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
             this.audioDecrypt = new AesAudioDecrypt(key);
-            this.internalStream = new InternalStream();
+            this.internalStream = new InternalStream(haltListener);
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
@@ -199,7 +202,9 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         }
 
         private class InternalStream extends AbsChunckedInputStream {
-            private InternalStream() {
+
+            protected InternalStream(@Nullable HaltListener haltListener) {
+                super(haltListener);
             }
 
             @Override

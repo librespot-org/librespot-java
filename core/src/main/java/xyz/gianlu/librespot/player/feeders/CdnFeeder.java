@@ -4,11 +4,13 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 import xyz.gianlu.librespot.player.NormalizationData;
 
 import java.io.IOException;
@@ -25,9 +27,9 @@ public class CdnFeeder extends BaseFeeder {
     }
 
     @Override
-    public @NotNull LoadedStream loadTrack(Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
+    public @NotNull LoadedStream loadTrack(Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
-        CdnManager.Streamer streamer = session.cdn().streamTrack(file, key);
+        CdnManager.Streamer streamer = session.cdn().streamTrack(file, key, haltListener);
 
         InputStream in = streamer.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
@@ -38,7 +40,7 @@ public class CdnFeeder extends BaseFeeder {
     }
 
     @Override
-    public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file) throws IOException {
+    public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
         if (!episode.hasExternalUrl())
             throw new CanNotAvailable("Missing external_url!");
 
@@ -48,7 +50,7 @@ public class CdnFeeder extends BaseFeeder {
         if (resp.code() != 200)
             LOGGER.warn("Couldn't resolve redirect!");
 
-        CdnManager.Streamer streamer = session.cdn().streamEpisode(episode, resp.request().url());
+        CdnManager.Streamer streamer = session.cdn().streamEpisode(episode, resp.request().url(), haltListener);
         return new LoadedStream(episode, streamer, null);
     }
 
