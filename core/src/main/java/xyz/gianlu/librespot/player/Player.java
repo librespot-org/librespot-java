@@ -306,8 +306,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
-            stateUpdated();
+            if (conf.enableLoadingState()) {
+                state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+                stateUpdated();
+            }
         }
     }
 
@@ -576,6 +578,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         boolean useCdnForTracks();
 
         boolean useCdnForEpisodes();
+
+        boolean enableLoadingState();
     }
 
     private class StateWrapper {

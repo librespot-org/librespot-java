@@ -165,6 +165,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean enableLoadingState() {
+        return getBoolean("player.enableLoadingState", defaults.enableLoadingState());
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return properties.getProperty("deviceName", null);
     }

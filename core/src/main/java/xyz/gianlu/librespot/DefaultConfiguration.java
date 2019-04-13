@@ -64,6 +64,11 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean enableLoadingState() {
+        return true;
+    }
+
+    @Override
     public boolean preloadEnabled() {
         return true;
     }
