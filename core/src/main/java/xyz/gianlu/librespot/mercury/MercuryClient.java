@@ -44,10 +44,10 @@ public class MercuryClient extends PacketsManager {
         if (response.payload.size() > 0) {
             for (byte[] payload : response.payload) {
                 Pubsub.Subscription sub = Pubsub.Subscription.parseFrom(payload);
-                subscriptions.add(new InternalSubListener(sub.getUri(), listener));
+                subscriptions.add(new InternalSubListener(sub.getUri(), listener, true));
             }
         } else {
-            subscriptions.add(new InternalSubListener(uri, listener));
+            subscriptions.add(new InternalSubListener(uri, listener, true));
         }
 
         LOGGER.trace(String.format("Subscribed successfully to %s!", uri));
@@ -182,6 +182,10 @@ public class MercuryClient extends PacketsManager {
             } else {
                 LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
             }
+
+            synchronized (callbacks) {
+                callbacks.notifyAll();
+            }
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
         }
@@ -193,7 +197,7 @@ public class MercuryClient extends PacketsManager {
     }
 
     public void interestedIn(@NotNull String uri, @NotNull SubListener listener) {
-        subscriptions.add(new InternalSubListener(uri, listener));
+        subscriptions.add(new InternalSubListener(uri, listener, false));
     }
 
     public void notInterested(@NotNull SubListener listener) {
@@ -203,6 +207,35 @@ public class MercuryClient extends PacketsManager {
                 if (iter.next().listener == listener)
                     iter.remove();
         }
+    }
+
+    @Override
+    public void close() {
+        if (!subscriptions.isEmpty()) {
+            for (InternalSubListener listener : new ArrayList<>(subscriptions)) {
+                try {
+                    if (listener.isSub) unsubscribe(listener.uri);
+                    else notInterested(listener.listener);
+                } catch (IOException | PubSubException ex) {
+                    LOGGER.debug("Failed unsubscribing.", ex);
+                }
+            }
+        }
+
+        while (true) {
+            if (callbacks.isEmpty()) {
+                break;
+            } else {
+                synchronized (callbacks) {
+                    try {
+                        callbacks.wait();
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+        }
+
+        super.close();
     }
 
     public interface Callback {
@@ -238,10 +271,12 @@ public class MercuryClient extends PacketsManager {
     private static class InternalSubListener {
         private final String uri;
         private final SubListener listener;
+        private final boolean isSub;
 
-        InternalSubListener(@NotNull String uri, @NotNull SubListener listener) {
+        InternalSubListener(@NotNull String uri, @NotNull SubListener listener, boolean isSub) {
             this.uri = uri;
             this.listener = listener;
+            this.isSub = isSub;
         }
 
         boolean matches(String uri) {
