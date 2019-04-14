@@ -25,7 +25,7 @@ public final class TrackId implements SpotifyId, PlayableId {
         Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
-            return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true));
+            return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true, 16));
         } else {
             throw new IllegalArgumentException("Not a Spotify track ID: " + uri);
         }
@@ -33,7 +33,7 @@ public final class TrackId implements SpotifyId, PlayableId {
 
     @NotNull
     public static TrackId fromBase62(@NotNull String base62) {
-        return new TrackId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true));
+        return new TrackId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true, 16));
     }
 
     @NotNull

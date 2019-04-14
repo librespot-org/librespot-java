@@ -202,16 +202,21 @@ public class Utils {
 
     @NotNull
     public static String bytesToHex(byte[] bytes) {
-        return bytesToHex(bytes, 0, bytes.length, false);
+        return bytesToHex(bytes, 0, bytes.length, false, -1);
     }
 
     @NotNull
     public static String bytesToHex(byte[] bytes, boolean trim) {
-        return bytesToHex(bytes, 0, bytes.length, trim);
+        return bytesToHex(bytes, 0, bytes.length, trim, -1);
     }
 
     @NotNull
-    public static String bytesToHex(byte[] bytes, int offset, int length, boolean trim) {
+    public static String bytesToHex(byte[] bytes, boolean trim, int minLength) {
+        return bytesToHex(bytes, 0, bytes.length, trim, minLength);
+    }
+
+    @NotNull
+    public static String bytesToHex(byte[] bytes, int offset, int length, boolean trim, int minLength) {
         if (bytes == null) return "";
 
         int newOffset = 0;
@@ -221,7 +226,11 @@ public class Utils {
             int v = bytes[j] & 0xFF;
             if (trimming) {
                 if (v == 0) {
-                    newOffset = j  + 1;
+                    newOffset = j + 1;
+
+                    if (minLength != -1 && length - newOffset == minLength)
+                        trimming = false;
+
                     continue;
                 } else {
                     trimming = false;
