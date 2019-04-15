@@ -88,6 +88,7 @@ public class Session implements Closeable {
     private CdnManager cdnManager;
     private CacheManager cacheManager;
     private String countryCode = null;
+    private volatile boolean closed = false;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -338,6 +339,7 @@ public class Session implements Closeable {
 
         apWelcome = null;
         cipherPair = null;
+        closed = true;
 
         LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
     }
@@ -347,6 +349,8 @@ public class Session implements Closeable {
     }
 
     private void waitAuthLock() {
+        if (closed) throw new IllegalStateException("Session is closed!");
+
         synchronized (authLock) {
             if (cipherPair == null || authLock.get()) {
                 try {
@@ -428,11 +432,7 @@ public class Session implements Closeable {
 
     public boolean valid() {
         waitAuthLock();
-        return apWelcome != null && conn != null && !conn.socket.isClosed();
-    }
-
-    public boolean isConnecting() {
-        return cipherPair == null || authLock.get();
+        return apWelcome != null && conn != null && !conn.socket.isClosed() && !closed;
     }
 
     @NotNull
