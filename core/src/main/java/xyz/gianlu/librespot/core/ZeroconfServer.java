@@ -110,14 +110,21 @@ public class ZeroconfServer implements Closeable {
         txt.put("CPath", "/");
         txt.put("VERSION", "1.0");
 
+        boolean atLeastOne = false;
         instances = new JmDNS[bound.length];
         for (int i = 0; i < instances.length; i++) {
-            instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
-            ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java-" + i, port, 0, 0, txt);
-            instances[i].registerService(serviceInfo);
+            try {
+                instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
+                ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java-" + i, port, 0, 0, txt);
+                instances[i].registerService(serviceInfo);
+                atLeastOne = true;
+            } catch (SocketException ex) {
+                LOGGER.warn("Failed creating socket for " + bound[i]);
+            }
         }
 
-        LOGGER.info("SpotifyConnect service registered successfully!");
+        if (atLeastOne) LOGGER.info("SpotifyConnect service registered successfully!");
+        else throw new IllegalStateException("Could not register the service anywhere!");
     }
 
     @NotNull
