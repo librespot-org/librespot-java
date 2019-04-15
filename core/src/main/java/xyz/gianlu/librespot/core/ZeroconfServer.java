@@ -25,6 +25,8 @@ import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * @author Gianlu
@@ -78,7 +80,7 @@ public class ZeroconfServer implements Closeable {
     private final Session.Inner inner;
     private final DiffieHellman keys;
     private final JmDNS[] instances;
-    private Session session;
+    private volatile Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -119,7 +121,7 @@ public class ZeroconfServer implements Closeable {
                 instances[i].registerService(serviceInfo);
                 atLeastOne = true;
             } catch (SocketException ex) {
-                LOGGER.warn("Failed creating socket for " + bound[i]);
+                LOGGER.warn("Failed creating socket for " + bound[i], ex);
             }
         }
 
@@ -274,6 +276,21 @@ public class ZeroconfServer implements Closeable {
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
 
+
+        String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
+        out.write(httpVersion.getBytes());
+        out.write(" 200 OK".getBytes());
+        out.write(EOL);
+        out.write("Content-Length: ".getBytes());
+        out.write(String.valueOf(resp.length()).getBytes());
+        out.write(EOL);
+        out.flush();
+
+        out.write(EOL);
+        out.write(resp.getBytes());
+        out.flush();
+
+
         try {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
             if (hasValidSession()) {
@@ -289,22 +306,7 @@ public class ZeroconfServer implements Closeable {
         } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
-            return;
         }
-
-        String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
-
-        out.write(httpVersion.getBytes());
-        out.write(" 200 OK".getBytes());
-        out.write(EOL);
-        out.write("Content-Length: ".getBytes());
-        out.write(String.valueOf(resp.length()).getBytes());
-        out.write(EOL);
-        out.flush();
-
-        out.write(EOL);
-        out.write(resp.getBytes());
-        out.flush();
     }
 
     public interface Configuration {
@@ -318,6 +320,7 @@ public class ZeroconfServer implements Closeable {
 
     private class HttpRunner implements Runnable, Closeable {
         private final ServerSocket serverSocket;
+        private final ExecutorService executorService = Executors.newCachedThreadPool();
         private volatile boolean shouldStop = false;
 
         HttpRunner(int port) throws IOException {
@@ -328,10 +331,18 @@ public class ZeroconfServer implements Closeable {
         @Override
         public void run() {
             while (!shouldStop) {
-                try (Socket socket = serverSocket.accept()) { // We don't need this to be async
-                    handle(socket);
+                try {
+                    Socket socket = serverSocket.accept();
+                    executorService.execute(() -> {
+                        try {
+                            handle(socket);
+                            socket.close();
+                        } catch (IOException ex) {
+                            LOGGER.fatal("Failed handling request!", ex);
+                        }
+                    });
                 } catch (IOException ex) {
-                    LOGGER.fatal("Failed handling request!", ex);
+                    LOGGER.fatal("Failed handling connection!", ex);
                 }
             }
         }

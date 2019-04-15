@@ -303,23 +303,35 @@ public class Session implements Closeable {
 
     @Override
     public void close() throws IOException {
-        receiver.stop();
-        receiver = null;
+        if (receiver != null) {
+            receiver.stop();
+            receiver = null;
+        }
 
-        player.close();
-        player = null;
+        if (player != null) {
+            player.close();
+            player = null;
+        }
 
-        audioKeyManager.close();
-        audioKeyManager = null;
+        if (audioKeyManager != null) {
+            audioKeyManager.close();
+            audioKeyManager = null;
+        }
 
-        channelManager.close();
-        channelManager = null;
+        if (channelManager != null) {
+            channelManager.close();
+            channelManager = null;
+        }
 
-        spirc.close();
-        spirc = null;
+        if (spirc != null) {
+            spirc.close();
+            spirc = null;
+        }
 
-        mercuryClient.close();
-        mercuryClient = null;
+        if (mercuryClient != null) {
+            mercuryClient.close();
+            mercuryClient = null;
+        }
 
         executorService.shutdown();
         conn.socket.close();
@@ -417,6 +429,10 @@ public class Session implements Closeable {
     public boolean valid() {
         waitAuthLock();
         return apWelcome != null && conn != null && !conn.socket.isClosed();
+    }
+
+    public boolean isConnecting() {
+        return cipherPair == null || authLock.get();
     }
 
     @NotNull
