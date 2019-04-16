@@ -4,6 +4,15 @@
 
 `librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
 
+## Features
+This client is pretty much capable of playing anything that's available on Spotify. 
+Its main features are:
+- Tracks and podcasts/episodes playback
+- Stations and dailymixes support
+- Local content caching
+- Zeroconf (Spotify Connect)
+- Gapless playback
+
 ## Get started
 All the configuration you need is inside the `conf.properties` file, there you can decide to authenticate with:
 - Username and password
