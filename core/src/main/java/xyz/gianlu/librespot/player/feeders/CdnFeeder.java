@@ -40,7 +40,7 @@ public class CdnFeeder extends BaseFeeder {
     }
 
     @Override
-    public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
+    public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException {
         if (!episode.hasExternalUrl())
             throw new CanNotAvailable("Missing external_url!");
 

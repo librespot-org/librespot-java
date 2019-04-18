@@ -9,6 +9,7 @@ import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
@@ -26,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
@@ -65,20 +67,20 @@ public class CdnManager {
     }
 
     @NotNull
-    public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
-        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, externalUrl, session.cache(), new NoopAudioDecrypt(), haltListener);
+    public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
+        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, new CdnUrl(externalUrl), session.cache(), new NoopAudioDecrypt(), haltListener);
     }
 
     @NotNull
     public Streamer streamTrack(@NotNull Metadata.AudioFile file, @NotNull byte[] key, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnException {
         return new Streamer(new StreamId(file), SuperAudioFormat.get(file.getFormat()),
-                getAudioUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key), haltListener);
+                getCdnUrl(file.getFileId()), session.cache(), new AesAudioDecrypt(key), haltListener);
     }
 
     @NotNull
-    private HttpUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
+    private HttpUrl getAudioUrl(@NotNull ByteString fileId, @NotNull TokenProvider.ExpireListener listener) throws IOException, CdnException, MercuryClient.MercuryException {
         try (Response resp = client.newCall(new Request.Builder().get()
-                .header("Authorization", "Bearer " + session.tokens().get("playlist-read"))
+                .header("Authorization", "Bearer " + session.tokens().get("playlist-read", listener))
                 .url(String.format(STORAGE_RESOLVE_AUDIO_URL, Utils.bytesToHex(fileId)))
                 .build()).execute()) {
 
@@ -91,17 +93,30 @@ public class CdnManager {
 
             StorageResolve.StorageResolveResponse proto = StorageResolve.StorageResolveResponse.parseFrom(body.byteStream());
             if (proto.getResult() == StorageResolve.StorageResolveResponse.Result.CDN) {
-                return HttpUrl.get(proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount())));
+                String url = proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount()));
+                LOGGER.debug(String.format("Fetched CDN url for %s: %s", Utils.bytesToHex(fileId), url));
+                return HttpUrl.get(url);
             } else {
                 throw new CdnException(String.format("Could not retrieve CDN url! {result: %s}", proto.getResult()));
             }
         }
     }
 
+    @NotNull
+    private CdnUrl getCdnUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
+        CdnUrl cdnUrl = new CdnUrl(fileId);
+        cdnUrl.url = getAudioUrl(fileId, cdnUrl);
+        return cdnUrl;
+    }
+
     public static class CdnException extends Exception {
 
         CdnException(@NotNull String message) {
             super(message);
+        }
+
+        CdnException(Throwable ex) {
+            super(ex);
         }
     }
 
@@ -115,12 +130,72 @@ public class CdnManager {
         }
     }
 
+    private class CdnUrl implements TokenProvider.ExpireListener {
+        private final ByteString fileId;
+        private final AtomicReference<Exception> urlLock = new AtomicReference<>(null);
+        private HttpUrl url;
+
+        CdnUrl(@NotNull HttpUrl url) {
+            this.url = url;
+            this.fileId = null;
+        }
+
+        CdnUrl(@NotNull ByteString fileId) {
+            this.fileId = fileId;
+            this.url = null;
+        }
+
+        private void waitUrl() throws CdnException {
+            if (url == null) {
+                synchronized (urlLock) {
+                    try {
+                        urlLock.wait();
+                    } catch (InterruptedException ex) {
+                        throw new CdnException(ex);
+                    }
+
+                    Exception ex = urlLock.get();
+                    if (ex != null) throw new CdnException(ex);
+                }
+            }
+        }
+
+        @Nullable
+        String host() {
+            return url == null ? null : url.host();
+        }
+
+        @NotNull
+        HttpUrl url() throws CdnException {
+            waitUrl();
+            return url;
+        }
+
+        @Override
+        public void tokenExpired() {
+            if (fileId == null) throw new IllegalStateException();
+
+            url = null;
+
+            synchronized (urlLock) {
+                try {
+                    url = getAudioUrl(fileId, this);
+                    urlLock.set(null);
+                } catch (IOException | CdnException | MercuryClient.MercuryException ex) {
+                    urlLock.set(ex);
+                }
+
+                urlLock.notifyAll();
+            }
+        }
+    }
+
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
         private final StreamId streamId;
         private final ExecutorService executorService = Executors.newCachedThreadPool();
         private final SuperAudioFormat format;
         private final AudioDecrypt audioDecrypt;
-        private final HttpUrl cdnUrl;
+        private final CdnUrl cdnUrl;
         private final int size;
         private final byte[][] buffer;
         private final boolean[] available;
@@ -129,8 +204,8 @@ public class CdnManager {
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
 
-        private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull HttpUrl cdnUrl, @Nullable CacheManager cache,
-                         @Nullable AudioDecrypt audioDecrypt, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
+        private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull CdnUrl cdnUrl, @Nullable CacheManager cache,
+                         @Nullable AudioDecrypt audioDecrypt, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
             this.streamId = streamId;
             this.format = format;
             this.audioDecrypt = audioDecrypt;
@@ -223,7 +298,7 @@ public class CdnManager {
             try {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
-            } catch (IOException ex) {
+            } catch (IOException | CdnException ex) {
                 LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
                 if (retried) internalStream.notifyChunkError(index, new AbsChunckedInputStream.ChunkException(ex));
                 else requestChunk(index, true);
@@ -231,13 +306,13 @@ public class CdnManager {
         }
 
         @NotNull
-        public synchronized InternalResponse request(int chunk) throws IOException {
+        public synchronized InternalResponse request(int chunk) throws IOException, CdnException {
             return request(CHUNK_SIZE * chunk, (chunk + 1) * CHUNK_SIZE - 1);
         }
 
         @NotNull
-        public synchronized InternalResponse request(int rangeStart, int rangeEnd) throws IOException {
-            try (Response resp = client.newCall(new Request.Builder().get().url(cdnUrl)
+        public synchronized InternalResponse request(int rangeStart, int rangeEnd) throws IOException, CdnException {
+            try (Response resp = client.newCall(new Request.Builder().get().url(cdnUrl.url())
                     .header("Range", "bytes=" + rangeStart + "-" + rangeEnd)
                     .build()).execute()) {
 
