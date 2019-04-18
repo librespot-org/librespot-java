@@ -71,12 +71,5 @@
             <artifactId>Java-WebSocket</artifactId>
             <version>1.3.9</version>
         </dependency>
-
-        <!-- Data -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-        </dependency>
     </dependencies>
 </project>

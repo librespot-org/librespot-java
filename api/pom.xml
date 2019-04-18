@@ -52,12 +52,5 @@
             <artifactId>librespot-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-        <!-- Data -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-        </dependency>
     </dependencies>
 </project>
