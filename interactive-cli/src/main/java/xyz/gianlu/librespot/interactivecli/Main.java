@@ -12,8 +12,14 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggingEvent;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.AbsConfiguration;
+import xyz.gianlu.librespot.FileConfiguration;
+import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
+import java.io.File;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,46 +42,6 @@ public class Main {
     }
 
     private static void draw(@NotNull Terminal terminal) throws IOException {
-        terminal.clearScreen();
-        terminal.setCursorPosition(0, 0);
-
-        drawCommandInputLine(terminal);
-
-        Logger.getRootLogger().removeAllAppenders();
-        Logger.getRootLogger().addAppender(new AppenderSkeleton() {
-            {
-                setLayout(new PatternLayout("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n"));
-            }
-
-            @Override
-            protected void append(LoggingEvent event) {
-                String str = getLayout().format(event);
-                try {
-                    printLog(terminal, str);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            @Override
-            public void close() {
-
-            }
-
-            @Override
-            public boolean requiresLayout() {
-                return true;
-            }
-        });
-
-        new Thread(() -> {
-            try {
-                spamLogs();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
-
         while (true) {
             KeyStroke stroke = terminal.readInput();
             if (stroke.getKeyType() == KeyType.Character) {
@@ -105,7 +71,7 @@ public class Main {
         }
     }
 
-    private static void newLine(Terminal terminal) throws IOException {
+    private static void newLine(@NotNull Terminal terminal) throws IOException {
         if (lastLogPosition.getRow() == terminal.getTerminalSize().getRows() - 2) {
             lastLogPosition = new TerminalPosition(0, 0);
             return;
@@ -114,7 +80,7 @@ public class Main {
         lastLogPosition = new TerminalPosition(0, lastLogPosition.getRow() + 1);
     }
 
-    private static void drawLogEntries(Terminal terminal, int num) throws IOException {
+    private static void drawLogEntries(@NotNull Terminal terminal, int num) throws IOException {
         if (logEntries.isEmpty()) return;
 
         if (num > logEntries.size()) num = logEntries.size();
@@ -123,7 +89,7 @@ public class Main {
             drawTextLine(terminal, logEntries.get(logEntries.size() - i - 1), num - i - 1);
     }
 
-    private static void drawTextLine(Terminal terminal, String str, int row) throws IOException {
+    private static void drawTextLine(@NotNull Terminal terminal, String str, int row) throws IOException {
         TerminalPosition userPos = new TerminalPosition(terminal.getCursorPosition().getColumn(), terminal.getCursorPosition().getRow());
 
         boolean lastWasR = false;
@@ -157,30 +123,64 @@ public class Main {
         terminal.flush();
     }
 
-    private static void printLog(Terminal terminal, String str) throws IOException {
+    private static void printLog(@NotNull Terminal terminal, String str) throws IOException {
         logEntries.add(str);
+        redrawLogs(terminal);
+    }
 
+    private static void redrawLogs(@NotNull Terminal terminal) throws IOException {
         drawLogEntries(terminal, terminal.getTerminalSize().getRows() - 1);
     }
 
-    private static void spamLogs() throws InterruptedException {
-        long i = 120;
-        while (true) {
-            Thread.sleep(100);
-            LOGGER.info(i--);
-        }
+    private static void setup(@NotNull Terminal terminal) throws IOException {
+        terminal.clearScreen();
+        terminal.setCursorPosition(0, 0);
+
+        drawCommandInputLine(terminal);
+
+        // Logger.getRootLogger().removeAllAppenders();
+        Logger.getRootLogger().addAppender(new AppenderSkeleton() {
+            {
+                setLayout(new PatternLayout("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n"));
+            }
+
+            @Override
+            protected void append(LoggingEvent event) {
+                String str = getLayout().format(event);
+                try {
+                    printLog(terminal, str);
+                } catch (IOException ex) {
+                    LOGGER.error("Failed printing log message!", ex);
+                }
+            }
+
+            @Override
+            public void close() {
+            }
+
+            @Override
+            public boolean requiresLayout() {
+                return true;
+            }
+        });
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
         DefaultTerminalFactory defaultTerminalFactory = new DefaultTerminalFactory();
         Terminal terminal = defaultTerminalFactory.createTerminal();
         terminal.addResizeListener((t, newSize) -> {
             try {
                 drawCommandInputLine(terminal);
-            } catch (IOException e) {
-                e.printStackTrace();
+                redrawLogs(terminal);
+            } catch (IOException ex) {
+                LOGGER.error("Failed redrawing resized window.", ex);
             }
         });
+
+        setup(terminal);
+
+        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
+        Session s = new Session.Builder(conf).create();
 
         draw(terminal);
     }
