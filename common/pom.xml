@@ -11,6 +11,7 @@
 
     <artifactId>librespot-common</artifactId>
     <name>librespot-java common</name>
+    <packaging>pom</packaging>
 
     <dependencies>
         <!-- Data -->
