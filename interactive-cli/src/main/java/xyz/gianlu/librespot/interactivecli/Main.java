@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TextCharacter;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.TextGraphics;
 import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.input.KeyType;
@@ -15,6 +16,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggingEvent;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.FileConfiguration;
 import xyz.gianlu.librespot.Version;
@@ -32,12 +34,15 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author Gianlu
  */
 public class Main {
     private static final Logger LOGGER = Logger.getLogger(Main.class);
+    private static final Pattern LOG_LEVEL_PATTERN = Pattern.compile("^.+?\\s([A-Z]+)");
     private final List<String> logEntries = new ArrayList<>();
     private final CommandsHandler commands;
     private TerminalPosition lastLogPosition = new TerminalPosition(0, 0);
@@ -85,6 +90,23 @@ public class Main {
         if (customCommands != null) {
             main.loadCustomCommands(customCommands);
             LOGGER.info("Loaded custom commands!");
+        }
+    }
+
+    @Nullable
+    private static TextColor colorForLogLevel(@NotNull String level) {
+        switch (level) {
+            case "TRACE":
+            case "DEBUG":
+            case "INFO":
+                return TextColor.ANSI.WHITE;
+            case "WARN":
+                return TextColor.ANSI.YELLOW;
+            case "FATAL":
+            case "ERROR":
+                return TextColor.ANSI.RED;
+            default:
+                return null;
         }
     }
 
@@ -165,8 +187,20 @@ public class Main {
             drawTextLine(terminal, logEntries.get(logEntries.size() - i - 1), num - i - 1);
     }
 
-    private void drawTextLine(@NotNull Terminal terminal, String str, int row) throws IOException {
+    private void drawTextLine(@NotNull Terminal terminal, @NotNull String str, int row) throws IOException {
         TerminalPosition userPos = new TerminalPosition(terminal.getCursorPosition().getColumn(), terminal.getCursorPosition().getRow());
+
+        int colorFrom = -1;
+        int colorTo = -1;
+        TextColor color = null;
+
+        Matcher matcher = LOG_LEVEL_PATTERN.matcher(str);
+        if (matcher.find()) {
+            String lvl = matcher.group(1);
+            color = colorForLogLevel(lvl);
+            colorFrom = str.indexOf(lvl);
+            colorTo = colorFrom + lvl.length();
+        }
 
         boolean lastWasR = false;
         for (int i = 0; i < terminal.getTerminalSize().getColumns(); i++) {
@@ -192,7 +226,11 @@ public class Main {
                 }
             }
 
-            terminal.newTextGraphics().setCharacter(i, row, c);
+            if (color != null && i >= colorFrom && i <= colorTo) {
+                terminal.newTextGraphics().setCharacter(i, row, new TextCharacter(c, color, null));
+            } else {
+                terminal.newTextGraphics().setCharacter(i, row, c);
+            }
         }
 
         terminal.setCursorPosition(userPos);
