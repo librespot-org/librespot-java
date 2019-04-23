@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
-import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -294,11 +293,13 @@ public class Remote3Frame {
             public final int pageIndex;
             public final int trackIndex;
             public final String trackUid;
+            public final String trackUri;
 
             private SkipTo(@NotNull JsonObject obj) {
                 pageIndex = (int) Utils.optLong(obj, "page_index", -1);
                 trackIndex = (int) Utils.optLong(obj, "track_index", -1);
                 trackUid = Utils.optString(obj, "track_uid", null);
+                trackUri = Utils.optString(obj, "track_uri", null);
             }
 
             @Nullable
@@ -332,13 +333,13 @@ public class Remote3Frame {
     public static class Context {
         public final String uri;
         public final String url;
-        public final Metadata metadata;
+        public final JsonObject metadata;
         public final List<Remote3Page> pages;
 
         private Context(@NotNull JsonObject obj) {
             uri = Utils.optString(obj, "uri", null);
             url = Utils.optString(obj, "url", null);
-            metadata = Metadata.opt(obj, "metadata");
+            metadata = obj.getAsJsonObject("metadata");
             pages = Remote3Page.opt(obj.getAsJsonArray("pages"));
         }
 
@@ -348,23 +349,5 @@ public class Remote3Frame {
             if (elm == null || !elm.isJsonObject()) return null;
             return new Context(elm.getAsJsonObject());
         }
-
-        public static class Metadata extends HashMap<String, String> {
-            public static final String TRACK_COUNT = "track_count";
-            public static final String ZELDA_CONTEXT_URI = "zelda.context_uri";
-
-            private Metadata(@NotNull JsonObject obj) {
-                for (String key : obj.keySet())
-                    put(key, obj.get(key).getAsString());
-            }
-
-            @Nullable
-            public static Metadata opt(@NotNull JsonObject obj, @NotNull String key) {
-                JsonElement elm = obj.get(key);
-                if (elm == null || !elm.isJsonObject()) return null;
-                return new Metadata(elm.getAsJsonObject());
-            }
-        }
     }
-
 }

@@ -36,17 +36,19 @@ public class Remote3Track {
         return new Remote3Track(elm.getAsJsonObject());
     }
 
+    @NotNull
+    public static List<Remote3Track> array(@NotNull JsonArray array) {
+        List<Remote3Track> list = new ArrayList<>(array.size());
+        for (JsonElement track : array)
+            list.add(new Remote3Track(track.getAsJsonObject()));
+        return list;
+    }
+
     @Nullable
     public static List<Remote3Track> optArray(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement elm = obj.get(key);
         if (elm == null || !elm.isJsonArray()) return null;
-        JsonArray array = elm.getAsJsonArray();
-
-        List<Remote3Track> list = new ArrayList<>(array.size());
-        for (JsonElement track : array)
-            list.add(new Remote3Track(track.getAsJsonObject()));
-
-        return list;
+        return array(elm.getAsJsonArray());
     }
 
     public void addToState(@NotNull Spirc.State.Builder builder) {

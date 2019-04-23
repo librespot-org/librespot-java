@@ -17,14 +17,20 @@ import java.util.List;
 public class Remote3Page {
     public final List<Remote3Track> tracks;
     public final String nextPageUrl;
+    public final String pageUrl;
 
     private Remote3Page(@NotNull JsonObject obj) {
         nextPageUrl = Utils.optString(obj, "next_page_url", null);
+        pageUrl = Utils.optString(obj, "page_url", null);
 
         JsonArray array = obj.getAsJsonArray("tracks");
-        tracks = new ArrayList<>(array.size());
-        for (JsonElement elm : array)
-            tracks.add(new Remote3Track(elm.getAsJsonObject()));
+        if (array != null) {
+            tracks = new ArrayList<>(array.size());
+            for (JsonElement elm : array)
+                tracks.add(new Remote3Track(elm.getAsJsonObject()));
+        } else {
+            tracks = null;
+        }
     }
 
     @Nullable

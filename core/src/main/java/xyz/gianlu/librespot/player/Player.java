@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import org.apache.log4j.Logger;
@@ -12,11 +13,13 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
+import xyz.gianlu.librespot.player.remote.Remote3Page;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 import xyz.gianlu.librespot.player.tracks.ShowProvider;
@@ -27,6 +30,7 @@ import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -697,7 +701,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 throw new IllegalArgumentException("Invalid frame received!");
 
             String oldPlayingUri = null;
-            if (state.getTrackCount() > 0) {
+            if (state.getTrackCount() > 0 && Objects.equals(state.getContextUri(), frame.context.uri)) {
                 Spirc.TrackRef playingTrack = state.getTrack(state.getPlayingTrackIndex());
 
                 if (playingTrack.hasUri()) {
@@ -718,6 +722,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 int pageIndex = -1;
                 if (frame.options != null && frame.options.skipTo != null) {
                     trackUid = frame.options.skipTo.trackUid;
+                    if (trackUid == null) trackUid = frame.options.skipTo.trackUri;
+
                     pageIndex = frame.options.skipTo.pageIndex;
                 }
 
@@ -725,7 +731,28 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 if (trackUid == null) trackUid = oldPlayingUri;
 
                 int index = -1;
-                List<Remote3Track> tracks = frame.context.pages.get(pageIndex).tracks;
+                Remote3Page page = frame.context.pages.get(pageIndex);
+                List<Remote3Track> tracks;
+                if (page.tracks == null) {
+                    if (page.pageUrl == null) {
+                        LOGGER.fatal("Missing page!");
+                        return;
+                    }
+
+                    try {
+                        MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
+                                .setUri(page.pageUrl).setMethod("GET").build());
+
+                        JsonObject obj = new JsonParser().parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
+                        tracks = Remote3Track.array(obj.getAsJsonArray("tracks"));
+                    } catch (IOException ex) {
+                        LOGGER.fatal("Failed retrieving page!", ex);
+                        return;
+                    }
+                } else {
+                    tracks = page.tracks;
+                }
+
                 for (int i = 0; i < tracks.size(); i++) {
                     Remote3Track track = tracks.get(i);
                     track.addToState(state);
