@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.io.InputStream;
 import java.util.Arrays;
@@ -68,6 +69,15 @@ public class BytesArrayList implements Iterable<byte[]> {
     @Override
     public String toString() {
         return Arrays.deepToString(toArray());
+    }
+
+    @NotNull
+    public String toHex() {
+        String[] array = new String[size()];
+        byte[][] copy = toArray();
+        for (int i = 0; i < copy.length; i++)
+            array[i] = Utils.bytesToHex(copy[i]);
+        return Arrays.toString(array);
     }
 
     @NotNull

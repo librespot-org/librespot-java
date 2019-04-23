@@ -14,6 +14,7 @@ import org.apache.log4j.spi.LoggingEvent;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.FileConfiguration;
+import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -28,10 +29,39 @@ import java.util.List;
  */
 public class Main {
     private static final Logger LOGGER = Logger.getLogger(Main.class);
-    private static final List<String> logEntries = new ArrayList<>();
-    private static TerminalPosition lastLogPosition = new TerminalPosition(0, 0);
+    private final List<String> logEntries = new ArrayList<>();
+    private final CommandsHandler commands;
+    private TerminalPosition lastLogPosition = new TerminalPosition(0, 0);
 
-    private static void drawCommandInputLine(@NotNull Terminal terminal) throws IOException {
+    public Main(@NotNull Terminal terminal, @NotNull Session.Builder session) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        terminal.addResizeListener((t, newSize) -> {
+            try {
+                drawCommandInputLine(terminal);
+                redrawLogs(terminal);
+            } catch (IOException ex) {
+                LOGGER.error("Failed redrawing resized window.", ex);
+            }
+        });
+
+        setup(terminal);
+
+        this.commands = new CommandsHandler(session.create());
+
+        draw(terminal);
+    }
+
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
+        Session.Builder s = new Session.Builder(conf);
+
+        DefaultTerminalFactory factory = new DefaultTerminalFactory();
+        factory.setTerminalEmulatorTitle(Version.versionString());
+        Terminal terminal = factory.createTerminal();
+
+        Main main = new Main(terminal, s);
+    }
+
+    private void drawCommandInputLine(@NotNull Terminal terminal) throws IOException {
         terminal.setCursorPosition(new TerminalPosition(0, terminal.getTerminalSize().getRows() - 1));
         terminal.putCharacter('>');
         terminal.putCharacter('>');
@@ -41,7 +71,7 @@ public class Main {
         terminal.setCursorPosition(3, terminal.getTerminalSize().getRows() - 1);
     }
 
-    private static void draw(@NotNull Terminal terminal) throws IOException {
+    private void draw(@NotNull Terminal terminal) throws IOException {
         while (true) {
             KeyStroke stroke = terminal.readInput();
             if (stroke.getKeyType() == KeyType.Character) {
@@ -64,14 +94,14 @@ public class Main {
 
                 terminal.setCursorPosition(3, terminal.getTerminalSize().getRows() - 1);
 
-                System.out.println("COMMAND: " + new String(line).trim());
+                commands.handle(new String(line).trim());
             }
 
             terminal.flush();
         }
     }
 
-    private static void newLine(@NotNull Terminal terminal) throws IOException {
+    private void newLine(@NotNull Terminal terminal) throws IOException {
         if (lastLogPosition.getRow() == terminal.getTerminalSize().getRows() - 2) {
             lastLogPosition = new TerminalPosition(0, 0);
             return;
@@ -80,7 +110,7 @@ public class Main {
         lastLogPosition = new TerminalPosition(0, lastLogPosition.getRow() + 1);
     }
 
-    private static void drawLogEntries(@NotNull Terminal terminal, int num) throws IOException {
+    private void drawLogEntries(@NotNull Terminal terminal, int num) throws IOException {
         if (logEntries.isEmpty()) return;
 
         if (num > logEntries.size()) num = logEntries.size();
@@ -89,7 +119,7 @@ public class Main {
             drawTextLine(terminal, logEntries.get(logEntries.size() - i - 1), num - i - 1);
     }
 
-    private static void drawTextLine(@NotNull Terminal terminal, String str, int row) throws IOException {
+    private void drawTextLine(@NotNull Terminal terminal, String str, int row) throws IOException {
         TerminalPosition userPos = new TerminalPosition(terminal.getCursorPosition().getColumn(), terminal.getCursorPosition().getRow());
 
         boolean lastWasR = false;
@@ -123,25 +153,24 @@ public class Main {
         terminal.flush();
     }
 
-    private static void printLog(@NotNull Terminal terminal, String str) throws IOException {
+    private void printLog(@NotNull Terminal terminal, String str) throws IOException {
         logEntries.add(str);
         redrawLogs(terminal);
     }
 
-    private static void redrawLogs(@NotNull Terminal terminal) throws IOException {
+    private void redrawLogs(@NotNull Terminal terminal) throws IOException {
         drawLogEntries(terminal, terminal.getTerminalSize().getRows() - 1);
     }
 
-    private static void setup(@NotNull Terminal terminal) throws IOException {
+    private void setup(@NotNull Terminal terminal) throws IOException {
         terminal.clearScreen();
         terminal.setCursorPosition(0, 0);
 
         drawCommandInputLine(terminal);
 
-        // Logger.getRootLogger().removeAllAppenders();
         Logger.getRootLogger().addAppender(new AppenderSkeleton() {
             {
-                setLayout(new PatternLayout("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n"));
+                setLayout(new PatternLayout("%d{HH:mm:ss} %-5p %c{1}:%L - %m%n"));
             }
 
             @Override
@@ -163,25 +192,5 @@ public class Main {
                 return true;
             }
         });
-    }
-
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
-        DefaultTerminalFactory defaultTerminalFactory = new DefaultTerminalFactory();
-        Terminal terminal = defaultTerminalFactory.createTerminal();
-        terminal.addResizeListener((t, newSize) -> {
-            try {
-                drawCommandInputLine(terminal);
-                redrawLogs(terminal);
-            } catch (IOException ex) {
-                LOGGER.error("Failed redrawing resized window.", ex);
-            }
-        });
-
-        setup(terminal);
-
-        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
-        Session s = new Session.Builder(conf).create();
-
-        draw(terminal);
     }
 }
