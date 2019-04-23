@@ -757,7 +757,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     Remote3Track track = tracks.get(i);
                     track.addToState(state);
 
-                    if (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid))
+                    if (trackUid != null && (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid)))
                         index = i;
                 }
 
