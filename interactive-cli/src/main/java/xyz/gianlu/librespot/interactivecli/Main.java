@@ -18,6 +18,10 @@ import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
+import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -75,7 +79,19 @@ public class Main {
         while (true) {
             KeyStroke stroke = terminal.readInput();
             if (stroke.getKeyType() == KeyType.Character) {
-                terminal.putCharacter(stroke.getCharacter());
+                if (stroke.isCtrlDown() && stroke.getCharacter() == 'v') {
+                    Transferable t = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+                    if (t.isDataFlavorSupported(DataFlavor.stringFlavor)) {
+                        try {
+                            String str = (String) t.getTransferData(DataFlavor.stringFlavor);
+                            for (char c : str.toCharArray())
+                                terminal.putCharacter(c);
+                        } catch (UnsupportedFlavorException ignored) {
+                        }
+                    }
+                } else {
+                    terminal.putCharacter(stroke.getCharacter());
+                }
             } else if (stroke.getKeyType() == KeyType.Backspace) {
                 TerminalPosition del = terminal.getCursorPosition().withRelativeColumn(-1);
                 if (del.getColumn() < 3) continue;
