@@ -43,6 +43,9 @@ public class PlaylistProvider implements TracksProvider {
     }
 
     public void shuffleTracks(@NotNull Random random, boolean fully) {
+        if (state.getTrackCount() <= 1)
+            return;
+
         shuffleSeed = random.nextLong();
 
         List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
@@ -67,6 +70,9 @@ public class PlaylistProvider implements TracksProvider {
     }
 
     public void unshuffleTracks() {
+        if (state.getTrackCount() <= 1)
+            return;
+
         if (shuffleSeed == 0 && !conf.defaultUnshuffleBehaviour() && state.hasContextUri()) {
             List<Remote3Track> tracks;
             try {
