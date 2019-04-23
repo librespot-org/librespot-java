@@ -485,6 +485,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleNext() {
+        if (tracksProvider == null) return;
+
         int newTrack = tracksProvider.getNextTrackIndex(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
@@ -537,6 +539,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handlePrev() {
+        if (tracksProvider == null) return;
+
         if (getPosition() < 3000) {
             state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex());
             state.setPositionMs(0);

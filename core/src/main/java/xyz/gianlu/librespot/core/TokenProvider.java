@@ -48,6 +48,8 @@ public class TokenProvider {
         MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), scope));
         token = new StoredToken(resp);
 
+        tokens.put(scope, token);
+
         if (expireListener != null)
             token.expireListeners.add(expireListener);
 
