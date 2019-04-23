@@ -1,0 +1,9 @@
+{
+  "commands": [
+    {
+      "startsWith": "resolve-context",
+      "arguments": 1,
+      "command": "request GET hm://context-resolve/v1/%s"
+    }
+  ]
+}

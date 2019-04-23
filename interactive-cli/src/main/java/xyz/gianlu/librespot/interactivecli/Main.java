@@ -1,5 +1,8 @@
 package xyz.gianlu.librespot.interactivecli;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TextCharacter;
 import com.googlecode.lanterna.graphics.TextGraphics;
@@ -23,6 +26,8 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
@@ -51,10 +56,24 @@ public class Main {
 
         this.commands = new CommandsHandler(session.create());
 
-        draw(terminal);
+        new Thread(() -> {
+            try {
+                draw(terminal);
+            } catch (IOException ex) {
+                LOGGER.error("Failed drawing.", ex);
+            }
+        }).start();
     }
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        File customCommands = null;
+        for (String arg : args) {
+            if (arg.startsWith("--custom-commands=")) {
+                int index = arg.indexOf('=');
+                customCommands = new File(arg.substring(index + 1));
+            }
+        }
+
         AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
         Session.Builder s = new Session.Builder(conf);
 
@@ -63,6 +82,17 @@ public class Main {
         Terminal terminal = factory.createTerminal();
 
         Main main = new Main(terminal, s);
+        if (customCommands != null) {
+            main.loadCustomCommands(customCommands);
+            LOGGER.info("Loaded custom commands!");
+        }
+    }
+
+    private void loadCustomCommands(@NotNull File file) throws FileNotFoundException {
+        JsonObject obj = new JsonParser().parse(new FileReader(file)).getAsJsonObject();
+        if (!obj.has("commands")) return;
+
+        for (JsonElement elm : obj.getAsJsonArray("commands")) commands.addCustomCommand(elm.getAsJsonObject());
     }
 
     private void drawCommandInputLine(@NotNull Terminal terminal) throws IOException {
