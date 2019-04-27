@@ -84,6 +84,11 @@ public final class MercuryRequests {
     }
 
     @NotNull
+    public static RawMercuryRequest autoplayQuery(@NotNull String context) {
+        return RawMercuryRequest.get("hm://autoplay-enabled/query?uri=" + context);
+    }
+
+    @NotNull
     public static JsonMercuryRequest<ResolvedContextWrapper> resolveContext(@NotNull String uri) {
         return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://context-resolve/v1/%s", uri)), ResolvedContextWrapper.class);
     }

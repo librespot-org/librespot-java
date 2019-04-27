@@ -285,17 +285,19 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
+    private void loadTracksProvider(@NotNull String context) {
+        if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
+            tracksProvider = new StationProvider(session, state.state);
+        else if (context.startsWith("spotify:show:") || context.startsWith("spotify:episode:"))
+            tracksProvider = new ShowProvider(state.state);
+        else
+            tracksProvider = new PlaylistProvider(session, state.state, conf);
+    }
+
     private void updateContext(@NotNull Remote3Frame frame) {
         if (frame.context.uri != null) {
             state.updateContext(frame);
-
-            String context = frame.context.uri;
-            if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
-                tracksProvider = new StationProvider(session, state.state);
-            else if (context.startsWith("spotify:show:") || context.startsWith("spotify:episode:"))
-                tracksProvider = new ShowProvider(state.state);
-            else
-                tracksProvider = new PlaylistProvider(session, state.state, conf);
+            loadTracksProvider(frame.context.uri);
         }
 
         if (frame.options != null && frame.options.playerOptionsOverride != null) {
@@ -525,17 +527,24 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
 
         try {
-            MercuryRequests.StationsWrapper json = session.mercury().sendSync(MercuryRequests.getStationFor(context));
-            state.updateContext(json);
+            MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
+            if (resp.statusCode == 200) {
+                String newContext = resp.payload.readIntoString(0);
+                state.loadStationContext(newContext);
 
-            state.setPositionMs(0);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                state.setPositionMs(0);
+                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
-            tracksProvider = new StationProvider(session, state.state);
-            loadTrack(true);
+                tracksProvider = new StationProvider(session, state.state);
+                loadTrack(true);
 
-            LOGGER.debug(String.format("Loading context for autoplay, uri: %s", json.uri()));
-        } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
+            } else {
+                LOGGER.fatal("Failed retrieving autoplay context, code: " + resp.statusCode);
+                state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+                stateUpdated();
+            }
+        } catch (IOException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
@@ -789,12 +798,20 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
         }
 
-        void updateContext(@NotNull MercuryRequests.StationsWrapper json) {
-            state.setContextUri(json.uri());
+        void loadStationContext(@NotNull String context) {
+            loadTracksProvider(context);
+            if (!(tracksProvider instanceof StationProvider)) {
+                LOGGER.fatal("Not a station context: " + context);
+                setStatus(Spirc.PlayStatus.kPlayStatusStop);
+                stateUpdated();
+                return;
+            }
 
-            state.setPlayingTrackIndex(0);
+            state.setContextUri(context);
+
             state.clearTrack();
-            state.addAllTrack(json.tracks());
+            state.setPlayingTrackIndex(-1); // A bit hacky but works
+            state.setPlayingTrackIndex(tracksProvider.getNextTrackIndex(false));
         }
 
         long getPositionMeasuredAt() {
@@ -828,7 +845,5 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         int getTrackCount() {
             return state.getTrackCount();
         }
-
-
     }
 }

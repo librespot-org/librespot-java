@@ -85,6 +85,12 @@ public class BytesArrayList implements Iterable<byte[]> {
         return new InternalStream();
     }
 
+    @NotNull
+    public String readIntoString(int index) {
+        byte[] b = get(index);
+        return new String(b);
+    }
+
     private class InternalStream extends InputStream {
         private int offset = 0;
         private int sub = 0;
