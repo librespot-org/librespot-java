@@ -539,12 +539,20 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
+            } else if (resp.statusCode == 204) {
+                MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
+                state.loadStation(station);
+
+                tracksProvider = new StationProvider(session, state.state);
+                loadTrack(true);
+
+                LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
                 LOGGER.fatal("Failed retrieving autoplay context, code: " + resp.statusCode);
                 state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
                 stateUpdated();
             }
-        } catch (IOException ex) {
+        } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
             stateUpdated();
@@ -844,6 +852,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         int getTrackCount() {
             return state.getTrackCount();
+        }
+
+        void loadStation(@NotNull MercuryRequests.StationsWrapper station) {
+            state.setContextUri(station.uri());
+
+            state.setPlayingTrackIndex(0);
+            state.clearTrack();
+            state.addAllTrack(station.tracks());
         }
     }
 }
