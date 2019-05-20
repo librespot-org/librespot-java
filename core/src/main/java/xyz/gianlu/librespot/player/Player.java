@@ -143,7 +143,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     updateContext(frame);
                     stateUpdated();
                 } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
-                    updateTracks(frame);
+                    state.updateTracks(frame);
+                    stateUpdated();
                 }
                 break;
             case kMessageTypeRepeat:
@@ -280,11 +281,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void updateTracks(@NotNull Remote3Frame frame) {
-        state.updateTracks(frame);
-        stateUpdated();
-    }
-
     private void loadTracksProvider(@NotNull String context) {
         if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
             tracksProvider = new StationProvider(session, state.state);
@@ -306,7 +302,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
 
         if (state.getShuffle() && frame.endpoint != Remote3Frame.Endpoint.UpdateContext)
-            shuffleTracks(frame.options == null || frame.options.skipTo.trackUid == null);
+            shuffleTracks(frame.options == null || (frame.options.skipTo.trackUid == null && frame.options.skipTo.trackUri == null));
     }
 
     @Override
