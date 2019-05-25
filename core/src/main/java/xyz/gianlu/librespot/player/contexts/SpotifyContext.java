@@ -76,6 +76,8 @@ public interface SpotifyContext<P extends PlayableId> {
                 return new AlbumContext();
             case "genre":
                 return new GenreContext();
+            case "track":
+                return new TrackContext();
             default:
                 throw new IllegalArgumentException(split[i]);
         }
