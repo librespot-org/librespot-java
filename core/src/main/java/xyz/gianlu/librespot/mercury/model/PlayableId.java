@@ -24,8 +24,22 @@ public interface PlayableId {
         return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
     }
 
-    static void removeUnsupported(@NotNull List<Remote3Track> tracks) {
-        tracks.removeIf(remote3Track -> !isSupported(remote3Track.uri));
+    static int removeUnsupported(@NotNull List<Remote3Track> tracks, int updateIndex) {
+        for (int i = tracks.size() - 1; i >= 0; i--) {
+            Remote3Track track = tracks.get(i);
+            if (!isSupported(track.uri)) {
+                tracks.remove(i);
+
+                if (updateIndex != -1) {
+                    if (updateIndex == i) updateIndex = -1;
+
+                    if (updateIndex > i)
+                        updateIndex--;
+                }
+            }
+        }
+
+        return updateIndex;
     }
 
     @NotNull byte[] getGid();

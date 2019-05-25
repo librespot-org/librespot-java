@@ -617,7 +617,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private static class TrackSelector {
         private final String trackUid;
         private final String trackUri;
-        private final int trackIndex;
+        private int trackIndex;
         private int selectedIndex = -1;
 
         TrackSelector(@Nullable Remote3Frame.Options.SkipTo skipTo) {
@@ -814,7 +814,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 else throw new IllegalStateException("How do I load this page?!");
             }
 
-            PlayableId.removeUnsupported(tracks);
+            int updated = PlayableId.removeUnsupported(tracks, selector == null ? -1 : selector.trackIndex);
+            if (selector != null && updated != -1) selector.trackIndex = updated;
 
             for (int i = 0; i < tracks.size(); i++) {
                 Remote3Track track = tracks.get(i);
@@ -883,7 +884,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 return;
             }
 
-            PlayableId.removeUnsupported(tracks);
+            PlayableId.removeUnsupported(tracks, -1);
 
             TrackSelector selector = new TrackSelector(context.uri, previouslyPlaying);
             for (int i = 0; i < tracks.size(); i++) {
@@ -905,7 +906,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
             List<Remote3Track> prevTracks = frame.prevTracks;
             if (prevTracks != null) {
-                PlayableId.removeUnsupported(prevTracks);
+                PlayableId.removeUnsupported(prevTracks, -1);
                 for (Remote3Track track : prevTracks)
                     state.addTrack(track.toTrackRef());
             }
@@ -915,7 +916,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
             List<Remote3Track> nextTracks = frame.nextTracks;
             if (nextTracks != null) {
-                PlayableId.removeUnsupported(nextTracks);
+                PlayableId.removeUnsupported(nextTracks, -1);
                 for (Remote3Track track : nextTracks)
                     state.addTrack(track.toTrackRef());
             }

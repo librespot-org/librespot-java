@@ -50,6 +50,8 @@ public interface SpotifyContext<P extends PlayableId> {
         switch (split[i]) {
             case "recs":
                 return parseBase(split, i + 1);
+            case "local-files":
+                throw new UnsupportedOperationException();
             default:
                 throw new IllegalArgumentException(split[i]);
         }
