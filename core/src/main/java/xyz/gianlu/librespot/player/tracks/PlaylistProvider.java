@@ -84,7 +84,7 @@ public class PlaylistProvider implements TracksProvider {
                 return;
             }
 
-            PlayableId.removeUnsupported(tracks);
+            PlayableId.removeUnsupported(tracks, -1);
 
             Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
 
