@@ -6,6 +6,7 @@ import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
@@ -83,6 +84,8 @@ public class PlaylistProvider implements TracksProvider {
                 return;
             }
 
+            PlayableId.removeUnsupported(tracks);
+
             Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
 
             List<Spirc.TrackRef> rebuildState = new ArrayList<>(80);
@@ -92,7 +95,7 @@ public class PlaylistProvider implements TracksProvider {
             int count = 80;
             for (Remote3Track track : tracks) {
                 if (add || track.uri.equals(currentTrackUri)) {
-                    track.addTo(rebuildState);
+                    rebuildState.add(track.toTrackRef());
 
                     add = true;
                     count--;

@@ -12,7 +12,6 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -51,19 +50,9 @@ public class Remote3Track {
         return array(elm.getAsJsonArray());
     }
 
-    public void addToState(@NotNull Spirc.State.Builder builder) {
-        Spirc.TrackRef ref = toTrackRef();
-        if (ref != null) builder.addTrack(ref);
-    }
-
-    public void addTo(@NotNull List<Spirc.TrackRef> list) {
-        Spirc.TrackRef ref = toTrackRef();
-        if (ref != null) list.add(ref);
-    }
-
     @Nullable
     public Spirc.TrackRef toTrackRef() {
-        if (Objects.equals(uri, "spotify:delimiter"))
+        if (!PlayableId.isSupported(uri))
             return null;
 
         boolean isQueued = false;

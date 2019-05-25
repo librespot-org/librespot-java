@@ -14,15 +14,13 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
-import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.contexts.SpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
-import xyz.gianlu.librespot.player.tracks.ShowProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
 import xyz.gianlu.librespot.spirc.FrameListener;
@@ -140,10 +138,13 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 if (frame == null) break;
 
                 if (frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    updateContext(frame);
+                    state.updateContext(frame.context);
                     stateUpdated();
                 } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
-                    state.updateTracks(frame);
+                    state.setQueue(frame);
+                    stateUpdated();
+                } else if (frame.endpoint == Remote3Frame.Endpoint.AddToQueue) {
+                    state.addToQueue(frame);
                     stateUpdated();
                 }
                 break;
@@ -281,28 +282,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void loadTracksProvider(@NotNull String context) {
-        if (context.startsWith("spotify:station:") || context.startsWith("spotify:dailymix:"))
-            tracksProvider = new StationProvider(session, state.state);
-        else if (context.startsWith("spotify:show:") || context.startsWith("spotify:episode:"))
-            tracksProvider = new ShowProvider(state.state);
-        else
-            tracksProvider = new PlaylistProvider(session, state.state, conf);
-    }
-
-    private void updateContext(@NotNull Remote3Frame frame) {
-        if (frame.context.uri != null) {
-            state.updateContext(frame);
-            loadTracksProvider(frame.context.uri);
-        }
-
-        if (frame.options != null && frame.options.playerOptionsOverride != null) {
-            Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
-            Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
-        }
-
-        if (state.getShuffle() && frame.endpoint != Remote3Frame.Endpoint.UpdateContext)
-            shuffleTracks(frame.options == null || (frame.options.skipTo.trackUid == null && frame.options.skipTo.trackUri == null));
+    private void loadTracksProvider(@NotNull String uri) {
+        SpotifyContext context = SpotifyContext.from(uri);
+        tracksProvider = context.initProvider(session, state.state, conf);
     }
 
     @Override
@@ -340,8 +322,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
 
             LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            stateUpdated();
+            panicState();
         } else if (handler == preloadTrackHandler) {
             LOGGER.warn("Preloaded track loading failed!", ex);
             preloadTrackHandler = null;
@@ -385,8 +366,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             else
                 LOGGER.fatal("Playback error!", ex);
 
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            stateUpdated();
+            panicState();
         } else if (handler == preloadTrackHandler) {
             LOGGER.warn("Preloaded track loading failed!", ex);
             preloadTrackHandler = null;
@@ -418,6 +398,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
     }
 
+    private void panicState() {
+        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+        stateUpdated();
+    }
+
     private void handleLoad(@NotNull Remote3Frame frame) {
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
@@ -427,15 +412,20 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
-        updateContext(frame);
+        try {
+            state.load(frame);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState();
+            return;
+        }
 
         if (state.getTrackCount() > 0) {
             state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
             loadTrack(!frame.options.initiallyPaused);
         } else {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            stateUpdated();
+            panicState();
         }
     }
 
@@ -517,8 +507,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         String context = state.getContextUri();
         if (context == null) {
             LOGGER.fatal("Cannot load autoplay with null context!");
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            stateUpdated();
+            panicState();
             return;
         }
 
@@ -526,7 +515,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
-                state.loadStationContext(newContext);
+                state.loadFromUri(newContext);
 
                 state.setPositionMs(0);
                 state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
@@ -545,13 +534,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
                 LOGGER.fatal("Failed retrieving autoplay context, code: " + resp.statusCode);
-                state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                stateUpdated();
+                panicState();
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
-            state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-            stateUpdated();
+            panicState();
         }
     }
 
@@ -626,6 +613,62 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         boolean enableLoadingState();
     }
 
+    private static class TrackSelector {
+        private final String trackUid;
+        private final String trackUri;
+        private final int trackIndex;
+        private int selectedIndex = -1;
+
+        TrackSelector(@Nullable Remote3Frame.Options.SkipTo skipTo) {
+            if (skipTo == null) {
+                trackUid = null;
+                trackUri = null;
+                trackIndex = -1;
+            } else {
+                trackUri = skipTo.trackUri;
+                if (skipTo.trackUid != null) {
+                    trackUid = skipTo.trackUid;
+                    trackIndex = -1;
+                } else {
+                    trackIndex = skipTo.trackIndex;
+                    trackUid = null;
+                }
+            }
+        }
+
+        TrackSelector(@NotNull String context, @NotNull Spirc.TrackRef ref) {
+            trackUid = null;
+            trackIndex = -1;
+
+            PlayableId id = SpotifyContext.from(context).createId(ref);
+            trackUri = id.toSpotifyUri();
+        }
+
+        void inspect(int index, @NotNull Remote3Track track) {
+            if (findMatch()) return;
+
+            if (trackUid == null && trackUri == null) return;
+
+            if (trackUid != null) {
+                if (Objects.equals(track.uid, trackUid))
+                    selectedIndex = index;
+            } else {
+                if (Objects.equals(track.uri, trackUri))
+                    selectedIndex = index;
+            }
+        }
+
+        boolean findMatch() {
+            return selectedIndex != -1 || trackIndex != -1;
+        }
+
+        int playingIndex() {
+            if (trackIndex != -1) return trackIndex;
+            if (trackUid == null && trackUri == null) return 0;
+            return selectedIndex == -1 ? 0 : selectedIndex;
+        }
+    }
+
     private class StateWrapper {
         private final Spirc.State.Builder state;
         private boolean repeatingTrack = false;
@@ -685,139 +728,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setPlayingTrackIndex(pos);
         }
 
-        void updateTracks(@NotNull Remote3Frame frame) {
-            if (state.getTrackCount() == 0) {
-                LOGGER.warn("Couldn't update tracks, there are none right now!");
-                return;
-            }
-
-            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
-            state.clearTrack();
-
-            if (frame.prevTracks != null) {
-                for (Remote3Track track : frame.prevTracks)
-                    track.addToState(state);
-            }
-
-            if (current != null)
-                state.addTrack(current);
-            state.setPlayingTrackIndex(state.getTrackCount() - 1);
-
-            if (frame.nextTracks != null) {
-                for (Remote3Track track : frame.nextTracks)
-                    track.addToState(state);
-            }
-        }
-
-        void updateContext(@NotNull Remote3Frame frame) {
-            if (frame.context == null)
-                throw new IllegalArgumentException("Invalid frame received!");
-
-            String oldPlayingUri = null;
-            if (state.getTrackCount() > 0 && Objects.equals(state.getContextUri(), frame.context.uri)) {
-                Spirc.TrackRef playingTrack = state.getTrack(state.getPlayingTrackIndex());
-
-                if (playingTrack.hasUri()) {
-                    oldPlayingUri = playingTrack.getUri();
-                } else if (playingTrack.hasGid()) {
-                    if (frame.context.uri.startsWith("spotify:show:"))
-                        oldPlayingUri = EpisodeId.fromTrackRef(playingTrack).toSpotifyUri();
-                    else
-                        oldPlayingUri = TrackId.fromTrackRef(playingTrack).toSpotifyUri();
-                }
-            }
-
-            state.setContextUri(frame.context.uri);
-            state.clearTrack();
-
-            if (frame.context.pages != null && !frame.context.pages.isEmpty()) {
-                String trackUid = null;
-                int pageIndex = -1;
-                if (frame.options != null && frame.options.skipTo != null) {
-                    trackUid = frame.options.skipTo.trackUid;
-                    if (trackUid == null) trackUid = frame.options.skipTo.trackUri;
-
-                    pageIndex = frame.options.skipTo.pageIndex;
-                }
-
-                if (pageIndex == -1) pageIndex = 0;
-                if (trackUid == null) trackUid = oldPlayingUri;
-
-                int index = -1;
-                Remote3Page page = frame.context.pages.get(pageIndex);
-                List<Remote3Track> tracks;
-                if (page.tracks == null) {
-                    if (page.pageUrl == null) {
-                        LOGGER.fatal("Missing page!");
-                        return;
-                    }
-
-                    try {
-                        MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
-                                .setUri(page.pageUrl).setMethod("GET").build());
-
-                        JsonObject obj = new JsonParser().parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
-                        tracks = Remote3Track.array(obj.getAsJsonArray("tracks"));
-                    } catch (IOException ex) {
-                        LOGGER.fatal("Failed retrieving page!", ex);
-                        return;
-                    }
-                } else {
-                    tracks = page.tracks;
-                }
-
-                for (int i = 0; i < tracks.size(); i++) {
-                    Remote3Track track = tracks.get(i);
-                    track.addToState(state);
-
-                    if (trackUid != null && (Objects.equals(trackUid, track.uri) || Objects.equals(trackUid, track.uid)))
-                        index = i;
-                }
-
-                if (index == -1)
-                    index = 0;
-
-                state.setPlayingTrackIndex(index);
-            } else {
-                List<Remote3Track> tracks;
-                try {
-                    MercuryRequests.ResolvedContextWrapper context = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
-                    tracks = context.pages().get(0).tracks;
-                } catch (IOException | MercuryClient.MercuryException ex) {
-                    LOGGER.fatal("Failed resolving context: " + frame.context.uri, ex);
-                    return;
-                }
-
-                for (Remote3Track track : tracks) track.addToState(state);
-
-                if (frame.options != null && frame.options.skipTo != null && frame.options.skipTo.trackIndex != -1)
-                    state.setPlayingTrackIndex(frame.options.skipTo.trackIndex);
-                else
-                    state.setPlayingTrackIndex(0);
-            }
-
-            if (frame.options != null && frame.options.playerOptionsOverride != null) {
-                Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
-                Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
-            }
-        }
-
-        void loadStationContext(@NotNull String context) {
-            loadTracksProvider(context);
-            if (!(tracksProvider instanceof StationProvider)) {
-                LOGGER.fatal("Not a station context: " + context);
-                setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                stateUpdated();
-                return;
-            }
-
-            state.setContextUri(context);
-
-            state.clearTrack();
-            state.setPlayingTrackIndex(-1); // A bit hacky but works
-            state.setPlayingTrackIndex(tracksProvider.getNextTrackIndex(false));
-        }
-
         long getPositionMeasuredAt() {
             return state.getPositionMeasuredAt();
         }
@@ -856,6 +766,160 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setPlayingTrackIndex(0);
             state.clearTrack();
             state.addAllTrack(station.tracks());
+        }
+
+        int lastQueuedSongIndex() {
+            int lastQueued = -1;
+            int firstQueued = -1;
+            for (int i = state.getPlayingTrackIndex(); i < state.getTrackCount(); i++) {
+                if (state.getTrack(i).getQueued()) {
+                    if (firstQueued == -1) firstQueued = i;
+                } else {
+                    if (firstQueued != -1 && lastQueued == -1) lastQueued = i - 1;
+                }
+            }
+
+            return lastQueued;
+        }
+
+        @NotNull
+        private List<Remote3Page> getPages(@NotNull Remote3Frame.Context context) throws IOException, MercuryClient.MercuryException {
+            MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context.uri));
+            return resolved.pages();
+        }
+
+        @NotNull
+        private List<Remote3Track> getTracks(@NotNull String pageUrl) throws IOException {
+            MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
+                    .setUri(pageUrl).setMethod("GET").build());
+
+            JsonObject obj = new JsonParser().parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
+            return Remote3Track.array(obj.getAsJsonArray("tracks"));
+        }
+
+        void loadFromUri(@NotNull String context) throws IOException, MercuryClient.MercuryException {
+            state.setContextUri(context);
+            state.clearTrack();
+
+            MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context));
+            loadPage(resolved.pages().get(0), null);
+            loadTracksProvider(context);
+        }
+
+        private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector) throws IOException {
+            List<Remote3Track> tracks = page.tracks;
+            if (tracks == null) {
+                if (page.pageUrl != null) tracks = getTracks(page.pageUrl);
+                else throw new IllegalStateException("How do I load this page?!");
+            }
+
+            PlayableId.removeUnsupported(tracks);
+
+            for (int i = 0; i < tracks.size(); i++) {
+                Remote3Track track = tracks.get(i);
+                state.addTrack(track.toTrackRef());
+                if (selector != null) selector.inspect(i, track);
+            }
+
+            state.setPlayingTrackIndex(selector == null ? 0 : selector.playingIndex());
+
+            shuffleTracks((selector == null || !selector.findMatch()) && state.getShuffle());
+        }
+
+        void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException {
+            if (frame.context == null) throw new IllegalArgumentException("Missing context object!");
+
+            if (frame.options != null && frame.options.playerOptionsOverride != null) {
+                Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
+                Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
+                Optional.ofNullable(frame.options.playerOptionsOverride.repeatingTrack).ifPresent(this::setRepeatingTrack);
+            }
+
+            if (frame.context.uri == null) {
+                state.clearTrack();
+                state.setPlayingTrackIndex(0);
+                return;
+            }
+
+            state.setContextUri(frame.context.uri);
+            state.clearTrack();
+
+            int pageIndex;
+            if (frame.options == null || frame.options.skipTo == null) {
+                pageIndex = 0;
+            } else {
+                pageIndex = frame.options.skipTo.pageIndex;
+                if (pageIndex == -1) pageIndex = 0;
+            }
+
+            List<Remote3Page> pages = frame.context.pages;
+            if (pages == null) pages = getPages(frame.context);
+
+            Remote3Page page = pages.get(pageIndex);
+            loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo));
+            loadTracksProvider(frame.context.uri);
+        }
+
+        void updateContext(@NotNull Remote3Frame.Context context) {
+            Spirc.TrackRef previouslyPlaying = state.getTrack(state.getPlayingTrackIndex());
+
+            state.clearTrack();
+
+            Remote3Page page;
+            List<Remote3Track> tracks;
+            if (context.pages == null || context.pages.isEmpty() || (page = context.pages.get(0)) == null || (tracks = page.tracks) == null) {
+                LOGGER.warn("Did not update context. Malformed request.");
+                return;
+            }
+
+            PlayableId.removeUnsupported(tracks);
+
+            TrackSelector selector = new TrackSelector(context.uri, previouslyPlaying);
+            for (int i = 0; i < tracks.size(); i++) {
+                Remote3Track track = tracks.get(i);
+                state.addTrack(track.toTrackRef());
+                selector.inspect(i, track);
+            }
+
+            state.setPlayingTrackIndex(selector.playingIndex());
+
+            if (page.nextPageUrl != null && tracksProvider instanceof StationProvider)
+                ((StationProvider) tracksProvider).knowsNextPageUrl(page.nextPageUrl);
+        }
+
+        void setQueue(@NotNull Remote3Frame frame) {
+            Spirc.TrackRef currentlyPlaying = state.getTrack(state.getPlayingTrackIndex());
+
+            state.clearTrack();
+
+            List<Remote3Track> prevTracks = frame.prevTracks;
+            if (prevTracks != null) {
+                PlayableId.removeUnsupported(prevTracks);
+                for (Remote3Track track : prevTracks)
+                    state.addTrack(track.toTrackRef());
+            }
+
+            state.addTrack(currentlyPlaying);
+            int index = state.getTrackCount() - 1;
+
+            List<Remote3Track> nextTracks = frame.nextTracks;
+            if (nextTracks != null) {
+                PlayableId.removeUnsupported(nextTracks);
+                for (Remote3Track track : nextTracks)
+                    state.addTrack(track.toTrackRef());
+            }
+
+            state.setPlayingTrackIndex(index);
+        }
+
+        void addToQueue(@NotNull Remote3Frame frame) {
+            if (frame.track == null)
+                throw new IllegalArgumentException("Missing track object!");
+
+            int index = lastQueuedSongIndex();
+            if (index == -1) index = state.getPlayingTrackIndex() + 1;
+
+            state.addTrack(index, frame.track.toTrackRef());
         }
     }
 }

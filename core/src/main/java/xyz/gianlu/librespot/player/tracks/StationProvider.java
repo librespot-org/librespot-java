@@ -50,6 +50,7 @@ public class StationProvider implements TracksProvider {
     private void requestMore() throws IOException, MercuryClient.MercuryException {
         if (nextPageUri == null) resolveContext();
         getNextPage();
+        nextPageUri = null;
     }
 
     private void getNextPage() throws IOException {
@@ -80,6 +81,10 @@ public class StationProvider implements TracksProvider {
         MercuryRequests.ResolvedContextWrapper json = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
         nextPageUri = json.pages().get(0).nextPageUrl;
         LOGGER.trace("Next page URI: " + nextPageUri);
+    }
+
+    public void knowsNextPageUrl(@NotNull String url) {
+        if (nextPageUri == null) nextPageUri = url;
     }
 
     @Override
