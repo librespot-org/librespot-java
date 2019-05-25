@@ -139,8 +139,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 if (frame == null) break;
 
                 if (frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    state.updateContext(frame.context);
-                    stateUpdated();
+                    try {
+                        state.updateContext(frame.context);
+                        stateUpdated();
+                    } catch (SpotifyContext.UnsupportedContextException ex) {
+                        LOGGER.fatal("Cannot play local tracks!", ex);
+                        panicState();
+                        return;
+                    }
                 } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
                     state.setQueue(frame);
                     stateUpdated();
@@ -283,7 +289,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         stateUpdated();
     }
 
-    private void loadTracksProvider(@NotNull String uri) {
+    private void loadTracksProvider(@NotNull String uri) throws SpotifyContext.UnsupportedContextException {
         SpotifyContext context = SpotifyContext.from(uri);
         tracksProvider = context.initProvider(session, state.state, conf);
     }
@@ -419,6 +425,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             LOGGER.fatal("Failed loading context!", ex);
             panicState();
             return;
+        } catch (SpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState();
+            return;
         }
 
         if (state.getTrackCount() > 0) {
@@ -540,6 +550,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             panicState();
+        } catch (SpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState();
         }
     }
 
@@ -637,7 +650,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
         }
 
-        TrackSelector(@NotNull String context, @NotNull Spirc.TrackRef ref) {
+        TrackSelector(@NotNull String context, @NotNull Spirc.TrackRef ref) throws SpotifyContext.UnsupportedContextException {
             trackUid = null;
             trackIndex = -1;
 
@@ -798,7 +811,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             return Remote3Track.array(obj.getAsJsonArray("tracks"));
         }
 
-        void loadFromUri(@NotNull String context) throws IOException, MercuryClient.MercuryException {
+        void loadFromUri(@NotNull String context) throws IOException, MercuryClient.MercuryException, SpotifyContext.UnsupportedContextException {
             state.setContextUri(context);
             state.clearTrack();
 
@@ -828,7 +841,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             shuffleTracks((selector == null || !selector.findMatch()) && state.getShuffle());
         }
 
-        void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException {
+        void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException, SpotifyContext.UnsupportedContextException {
             if (frame.context == null) throw new IllegalArgumentException("Missing context object!");
 
             if (frame.options != null && frame.options.playerOptionsOverride != null) {
@@ -872,7 +885,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             loadTracksProvider(frame.context.uri);
         }
 
-        void updateContext(@NotNull Remote3Frame.Context context) {
+        void updateContext(@NotNull Remote3Frame.Context context) throws SpotifyContext.UnsupportedContextException {
             Spirc.TrackRef previouslyPlaying = state.getTrack(state.getPlayingTrackIndex());
 
             state.clearTrack();

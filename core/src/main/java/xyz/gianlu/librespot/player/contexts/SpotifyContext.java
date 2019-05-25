@@ -12,7 +12,7 @@ import xyz.gianlu.librespot.player.tracks.TracksProvider;
  */
 public interface SpotifyContext<P extends PlayableId> {
     @NotNull
-    static SpotifyContext<?> from(@NotNull String context) {
+    static SpotifyContext<?> from(@NotNull String context) throws UnsupportedContextException {
         String[] split = context.split(":");
         if (split.length < 3)
             throw new IllegalArgumentException(context);
@@ -24,7 +24,7 @@ public interface SpotifyContext<P extends PlayableId> {
     }
 
     @NotNull
-    static SpotifyContext<?> parseBase(String[] split, int i) {
+    static SpotifyContext<?> parseBase(String[] split, int i) throws UnsupportedContextException {
         switch (split[i]) {
             case "user":
                 return parseUser(split, i + 1);
@@ -46,12 +46,12 @@ public interface SpotifyContext<P extends PlayableId> {
     }
 
     @NotNull
-    static SpotifyContext<?> parseInternal(String[] split, int i) {
+    static SpotifyContext<?> parseInternal(String[] split, int i) throws UnsupportedContextException {
         switch (split[i]) {
             case "recs":
                 return parseBase(split, i + 1);
             case "local-files":
-                throw new UnsupportedOperationException();
+                throw new UnsupportedContextException(String.join(":", split));
             default:
                 throw new IllegalArgumentException(split[i]);
         }
@@ -86,4 +86,10 @@ public interface SpotifyContext<P extends PlayableId> {
 
     @NotNull
     TracksProvider initProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Player.Configuration conf);
+
+    class UnsupportedContextException extends Exception {
+        UnsupportedContextException(@NotNull String message) {
+            super(message);
+        }
+    }
 }
