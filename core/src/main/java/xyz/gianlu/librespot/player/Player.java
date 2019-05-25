@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -840,6 +841,16 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 state.setPlayingTrackIndex(0);
                 return;
             }
+
+            JsonObject metadata = frame.context.metadata;
+            if (metadata == null) {
+                MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
+                metadata = resolved.metadata();
+            }
+
+            JsonElement elm = metadata.get("context_description");
+            if (elm != null) state.setContextDescription(elm.getAsString());
+            else state.setContextDescription("");
 
             state.setContextUri(frame.context.uri);
             state.clearTrack();
