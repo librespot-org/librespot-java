@@ -17,6 +17,7 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.contexts.SearchContext;
 import xyz.gianlu.librespot.player.contexts.SpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
@@ -864,15 +865,20 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 return;
             }
 
-            JsonObject metadata = frame.context.metadata;
-            if (metadata == null) {
-                MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
-                metadata = resolved.metadata();
-            }
+            SpotifyContext context;
+            if ((context = SpotifyContext.from(frame.context.uri)) instanceof SearchContext) {
+                state.setContextDescription(((SearchContext) context).searchTerm);
+            } else {
+                JsonObject metadata = frame.context.metadata;
+                if (metadata == null) {
+                    MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
+                    metadata = resolved.metadata();
+                }
 
-            JsonElement elm = metadata.get("context_description");
-            if (elm != null) state.setContextDescription(elm.getAsString());
-            else state.setContextDescription("");
+                JsonElement elm = metadata.get("context_description");
+                if (elm != null) state.setContextDescription(elm.getAsString());
+                else state.setContextDescription("");
+            }
 
             state.setContextUri(frame.context.uri);
             state.clearTrack();

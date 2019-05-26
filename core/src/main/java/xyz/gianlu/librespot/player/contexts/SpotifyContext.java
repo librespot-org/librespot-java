@@ -7,6 +7,9 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+
 /**
  * @author Gianlu
  */
@@ -78,6 +81,12 @@ public interface SpotifyContext<P extends PlayableId> {
                 return new GenreContext();
             case "track":
                 return new TrackContext();
+            case "search":
+                try {
+                    return new SearchContext(URLDecoder.decode(split[i + 1], "UTF-8"));
+                } catch (UnsupportedEncodingException ex) {
+                    throw new RuntimeException(ex);
+                }
             default:
                 throw new IllegalArgumentException(split[i]);
         }
