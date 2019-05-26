@@ -196,7 +196,7 @@ public class Remote3Frame {
 
     public static class Options {
         public final int seekTo;
-        public final boolean initiallyPaused;
+        public final Boolean initiallyPaused;
         public final PlayerOptionsOverride playerOptionsOverride;
         public final SkipTo skipTo;
         public final License license;
@@ -206,7 +206,7 @@ public class Remote3Frame {
 
         private Options(@NotNull JsonObject obj) {
             seekTo = (int) Utils.optLong(obj, "seek_to", 0);
-            initiallyPaused = Utils.optBoolean(obj, "initially_paused", true);
+            initiallyPaused = Utils.optBoolean(obj, "initially_paused");
             playerOptionsOverride = PlayerOptionsOverride.opt(obj, "player_options_override");
             skipTo = SkipTo.opt(obj, "skip_to");
             license = License.opt(obj, "license");

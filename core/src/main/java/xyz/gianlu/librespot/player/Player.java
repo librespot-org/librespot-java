@@ -82,10 +82,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @NotNull
     private Spirc.State.Builder initState() {
         return Spirc.State.newBuilder()
-                .setPositionMeasuredAt(0)
-                .setPositionMs(0)
-                .setShuffle(false)
-                .setRepeat(false)
+                .setPositionMeasuredAt(0).setPositionMs(0)
+                .setShuffle(false).setRepeat(false)
+                .setRow(0).setPlayingFromFallback(true)
                 .setStatus(Spirc.PlayStatus.kPlayStatusStop);
     }
 
@@ -411,7 +410,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleLoad(@NotNull Remote3Frame frame) {
+        boolean wasInactive = false;
         if (!spirc.deviceState().getIsActive()) {
+            wasInactive = true;
             spirc.deviceState()
                     .setIsActive(true)
                     .setBecameActiveAt(TimeProvider.currentTimeMillis());
@@ -434,7 +435,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (state.getTrackCount() > 0) {
             state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-            loadTrack(!frame.options.initiallyPaused);
+
+            boolean play;
+            if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
+            else play = state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay || wasInactive;
+            loadTrack(play);
         } else {
             panicState();
         }
