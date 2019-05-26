@@ -188,6 +188,10 @@ public class CdnManager {
                 urlLock.notifyAll();
             }
         }
+
+        void discard() {
+            session.tokens().removeExpireListener(this);
+        }
     }
 
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
@@ -247,6 +251,12 @@ public class CdnManager {
 
             this.internalStream = new InternalStream(haltListener);
             writeChunk(firstChunk, 0, false);
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            super.finalize();
+            cdnUrl.discard();
         }
 
         @Override
@@ -361,6 +371,12 @@ public class CdnManager {
             @Override
             protected void requestChunkFromStream(int index) {
                 executorService.execute(() -> requestChunk(index, false));
+            }
+
+            @Override
+            public void close() {
+                super.close();
+                cdnUrl.discard();
             }
         }
     }

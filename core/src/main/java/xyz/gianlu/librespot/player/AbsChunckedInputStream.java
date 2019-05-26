@@ -34,7 +34,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
     protected abstract int size();
 
     @Override
-    public final void close() {
+    public void close() {
         closed = true;
     }
 

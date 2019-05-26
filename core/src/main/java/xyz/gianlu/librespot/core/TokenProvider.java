@@ -61,6 +61,11 @@ public class TokenProvider {
         void tokenExpired();
     }
 
+    public void removeExpireListener(@NotNull ExpireListener listener) {
+        for (StoredToken token : tokens.values())
+            token.expireListeners.remove(listener);
+    }
+
     private static class ExpiredRunnable implements Runnable {
         private final StoredToken token;
 
