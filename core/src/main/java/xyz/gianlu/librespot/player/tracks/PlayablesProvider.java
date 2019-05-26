@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public interface TracksProvider {
+public interface PlayablesProvider {
 
     static int getPrevTrackIndex(Spirc.State.Builder state) {
         List<Spirc.TrackRef> queueTracks = new ArrayList<>();
@@ -44,7 +44,7 @@ public interface TracksProvider {
     PlayableId getCurrentTrack();
 
     @NotNull
-    PlayableId getTrackAt(int index);
+    PlayableId getTrackAt(int index) throws IndexOutOfBoundsException;
 
     boolean canShuffle();
 

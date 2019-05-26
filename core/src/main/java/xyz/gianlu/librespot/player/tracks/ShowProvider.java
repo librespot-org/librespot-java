@@ -7,7 +7,7 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 /**
  * @author Gianlu
  */
-public class ShowProvider implements TracksProvider {
+public class ShowProvider implements PlayablesProvider {
     private final Spirc.State.Builder state;
 
     public ShowProvider(@NotNull Spirc.State.Builder state) {
@@ -29,7 +29,7 @@ public class ShowProvider implements TracksProvider {
 
     @Override
     public int getPrevTrackIndex() {
-        return TracksProvider.getPrevTrackIndex(state);
+        return PlayablesProvider.getPrevTrackIndex(state);
     }
 
     @Override

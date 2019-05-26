@@ -20,7 +20,7 @@ import java.io.InputStreamReader;
 /**
  * @author Gianlu
  */
-public class StationProvider implements TracksProvider {
+public class StationProvider implements PlayablesProvider {
     private static final Logger LOGGER = Logger.getLogger(StationProvider.class);
     private static final int LOAD_NEXT_PAGE_THRESHOLD = 3;
     private final MercuryClient mercury;

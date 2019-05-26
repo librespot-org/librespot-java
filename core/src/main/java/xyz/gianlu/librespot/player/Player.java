@@ -22,9 +22,9 @@ import xyz.gianlu.librespot.player.contexts.SpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
+import xyz.gianlu.librespot.player.tracks.PlayablesProvider;
 import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
-import xyz.gianlu.librespot.player.tracks.TracksProvider;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -46,7 +46,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private final StateWrapper state;
     private final Configuration conf;
     private final LinesHolder lines;
-    private TracksProvider tracksProvider;
+    private PlayablesProvider playablesProvider;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
 
@@ -268,21 +268,21 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void shuffleTracks(boolean fully) {
-        if (tracksProvider == null) return;
+        if (playablesProvider == null) return;
 
-        if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
-            ((PlaylistProvider) tracksProvider).shuffleTracks(session.random(), fully);
+        if (playablesProvider.canShuffle() && playablesProvider instanceof PlaylistProvider)
+            ((PlaylistProvider) playablesProvider).shuffleTracks(session.random(), fully);
         else
-            LOGGER.warn("Cannot shuffle TracksProvider: " + tracksProvider);
+            LOGGER.warn("Cannot shuffle TracksProvider: " + playablesProvider);
     }
 
     private void unshuffleTracks() {
-        if (tracksProvider == null) return;
+        if (playablesProvider == null) return;
 
-        if (tracksProvider.canShuffle() && tracksProvider instanceof PlaylistProvider)
-            ((PlaylistProvider) tracksProvider).unshuffleTracks();
+        if (playablesProvider.canShuffle() && playablesProvider instanceof PlaylistProvider)
+            ((PlaylistProvider) playablesProvider).unshuffleTracks();
         else
-            LOGGER.warn("Cannot unshuffle TracksProvider: " + tracksProvider);
+            LOGGER.warn("Cannot unshuffle TracksProvider: " + playablesProvider);
     }
 
     private void handleSeek(int pos) {
@@ -294,7 +294,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private void loadTracksProvider(@NotNull String uri) throws SpotifyContext.UnsupportedContextException {
         SpotifyContext context = SpotifyContext.from(uri);
-        tracksProvider = context.initProvider(session, state.state);
+        playablesProvider = context.initProvider(session, state.state);
     }
 
     @Override
@@ -358,9 +358,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            int index = tracksProvider.getNextTrackIndex(false);
+            int index = playablesProvider.getNextTrackIndex(false);
             if (index < state.getTrackCount()) {
-                PlayableId next = tracksProvider.getTrackAt(index);
+                PlayableId next = playablesProvider.getTrackAt(index);
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
@@ -452,7 +452,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
-        PlayableId id = tracksProvider.getCurrentTrack();
+        PlayableId id = playablesProvider.getCurrentTrack();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
@@ -497,9 +497,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleNext() {
-        if (tracksProvider == null) return;
+        if (playablesProvider == null) return;
 
-        int newTrack = tracksProvider.getNextTrackIndex(true);
+        int newTrack = playablesProvider.getNextTrackIndex(true);
         boolean play = true;
         if (newTrack >= state.getTrackCount()) {
             if (state.getRepeat()) {
@@ -540,7 +540,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 state.setPositionMs(0);
                 state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
-                tracksProvider = new StationProvider(session, state.state);
+                playablesProvider = new StationProvider(session, state.state);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
@@ -548,7 +548,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 state.loadStation(station);
 
-                tracksProvider = new StationProvider(session, state.state);
+                playablesProvider = new StationProvider(session, state.state);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -566,10 +566,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handlePrev() {
-        if (tracksProvider == null) return;
+        if (playablesProvider == null) return;
 
         if (getPosition() < 3000) {
-            state.setPlayingTrackIndex(tracksProvider.getPrevTrackIndex());
+            state.setPlayingTrackIndex(playablesProvider.getPrevTrackIndex());
             state.setPositionMs(0);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
@@ -607,7 +607,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     @Nullable
     public PlayableId currentPlayableId() {
-        return tracksProvider == null ? null : tracksProvider.getCurrentTrack();
+        return playablesProvider == null ? null : playablesProvider.getCurrentTrack();
     }
 
     public interface Configuration {
@@ -729,7 +729,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
 
         void setShuffle(boolean shuffle) {
-            state.setShuffle(shuffle && (tracksProvider == null || tracksProvider.canShuffle()));
+            state.setShuffle(shuffle && (playablesProvider == null || playablesProvider.canShuffle()));
         }
 
         void seekTo(@Nullable String uri) {
@@ -770,7 +770,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         }
 
         void setRepeat(boolean repeat) {
-            state.setRepeat(repeat && (tracksProvider == null || tracksProvider.canRepeat()));
+            state.setRepeat(repeat && (playablesProvider == null || playablesProvider.canRepeat()));
         }
 
         void setPlayingTrackIndex(int i) {
@@ -920,8 +920,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
             state.setPlayingTrackIndex(selector.playingIndex());
 
-            if (page.nextPageUrl != null && tracksProvider instanceof StationProvider)
-                ((StationProvider) tracksProvider).knowsNextPageUrl(page.nextPageUrl);
+            if (page.nextPageUrl != null && playablesProvider instanceof StationProvider)
+                ((StationProvider) playablesProvider).knowsNextPageUrl(page.nextPageUrl);
         }
 
         void setQueue(@NotNull Remote3Frame frame) {

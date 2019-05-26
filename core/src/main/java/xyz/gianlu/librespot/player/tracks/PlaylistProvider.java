@@ -19,7 +19,7 @@ import java.util.Random;
 /**
  * @author Gianlu
  */
-public class PlaylistProvider implements TracksProvider {
+public class PlaylistProvider implements PlayablesProvider {
     private static final Logger LOGGER = Logger.getLogger(PlaylistProvider.class);
     private final Spirc.State.Builder state;
     private final MercuryClient mercury;
@@ -146,7 +146,7 @@ public class PlaylistProvider implements TracksProvider {
 
     @Override
     public int getPrevTrackIndex() {
-        return TracksProvider.getPrevTrackIndex(state);
+        return PlayablesProvider.getPrevTrackIndex(state);
     }
 
     @NotNull
