@@ -29,11 +29,6 @@ public final class DefaultConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public boolean defaultUnshuffleBehaviour() {
-        return false;
-    }
-
-    @Override
     public @NotNull String[] mixerSearchKeywords() {
         return new String[0];
     }

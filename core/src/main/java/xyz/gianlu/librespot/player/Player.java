@@ -294,7 +294,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     private void loadTracksProvider(@NotNull String uri) throws SpotifyContext.UnsupportedContextException {
         SpotifyContext context = SpotifyContext.from(uri);
-        tracksProvider = context.initProvider(session, state.state, conf);
+        tracksProvider = context.initProvider(session, state.state);
     }
 
     @Override
@@ -617,8 +617,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         boolean preloadEnabled();
 
         float normalisationPregain();
-
-        boolean defaultUnshuffleBehaviour();
 
         @Nullable
         String[] mixerSearchKeywords();

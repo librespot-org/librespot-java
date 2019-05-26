@@ -121,11 +121,6 @@ public final class FileConfiguration extends AbsConfiguration {
         return getFloat("player.normalisationPregain", defaults.normalisationPregain());
     }
 
-    @Override
-    public boolean defaultUnshuffleBehaviour() {
-        return getBoolean("player.defaultUnshuffleBehaviour", defaults.defaultUnshuffleBehaviour());
-    }
-
     @NotNull
     @Override
     public String[] mixerSearchKeywords() {

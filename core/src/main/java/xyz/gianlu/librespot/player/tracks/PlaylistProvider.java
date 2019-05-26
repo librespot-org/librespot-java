@@ -8,7 +8,6 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 
 import java.io.IOException;
@@ -23,13 +22,11 @@ import java.util.Random;
 public class PlaylistProvider implements TracksProvider {
     private static final Logger LOGGER = Logger.getLogger(PlaylistProvider.class);
     private final Spirc.State.Builder state;
-    private final Player.Configuration conf;
     private final MercuryClient mercury;
     private long shuffleSeed = 0;
 
-    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Player.Configuration conf) {
+    public PlaylistProvider(@NotNull Session session, @NotNull Spirc.State.Builder state) {
         this.state = state;
-        this.conf = conf;
         this.mercury = session.mercury();
     }
 
@@ -68,45 +65,14 @@ public class PlaylistProvider implements TracksProvider {
 
         state.clearTrack();
         state.addAllTrack(tracks);
+        LOGGER.trace("Shuffled, seed: " + shuffleSeed);
     }
 
     public void unshuffleTracks() {
         if (state.getTrackCount() <= 1)
             return;
 
-        if (shuffleSeed == 0 && !conf.defaultUnshuffleBehaviour() && state.hasContextUri()) {
-            List<Remote3Track> tracks;
-            try {
-                MercuryRequests.ResolvedContextWrapper context = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
-                tracks = context.pages().get(0).tracks;
-            } catch (IOException | MercuryClient.MercuryException ex) {
-                LOGGER.fatal("Failed requesting context!", ex);
-                return;
-            }
-
-            PlayableId.removeUnsupported(tracks, -1);
-
-            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
-
-            List<Spirc.TrackRef> rebuildState = new ArrayList<>(80);
-            TrackId currentTrackId = TrackId.fromTrackRef(current);
-            String currentTrackUri = currentTrackId.toSpotifyUri();
-            boolean add = false;
-            int count = 80;
-            for (Remote3Track track : tracks) {
-                if (add || track.uri.equals(currentTrackUri)) {
-                    rebuildState.add(track.toTrackRef());
-
-                    add = true;
-                    count--;
-                    if (count <= 0) break;
-                }
-            }
-
-            state.clearTrack();
-            state.addAllTrack(rebuildState);
-            state.setPlayingTrackIndex(0);
-        } else {
+        if (shuffleSeed != 0) {
             List<Spirc.TrackRef> tracks = new ArrayList<>(state.getTrackList());
             if (state.getPlayingTrackIndex() != 0) {
                 Collections.swap(tracks, 0, state.getPlayingTrackIndex());
@@ -122,6 +88,46 @@ public class PlaylistProvider implements TracksProvider {
 
             state.clearTrack();
             state.addAllTrack(tracks);
+
+            LOGGER.trace("Unshuffled using seed: " + shuffleSeed);
+            return;
+        }
+
+        if (state.hasContextUri()) {
+            List<Remote3Track> tracks;
+            try {
+                MercuryRequests.ResolvedContextWrapper context = mercury.sendSync(MercuryRequests.resolveContext(state.getContextUri()));
+                tracks = context.pages().get(0).tracks;
+            } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.fatal("Cannot unshuffle context!", ex);
+                return;
+            }
+
+            PlayableId.removeUnsupported(tracks, -1);
+
+            Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
+            String currentTrackUri = TrackId.fromTrackRef(current).toSpotifyUri();
+
+            List<Spirc.TrackRef> rebuildState = new ArrayList<>(80);
+            boolean add = false;
+            int count = 80;
+            for (Remote3Track track : tracks) {
+                if (add || track.uri.equals(currentTrackUri)) {
+                    rebuildState.add(track.toTrackRef());
+
+                    add = true;
+                    count--;
+                    if (count <= 0) break;
+                }
+            }
+
+            state.clearTrack();
+            state.addAllTrack(rebuildState);
+            state.setPlayingTrackIndex(0);
+
+            LOGGER.trace("Unshuffled using context-resolve.");
+        } else {
+            LOGGER.fatal("Cannot unshuffle context! Did not know seed and context is missing.");
         }
     }
 

@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.tracks.TracksProvider;
 
 import java.io.UnsupportedEncodingException;
@@ -96,7 +95,7 @@ public interface SpotifyContext<P extends PlayableId> {
     P createId(@NotNull Spirc.TrackRef ref);
 
     @NotNull
-    TracksProvider initProvider(@NotNull Session session, @NotNull Spirc.State.Builder state, @NotNull Player.Configuration conf);
+    TracksProvider initProvider(@NotNull Session session, @NotNull Spirc.State.Builder state);
 
     class UnsupportedContextException extends Exception {
         UnsupportedContextException(@NotNull String message) {
