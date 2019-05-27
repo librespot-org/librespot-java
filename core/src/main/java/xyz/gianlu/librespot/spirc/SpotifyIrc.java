@@ -31,6 +31,14 @@ public class SpotifyIrc implements Closeable {
     private final Session session;
     private final Spirc.DeviceState.Builder deviceState;
     private SpircListener internalListener;
+    public static final int MAX_TRACKS = 80;
+
+    public static void trimTracks(@NotNull Spirc.State.Builder state) {
+        if (state.getTrackCount() <= MAX_TRACKS) return;
+
+        for (int i = state.getTrackCount() - 1; i >= MAX_TRACKS; i--)
+            state.removeTrack(i);
+    }
 
     public SpotifyIrc(@NotNull Session session) {
         this.session = session;

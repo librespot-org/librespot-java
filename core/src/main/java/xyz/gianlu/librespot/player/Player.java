@@ -787,6 +787,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setPlayingTrackIndex(0);
             state.clearTrack();
             state.addAllTrack(station.tracks());
+            SpotifyIrc.trimTracks(state);
         }
 
         int lastQueuedSongIndex() {
@@ -844,6 +845,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
 
             state.setPlayingTrackIndex(selector == null ? 0 : selector.playingIndex());
+            SpotifyIrc.trimTracks(state);
 
             if (state.getShuffle()) shuffleTracks(selector == null || !selector.findMatch());
         }
@@ -919,6 +921,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
 
             state.setPlayingTrackIndex(selector.playingIndex());
+            SpotifyIrc.trimTracks(state);
 
             if (page.nextPageUrl != null && playablesProvider instanceof StationProvider)
                 ((StationProvider) playablesProvider).knowsNextPageUrl(page.nextPageUrl);
@@ -947,6 +950,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             }
 
             state.setPlayingTrackIndex(index);
+            SpotifyIrc.trimTracks(state);
         }
 
         void addToQueue(@NotNull Remote3Frame frame) {

@@ -9,6 +9,7 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
+import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,6 +66,8 @@ public class PlaylistProvider implements PlayablesProvider {
 
         state.clearTrack();
         state.addAllTrack(tracks);
+        SpotifyIrc.trimTracks(state);
+
         LOGGER.trace("Shuffled, seed: " + shuffleSeed);
     }
 
@@ -108,9 +111,9 @@ public class PlaylistProvider implements PlayablesProvider {
             Spirc.TrackRef current = state.getTrack(state.getPlayingTrackIndex());
             String currentTrackUri = TrackId.fromTrackRef(current).toSpotifyUri();
 
-            List<Spirc.TrackRef> rebuildState = new ArrayList<>(80);
+            List<Spirc.TrackRef> rebuildState = new ArrayList<>(SpotifyIrc.MAX_TRACKS);
             boolean add = false;
-            int count = 80;
+            int count = SpotifyIrc.MAX_TRACKS;
             for (Remote3Track track : tracks) {
                 if (add || track.uri.equals(currentTrackUri)) {
                     rebuildState.add(track.toTrackRef());
@@ -127,6 +130,7 @@ public class PlaylistProvider implements PlayablesProvider {
             state.clearTrack();
             state.addAllTrack(rebuildState);
             state.setPlayingTrackIndex(0);
+            SpotifyIrc.trimTracks(state);
 
             LOGGER.trace("Unshuffled using context-resolve.");
         } else {

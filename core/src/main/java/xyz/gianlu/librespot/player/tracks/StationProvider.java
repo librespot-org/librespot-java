@@ -13,6 +13,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -72,6 +73,8 @@ public class StationProvider implements PlayablesProvider {
                     .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
                     .build());
         }
+
+        SpotifyIrc.trimTracks(state);
     }
 
     private void resolveContext() throws IOException, MercuryClient.MercuryException {
