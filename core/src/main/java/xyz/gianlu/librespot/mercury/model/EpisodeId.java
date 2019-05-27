@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.mercury.model;
 
-import io.seruco.encoding.base62.Base62;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.Base62;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Spirc;
 

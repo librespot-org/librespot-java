@@ -81,7 +81,7 @@ public class PlaylistProvider implements PlayablesProvider {
 
             int size = tracks.size() - 1;
             int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-            for (int i = 2; i < size; i++) {
+            for (int i = 1; i < size; i++) {
                 int n = exchanges[size - i - 1];
                 Collections.swap(tracks, i, n + 1);
             }
@@ -120,6 +120,9 @@ public class PlaylistProvider implements PlayablesProvider {
                     if (count <= 0) break;
                 }
             }
+
+            if (rebuildState.isEmpty())
+                throw new IllegalStateException("State cannot be empty!");
 
             state.clearTrack();
             state.addAllTrack(rebuildState);

@@ -20,6 +20,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
@@ -47,7 +48,7 @@ public class Utils {
             int count;
             while ((count = gzis.read(buffer)) != -1)
                 dataOut.write(buffer, 0, count);
-            return new String(dataOut.toByteArray(), "UTF-8");
+            return new String(dataOut.toByteArray(), StandardCharsets.UTF_8);
         }
     }
 
@@ -165,7 +166,7 @@ public class Utils {
             if (i == -1) {
                 split[j] = tmp;
             } else {
-                split[j] = tmp.substring(i + 1, tmp.length());
+                split[j] = tmp.substring(i + 1);
                 tmp = tmp.substring(0, i);
             }
         }

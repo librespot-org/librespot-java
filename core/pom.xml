@@ -60,11 +60,6 @@
             <artifactId>protobuf-java</artifactId>
             <version>${protobuf.version}</version>
         </dependency>
-        <dependency>
-            <groupId>io.seruco.encoding</groupId>
-            <artifactId>base62</artifactId>
-            <version>0.1.2</version>
-        </dependency>
 
         <!-- Audio -->
         <dependency>
