@@ -845,7 +845,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
             state.setPlayingTrackIndex(selector == null ? 0 : selector.playingIndex());
 
-            shuffleTracks((selector == null || !selector.findMatch()) && state.getShuffle());
+            if (state.getShuffle()) shuffleTracks(selector == null || !selector.findMatch());
         }
 
         void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException, SpotifyContext.UnsupportedContextException {
