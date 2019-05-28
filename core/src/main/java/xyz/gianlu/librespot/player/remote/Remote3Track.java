@@ -12,6 +12,7 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -71,5 +72,9 @@ public class Remote3Track {
     public PlayableId id() {
         if (id == null) id = PlayableId.fromUri(uri);
         return id;
+    }
+
+    public boolean is(@NotNull PlayableId current) {
+        return Objects.equals(uri, current.toSpotifyUri());
     }
 }

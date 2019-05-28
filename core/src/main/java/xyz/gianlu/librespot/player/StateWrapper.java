@@ -24,6 +24,7 @@ import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,6 +38,7 @@ public class StateWrapper {
     private final Session session;
     private boolean repeatingTrack = false;
     private PlayablesProvider playablesProvider;
+    private TracksKeeper tracksKeeper;
 
     StateWrapper(@NotNull Session session) {
         this.session = session;
@@ -153,33 +155,35 @@ public class StateWrapper {
         return Remote3Track.array(obj.getAsJsonArray("tracks"));
     }
 
-    private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector) throws IOException {
+    private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException {
         List<Remote3Track> tracks = page.tracks;
         if (tracks == null) {
-            if (page.pageUrl != null) tracks = getTracks(page.pageUrl);
-            else throw new IllegalStateException("How do I load this page?!");
+            if (page.pageUrl != null) {
+                tracks = getTracks(page.pageUrl);
+                totalTracks = tracks.size(); // Page URL should return all tracks
+            } else {
+                throw new IllegalStateException("How do I load this page?!");
+            }
         }
+
+        boolean allTracks = totalTracks == tracks.size();
+        if (allTracks) tracksKeeper = TracksKeeper.all(tracks);
+        else tracksKeeper = TracksKeeper.partial(tracks);
 
         int updated = PlayableId.removeUnsupported(tracks, selector == null ? -1 : selector.trackIndex);
         if (selector != null && updated != -1) selector.trackIndex = updated;
 
-        for (int i = 0; i < tracks.size(); i++) {
-            Remote3Track track = tracks.get(i);
-            state.addTrack(track.toTrackRef());
-            if (selector != null) selector.inspect(i, track);
-        }
+        PlayableId current = selector != null ? selector.find(tracks) : null;
+        tracksKeeper.dumpToState(state, current);
 
-        state.setPlayingTrackIndex(selector == null ? 0 : selector.playingIndex());
-        SpotifyIrc.trimTracks(state);
-
-        if (state.getShuffle()) shuffleContent(selector == null || !selector.findMatch());
+        if (state.getShuffle()) shuffleContent(selector == null || !selector.findMatch()); // TODO: Support shuffling
     }
 
     void updated() {
         session.spirc().deviceStateUpdated(state);
     }
 
-    void seekTo(@Nullable String uri) {
+    void seekTo(@Nullable String uri) { // FIXME: We may need to update the tracks before doing this
         int pos = -1;
         List<Spirc.TrackRef> tracks = state.getTrackList();
         for (int i = 0; i < tracks.size(); i++) {
@@ -196,7 +200,7 @@ public class StateWrapper {
         state.setPlayingTrackIndex(pos);
     }
 
-    void loadStation(@NotNull MercuryRequests.StationsWrapper station) throws SpotifyContext.UnsupportedContextException {
+    void loadStation(@NotNull MercuryRequests.StationsWrapper station) throws SpotifyContext.UnsupportedContextException { // TODO: Should be fine
         state.setContextUri(station.uri());
 
         state.clearTrack();
@@ -212,7 +216,8 @@ public class StateWrapper {
         state.clearTrack();
 
         MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context));
-        loadPage(resolved.pages().get(0), null);
+        Remote3Page page = resolved.pages().get(0);
+        loadPage(page, null, page.tracks.size()); // Resolve context should always return all tracks
         loadPlayablesProvider(context);
     }
 
@@ -260,12 +265,18 @@ public class StateWrapper {
         List<Remote3Page> pages = frame.context.pages;
         if (pages == null) pages = getPages(frame.context);
 
+        int totalTracks = -1;
+        if (frame.context.metadata != null) {
+            JsonElement elm = frame.context.metadata.get("track_count");
+            if (elm != null && elm.isJsonPrimitive()) totalTracks = elm.getAsInt();
+        }
+
         Remote3Page page = pages.get(pageIndex);
-        loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo));
+        loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo), totalTracks);
         loadPlayablesProvider(frame.context.uri);
     }
 
-    void updateContext(@NotNull Remote3Frame.Context context) throws SpotifyContext.UnsupportedContextException {
+    void updateContext(@NotNull Remote3Frame.Context context) throws SpotifyContext.UnsupportedContextException { // FIXME: Definitely needs work
         Spirc.TrackRef previouslyPlaying = state.getTrack(state.getPlayingTrackIndex());
 
         state.clearTrack();
@@ -293,7 +304,7 @@ public class StateWrapper {
             ((StationProvider) playablesProvider).knowsNextPageUrl(page.nextPageUrl);
     }
 
-    void setQueue(@NotNull Remote3Frame frame) {
+    void setQueue(@NotNull Remote3Frame frame) { // FIXME: Don't know what may happen here
         Spirc.TrackRef currentlyPlaying = state.getTrack(state.getPlayingTrackIndex());
 
         state.clearTrack();
@@ -319,7 +330,7 @@ public class StateWrapper {
         SpotifyIrc.trimTracks(state);
     }
 
-    void addToQueue(@NotNull Remote3Frame frame) {
+    void addToQueue(@NotNull Remote3Frame frame) { // FIXME: We might go over the 80 songs bound
         if (frame.track == null)
             throw new IllegalArgumentException("Missing track object!");
 
@@ -394,6 +405,57 @@ public class StateWrapper {
         }
     }
 
+    private static class TracksKeeper {
+        private final List<Remote3Track> tracks;
+        private final boolean all;
+
+        private TracksKeeper(int size, boolean all) {
+            tracks = new ArrayList<>(size);
+            this.all = all;
+        }
+
+        @NotNull
+        static TracksKeeper all(@NotNull List<Remote3Track> tracks) {
+            TracksKeeper keeper = new TracksKeeper(tracks.size(), true);
+            keeper.tracks.addAll(tracks);
+            return keeper;
+        }
+
+        static TracksKeeper partial(@NotNull List<Remote3Track> tracks) {
+            TracksKeeper keeper = new TracksKeeper(tracks.size() * 2, false);
+            keeper.tracks.addAll(tracks);
+            return keeper;
+        }
+
+        private int indexOf(@NotNull PlayableId current) {
+            for (int i = 0; i < tracks.size(); i++)
+                if (tracks.get(i).is(current))
+                    return i;
+
+            return -1;
+        }
+
+        void dumpToState(@NotNull Spirc.State.Builder state, @Nullable PlayableId current) {
+            int currentIndex = current == null ? -1 : indexOf(current);
+            if (currentIndex == -1) currentIndex = 0;
+
+            if (!all) {
+                // TODO: If we are near to a bound, fetch all tracks
+            }
+
+            // FIXME: Using test values
+            int from = Math.max(0, currentIndex - 20);
+            int to = Math.min(tracks.size(), currentIndex + 20);
+            int relativeIndex = currentIndex - from;
+
+            state.clearTrack();
+            for (int i = from; i < to; i++)
+                state.addTrack(tracks.get(i).toTrackRef());
+
+            state.setPlayingTrackIndex(relativeIndex);
+        }
+    }
+
     private static class TrackSelector {
         private final String trackUid;
         private final String trackUri;
@@ -447,6 +509,25 @@ public class StateWrapper {
             if (trackIndex != -1) return trackIndex;
             if (trackUid == null && trackUri == null) return 0;
             return selectedIndex == -1 ? 0 : selectedIndex;
+        }
+
+        @NotNull
+        public PlayableId find(@NotNull List<Remote3Track> tracks) {
+            if (trackIndex != -1) return tracks.get(trackIndex).id();
+
+            if (trackUid == null && trackUri == null) return tracks.get(0).id();
+
+            for (Remote3Track track : tracks) {
+                if (trackUid != null) {
+                    if (Objects.equals(track.uid, trackUid))
+                        return track.id();
+                } else {
+                    if (Objects.equals(track.uri, trackUri))
+                        return track.id();
+                }
+            }
+
+            return tracks.get(0).id();
         }
     }
 }

@@ -36,15 +36,15 @@ public interface PlayablesProvider {
         return newIndex;
     }
 
-    int getNextTrackIndex(boolean consume);
+    int getNextTrackIndex(boolean consume); // TODO: Should be handled by TracksKeep
 
-    int getPrevTrackIndex();
-
-    @NotNull
-    PlayableId getCurrentTrack();
+    int getPrevTrackIndex(); // TODO: Should be handled by TracksKeep
 
     @NotNull
-    PlayableId getTrackAt(int index) throws IndexOutOfBoundsException;
+    PlayableId getCurrentTrack(); // TODO: Should be handled by TracksKeep
+
+    @NotNull
+    PlayableId getTrackAt(int index) throws IndexOutOfBoundsException; // TODO: Should be handled by TracksKeep
 
     boolean canShuffle();
 
