@@ -122,7 +122,7 @@ public class Session implements Closeable {
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
                         .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
                         .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(110100348)
+                        .setVersion(110713766)
                         .build())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
