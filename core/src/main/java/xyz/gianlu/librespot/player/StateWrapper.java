@@ -18,7 +18,7 @@ import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
 import xyz.gianlu.librespot.player.tracks.PlayablesProvider;
-import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
+import xyz.gianlu.librespot.player.tracks.ShuffleableProvider;
 import xyz.gianlu.librespot.player.tracks.StationProvider;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -80,8 +80,8 @@ public class StateWrapper {
 
     void setShuffle(boolean shuffle) {
         state.setShuffle(shuffle && (playablesProvider == null || playablesProvider.canShuffle()));
-        if (state.getShuffle()) shuffleTracks(false);
-        else unshuffleTracks();
+        if (state.getShuffle()) shuffleContent(false);
+        else unshuffleContent();
     }
 
     private void loadPlayablesProvider(@NotNull String uri) throws SpotifyContext.UnsupportedContextException {
@@ -89,22 +89,22 @@ public class StateWrapper {
         playablesProvider = context.initProvider(session, state);
     }
 
-    private void shuffleTracks(boolean fully) {
+    private void shuffleContent(boolean fully) {
         if (playablesProvider == null) return;
 
-        if (playablesProvider.canShuffle() && playablesProvider instanceof PlaylistProvider)
-            ((PlaylistProvider) playablesProvider).shuffleTracks(session.random(), fully);
+        if (playablesProvider.canShuffle() && playablesProvider instanceof ShuffleableProvider)
+            ((ShuffleableProvider) playablesProvider).shuffleContent(session.random(), fully);
         else
-            LOGGER.warn("Cannot shuffle TracksProvider: " + playablesProvider);
+            LOGGER.warn("Cannot shuffle provider: " + playablesProvider);
     }
 
-    private void unshuffleTracks() {
+    private void unshuffleContent() {
         if (playablesProvider == null) return;
 
-        if (playablesProvider.canShuffle() && playablesProvider instanceof PlaylistProvider)
-            ((PlaylistProvider) playablesProvider).unshuffleTracks();
+        if (playablesProvider.canShuffle() && playablesProvider instanceof ShuffleableProvider)
+            ((ShuffleableProvider) playablesProvider).unshuffleContent();
         else
-            LOGGER.warn("Cannot unshuffle TracksProvider: " + playablesProvider);
+            LOGGER.warn("Cannot unshuffle provider: " + playablesProvider);
     }
 
     void updated() {
@@ -163,9 +163,9 @@ public class StateWrapper {
     void loadStation(@NotNull MercuryRequests.StationsWrapper station) throws SpotifyContext.UnsupportedContextException {
         state.setContextUri(station.uri());
 
-        state.setPlayingTrackIndex(0);
         state.clearTrack();
         state.addAllTrack(station.tracks());
+        state.setPlayingTrackIndex(0);
         SpotifyIrc.trimTracks(state);
 
         loadPlayablesProvider(station.uri());
@@ -228,7 +228,7 @@ public class StateWrapper {
         state.setPlayingTrackIndex(selector == null ? 0 : selector.playingIndex());
         SpotifyIrc.trimTracks(state);
 
-        if (state.getShuffle()) shuffleTracks(selector == null || !selector.findMatch());
+        if (state.getShuffle()) shuffleContent(selector == null || !selector.findMatch());
     }
 
     void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException, SpotifyContext.UnsupportedContextException {

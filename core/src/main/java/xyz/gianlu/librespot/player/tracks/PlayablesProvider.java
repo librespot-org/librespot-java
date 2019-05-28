@@ -13,7 +13,7 @@ import java.util.List;
  */
 public interface PlayablesProvider {
 
-    static int getPrevTrackIndex(Spirc.State.Builder state) {
+    static int getPrevTrackIndex(@NotNull Spirc.State.Builder state) {
         List<Spirc.TrackRef> queueTracks = new ArrayList<>();
         Iterator<Spirc.TrackRef> iter = state.getTrackList().iterator();
         while (iter.hasNext()) {

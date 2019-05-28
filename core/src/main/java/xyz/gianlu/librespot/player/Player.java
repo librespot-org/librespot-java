@@ -490,6 +490,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 state.loadStation(station);
+
+                state.setPositionMs(0);
+                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));

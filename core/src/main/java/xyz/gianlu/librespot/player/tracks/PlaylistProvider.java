@@ -20,7 +20,7 @@ import java.util.Random;
 /**
  * @author Gianlu
  */
-public class PlaylistProvider implements PlayablesProvider {
+public class PlaylistProvider implements PlayablesProvider, ShuffleableProvider {
     private static final Logger LOGGER = Logger.getLogger(PlaylistProvider.class);
     private final Spirc.State.Builder state;
     private final MercuryClient mercury;
@@ -41,7 +41,8 @@ public class PlaylistProvider implements PlayablesProvider {
         return exchanges;
     }
 
-    public void shuffleTracks(@NotNull Random random, boolean fully) {
+    @Override
+    public void shuffleContent(@NotNull Random random, boolean fully) {
         if (state.getTrackCount() <= 1)
             return;
 
@@ -71,7 +72,8 @@ public class PlaylistProvider implements PlayablesProvider {
         LOGGER.trace("Shuffled, seed: " + shuffleSeed);
     }
 
-    public void unshuffleTracks() {
+    @Override
+    public void unshuffleContent() {
         if (state.getTrackCount() <= 1)
             return;
 
