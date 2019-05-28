@@ -442,7 +442,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
             boolean play;
             if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
-            else play = state.getStatus() == Spirc.PlayStatus.kPlayStatusPlay || wasInactive;
+            else play = !wasInactive;
             loadTrack(play);
         } else {
             panicState();
