@@ -101,5 +101,10 @@ public interface SpotifyContext<P extends PlayableId> {
         UnsupportedContextException(@NotNull String message) {
             super(message);
         }
+
+        @NotNull
+        public static UnsupportedContextException empty() {
+            return new UnsupportedContextException("Empty context not supported!");
+        }
     }
 }

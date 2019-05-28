@@ -157,10 +157,9 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             case kMessageTypeAction:
                 if (frame == null) break;
 
-                switch (frame.endpoint) {
-                    case SetRepeatingTrack:
-                        state.setRepeatingTrack(frame.value.getAsBoolean());
-                        break;
+                if (frame.endpoint == Remote3Frame.Endpoint.SetRepeatingTrack) {
+                    state.setRepeatingTrack(frame.value.getAsBoolean());
+                    state.updated();
                 }
                 break;
         }
@@ -303,9 +302,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler && state.hasProvider()) {
-            int index = state.getNextTrackIndex(false);
-            if (index < state.getTrackCount()) {
-                PlayableId next = state.getTrackAt(index);
+            PlayableId next = state.nextPlayableDoNotSet();
+            if (next != null) {
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
@@ -381,17 +379,13 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             return;
         }
 
-        if (state.getTrackCount() > 0) {
-            state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+        state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
+        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
 
-            boolean play;
-            if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
-            else play = !wasInactive;
-            loadTrack(play);
-        } else {
-            panicState();
-        }
+        boolean play;
+        if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
+        else play = !wasInactive;
+        loadTrack(play);
     }
 
     private void loadTrack(boolean play) {
@@ -444,28 +438,19 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleNext() {
         if (!state.hasProvider()) return;
 
-        int newTrack = state.getNextTrackIndex(true);
-        boolean play = true;
-        if (newTrack >= state.getTrackCount()) {
-            if (state.getRepeat()) {
-                newTrack = 0;
-                play = true;
-            } else {
-                if (conf.autoplayEnabled()) {
-                    loadAutoplay();
-                    return;
-                } else {
-                    newTrack = 0;
-                    play = false;
-                }
-            }
+        StateWrapper.NextPlayable next = state.nextPlayable(conf);
+        if (next == StateWrapper.NextPlayable.AUTOPLAY) {
+            loadAutoplay();
+            return;
         }
 
-        state.setPlayingTrackIndex(newTrack);
-        state.setPositionMs(0);
-        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-
-        loadTrack(play);
+        if (next.isOk()) {
+            state.setPositionMs(0);
+            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+            loadTrack(next == StateWrapper.NextPlayable.OK_PLAY);
+        } else {
+            LOGGER.fatal("Failed loading next song: " + next);
+        }
     }
 
     private void loadAutoplay() {
@@ -513,11 +498,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (!state.hasProvider()) return;
 
         if (getPosition() < 3000) {
-            state.setPlayingTrackIndex(state.getPrevTrackIndex());
-            state.setPositionMs(0);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-
-            loadTrack(true);
+            StateWrapper.PreviousPlayable prev = state.previousPlayable();
+            if (prev.isOk()) {
+                state.setPositionMs(0);
+                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                loadTrack(true);
+            } else {
+                LOGGER.fatal("Failed loading previous song: " + prev);
+            }
         } else {
             state.setPositionMs(0);
             state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
