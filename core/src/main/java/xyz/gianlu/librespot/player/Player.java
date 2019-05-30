@@ -117,14 +117,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                 if (frame == null) break;
 
                 if (frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    try {
-                        state.updateContext(frame.context);
-                        state.updated();
-                    } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-                        LOGGER.fatal("Cannot play local tracks!", ex);
-                        panicState();
-                        return;
-                    }
+                    state.updateContext(frame.context);
+                    state.updated();
                 } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
                     state.setQueue(frame);
                     state.updated();

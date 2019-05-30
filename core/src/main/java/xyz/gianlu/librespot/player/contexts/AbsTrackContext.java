@@ -18,4 +18,9 @@ public abstract class AbsTrackContext extends AbsSpotifyContext<TrackId> {
     public final TrackId createId(Spirc.@NotNull TrackRef ref) {
         return TrackId.fromTrackRef(ref);
     }
+
+    @Override
+    public final TrackId createId(@NotNull String uri) {
+        return TrackId.fromUri(uri);
+    }
 }

@@ -18,4 +18,9 @@ public abstract class AbsEpisodeContext extends AbsSpotifyContext<EpisodeId> {
     public final EpisodeId createId(Spirc.@NotNull TrackRef ref) {
         return EpisodeId.fromTrackRef(ref);
     }
+
+    @Override
+    public final EpisodeId createId(@NotNull String uri) {
+        return EpisodeId.fromUri(uri);
+    }
 }

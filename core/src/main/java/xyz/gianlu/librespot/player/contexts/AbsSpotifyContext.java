@@ -105,6 +105,8 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
     @NotNull
     public abstract P createId(@NotNull Spirc.TrackRef ref);
 
+    public abstract P createId(@NotNull String uri);
+
     public abstract boolean isFinite();
 
     public final boolean canRepeatContext() {
