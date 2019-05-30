@@ -16,8 +16,9 @@ import java.net.URLDecoder;
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
     protected final String context;
-    private boolean canRepeat = false;
+    private boolean canRepeatContext = false;
     private boolean canShuffle = false;
+    private boolean canRepeatTrack = false;
 
     public AbsSpotifyContext(@NotNull String context) {
         this.context = context;
@@ -106,8 +107,12 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
 
     public abstract boolean isFinite();
 
-    public final boolean canRepeat() {
-        return canRepeat;
+    public final boolean canRepeatContext() {
+        return canRepeatContext;
+    }
+
+    public final boolean canRepeatTrack() {
+        return canRepeatTrack;
     }
 
     public final boolean canShuffle() {
@@ -115,7 +120,9 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
     }
 
     public final void updateRestrictions(@NotNull Remote3Frame.Context.Restrictions restrictions) {
-        // TODO: Load restrictions
+        canRepeatContext = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_CONTEXT);
+        canRepeatTrack = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_TRACK);
+        canShuffle = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_SHUFFLE);
     }
 
     @Nullable

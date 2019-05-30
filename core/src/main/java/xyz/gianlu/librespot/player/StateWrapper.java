@@ -63,7 +63,7 @@ public class StateWrapper {
     }
 
     void setRepeatingTrack(boolean repeatingTrack) {
-        this.repeatingTrack = repeatingTrack;
+        this.repeatingTrack = repeatingTrack && context != null && context.canRepeatTrack();
     }
 
     @Nullable
@@ -96,11 +96,11 @@ public class StateWrapper {
     }
 
     void setRepeat(boolean repeat) {
-        state.setRepeat(repeat && context != null && context.canRepeat());
+        state.setRepeat(repeat && context != null && context.canRepeatContext());
     }
 
     void setShuffle(boolean shuffle) {
-        state.setShuffle(shuffle && context != null && context.canRepeat());
+        state.setShuffle(shuffle && context != null && context.canRepeatContext());
         if (state.getShuffle()) shuffleContent(false);
         else unshuffleContent();
     }

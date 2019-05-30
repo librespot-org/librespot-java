@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player.remote;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -353,8 +354,10 @@ public class Remote3Frame {
         }
 
         public static class Restrictions {
+            private final JsonObject obj;
+
             private Restrictions(@NotNull JsonObject obj) {
-                // TODO: Get restrictions
+                this.obj = obj;
             }
 
             @Nullable
@@ -362,6 +365,31 @@ public class Remote3Frame {
                 JsonElement elm = obj.get(key);
                 if (elm == null || !elm.isJsonObject()) return null;
                 return new Restrictions(elm.getAsJsonObject());
+            }
+
+            public boolean allowed(@NotNull Type type) {
+                JsonArray array = obj.getAsJsonArray(type.val);
+                if (array == null) return true;
+                return array.size() == 0;
+            }
+
+            public enum Type {
+                PAUSING("disallow_pausing_reasons"), RESUMING("disallow_resuming_reasons"), SEEKING("disallow_seeking_reasons"),
+                PEEKING_PREV("disallow_peeking_prev_reasons"), PEEKING_NEXT("disallow_peeking_next_reasons"),
+                SKIPPING_PREV("disallow_skipping_prev_reasons"), SKIPPING_NEXT("disallow_skipping_next_reasons"),
+                TOGGLING_REPEAT_CONTEXT("disallow_toggling_repeat_context_reasons"), TOGGLING_REPEAT_TRACK("disallow_toggling_repeat_track_reasons"),
+                TOGGLING_SHUFFLE("disallow_toggling_shuffle_reasons"), SET_QUEUE("disallow_set_queue_reasons"),
+                INTERRUPTING_PLAYBACK("disallow_interrupting_playback_reasons"), TRANSFERRING_PLAYBACK("disallow_transferring_playback_reasons"),
+                REMOTE_CONTROL("disallow_remote_control_reasons"), INSERTING_INTO_NEXT_TRACKS("disallow_inserting_into_next_tracks_reasons"),
+                INSERTING_INTO_CONTEXT_TRACKS("disallow_inserting_into_context_tracks_reasons"), REORDERING_IN_NEXT_TRACKS("disallow_reordering_in_next_tracks_reasons"),
+                REORDERING_IN_CONTEXT_TRACKS("disallow_reordering_in_context_tracks_reasons"), REMOVING_FROM_NEXT_TRACKS("disallow_removing_from_next_tracks_reasons"),
+                REMOVING_FROM_CONTEXT_TRACKS("disallow_removing_from_context_tracks_reasons"), UPDATING_CONTEXT("disallow_updating_context_reasons");
+
+                private final String val;
+
+                Type(@NotNull String val) {
+                    this.val = val;
+                }
             }
         }
     }
