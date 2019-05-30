@@ -7,7 +7,11 @@ import xyz.gianlu.librespot.mercury.model.TrackId;
 /**
  * @author Gianlu
  */
-public abstract class AbsTrackContext implements SpotifyContext<TrackId> {
+public abstract class AbsTrackContext extends AbsSpotifyContext<TrackId> {
+
+    public AbsTrackContext(@NotNull String context) {
+        super(context);
+    }
 
     @NotNull
     @Override

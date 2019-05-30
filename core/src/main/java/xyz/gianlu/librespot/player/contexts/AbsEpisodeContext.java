@@ -7,7 +7,11 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 /**
  * @author Gianlu
  */
-public abstract class AbsEpisodeContext implements SpotifyContext<EpisodeId> {
+public abstract class AbsEpisodeContext extends AbsSpotifyContext<EpisodeId> {
+
+    public AbsEpisodeContext(@NotNull String context) {
+        super(context);
+    }
 
     @NotNull
     @Override

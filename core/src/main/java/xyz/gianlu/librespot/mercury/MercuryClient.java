@@ -90,6 +90,35 @@ public class MercuryClient extends PacketsManager {
             throw new MercuryException(resp);
     }
 
+    public <W extends JsonWrapper> void send(@NotNull JsonMercuryRequest<W> request, @NotNull JsonCallback<W> callback) {
+        try {
+            send(request.request, resp -> {
+                if (resp.statusCode >= 200 && resp.statusCode < 300) callback.response(request.instantiate(resp));
+                else callback.exception(new MercuryException(resp));
+            });
+        } catch (IOException ex) {
+            callback.exception(ex);
+        }
+    }
+
+    public <P extends Message> void send(@NotNull ProtobufMercuryRequest<P> request, @NotNull ProtoCallback<P> callback) {
+        try {
+            send(request.request, resp -> {
+                if (resp.statusCode >= 200 && resp.statusCode < 300) {
+                    try {
+                        callback.response(new ProtoWrapperResponse<>(request.parser.parseFrom(resp.payload.stream())));
+                    } catch (InvalidProtocolBufferException ex) {
+                        callback.exception(ex);
+                    }
+                } else {
+                    callback.exception(new MercuryException(resp));
+                }
+            });
+        } catch (IOException ex) {
+            callback.exception(ex);
+        }
+    }
+
     public void send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
@@ -236,6 +265,18 @@ public class MercuryClient extends PacketsManager {
         }
 
         super.close();
+    }
+
+    public interface JsonCallback<W extends JsonWrapper> {
+        void response(@NotNull W json);
+
+        void exception(@NotNull Exception ex);
+    }
+
+    public interface ProtoCallback<M extends Message> {
+        void response(@NotNull ProtoWrapperResponse<M> proto);
+
+        void exception(@NotNull Exception ex);
     }
 
     public interface Callback {

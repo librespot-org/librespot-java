@@ -23,7 +23,7 @@ public class Remote3Track {
     public final JsonObject metadata;
     private PlayableId id;
 
-    Remote3Track(@NotNull JsonObject obj) {
+    public Remote3Track(@NotNull JsonObject obj) {
         uri = Utils.optString(obj, "uri", null);
         uid = Utils.optString(obj, "uid", null);
         metadata = obj.getAsJsonObject("metadata");
@@ -51,19 +51,23 @@ public class Remote3Track {
         return array(elm.getAsJsonArray());
     }
 
-    @Nullable
-    public Spirc.TrackRef toTrackRef() {
-        if (!PlayableId.isSupported(uri))
-            return null;
-
+    public boolean isQueued() {
         boolean isQueued = false;
         if (metadata != null) {
             JsonElement elm = metadata.get("is_queued");
             if (elm != null) isQueued = elm.getAsBoolean();
         }
 
+        return isQueued;
+    }
+
+    @Nullable
+    public Spirc.TrackRef toTrackRef() {
+        if (!PlayableId.isSupported(uri))
+            return null;
+
         return Spirc.TrackRef.newBuilder()
-                .setQueued(isQueued)
+                .setQueued(isQueued())
                 .setGid(ByteString.copyFrom(id().getGid()))
                 .setUri(uri).build();
     }

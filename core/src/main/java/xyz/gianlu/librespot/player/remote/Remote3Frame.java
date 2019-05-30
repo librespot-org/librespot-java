@@ -335,12 +335,14 @@ public class Remote3Frame {
         public final String url;
         public final JsonObject metadata;
         public final List<Remote3Page> pages;
+        public final Restrictions restrictions;
 
         private Context(@NotNull JsonObject obj) {
             uri = Utils.optString(obj, "uri", null);
             url = Utils.optString(obj, "url", null);
             metadata = obj.getAsJsonObject("metadata");
             pages = Remote3Page.opt(obj.getAsJsonArray("pages"));
+            restrictions = Restrictions.opt(obj, "restrictions");
         }
 
         @Nullable
@@ -348,6 +350,19 @@ public class Remote3Frame {
             JsonElement elm = obj.get(key);
             if (elm == null || !elm.isJsonObject()) return null;
             return new Context(elm.getAsJsonObject());
+        }
+
+        public static class Restrictions {
+            private Restrictions(@NotNull JsonObject obj) {
+                // TODO: Get restrictions
+            }
+
+            @Nullable
+            public static Restrictions opt(@NotNull JsonObject obj, @NotNull String key) {
+                JsonElement elm = obj.get(key);
+                if (elm == null || !elm.isJsonObject()) return null;
+                return new Restrictions(elm.getAsJsonObject());
+            }
         }
     }
 }

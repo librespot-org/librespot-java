@@ -14,7 +14,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
-import xyz.gianlu.librespot.player.contexts.SpotifyContext;
+import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.spirc.FrameListener;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
@@ -120,7 +120,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                     try {
                         state.updateContext(frame.context);
                         state.updated();
-                    } catch (SpotifyContext.UnsupportedContextException ex) {
+                    } catch (AbsSpotifyContext.UnsupportedContextException ex) {
                         LOGGER.fatal("Cannot play local tracks!", ex);
                         panicState();
                         return;
@@ -301,7 +301,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
-        if (handler == trackHandler && state.hasProvider()) {
+        if (handler == trackHandler && state.hasTracks()) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null) {
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
@@ -373,7 +373,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             LOGGER.fatal("Failed loading context!", ex);
             panicState();
             return;
-        } catch (SpotifyContext.UnsupportedContextException ex) {
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState();
             return;
@@ -436,7 +436,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleNext() {
-        if (!state.hasProvider()) return;
+        if (!state.hasTracks()) return;
 
         StateWrapper.NextPlayable next = state.nextPlayable(conf);
         if (next == StateWrapper.NextPlayable.AUTOPLAY) {
@@ -488,14 +488,14 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             panicState();
-        } catch (SpotifyContext.UnsupportedContextException ex) {
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState();
         }
     }
 
     private void handlePrev() {
-        if (!state.hasProvider()) return;
+        if (!state.hasTracks()) return;
 
         if (getPosition() < 3000) {
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
@@ -539,7 +539,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     @Nullable
     public PlayableId currentPlayableId() {
-        return state.hasProvider() ? state.getCurrentTrack() : null;
+        return state.hasTracks() ? state.getCurrentTrack() : null;
     }
 
     public interface Configuration {
