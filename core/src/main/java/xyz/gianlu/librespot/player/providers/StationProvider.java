@@ -40,7 +40,7 @@ public class StationProvider implements ContentProvider {
         knowsNextPageUrl(json.pages().get(0).nextPageUrl);
     }
 
-    public void knowsNextPageUrl(@NotNull String url) {
+    private void knowsNextPageUrl(@NotNull String url) {
         if (nextPageUrl == null) {
             nextPageUrl = url;
             LOGGER.trace("Loaded next page url: " + nextPageUrl);

@@ -166,7 +166,7 @@ public class StateWrapper {
         boolean allTracks = totalTracks == tracks.size();
         tracksKeeper = new TracksKeeper(this.context, tracks, allTracks);
 
-        int updated = PlayableId.removeUnsupported(tracks, selector == null ? -1 : selector.trackIndex);
+        int updated = PlayableId.removeUnsupported(tracks, selector == null ? -1 : selector.trackIndex); // FIXME
         if (selector != null && updated != -1) selector.trackIndex = updated;
 
         PlayableId current = selector != null ? selector.find(tracks) : null;
@@ -276,11 +276,7 @@ public class StateWrapper {
         loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo), totalTracks);
     }
 
-    void updateContext(@NotNull Remote3Frame.Context context) throws AbsSpotifyContext.UnsupportedContextException { // FIXME: Definitely needs work
-        Spirc.TrackRef previouslyPlaying = state.getTrack(state.getPlayingTrackIndex());
-
-        state.clearTrack();
-
+    void updateContext(@NotNull Remote3Frame.Context context) {
         Remote3Page page;
         List<Remote3Track> tracks;
         if (context.pages == null || context.pages.isEmpty() || (page = context.pages.get(0)) == null || (tracks = page.tracks) == null) {
@@ -288,25 +284,12 @@ public class StateWrapper {
             return;
         }
 
-        PlayableId.removeUnsupported(tracks, -1);
-
-        TrackSelector selector = new TrackSelector(context.uri, previouslyPlaying);
-        for (int i = 0; i < tracks.size(); i++) {
-            Remote3Track track = tracks.get(i);
-            state.addTrack(track.toTrackRef());
-            selector.inspect(i, track);
-        }
-
-        state.setPlayingTrackIndex(selector.playingIndex());
-        SpotifyIrc.trimTracks(state);
-
-        /* TODO: Update next page url on provider
-        if (page.nextPageUrl != null && playablesProvider instanceof StationProvider)
-            ((StationProvider) playablesProvider).knowsNextPageUrl(page.nextPageUrl);
-            */
+        PlayableId.removeUnsupported(tracks, -1); // FIXME
+        tracksKeeper.update(tracks);
+        tracksKeeper.dumpToState(state, getCurrentTrack());
     }
 
-    void setQueue(@NotNull Remote3Frame frame) { // FIXME: Don't know what may happen here
+    void setQueue(@NotNull Remote3Frame frame) { // FIXME: Rewrite
         Spirc.TrackRef currentlyPlaying = state.getTrack(state.getPlayingTrackIndex());
 
         state.clearTrack();
@@ -332,7 +315,7 @@ public class StateWrapper {
         SpotifyIrc.trimTracks(state);
     }
 
-    void addToQueue(@NotNull Remote3Frame frame) { // FIXME: We might go over the 80 songs bound
+    void addToQueue(@NotNull Remote3Frame frame) { // FIXME: Rewrite
         if (frame.track == null)
             throw new IllegalArgumentException("Missing track object!");
 
@@ -408,11 +391,9 @@ public class StateWrapper {
             }
         }
 
-        TrackSelector(@NotNull String context, @NotNull Spirc.TrackRef ref) throws AbsSpotifyContext.UnsupportedContextException {
+        TrackSelector(@NotNull PlayableId id) {
             trackUid = null;
             trackIndex = -1;
-
-            PlayableId id = AbsSpotifyContext.from(context).createId(ref);
             trackUri = id.toSpotifyUri();
         }
 
@@ -474,6 +455,8 @@ public class StateWrapper {
 
             complete = all && context.isFinite();
             if (!all) fetchAsync();
+
+            // TODO: We should probably subscribe to events on this context
         }
 
         void shuffle(@NotNull Random random, boolean fully) {
@@ -655,6 +638,22 @@ public class StateWrapper {
             }
 
             return PreviousPlayable.OK;
+        }
+
+        void update(@NotNull List<Remote3Track> newTracks) {
+            tracks.clear();
+
+            PlayableId previouslyPlaying = newTracks.get(playingIndex).id();
+            TrackSelector selector = new TrackSelector(previouslyPlaying);
+            for (int i = 0; i < newTracks.size(); i++) {
+                Remote3Track track = newTracks.get(i);
+                tracks.add(track);
+                selector.inspect(i, track);
+            }
+
+            playingIndex = selector.playingIndex();
+
+            // TODO: What happens to complete?
         }
     }
 }
