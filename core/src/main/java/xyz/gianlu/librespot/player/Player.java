@@ -357,9 +357,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleLoad(@NotNull Remote3Frame frame) {
-        boolean wasInactive = false;
         if (!spirc.deviceState().getIsActive()) {
-            wasInactive = true;
             spirc.deviceState()
                     .setIsActive(true)
                     .setBecameActiveAt(TimeProvider.currentTimeMillis());
@@ -384,7 +382,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         boolean play;
         if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
-        else play = !wasInactive;
+        else play = true;
         loadTrack(play);
     }
 
