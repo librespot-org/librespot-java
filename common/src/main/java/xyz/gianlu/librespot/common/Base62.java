@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.common;
 
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 
 /**
  * A Base62 encoder/decoder.
@@ -47,14 +48,37 @@ public class Base62 {
     }
 
     /**
+     * Encodes a sequence of bytes in Base62 encoding and pads it accordingly.
+     *
+     * @param message a byte sequence.
+     * @param length  the expected length.
+     * @return a sequence of Base62-encoded bytes.
+     */
+    public byte[] encode(byte[] message, int length) {
+        byte[] indices = convert(message, STANDARD_BASE, TARGET_BASE, length);
+        return translate(indices, alphabet);
+    }
+
+    /**
      * Encodes a sequence of bytes in Base62 encoding.
      *
      * @param message a byte sequence.
      * @return a sequence of Base62-encoded bytes.
      */
     public byte[] encode(byte[] message) {
-        byte[] indices = convert(message, STANDARD_BASE, TARGET_BASE);
-        return translate(indices, alphabet);
+        return encode(message, -1);
+    }
+
+    /**
+     * Decodes a sequence of Base62-encoded bytes and pads it accordingly.
+     *
+     * @param encoded a sequence of Base62-encoded bytes.
+     * @param length  the expected length.
+     * @return a byte sequence.
+     */
+    public byte[] decode(byte[] encoded, int length) {
+        byte[] prepared = translate(encoded, lookup);
+        return convert(prepared, TARGET_BASE, STANDARD_BASE, length);
     }
 
     /**
@@ -64,8 +88,7 @@ public class Base62 {
      * @return a byte sequence.
      */
     public byte[] decode(byte[] encoded) {
-        byte[] prepared = translate(encoded, lookup);
-        return convert(prepared, TARGET_BASE, STANDARD_BASE);
+        return decode(encoded, -1);
     }
 
     /**
@@ -83,10 +106,10 @@ public class Base62 {
     /**
      * Converts a byte array from a source base to a target base using the alphabet.
      */
-    private byte[] convert(byte[] message, int sourceBase, int targetBase) {
+    private byte[] convert(byte[] message, int sourceBase, int targetBase, int length) {
         // This algorithm is inspired by: http://codegolf.stackexchange.com/a/21672
 
-        int estimatedLength = estimateOutputLength(message.length, sourceBase, targetBase);
+        int estimatedLength = length == -1 ? estimateOutputLength(message.length, sourceBase, targetBase) : length;
         ByteArrayOutputStream out = new ByteArrayOutputStream(estimatedLength);
         byte[] source = message;
         while (source.length > 0) {
@@ -104,11 +127,17 @@ public class Base62 {
             source = quotient.toByteArray();
         }
 
-        // pad output with zeroes corresponding to the number of leading zeroes in the message
-        for (int i = 0; i < estimatedLength - out.size(); i++)
-            out.write(0);
+        if (out.size() < estimatedLength) {
+            int size = out.size();
+            for (int i = 0; i < estimatedLength - size; i++)
+                out.write(0);
 
-        return reverse(out.toByteArray());
+            return reverse(out.toByteArray());
+        } else if (out.size() > estimatedLength) {
+            return reverse(Arrays.copyOfRange(out.toByteArray(), 0, estimatedLength));
+        } else {
+            return reverse(out.toByteArray());
+        }
     }
 
     /**

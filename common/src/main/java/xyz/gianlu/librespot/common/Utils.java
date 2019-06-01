@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
 
 import javax.sound.sampled.Mixer;
 import java.io.ByteArrayInputStream;
@@ -24,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,10 +31,13 @@ import java.util.zip.GZIPInputStream;
 /**
  * @author Gianlu
  */
-public class Utils {
+public final class Utils {
     public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+
+    private Utils() {
+    }
 
     @NotNull
     public static String decodeGZip(@NotNull ByteString bytes) throws IOException {
@@ -50,23 +51,6 @@ public class Utils {
                 dataOut.write(buffer, 0, count);
             return new String(dataOut.toByteArray(), StandardCharsets.UTF_8);
         }
-    }
-
-    @NotNull
-    public static String toBase64(@NotNull ByteString bytes) {
-        return Base64.getEncoder().encodeToString(bytes.toByteArray());
-    }
-
-    public static int indexOf(@NotNull List<Spirc.TrackRef> list, @NotNull Spirc.TrackRef ref) {
-        for (int i = 0; i < list.size(); i++) {
-            Spirc.TrackRef item = list.get(i);
-            if (item.hasGid() && ref.hasGid() && item.getGid().equals(ref.getGid()))
-                return i;
-            else if (item.hasUri() && ref.hasUri() && item.getUri().equals(ref.getUri()))
-                return i;
-        }
-
-        return -1;
     }
 
     @NotNull
@@ -204,16 +188,6 @@ public class Utils {
     @NotNull
     public static String bytesToHex(byte[] bytes) {
         return bytesToHex(bytes, 0, bytes.length, false, -1);
-    }
-
-    @NotNull
-    public static String bytesToHex(byte[] bytes, boolean trim) {
-        return bytesToHex(bytes, 0, bytes.length, trim, -1);
-    }
-
-    @NotNull
-    public static String bytesToHex(byte[] bytes, boolean trim, int minLength) {
-        return bytesToHex(bytes, 0, bytes.length, trim, minLength);
     }
 
     @NotNull
