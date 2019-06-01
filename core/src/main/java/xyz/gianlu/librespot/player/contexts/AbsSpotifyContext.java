@@ -143,8 +143,8 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
         }
 
         @NotNull
-        public static UnsupportedContextException empty() {
-            return new UnsupportedContextException("Empty context not supported!");
+        public static UnsupportedContextException noSupported() {
+            return new UnsupportedContextException("There are no supported tracks in this context!");
         }
     }
 }

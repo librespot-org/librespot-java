@@ -61,21 +61,26 @@ public class Remote3Track {
         return isQueued;
     }
 
-    @Nullable
+    @NotNull
     public Spirc.TrackRef toTrackRef() {
-        if (!PlayableId.isSupported(uri))
-            return null;
-
-        return Spirc.TrackRef.newBuilder()
-                .setQueued(isQueued())
-                .setGid(ByteString.copyFrom(id().getGid()))
-                .setUri(uri).build();
+        if (PlayableId.isSupported(uri)) {
+            return Spirc.TrackRef.newBuilder()
+                    .setQueued(isQueued())
+                    .setGid(ByteString.copyFrom(id().getGid()))
+                    .setUri(uri).build();
+        } else {
+            return Spirc.TrackRef.newBuilder().setUri(uri).build();
+        }
     }
 
     @NotNull
     public PlayableId id() {
         if (id == null) id = PlayableId.fromUri(uri);
         return id;
+    }
+
+    public boolean isSupported() {
+        return PlayableId.isSupported(uri);
     }
 
     public boolean is(@NotNull PlayableId current) {

@@ -11,6 +11,8 @@ import java.util.List;
 public interface PlayableId {
     @NotNull
     static PlayableId fromUri(@NotNull String uri) {
+        if (!isSupported(uri)) return new UnsupportedId(uri);
+
         if (TrackId.PATTERN.matcher(uri).matches()) {
             return TrackId.fromUri(uri);
         } else if (EpisodeId.PATTERN.matcher(uri).matches()) {
@@ -20,26 +22,16 @@ public interface PlayableId {
         }
     }
 
-    static boolean isSupported(@NotNull String uri) {
-        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
+    static boolean hasAtLeastOneSupportedId(@NotNull List<Remote3Track> tracks) {
+        for (Remote3Track track : tracks)
+            if (track.isSupported())
+                return true;
+
+        return false;
     }
 
-    static int removeUnsupported(@NotNull List<Remote3Track> tracks, int updateIndex) {
-        for (int i = tracks.size() - 1; i >= 0; i--) {
-            Remote3Track track = tracks.get(i);
-            if (!isSupported(track.uri)) {
-                tracks.remove(i);
-
-                if (updateIndex != -1) {
-                    if (updateIndex == i) updateIndex = -1;
-
-                    if (updateIndex > i)
-                        updateIndex--;
-                }
-            }
-        }
-
-        return updateIndex;
+    static boolean isSupported(@NotNull String uri) {
+        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
     }
 
     @NotNull byte[] getGid();

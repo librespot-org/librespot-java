@@ -346,6 +346,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void panicState() {
+        if (trackHandler != null) trackHandler.sendStop();
         state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
         state.updated();
     }

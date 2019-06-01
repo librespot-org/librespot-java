@@ -12,6 +12,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.mercury.model.UnsupportedId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.contexts.SearchContext;
 import xyz.gianlu.librespot.player.providers.ContentProvider;
@@ -104,15 +105,15 @@ public class StateWrapper {
 
     synchronized void setShuffle(boolean shuffle) {
         state.setShuffle(shuffle && context != null && context.canShuffle());
-        if (state.getShuffle()) shuffleContent(false);
+        if (state.getShuffle()) shuffleContent(false, true);
         else unshuffleContent();
     }
 
-    private void shuffleContent(boolean fully) {
+    private void shuffleContent(boolean fully, boolean saveSeed) {
         if (tracksKeeper == null) return;
 
         if (context != null && context.canShuffle())
-            tracksKeeper.shuffle(session.random(), fully);
+            tracksKeeper.shuffle(session.random(), fully, saveSeed);
         else
             LOGGER.warn("Cannot shuffle: " + tracksKeeper);
     }
@@ -155,14 +156,13 @@ public class StateWrapper {
         boolean allTracks = totalTracks == tracks.size();
         tracksKeeper = new TracksKeeper(this.context, tracks, allTracks);
 
-        int updated = PlayableId.removeUnsupported(tracks, selector == null ? -1 : selector.trackIndex); // FIXME
-        if (selector != null && updated != -1) selector.trackIndex = updated;
-
         PlayableId current = selector != null ? selector.find(tracks) : null;
         tracksKeeper.setPlaying(current);
+
+        if (state.getShuffle()) shuffleContent(current == null, false); // FIXME: Breaks some stuff
     }
 
-    private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException {
+    private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException, AbsSpotifyContext.UnsupportedContextException {
         List<Remote3Track> tracks = page.tracks;
         if (tracks == null) {
             if (page.pageUrl != null) {
@@ -172,6 +172,9 @@ public class StateWrapper {
                 throw new IllegalStateException("How do I load this page?!");
             }
         }
+
+        if (!PlayableId.hasAtLeastOneSupportedId(tracks))
+            throw AbsSpotifyContext.UnsupportedContextException.noSupported();
 
         loadPageTracks(tracks, selector, totalTracks);
     }
@@ -267,9 +270,7 @@ public class StateWrapper {
             if (elm != null && elm.isJsonPrimitive()) totalTracks = elm.getAsInt();
         }
 
-        boolean allTracks = totalTracks == tracks.size();
-        PlayableId.removeUnsupported(tracks, -1); // FIXME
-        tracksKeeper.update(tracks, allTracks);
+        tracksKeeper.update(tracks, totalTracks == tracks.size());
     }
 
     synchronized void setQueue(@NotNull Remote3Frame frame) {
@@ -333,7 +334,7 @@ public class StateWrapper {
     private static class TrackSelector {
         private final String trackUid;
         private final String trackUri;
-        private int trackIndex;
+        private final int trackIndex;
         private int selectedIndex = -1;
 
         TrackSelector(@Nullable Remote3Frame.Options.SkipTo skipTo) {
@@ -418,14 +419,22 @@ public class StateWrapper {
             this.tracks.addAll(tracks);
 
             complete = all && context.isFinite();
-            if (!all && false) fetchAsync(); // FIXME: Breaks shuffle
+            if (!all && !state.getShuffle()) fetchAsync();
 
             // TODO: We should probably subscribe to events on this context
         }
 
-        synchronized void shuffle(@NotNull Random random, boolean fully) {
+        synchronized void shuffle(@NotNull Random random, boolean fully, boolean saveSeed) {
             if (tracks.size() <= 1)
                 return;
+
+            if (!complete) {
+                try {
+                    loadAllTracks();
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    LOGGER.warn("Failed resolving context before shuffling.", ex);
+                }
+            }
 
             shuffleSeed = random.nextLong();
 
@@ -445,7 +454,12 @@ public class StateWrapper {
                 }
             }
 
-            LOGGER.trace(String.format("Shuffled {seed: %d, fully: %b}", shuffleSeed, fully));
+            if (saveSeed) {
+                LOGGER.trace(String.format("Shuffled {seed: %d, fully: %b}", shuffleSeed, fully));
+            } else {
+                shuffleSeed = 0;
+                LOGGER.trace(String.format("Shuffled {discarded seed, fully: %b}", fully));
+            }
         }
 
         synchronized void unshuffle() {
@@ -484,11 +498,13 @@ public class StateWrapper {
         }
 
         private void loadAllTracks() throws IOException, MercuryClient.MercuryException {
+            if (state.getShuffle()) LOGGER.warn("Loading tracks for shuffled context, is this right?");
+
             MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context.uri()));
-            updateWithPage(resolved.pages().get(0), true);
+            updateWithPage(resolved.pages().get(0));
         }
 
-        private void updateWithPage(@NotNull Remote3Page page, boolean complete) throws IOException {
+        private void updateWithPage(@NotNull Remote3Page page) throws IOException {
             List<Remote3Track> newTracks = page.tracks;
             if (newTracks == null) {
                 if (page.pageUrl != null) {
@@ -498,15 +514,17 @@ public class StateWrapper {
                 }
             }
 
-            update(newTracks, complete);
+            update(newTracks, true);
         }
 
         private void fetchAsync() {
             session.mercury().send(MercuryRequests.resolveContext(context.uri()), new MercuryClient.JsonCallback<MercuryRequests.ResolvedContextWrapper>() {
                 @Override
                 public void response(MercuryRequests.@NotNull ResolvedContextWrapper json) {
+                    if (state.getShuffle()) return;
+
                     try {
-                        updateWithPage(json.pages().get(0), true);
+                        updateWithPage(json.pages().get(0));
                     } catch (IOException ex) {
                         exception(ex);
                     }
@@ -543,7 +561,7 @@ public class StateWrapper {
         @Nullable
         synchronized PlayableId nextPlayableDoNotSet() {
             if (context.isFinite()) {
-                if (!complete && tracks.size() - playingIndex <= LOAD_MORE_THRESHOLD) {
+                if (!complete && tracks.size() - playingIndex <= LOAD_MORE_THRESHOLD && !state.getShuffle()) {
                     try {
                         loadAllTracks();
                     } catch (IOException | MercuryClient.MercuryException ex) {
@@ -568,7 +586,13 @@ public class StateWrapper {
             }
 
             if (playingIndex + 1 >= tracks.size()) return null;
-            return tracks.get(playingIndex + 1).id();
+            PlayableId next = tracks.get(playingIndex + 1).id();
+            if (next instanceof UnsupportedId) {
+                playingIndex++;
+                return nextPlayableDoNotSet();
+            }
+
+            return next;
         }
 
         @NotNull
@@ -597,11 +621,13 @@ public class StateWrapper {
         synchronized void setPlaying(@Nullable PlayableId id) {
             if (id == null) {
                 playingIndex = 0;
-                return;
+            } else {
+                playingIndex = indexOf(id);
+                if (playingIndex == -1) playingIndex = 0;
             }
 
-            playingIndex = indexOf(id);
-            if (playingIndex == -1) playingIndex = 0;
+            if (!tracks.get(playingIndex).isSupported())
+                setPlaying(nextPlayableDoNotSet());
         }
 
         private int indexOf(@NotNull PlayableId current) {
@@ -616,7 +642,7 @@ public class StateWrapper {
         synchronized PreviousPlayable previousPlayable() {
             if (playingIndex == 0) {
                 if (state.getRepeat()) {
-                    if (!complete) {
+                    if (!complete && !state.getShuffle()) {
                         try {
                             loadAllTracks();
                         } catch (IOException | MercuryClient.MercuryException ex) {
@@ -633,7 +659,7 @@ public class StateWrapper {
             return PreviousPlayable.OK;
         }
 
-        synchronized void update(@NotNull List<Remote3Track> newTracks, boolean complete) { // TODO: What if it's shuffled?
+        synchronized void update(@NotNull List<Remote3Track> newTracks, boolean complete) {
             PlayableId previouslyPlaying = tracks.get(playingIndex).id();
             tracks.clear();
 
@@ -673,18 +699,12 @@ public class StateWrapper {
             Remote3Track currentlyPlaying = tracks.get(playingIndex);
             tracks.clear();
 
-            if (prevTracks != null) {
-                PlayableId.removeUnsupported(prevTracks, -1);
-                tracks.addAll(prevTracks);
-            }
+            if (prevTracks != null) tracks.addAll(prevTracks);
 
             tracks.add(currentlyPlaying);
             playingIndex = tracks.size() - 1;
 
-            if (nextTracks != null) {
-                PlayableId.removeUnsupported(nextTracks, -1);
-                tracks.addAll(nextTracks);
-            }
+            if (nextTracks != null) tracks.addAll(nextTracks);
         }
 
         synchronized void seekTo(@NotNull String uri) {
@@ -695,12 +715,18 @@ public class StateWrapper {
                 return;
             }
 
-            if (complete) {
-                LOGGER.warn("Couldn't seek to track: did not found in list.");
-                return;
+            if (!complete && !state.getShuffle()) {
+                try {
+                    loadAllTracks();
+                    seekTo(uri);
+                    return;
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    LOGGER.error("Failed resolving context before seeking.", ex);
+                    return;
+                }
             }
 
-            // TODO: Fetch all tracks and do it again
+            LOGGER.warn("Couldn't seek to track: did not found in list.");
         }
     }
 }
