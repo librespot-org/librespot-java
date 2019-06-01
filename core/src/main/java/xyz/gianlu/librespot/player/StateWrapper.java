@@ -102,8 +102,8 @@ public class StateWrapper {
         state.setRepeat(repeat && context != null && context.canRepeatContext());
     }
 
-    void setShuffle(boolean shuffle) {
-        state.setShuffle(shuffle && context != null && context.canRepeatContext());
+    synchronized void setShuffle(boolean shuffle) {
+        state.setShuffle(shuffle && context != null && context.canShuffle());
         if (state.getShuffle()) shuffleContent(false);
         else unshuffleContent();
     }
@@ -160,8 +160,6 @@ public class StateWrapper {
 
         PlayableId current = selector != null ? selector.find(tracks) : null;
         tracksKeeper.setPlaying(current);
-
-        if (state.getShuffle()) shuffleContent(current == null);
     }
 
     private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException {
@@ -178,12 +176,12 @@ public class StateWrapper {
         loadPageTracks(tracks, selector, totalTracks);
     }
 
-    void updated() {
+    synchronized void updated() {
         if (tracksKeeper != null) tracksKeeper.dumpToState(state);
         session.spirc().deviceStateUpdated(state);
     }
 
-    void seekTo(@Nullable String uri) {
+    synchronized void seekTo(@Nullable String uri) {
         if (tracksKeeper == null || uri == null) return;
 
         tracksKeeper.seekTo(uri);
@@ -255,7 +253,7 @@ public class StateWrapper {
         loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo), totalTracks);
     }
 
-    void updateContext(@NotNull Remote3Frame.Context context) {
+    synchronized void updateContext(@NotNull Remote3Frame.Context context) {
         Remote3Page page;
         List<Remote3Track> tracks;
         if (context.pages == null || context.pages.isEmpty() || (page = context.pages.get(0)) == null || (tracks = page.tracks) == null) {
@@ -274,13 +272,13 @@ public class StateWrapper {
         tracksKeeper.update(tracks, allTracks);
     }
 
-    void setQueue(@NotNull Remote3Frame frame) {
+    synchronized void setQueue(@NotNull Remote3Frame frame) {
         if (tracksKeeper == null) return;
 
         tracksKeeper.setQueue(frame.prevTracks, frame.nextTracks);
     }
 
-    void addToQueue(@NotNull Remote3Frame frame) {
+    synchronized void addToQueue(@NotNull Remote3Frame frame) {
         if (tracksKeeper == null) return;
 
         if (frame.track == null)
@@ -289,28 +287,28 @@ public class StateWrapper {
         tracksKeeper.addToQueue(frame.track);
     }
 
-    boolean hasTracks() {
+    synchronized boolean hasTracks() {
         return tracksKeeper != null;
     }
 
     @NotNull
-    PlayableId getCurrentTrack() {
+    synchronized PlayableId getCurrentTrack() {
         return tracksKeeper.currentlyPlaying();
     }
 
     @NotNull
-    StateWrapper.NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+    synchronized StateWrapper.NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
         if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
         return tracksKeeper.nextPlayable(conf);
     }
 
     @Nullable
-    PlayableId nextPlayableDoNotSet() {
+    synchronized PlayableId nextPlayableDoNotSet() {
         return tracksKeeper.nextPlayableDoNotSet();
     }
 
     @NotNull
-    PreviousPlayable previousPlayable() {
+    synchronized PreviousPlayable previousPlayable() {
         if (tracksKeeper == null) return PreviousPlayable.MISSING_TRACKS;
         return tracksKeeper.previousPlayable();
     }
@@ -385,11 +383,11 @@ public class StateWrapper {
             return selectedIndex == -1 ? 0 : selectedIndex;
         }
 
-        @NotNull
+        @Nullable
         public PlayableId find(@NotNull List<Remote3Track> tracks) {
             if (trackIndex != -1) return tracks.get(trackIndex).id();
 
-            if (trackUid == null && trackUri == null) return tracks.get(0).id();
+            if (trackUid == null && trackUri == null) return null;
 
             for (Remote3Track track : tracks) {
                 if (trackUid != null) {
@@ -401,7 +399,7 @@ public class StateWrapper {
                 }
             }
 
-            return tracks.get(0).id();
+            return null;
         }
     }
 
@@ -420,12 +418,12 @@ public class StateWrapper {
             this.tracks.addAll(tracks);
 
             complete = all && context.isFinite();
-            if (!all) fetchAsync();
+            if (!all && false) fetchAsync(); // FIXME: Breaks shuffle
 
             // TODO: We should probably subscribe to events on this context
         }
 
-        synchronized void shuffle(@NotNull Random random, boolean fully) { // FIXME: Broken
+        synchronized void shuffle(@NotNull Random random, boolean fully) {
             if (tracks.size() <= 1)
                 return;
 
@@ -450,7 +448,7 @@ public class StateWrapper {
             LOGGER.trace(String.format("Shuffled {seed: %d, fully: %b}", shuffleSeed, fully));
         }
 
-        synchronized void unshuffle() { // FIXME: Broken
+        synchronized void unshuffle() {
             if (tracks.size() <= 1)
                 return;
 
@@ -472,16 +470,12 @@ public class StateWrapper {
             }
 
             if (state.hasContextUri()) {
-                PlayableId currentlyPlaying = currentlyPlaying();
-
                 try {
                     loadAllTracks();
                 } catch (IOException | MercuryClient.MercuryException ex) {
                     LOGGER.fatal("Cannot unshuffle context!", ex);
                     return;
                 }
-
-                setPlaying(currentlyPlaying);
 
                 LOGGER.trace("Unshuffled using context-resolve.");
             } else {
@@ -640,9 +634,9 @@ public class StateWrapper {
         }
 
         synchronized void update(@NotNull List<Remote3Track> newTracks, boolean complete) { // TODO: What if it's shuffled?
+            PlayableId previouslyPlaying = tracks.get(playingIndex).id();
             tracks.clear();
 
-            PlayableId previouslyPlaying = newTracks.get(playingIndex).id();
             TrackSelector selector = new TrackSelector(previouslyPlaying);
             for (int i = 0; i < newTracks.size(); i++) {
                 Remote3Track track = newTracks.get(i);
