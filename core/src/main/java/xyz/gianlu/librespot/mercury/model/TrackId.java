@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * @author Gianlu
  */
 public final class TrackId implements SpotifyId, PlayableId {
-    static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22}|.{21})");
+    static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22})");
     private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
@@ -25,7 +25,7 @@ public final class TrackId implements SpotifyId, PlayableId {
         Matcher matcher = PATTERN.matcher(uri);
         if (matcher.find()) {
             String id = matcher.group(1);
-            return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes()), true, 16));
+            return new TrackId(Utils.bytesToHex(BASE62.decode(id.getBytes(), 16)));
         } else {
             throw new IllegalArgumentException("Not a Spotify track ID: " + uri);
         }
@@ -33,7 +33,7 @@ public final class TrackId implements SpotifyId, PlayableId {
 
     @NotNull
     public static TrackId fromBase62(@NotNull String base62) {
-        return new TrackId(Utils.bytesToHex(BASE62.decode(base62.getBytes()), true, 16));
+        return new TrackId(Utils.bytesToHex(BASE62.decode(base62.getBytes(), 16)));
     }
 
     @NotNull
@@ -59,7 +59,7 @@ public final class TrackId implements SpotifyId, PlayableId {
 
     @Override
     public @NotNull String toSpotifyUri() {
-        return "spotify:track:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
+        return "spotify:track:" + new String(BASE62.encode(Utils.hexToBytes(hexId), 22));
     }
 
     @Override
