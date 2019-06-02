@@ -86,4 +86,9 @@ public class Remote3Track {
     public boolean is(@NotNull PlayableId current) {
         return Objects.equals(uri, current.toSpotifyUri());
     }
+
+    @Override
+    public String toString() {
+        return "Remote3Track{" + "id=" + id + '}';
+    }
 }

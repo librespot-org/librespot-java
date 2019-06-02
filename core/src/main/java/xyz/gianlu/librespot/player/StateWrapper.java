@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -50,16 +51,6 @@ public class StateWrapper {
                 .setShuffle(false).setRepeat(false)
                 .setRow(0).setPlayingFromFallback(true)
                 .setStatus(Spirc.PlayStatus.kPlayStatusStop);
-    }
-
-    private static int[] getShuffleExchanges(int size, long seed) {
-        int[] exchanges = new int[size - 1];
-        Random rand = new Random(seed);
-        for (int i = size - 1; i > 0; i--) {
-            int n = rand.nextInt(i + 1);
-            exchanges[size - 1 - i] = n;
-        }
-        return exchanges;
     }
 
     boolean isRepeatingTrack() {
@@ -112,19 +103,15 @@ public class StateWrapper {
     private void shuffleContent(boolean fully, boolean saveSeed) {
         if (tracksKeeper == null) return;
 
-        if (context != null && context.canShuffle())
-            tracksKeeper.shuffle(session.random(), fully, saveSeed);
-        else
-            LOGGER.warn("Cannot shuffle: " + tracksKeeper);
+        if (context != null && context.canShuffle()) tracksKeeper.shuffle(fully, saveSeed);
+        else LOGGER.warn("Cannot shuffle: " + tracksKeeper);
     }
 
     private void unshuffleContent() {
         if (tracksKeeper == null) return;
 
-        if (context != null && context.canShuffle())
-            tracksKeeper.unshuffle();
-        else
-            LOGGER.warn("Cannot unshuffle: " + tracksKeeper);
+        if (context != null && context.canShuffle()) tracksKeeper.unshuffle();
+        else LOGGER.warn("Cannot unshuffle: " + tracksKeeper);
     }
 
     private void setContext(@NotNull Remote3Frame.Context context) throws AbsSpotifyContext.UnsupportedContextException {
@@ -159,7 +146,7 @@ public class StateWrapper {
         PlayableId current = selector != null ? selector.find(tracks) : null;
         tracksKeeper.setPlaying(current);
 
-        if (state.getShuffle()) shuffleContent(current == null, false); // FIXME: Breaks some stuff
+        if (state.getShuffle()) shuffleContent(current == null, false);
     }
 
     private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException, AbsSpotifyContext.UnsupportedContextException {
@@ -408,13 +395,15 @@ public class StateWrapper {
         private static final int LOAD_MORE_THRESHOLD = 3;
         private final AbsSpotifyContext<?> context;
         private final List<Remote3Track> tracks;
+        private final FisherYatesShuffle<Remote3Track> shuffle;
         private int playingIndex = -1;
+        private int shuffleKeepIndex = -1;
         private volatile boolean complete;
-        private long shuffleSeed = 0;
         private ContentProvider provider;
 
         private TracksKeeper(@NotNull AbsSpotifyContext<?> context, @NotNull List<Remote3Track> tracks, boolean all) {
             this.context = context;
+            this.shuffle = new FisherYatesShuffle<>(session.random());
             this.tracks = new ArrayList<>(tracks.size());
             this.tracks.addAll(tracks);
 
@@ -424,7 +413,7 @@ public class StateWrapper {
             // TODO: We should probably subscribe to events on this context
         }
 
-        synchronized void shuffle(@NotNull Random random, boolean fully, boolean saveSeed) {
+        synchronized void shuffle(boolean fully, boolean saveSeed) {
             if (tracks.size() <= 1)
                 return;
 
@@ -436,50 +425,33 @@ public class StateWrapper {
                 }
             }
 
-            shuffleSeed = random.nextLong();
-
             if (fully) {
-                Collections.shuffle(tracks, new Random(shuffleSeed));
+                shuffle.shuffle(tracks, saveSeed);
             } else {
-                if (playingIndex != 0) {
-                    Collections.swap(tracks, 0, playingIndex);
-                    playingIndex = 0;
-                }
-
-                int size = tracks.size() - 1;
-                int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-                for (int i = size - 1; i > 1; i--) {
-                    int n = exchanges[size - 1 - i];
-                    Collections.swap(tracks, i, n + 1);
-                }
+                PlayableId currentlyPlaying = currentlyPlaying();
+                shuffle.shuffle(tracks, saveSeed);
+                shuffleKeepIndex = indexOf(currentlyPlaying);
+                Collections.swap(tracks, 0, shuffleKeepIndex);
+                playingIndex = 0;
             }
 
-            if (saveSeed) {
-                LOGGER.trace(String.format("Shuffled {seed: %d, fully: %b}", shuffleSeed, fully));
-            } else {
-                shuffleSeed = 0;
-                LOGGER.trace(String.format("Shuffled {discarded seed, fully: %b}", fully));
-            }
+            if (saveSeed) LOGGER.trace(String.format("Shuffled {fully: %b}", fully));
+            else LOGGER.trace(String.format("Shuffled without seed {fully: %b}", fully));
         }
 
         synchronized void unshuffle() {
             if (tracks.size() <= 1)
                 return;
 
-            if (shuffleSeed != 0) {
-                if (playingIndex != 0) {
-                    Collections.swap(tracks, 0, playingIndex);
-                    playingIndex = 0;
-                }
+            if (shuffle.canUnshuffle(tracks.size())) {
+                if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
+                if (playingIndex == 0 && shuffleKeepIndex != -1) playingIndex = shuffleKeepIndex;
 
-                int size = tracks.size() - 1;
-                int[] exchanges = getShuffleExchanges(size, shuffleSeed);
-                for (int i = 1; i < size; i++) {
-                    int n = exchanges[size - i - 1];
-                    Collections.swap(tracks, i, n + 1);
-                }
+                PlayableId currentlyPlaying = currentlyPlaying();
+                shuffle.unshuffle(tracks);
+                setPlaying(currentlyPlaying);
 
-                LOGGER.trace("Unshuffled using seed: " + shuffleSeed);
+                LOGGER.trace("Unshuffled using Fisher-Yates.");
                 return;
             }
 
@@ -493,7 +465,7 @@ public class StateWrapper {
 
                 LOGGER.trace("Unshuffled using context-resolve.");
             } else {
-                LOGGER.fatal("Cannot unshuffle context! Did not know seed and context is missing.");
+                LOGGER.fatal("Cannot unshuffle context!");
             }
         }
 
