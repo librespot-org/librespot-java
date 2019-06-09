@@ -408,7 +408,7 @@ public class StateWrapper {
             this.tracks.addAll(tracks);
 
             complete = all && context.isFinite();
-            if (!all && !state.getShuffle()) fetchAsync();
+            if (!all && !state.getShuffle() && !context.isFinite()) fetchAsync();
 
             // TODO: We should probably subscribe to events on this context
         }
@@ -470,13 +470,14 @@ public class StateWrapper {
         }
 
         private void loadAllTracks() throws IOException, MercuryClient.MercuryException {
+            if (!context.isFinite()) throw new IllegalStateException();
             if (state.getShuffle()) LOGGER.warn("Loading tracks for shuffled context, is this right?");
 
             MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context.uri()));
-            updateWithPage(resolved.pages().get(0));
+            updateWithPage(resolved.pages().get(0), context.isFinite());
         }
 
-        private void updateWithPage(@NotNull Remote3Page page) throws IOException {
+        private void updateWithPage(@NotNull Remote3Page page, boolean complete) throws IOException {
             List<Remote3Track> newTracks = page.tracks;
             if (newTracks == null) {
                 if (page.pageUrl != null) {
@@ -486,17 +487,19 @@ public class StateWrapper {
                 }
             }
 
-            update(newTracks, true);
+            update(newTracks, complete);
         }
 
         private void fetchAsync() {
+            if (!context.isFinite()) throw new IllegalStateException();
+
             session.mercury().send(MercuryRequests.resolveContext(context.uri()), new MercuryClient.JsonCallback<MercuryRequests.ResolvedContextWrapper>() {
                 @Override
                 public void response(MercuryRequests.@NotNull ResolvedContextWrapper json) {
                     if (state.getShuffle()) return;
 
                     try {
-                        updateWithPage(json.pages().get(0));
+                        updateWithPage(json.pages().get(0), true);
                     } catch (IOException ex) {
                         exception(ex);
                     }
@@ -613,7 +616,7 @@ public class StateWrapper {
         @NotNull
         synchronized PreviousPlayable previousPlayable() {
             if (playingIndex == 0) {
-                if (state.getRepeat()) {
+                if (state.getRepeat() && context.isFinite()) {
                     if (!complete && !state.getShuffle()) {
                         try {
                             loadAllTracks();
@@ -687,7 +690,7 @@ public class StateWrapper {
                 return;
             }
 
-            if (!complete && !state.getShuffle()) {
+            if (!complete && !state.getShuffle() && context.isFinite()) {
                 try {
                     loadAllTracks();
                     seekTo(uri);
