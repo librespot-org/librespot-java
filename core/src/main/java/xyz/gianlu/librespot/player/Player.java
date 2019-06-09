@@ -70,13 +70,15 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleFrame(@NotNull Spirc.MessageType type, @NotNull Spirc.Frame spircFrame, @Nullable Remote3Frame frame) {
         switch (type) {
             case kMessageTypeNotify:
-                if (spirc.deviceState().getIsActive() && spircFrame.getDeviceState().getIsActive()) {
-                    spirc.deviceState().setIsActive(false);
-                    state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                    if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
-                    state.updated();
+                if (spirc.deviceState().getIsActive() && frame != null) {
+                    if (frame.isPlaying && !frame.isPaused) {
+                        spirc.deviceState().setIsActive(false);
+                        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+                        if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
+                        state.updated();
 
-                    LOGGER.warn("Stopping player due to kMessageTypeNotify!");
+                        LOGGER.warn("Stopping player due to kMessageTypeNotify!");
+                    }
                 }
                 break;
             case kMessageTypeLoad:
