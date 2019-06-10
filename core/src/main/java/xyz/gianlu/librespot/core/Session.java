@@ -6,6 +6,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.api.ApiClient;
+import xyz.gianlu.librespot.api.DealerClient;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -87,6 +89,8 @@ public class Session implements Closeable {
     private TokenProvider tokenProvider;
     private CdnManager cdnManager;
     private CacheManager cacheManager;
+    private DealerClient dealer;
+    private ApiClient api;
     private String countryCode = null;
     private volatile boolean closed = false;
 
@@ -242,14 +246,16 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
+    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.MercuryException {
         authenticatePartial(credentials);
 
         mercuryClient = new MercuryClient(this);
         tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
+        api = new ApiClient(this);
         cdnManager = new CdnManager(this);
+        dealer = new DealerClient(this);
         cacheManager = new CacheManager(inner.configuration);
         spirc = new SpotifyIrc(this);
         spirc.sayHello();
@@ -414,6 +420,20 @@ public class Session implements Closeable {
         waitAuthLock();
         if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
         return spirc;
+    }
+
+    @NotNull
+    public DealerClient dealer() {
+        waitAuthLock();
+        if (dealer == null) throw new IllegalStateException("Session isn't authenticated!");
+        return dealer;
+    }
+
+    @NotNull
+    public ApiClient api() {
+        waitAuthLock();
+        if (api == null) throw new IllegalStateException("Session isn't authenticated!");
+        return api;
     }
 
     @NotNull
@@ -627,7 +647,7 @@ public class Session implements Closeable {
         }
 
         @NotNull
-        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.MercuryException {
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.authBlob();
@@ -657,6 +677,8 @@ public class Session implements Closeable {
                     throw new IllegalStateException("Missing credentials!");
                 }
             }
+
+            ApResolver.fillPool();
 
             Session session = Session.from(inner);
             session.connect();
