@@ -47,6 +47,10 @@ public class StationProvider implements ContentProvider {
         }
     }
 
+    public void updateNextPageUrl(@NotNull String url) {
+        nextPageUrl = url;
+    }
+
     @Override
     public @NotNull Remote3Page nextPage() throws IOException, MercuryClient.MercuryException {
         if (nextPageUrl == null) resolveContext();

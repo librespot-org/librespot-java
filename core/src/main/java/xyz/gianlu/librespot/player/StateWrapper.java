@@ -17,6 +17,7 @@ import xyz.gianlu.librespot.mercury.model.UnsupportedId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.contexts.SearchContext;
 import xyz.gianlu.librespot.player.providers.ContentProvider;
+import xyz.gianlu.librespot.player.providers.StationProvider;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
 import xyz.gianlu.librespot.player.remote.Remote3Track;
@@ -257,6 +258,9 @@ public class StateWrapper {
             if (elm != null && elm.isJsonPrimitive()) totalTracks = elm.getAsInt();
         }
 
+        if (page.nextPageUrl != null && tracksKeeper.provider instanceof StationProvider)
+            ((StationProvider) tracksKeeper.provider).updateNextPageUrl(page.nextPageUrl);
+
         tracksKeeper.update(tracks, totalTracks == tracks.size());
     }
 
@@ -408,7 +412,7 @@ public class StateWrapper {
             this.tracks.addAll(tracks);
 
             complete = all && context.isFinite();
-            if (!all && !state.getShuffle() && !context.isFinite()) fetchAsync();
+            if (!all && !state.getShuffle() && context.isFinite()) fetchAsync();
 
             // TODO: We should probably subscribe to events on this context
         }
