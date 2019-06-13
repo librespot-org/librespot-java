@@ -7,13 +7,14 @@ import xyz.gianlu.librespot.common.Utils;
 
 import javax.sound.sampled.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Gianlu
  */
 public class LinesHolder {
     private static final Logger LOGGER = Logger.getLogger(LinesHolder.class);
-    private final Map<Mixer, Line> openLines = new HashMap<>();
+    private final Map<Mixer, LineWithState> openLines = new HashMap<>();
 
     LinesHolder() {
     }
@@ -52,15 +53,6 @@ public class LinesHolder {
         return list.get(0);
     }
 
-    private static boolean isCompatible(@NotNull DataLine.Info line, @NotNull DataLine.Info other) {
-        for (AudioFormat format : other.getFormats()) {
-            if (!line.isFormatSupported(format))
-                return false;
-        }
-
-        return true;
-    }
-
     @NotNull
     public LineWrapper getLine(@NotNull Mixer mixer, @NotNull DataLine.Info info) {
         return new LineWrapper(mixer, info);
@@ -81,10 +73,48 @@ public class LinesHolder {
         }
     }
 
+    private static class LineWithState {
+        private final SourceDataLine line;
+        private final AtomicBoolean free = new AtomicBoolean(true);
+
+        LineWithState(@NotNull SourceDataLine line) {
+            this.line = line;
+        }
+
+        boolean isCompatible(@NotNull DataLine.Info other) {
+            for (AudioFormat format : other.getFormats()) {
+                if (!((DataLine.Info) line.getLineInfo()).isFormatSupported(format))
+                    return false;
+            }
+
+            return true;
+        }
+
+        void waitFreed() throws InterruptedException {
+            synchronized (free) {
+                if (free.get()) return;
+                free.wait();
+            }
+        }
+
+        void free() {
+            synchronized (free) {
+                free.set(true);
+                free.notifyAll();
+            }
+        }
+
+        void busy() {
+            synchronized (free) {
+                free.set(false);
+            }
+        }
+    }
+
     public class LineWrapper {
         private Mixer mixer;
         private DataLine.Info info;
-        private SourceDataLine openLine;
+        private LineWithState openLine;
 
         private LineWrapper(@NotNull Mixer mixer, @NotNull DataLine.Info info) {
             this.mixer = mixer;
@@ -93,60 +123,54 @@ public class LinesHolder {
 
         public void write(byte[] buffer, int from, int to) {
             if (openLine == null) throw new IllegalStateException();
-            openLine.write(buffer, from, to);
+            openLine.line.write(buffer, from, to);
         }
 
         public void open(@NotNull AudioFormat format) throws LineUnavailableException, InterruptedException {
-            Line line = openLines.get(mixer);
-            if (line != null && isCompatible((DataLine.Info) line.getLineInfo(), info)) {
-                openLine = (SourceDataLine) line;
-                synchronized (openLine) {
-                    openLine.wait();
-                }
+            LineWithState line = openLines.get(mixer);
+            if (line != null && line.isCompatible(info)) {
+                openLine = line;
+                line.waitFreed();
 
                 LOGGER.trace(String.format("Reused line for mixer '%s'.", mixer.getMixerInfo().getName()));
             } else {
                 if (line != null) {
-                    synchronized (line) {
-                        line.wait();
-                        line.close();
-                    }
+                    line.waitFreed();
+                    line.line.close();
                 }
 
-                openLine = (SourceDataLine) mixer.getLine(info);
+                openLine = new LineWithState((SourceDataLine) mixer.getLine(info));
                 openLines.put(mixer, openLine);
-                openLine.open(format);
+                openLine.line.open(format);
                 LOGGER.trace(String.format("New line opened for mixer '%s'.", mixer.getMixerInfo().getName()));
             }
+
+            openLine.busy();
         }
 
         public void close() {
-            if (openLine != null) {
-                synchronized (openLine) {
-                    openLine.notifyAll();
-                }
-            }
+            if (openLine != null) openLine.free();
         }
 
         public void stop() {
             if (openLine == null) throw new IllegalStateException();
-            openLine.stop();
+            openLine.line.stop();
         }
 
         public void start() {
             if (openLine == null) throw new IllegalStateException();
-            openLine.start();
+            openLine.line.start();
         }
 
         public boolean isControlSupported(@NotNull Control.Type type) {
             if (openLine == null) throw new IllegalStateException();
-            return openLine.isControlSupported(type);
+            return openLine.line.isControlSupported(type);
         }
 
         @NotNull
         public Control getControl(@NotNull Control.Type type) {
             if (openLine == null) throw new IllegalStateException();
-            return openLine.getControl(type);
+            return openLine.line.getControl(type);
         }
     }
 }
