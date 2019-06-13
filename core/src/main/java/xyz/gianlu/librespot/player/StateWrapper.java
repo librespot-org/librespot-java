@@ -241,9 +241,13 @@ public class StateWrapper {
                 metadata = resolved.metadata();
             }
 
-            JsonElement elm = metadata.get("context_description");
-            if (elm != null) state.setContextDescription(elm.getAsString());
-            else state.setContextDescription("");
+            if (metadata == null) {
+                state.setContextDescription("");
+            } else {
+                JsonElement elm = metadata.get("context_description");
+                if (elm != null) state.setContextDescription(elm.getAsString());
+                else state.setContextDescription("");
+            }
         }
 
         state.setContextUri(frame.context.uri);

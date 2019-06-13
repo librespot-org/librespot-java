@@ -67,14 +67,14 @@ public abstract class Codec implements Runnable {
         try {
             readBody();
             if (!stopped) listener.endOfTrack();
-        } catch (IOException | LineUnavailableException | CodecException ex) {
+        } catch (IOException | LineUnavailableException | CodecException | InterruptedException ex) {
             if (!stopped) listener.playbackError(ex);
         } finally {
             cleanup();
         }
     }
 
-    protected abstract void readBody() throws IOException, LineUnavailableException, CodecException;
+    protected abstract void readBody() throws IOException, LineUnavailableException, CodecException, InterruptedException;
 
     public abstract int time() throws CannotGetTimeException;
 

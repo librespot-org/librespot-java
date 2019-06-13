@@ -6,7 +6,6 @@ import xyz.gianlu.librespot.player.*;
 import xyz.gianlu.librespot.player.codecs.mp3.Mp3Sound;
 
 import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -27,7 +26,7 @@ public class Mp3Codec extends Codec {
 
         try {
             outputLine = lines.getLineFor(conf, sound.getAudioFormat());
-        } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
+        } catch (IllegalStateException | SecurityException ex) {
             throw new CodecException(ex);
         }
 
@@ -58,20 +57,20 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    protected void readBody() throws LineUnavailableException, IOException {
-        SourceDataLine line = outputLine.waitAndOpen(sound.getAudioFormat());
-        this.controller = new PlayerRunner.Controller(line, listener.getVolume());
+    protected void readBody() throws LineUnavailableException, IOException, InterruptedException {
+        outputLine.open(sound.getAudioFormat());
+        this.controller = new PlayerRunner.Controller(outputLine, listener.getVolume());
 
         while (!stopped) {
             if (playing) {
-                line.start();
+                outputLine.start();
 
                 int count = sound.read(buffer);
                 if (count == -1) break;
 
-                line.write(buffer, 0, count);
+                outputLine.write(buffer, 0, count);
             } else {
-                line.stop();
+                outputLine.stop();
 
                 try {
                     synchronized (pauseLock) {
@@ -86,7 +85,7 @@ public class Mp3Codec extends Codec {
 
     @Override
     public int time() throws CannotGetTimeException {
-       throw new CannotGetTimeException();
+        throw new CannotGetTimeException();
     }
 
     @Override

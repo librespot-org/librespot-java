@@ -152,7 +152,7 @@ public final class MercuryRequests {
             return list;
         }
 
-        @NotNull
+        @Nullable
         public JsonObject metadata() {
             return obj.getAsJsonObject("metadata");
         }
