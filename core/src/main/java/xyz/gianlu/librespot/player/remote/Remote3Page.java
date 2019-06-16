@@ -19,7 +19,7 @@ public class Remote3Page {
     public final String nextPageUrl;
     public final String pageUrl;
 
-    private Remote3Page(@NotNull JsonObject obj) {
+    public Remote3Page(@NotNull JsonObject obj) {
         nextPageUrl = Utils.optString(obj, "next_page_url", null);
         pageUrl = Utils.optString(obj, "page_url", null);
 

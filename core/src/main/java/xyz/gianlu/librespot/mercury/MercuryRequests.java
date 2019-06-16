@@ -3,16 +3,15 @@ package xyz.gianlu.librespot.mercury;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.protobuf.ByteString;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Playlist4Changes;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.mercury.model.*;
 import xyz.gianlu.librespot.player.remote.Remote3Page;
+import xyz.gianlu.librespot.player.remote.Remote3Track;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -124,17 +123,10 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public List<Spirc.TrackRef> tracks() {
+        public List<Remote3Track> tracks() {
             JsonArray array = obj.getAsJsonArray("tracks");
-            List<Spirc.TrackRef> list = new ArrayList<>(array.size());
-            for (JsonElement elm : array) {
-                String uri = getAsString(elm.getAsJsonObject(), "uri");
-                list.add(Spirc.TrackRef.newBuilder()
-                        .setUri(uri)
-                        .setGid(ByteString.copyFrom(TrackId.fromUri(uri).getGid()))
-                        .build());
-            }
-
+            List<Remote3Track> list = new ArrayList<>(array.size());
+            for (JsonElement elm : array) list.add(new Remote3Track(elm.getAsJsonObject()));
             return list;
         }
     }

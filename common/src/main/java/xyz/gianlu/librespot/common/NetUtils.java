@@ -3,9 +3,6 @@ package xyz.gianlu.librespot.common;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author Gianlu
@@ -28,18 +25,6 @@ public final class NetUtils {
         } catch (Exception ex) {
             throw new IOException(line, ex);
         }
-    }
-
-    @NotNull
-    public static Map<String, String> parseHeaders(@NotNull InputStream in) throws IOException {
-        Map<String, String> headers = new HashMap<>();
-        String header;
-        while (!(header = Utils.readLine(in)).isEmpty()) {
-            String[] split = Utils.split(header, ':');
-            headers.put(split[0], split[1].trim());
-        }
-
-        return headers;
     }
 
     public static class StatusLine {
