@@ -1,9 +1,12 @@
 package xyz.gianlu.librespot.dealer;
 
+import com.google.protobuf.AbstractMessageLite;
 import com.spotify.connectstate.model.Connect;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
@@ -15,35 +18,42 @@ import java.io.IOException;
 public class ApiClient {
     private final Session session;
     private final OkHttpClient client;
+    private final String baseUrl;
 
     public ApiClient(@NotNull Session session) {
         this.session = session;
         this.client = new OkHttpClient();
+        this.baseUrl = "https://" + ApResolver.getRandomSpclient();
     }
 
-    public void send(String connId, byte[] payload) throws IOException, MercuryClient.MercuryException {
-        Response resp = client.newCall(new Request.Builder()
-                .url("https://spclient.wg.spotify.com/connect-state/v1/devices/" + session.deviceId())
-                .method("PUT", new RequestBody() {
-                    @Override
-                    public MediaType contentType() {
-                        return MediaType.get("application/protobuf");
-                    }
+    @NotNull
+    private static RequestBody protoBody(@NotNull AbstractMessageLite msg) {
+        return new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return MediaType.get("application/protobuf");
+            }
 
-                    @Override
-                    public void writeTo(BufferedSink sink) throws IOException {
-                        sink.write(payload);
-                    }
-                })
-                .header("X-Spotify-Connection-Id", connId)
-                .header("Authorization", "Bearer " + session.tokens().get("playlist-read", null))
-                .build()).execute();
+            @Override
+            public void writeTo(BufferedSink sink) throws IOException {
+                sink.write(msg.toByteArray());
+            }
+        };
+    }
 
-        System.out.println(resp);
+    public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
+        send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
+                .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto));
+    }
 
-        if (resp.code() == 200) {
-            ResponseBody body = resp.body();
-            System.out.println(Connect.Cluster.parseFrom(body.byteStream()));
-        }
+    @NotNull
+    public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
+        Request.Builder request = new Request.Builder();
+        request.method(method, body);
+        if (headers != null) request.headers(headers);
+        request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read", null));
+        request.url(baseUrl + suffix);
+
+        return client.newCall(request.build()).execute();
     }
 }

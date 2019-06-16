@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.protobuf.ByteString;
+import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,7 +23,6 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -37,7 +37,6 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -245,7 +244,7 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.MercuryException {
+    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
         authenticatePartial(credentials);
 
         mercuryClient = new MercuryClient(this);
@@ -446,7 +445,7 @@ public class Session implements Closeable {
     }
 
     @NotNull
-    public DeviceType deviceType() {
+    public Connect.DeviceType deviceType() {
         return inner.deviceType;
     }
 
@@ -496,39 +495,19 @@ public class Session implements Closeable {
         return countryCode;
     }
 
-    public enum DeviceType {
-        Unknown(0, "unknown"),
-        Computer(1, "computer"),
-        Tablet(2, "tablet"),
-        Smartphone(3, "smartphone"),
-        Speaker(4, "speaker"),
-        TV(5, "tv"),
-        AVR(6, "avr"),
-        STB(7, "stb"),
-        AudioDongle(8, "audiodongle");
-
-        public final int val;
-        public final String name;
-
-        DeviceType(int val, String name) {
-            this.val = val;
-            this.name = name;
-        }
-    }
-
     static class Inner {
-        final DeviceType deviceType;
+        final Connect.DeviceType deviceType;
         final String deviceName;
         final SecureRandom random;
         final String deviceId;
         final AbsConfiguration configuration;
 
-        private Inner(DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
+        private Inner(Connect.DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
             this.deviceType = deviceType;
             this.deviceName = deviceName;
             this.configuration = configuration;
             this.random = new SecureRandom();
-            this.deviceId = UUID.randomUUID().toString();
+            this.deviceId = Utils.randomString(random, 40);
         }
 
         @NotNull
@@ -537,7 +516,7 @@ public class Session implements Closeable {
             if (deviceName == null || deviceName.isEmpty())
                 throw new IllegalArgumentException("Device name required: " + deviceName);
 
-            DeviceType deviceType = configuration.deviceType();
+            Connect.DeviceType deviceType = configuration.deviceType();
             if (deviceType == null)
                 throw new IllegalArgumentException("Device type required!");
 
@@ -593,7 +572,7 @@ public class Session implements Closeable {
         private Authentication.LoginCredentials loginCredentials = null;
         private AuthConfiguration authConf;
 
-        public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
+        public Builder(@NotNull Connect.DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);
             this.authConf = configuration;
         }
@@ -630,7 +609,7 @@ public class Session implements Closeable {
         }
 
         @NotNull
-        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException, MercuryClient.MercuryException {
+        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.authBlob();

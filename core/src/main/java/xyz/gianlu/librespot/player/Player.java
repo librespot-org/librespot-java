@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -16,7 +17,6 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
-import xyz.gianlu.librespot.spirc.FrameListener;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -25,7 +25,7 @@ import java.util.Objects;
 /**
  * @author Gianlu
  */
-public class Player implements FrameListener, TrackHandler.Listener, Closeable {
+public class Player implements TrackHandler.Listener, Closeable, DeviceStateHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private static final JsonParser PARSER = new JsonParser();
     private final Session session;
@@ -40,6 +40,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         this.session = session;
         this.state = new StateWrapper(session);
         this.lines = new LinesHolder();
+
+        state.addListener(this);
     }
 
     public void playPause() {
@@ -76,7 +78,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                         LOGGER.warn("Stopping player due to kMessageTypeNotify!");
                     }
                 }
-                */
+                 */
                 break;
             case kMessageTypeLoad:
                 if (frame == null)
@@ -172,6 +174,10 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     @Override
+    public void ready() {
+    }
+
+    @Override
     public void frame(@NotNull Spirc.Frame frame) {
         if (Objects.equals(frame.getIdent(), "play-token")) {
             LOGGER.debug(String.format("Skipping frame. {ident: %s}", frame.getIdent()));
@@ -196,29 +202,25 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleSetVolume(int volume) {
-        // TODO: spirc.deviceState().setVolume(volume);
-
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
             if (controller != null) controller.setVolume(volume);
         }
 
-        state.updated();
+        state.updateVolume(volume);
     }
 
     private void handleVolumeDown() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            // TODO:  if (controller != null) spirc.deviceState().setVolume(controller.volumeDown());
-            state.updated();
+            if (controller != null) state.updateVolume(controller.volumeDown());
         }
     }
 
     private void handleVolumeUp() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            // TODO:  if (controller != null) spirc.deviceState().setVolume(controller.volumeUp());
-            state.updated();
+            if (controller != null) state.updateVolume(controller.volumeUp());
         }
     }
 
@@ -342,6 +344,11 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
             state.updated();
         }
+    }
+
+    @Override
+    public int getVolume() {
+        return state.getVolume();
     }
 
     private void panicState() {

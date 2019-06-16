@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot;
 
+import com.spotify.connectstate.model.Connect;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
@@ -95,8 +95,8 @@ public final class DefaultConfiguration extends AbsConfiguration {
 
     @NotNull
     @Override
-    public Session.DeviceType deviceType() {
-        return Session.DeviceType.Computer;
+    public Connect.DeviceType deviceType() {
+        return Connect.DeviceType.COMPUTER;
     }
 
     @Override

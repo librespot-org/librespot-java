@@ -1,11 +1,11 @@
 package xyz.gianlu.librespot;
 
+import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
@@ -77,7 +77,7 @@ public final class FileConfiguration extends AbsConfiguration {
         if (val == null) return fallback;
 
         try {
-            return Enum.valueOf(clazz, val);
+            return Enum.valueOf(clazz, val.toUpperCase());
         } catch (RuntimeException ex) {
             return fallback;
         }
@@ -170,8 +170,8 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public @Nullable Session.DeviceType deviceType() {
-        return getEnum(Session.DeviceType.class, "deviceType", null);
+    public @Nullable Connect.DeviceType deviceType() {
+        return getEnum(Connect.DeviceType.class, "deviceType", null);
     }
 
     @Override

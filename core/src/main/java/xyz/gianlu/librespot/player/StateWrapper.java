@@ -3,11 +3,14 @@ package xyz.gianlu.librespot.player;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.spotify.connectstate.model.Connect;
+import com.spotify.connectstate.model.Player.PlayerState;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -29,20 +32,24 @@ import java.util.*;
 /**
  * @author Gianlu
  */
-public class StateWrapper {
+public class StateWrapper implements DeviceStateHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
     private static final int STATE_TRACKS_BEFORE = 20;
     private static final int STATE_TRACKS_AFTER = 40;
     private static final int STATE_MAX_TRACKS = STATE_TRACKS_AFTER + 1 + STATE_TRACKS_BEFORE;
     private final Spirc.State.Builder state;
     private final Session session;
+    private final DeviceStateHandler device;
     private AbsSpotifyContext<?> context;
     private boolean repeatingTrack = false;
     private TracksKeeper tracksKeeper;
 
     StateWrapper(@NotNull Session session) {
         this.session = session;
+        this.device = new DeviceStateHandler(session);
         this.state = initState();
+
+        device.addListener(this);
     }
 
     @NotNull
@@ -169,7 +176,12 @@ public class StateWrapper {
 
     synchronized void updated() {
         if (tracksKeeper != null) tracksKeeper.dumpToState(state);
-        // TODO
+        // TODO: device.updateState(reason, );
+    }
+
+    public void updateVolume(int volume) { // TODO: Use SetVolumeCommand
+        device.info().setVolume(volume);
+        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, PlayerState.newBuilder().build() /* FIXME */);
     }
 
     synchronized void seekTo(@Nullable String uri) {
@@ -307,6 +319,23 @@ public class StateWrapper {
     synchronized PreviousPlayable previousPlayable() {
         if (tracksKeeper == null) return PreviousPlayable.MISSING_TRACKS;
         return tracksKeeper.previousPlayable();
+    }
+
+    public void addListener(@NotNull DeviceStateHandler.Listener listener) {
+        device.addListener(listener);
+    }
+
+    @Override
+    public void ready() {
+        device.updateState(Connect.PutStateReason.SPIRC_HELLO, PlayerState.newBuilder().build());
+    }
+
+    @Override
+    public void frame(Spirc.@NotNull Frame frame) {
+    }
+
+    public int getVolume() {
+        return device.info().getVolume();
     }
 
     public enum PreviousPlayable {

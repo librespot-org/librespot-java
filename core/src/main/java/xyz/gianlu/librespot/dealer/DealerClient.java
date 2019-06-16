@@ -1,67 +1,74 @@
 package xyz.gianlu.librespot.dealer;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.spotify.connectstate.model.Connect;
-import com.spotify.connectstate.model.Player;
 import okhttp3.*;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
  */
 public class DealerClient extends WebSocketListener {
     private static final JsonParser PARSER = new JsonParser();
-    private final Session session;
+    private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
     private final WebSocket ws;
+    private final Map<MessageListener, List<String>> listeners = new HashMap<>();
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private volatile boolean receivedPong = false;
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
-        this.session = session;
         this.ws = new OkHttpClient().newWebSocket(new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read", null)))
                 .build(), this);
     }
 
-    @NotNull
-    private static JsonObject createMessage(@NotNull MessageType type) {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("type", type.value());
-        return obj;
-    }
-
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
-        System.out.println("OPEN");
+        LOGGER.debug(String.format("Dealer connected! {host: %s}", response.request().url().host()));
+
+        scheduler.scheduleAtFixedRate(() -> {
+            sendPing();
+            receivedPong = false;
+
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
+            if (!receivedPong) wentAway();
+        }, 0, 30, TimeUnit.SECONDS);
+    }
+
+    private void wentAway() {
+        LOGGER.warn("Dealer went away!"); // TODO: Handling unexpected disconnection
+    }
+
+    private void sendPing() {
+        ws.send("{\"type\":\"ping\"}");
     }
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-        t.printStackTrace();
+        t.printStackTrace(); // TODO: Handle failure
     }
 
-    private void sendHello(String connId) {
-        Connect.PutStateRequest.Builder builder = Connect.PutStateRequest.newBuilder();
-        builder.setPutStateReason(Connect.PutStateReason.NEW_DEVICE);
-        builder.setMemberType(Connect.MemberType.CONNECT_STATE);
-        builder.setDevice(Connect.Device.newBuilder()
-                .setDeviceInfo(Connect.DeviceInfo.newBuilder()
-                        .setCanPlay(true)
-                        .setName(session.conf().deviceName())
-                        .setVolume(65535)
-                        .build())
-                .setPlayerState(Player.PlayerState.newBuilder().build())
-                .build());
+    @Override
+    public void onClosed(WebSocket webSocket, int code, String reason) {
+        listeners.clear();
 
-        try {
-            session.api().send(connId, builder.build().toByteArray());
-        } catch (IOException | MercuryClient.MercuryException e) {
-            e.printStackTrace();
-        }
+        // TODO: Closed
     }
 
     @Override
@@ -70,31 +77,61 @@ public class DealerClient extends WebSocketListener {
 
         MessageType type = MessageType.parse(obj.get("type").getAsString());
         switch (type) {
-            case PING:
-                sendPong();
-                break;
-            case PONG:
-                ackPong();
-                break;
             case MESSAGE:
                 handleMessage(obj);
                 break;
+            case PONG:
+                receivedPong = true;
+                break;
+            case PING:
+                break;
         }
-    }
-
-    private void ackPong() {
-        // TODO: Send ping sometimes
-    }
-
-    private void sendPong() {
-        ws.send(createMessage(MessageType.PONG).toString());
     }
 
     private void handleMessage(@NotNull JsonObject obj) {
-        System.out.println("MESSAGE: " + obj);
+        String uri = obj.get("uri").getAsString();
 
-        if (obj.get("uri").getAsString().startsWith("hm://pusher/v1/connections/")) {
-            sendHello(obj.getAsJsonObject("headers").get("Spotify-Connection-Id").getAsString());
+        JsonArray payloads = obj.getAsJsonArray("payloads");
+        byte[][] decodedPayloads;
+        if (payloads != null) {
+            decodedPayloads = new byte[payloads.size()][];
+            for (int i = 0; i < payloads.size(); i++) {
+                decodedPayloads[i] = Base64.getDecoder().decode(payloads.get(i).getAsString());
+            }
+        } else {
+            decodedPayloads = new byte[0][];
         }
+
+        JsonObject headers = obj.getAsJsonObject("headers");
+        Map<String, String> parsedHeaders = new HashMap<>();
+        if (headers != null) {
+            for (String key : headers.keySet())
+                parsedHeaders.put(key, headers.get(key).getAsString());
+        }
+
+        synchronized (listeners) {
+            for (MessageListener listener : listeners.keySet()) {
+                List<String> keys = listeners.get(listener);
+                for (String key : keys)
+                    if (uri.startsWith(key))
+                        listener.onMessage(uri, parsedHeaders, decodedPayloads);
+            }
+        }
+    }
+
+    public void addListener(@NotNull MessageListener listener, @NotNull String... uris) {
+        synchronized (listeners) {
+            listeners.put(listener, Arrays.asList(uris));
+        }
+    }
+
+    public void removeListener(@NotNull MessageListener listener) {
+        synchronized (listeners) {
+            listeners.remove(listener);
+        }
+    }
+
+    public interface MessageListener {
+        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[][] payloads);
     }
 }

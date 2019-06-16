@@ -10,7 +10,6 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -207,7 +206,7 @@ public class ZeroconfServer implements Closeable {
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
-        info.addProperty("deviceType", inner.deviceType.name.toUpperCase());
+        info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -304,7 +303,7 @@ public class ZeroconfServer implements Closeable {
 
             session.connect();
             session.authenticate(credentials);
-        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException | MercuryClient.MercuryException ex) {
+        } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }

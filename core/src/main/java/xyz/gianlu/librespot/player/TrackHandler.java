@@ -146,7 +146,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
 
     @Override
     public int getVolume() {
-        return 400; // TODO
+        return listener.getVolume();
     }
 
     @Nullable
@@ -213,6 +213,8 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
         void playbackHalted(@NotNull TrackHandler handler, int chunk);
 
         void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
+
+        int getVolume();
     }
 
     private class Looper implements Runnable {
