@@ -6,8 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
-import xyz.gianlu.librespot.api.ApiClient;
-import xyz.gianlu.librespot.api.DealerClient;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -18,6 +16,8 @@ import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.PBKDF2;
 import xyz.gianlu.librespot.crypto.Packet;
+import xyz.gianlu.librespot.dealer.ApiClient;
+import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.Player;
@@ -82,7 +82,6 @@ public class Session implements Closeable {
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
-    private SpotifyIrc spirc;
     private Player player;
     private AudioKeyManager audioKeyManager;
     private ChannelManager channelManager;
@@ -126,7 +125,7 @@ public class Session implements Closeable {
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
                         .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
                         .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(110713766)
+                        .setVersion(110800439)
                         .build())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
@@ -257,8 +256,6 @@ public class Session implements Closeable {
         cdnManager = new CdnManager(this);
         dealer = new DealerClient(this);
         cacheManager = new CacheManager(inner.configuration);
-        spirc = new SpotifyIrc(this);
-        spirc.sayHello();
         player = new Player(inner.configuration, this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
@@ -328,11 +325,6 @@ public class Session implements Closeable {
         if (channelManager != null) {
             channelManager.close();
             channelManager = null;
-        }
-
-        if (spirc != null) {
-            spirc.close();
-            spirc = null;
         }
 
         if (mercuryClient != null) {
@@ -416,13 +408,6 @@ public class Session implements Closeable {
     }
 
     @NotNull
-    public SpotifyIrc spirc() {
-        waitAuthLock();
-        if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
-        return spirc;
-    }
-
-    @NotNull
     public DealerClient dealer() {
         waitAuthLock();
         if (dealer == null) throw new IllegalStateException("Session isn't authenticated!");
@@ -495,10 +480,8 @@ public class Session implements Closeable {
                     .setAuthData(apWelcome.getReusableAuthCredentials())
                     .build());
 
-            spirc.sayHello();
-
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
-        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
+        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
             throw new RuntimeException("Failed reconnecting!", ex);
         }
     }

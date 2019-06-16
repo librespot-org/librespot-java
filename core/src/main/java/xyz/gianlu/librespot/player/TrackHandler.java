@@ -146,7 +146,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
 
     @Override
     public int getVolume() {
-        return session.spirc().deviceState().getVolume();
+        return 400; // TODO
     }
 
     @Nullable

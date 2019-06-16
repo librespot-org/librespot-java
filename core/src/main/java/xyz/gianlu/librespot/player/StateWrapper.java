@@ -169,7 +169,7 @@ public class StateWrapper {
 
     synchronized void updated() {
         if (tracksKeeper != null) tracksKeeper.dumpToState(state);
-        session.spirc().deviceStateUpdated(state);
+        // TODO
     }
 
     synchronized void seekTo(@Nullable String uri) {

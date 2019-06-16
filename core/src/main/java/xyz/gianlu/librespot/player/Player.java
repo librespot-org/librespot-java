@@ -17,7 +17,6 @@ import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.spirc.FrameListener;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,7 +29,6 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private static final JsonParser PARSER = new JsonParser();
     private final Session session;
-    private final SpotifyIrc spirc;
     private final StateWrapper state;
     private final Configuration conf;
     private final LinesHolder lines;
@@ -40,11 +38,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
-        this.spirc = session.spirc();
         this.state = new StateWrapper(session);
         this.lines = new LinesHolder();
-
-        spirc.addListener(this);
     }
 
     public void playPause() {
@@ -70,6 +65,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleFrame(@NotNull Spirc.MessageType type, @NotNull Spirc.Frame spircFrame, @Nullable Remote3Frame frame) {
         switch (type) {
             case kMessageTypeNotify:
+                /* TODO
                 if (spirc.deviceState().getIsActive() && frame != null) {
                     if (frame.isPlaying && !frame.isPaused) {
                         spirc.deviceState().setIsActive(false);
@@ -80,6 +76,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
                         LOGGER.warn("Stopping player due to kMessageTypeNotify!");
                     }
                 }
+                */
                 break;
             case kMessageTypeLoad:
                 if (frame == null)
@@ -199,7 +196,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleSetVolume(int volume) {
-        spirc.deviceState().setVolume(volume);
+        // TODO: spirc.deviceState().setVolume(volume);
 
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
@@ -212,7 +209,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleVolumeDown() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) spirc.deviceState().setVolume(controller.volumeDown());
+            // TODO:  if (controller != null) spirc.deviceState().setVolume(controller.volumeDown());
             state.updated();
         }
     }
@@ -220,7 +217,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleVolumeUp() {
         if (trackHandler != null) {
             PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) spirc.deviceState().setVolume(controller.volumeUp());
+            // TODO:  if (controller != null) spirc.deviceState().setVolume(controller.volumeUp());
             state.updated();
         }
     }
@@ -354,11 +351,13 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     }
 
     private void handleLoad(@NotNull Remote3Frame frame) {
+        /* TODO
         if (!spirc.deviceState().getIsActive()) {
             spirc.deviceState()
                     .setIsActive(true)
                     .setBecameActiveAt(TimeProvider.currentTimeMillis());
         }
+        */
 
         LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
 
