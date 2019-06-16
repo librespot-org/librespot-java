@@ -1,10 +1,6 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.proto.Spirc;
-import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.tracks.PlayablesProvider;
-import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 
 /**
  * @author Gianlu
@@ -12,12 +8,13 @@ import xyz.gianlu.librespot.player.tracks.PlaylistProvider;
 public final class SearchContext extends AbsTrackContext {
     public final String searchTerm;
 
-    public SearchContext(@NotNull String searchTerm) {
+    public SearchContext(@NotNull String context, @NotNull String searchTerm) {
+        super(context);
         this.searchTerm = searchTerm;
     }
 
     @Override
-    public @NotNull PlayablesProvider initProvider(@NotNull Session session, Spirc.State.@NotNull Builder state) {
-        return new PlaylistProvider(session, state);
+    public boolean isFinite() {
+        return true;
     }
 }

@@ -8,7 +8,6 @@ import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 
 import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.Line;
 import java.io.IOException;
 
 /**
@@ -77,7 +76,7 @@ public class PlayerRunner implements Runnable {
         private final FloatControl masterGain;
         private int volume = 0;
 
-        public Controller(@NotNull Line line, int initialVolume) {
+        public Controller(@NotNull LinesHolder.LineWrapper line, int initialVolume) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
             else

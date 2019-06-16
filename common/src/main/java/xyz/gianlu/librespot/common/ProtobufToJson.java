@@ -13,7 +13,10 @@ import java.util.Map;
 /**
  * @author Gianlu
  */
-public class ProtobufToJson {
+public final class ProtobufToJson {
+
+    private ProtobufToJson() {
+    }
 
     @NotNull
     public static JsonObject convert(@NotNull Message message) {

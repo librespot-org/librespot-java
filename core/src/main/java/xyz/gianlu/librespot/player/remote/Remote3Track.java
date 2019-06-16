@@ -12,6 +12,7 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -22,7 +23,7 @@ public class Remote3Track {
     public final JsonObject metadata;
     private PlayableId id;
 
-    Remote3Track(@NotNull JsonObject obj) {
+    public Remote3Track(@NotNull JsonObject obj) {
         uri = Utils.optString(obj, "uri", null);
         uid = Utils.optString(obj, "uid", null);
         metadata = obj.getAsJsonObject("metadata");
@@ -50,26 +51,44 @@ public class Remote3Track {
         return array(elm.getAsJsonArray());
     }
 
-    @Nullable
-    public Spirc.TrackRef toTrackRef() {
-        if (!PlayableId.isSupported(uri))
-            return null;
-
+    public boolean isQueued() {
         boolean isQueued = false;
         if (metadata != null) {
             JsonElement elm = metadata.get("is_queued");
             if (elm != null) isQueued = elm.getAsBoolean();
         }
 
-        return Spirc.TrackRef.newBuilder()
-                .setQueued(isQueued)
-                .setGid(ByteString.copyFrom(id().getGid()))
-                .setUri(uri).build();
+        return isQueued;
+    }
+
+    @NotNull
+    public Spirc.TrackRef toTrackRef() {
+        if (PlayableId.isSupported(uri)) {
+            return Spirc.TrackRef.newBuilder()
+                    .setQueued(isQueued())
+                    .setGid(ByteString.copyFrom(id().getGid()))
+                    .setUri(uri).build();
+        } else {
+            return Spirc.TrackRef.newBuilder().setUri(uri).build();
+        }
     }
 
     @NotNull
     public PlayableId id() {
         if (id == null) id = PlayableId.fromUri(uri);
         return id;
+    }
+
+    public boolean isSupported() {
+        return PlayableId.isSupported(uri);
+    }
+
+    public boolean is(@NotNull PlayableId current) {
+        return Objects.equals(uri, current.toSpotifyUri());
+    }
+
+    @Override
+    public String toString() {
+        return "Remote3Track{" + "id=" + id + '}';
     }
 }

@@ -14,7 +14,6 @@ import xyz.gianlu.librespot.player.*;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 
 /**
@@ -122,7 +121,7 @@ public class VorbisCodec extends Codec {
 
         try {
             outputLine = lines.getLineFor(conf, format);
-        } catch (LineUnavailableException | IllegalStateException | SecurityException ex) {
+        } catch (IllegalStateException | SecurityException ex) {
             throw new CodecException(ex);
         }
 
@@ -139,13 +138,13 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    protected void readBody() throws IOException, LineUnavailableException, CodecException {
-        SourceDataLine line = outputLine.waitAndOpen(audioFormat);
-        this.controller = new PlayerRunner.Controller(line, listener.getVolume());
+    protected void readBody() throws IOException, LineUnavailableException, CodecException, InterruptedException {
+        outputLine.open(audioFormat);
+        this.controller = new PlayerRunner.Controller(outputLine, listener.getVolume());
 
         while (!stopped) {
             if (playing) {
-                line.start();
+                outputLine.start();
 
                 int result = joggSyncState.pageout(joggPage);
                 if (result == -1 || result == 0) {
@@ -162,7 +161,7 @@ public class VorbisCodec extends Codec {
                         if (result == -1 || result == 0) {
                             break;
                         } else if (result == 1) {
-                            decodeCurrentPacket(line);
+                            decodeCurrentPacket();
                         }
                     }
 
@@ -180,7 +179,7 @@ public class VorbisCodec extends Codec {
                 if (count == 0)
                     break;
             } else {
-                line.stop();
+                outputLine.stop();
 
                 try {
                     synchronized (pauseLock) {
@@ -191,9 +190,11 @@ public class VorbisCodec extends Codec {
                 }
             }
         }
+
+        outputLine.drain();
     }
 
-    private void decodeCurrentPacket(@NotNull SourceDataLine line) {
+    private void decodeCurrentPacket() {
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -220,7 +221,7 @@ public class VorbisCodec extends Codec {
                 }
             }
 
-            line.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
+            outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
 
             long granulepos = joggPacket.granulepos;
