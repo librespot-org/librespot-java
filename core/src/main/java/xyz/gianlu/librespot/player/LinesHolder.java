@@ -81,13 +81,10 @@ public class LinesHolder {
             this.line = line;
         }
 
-        boolean isCompatible(@NotNull DataLine.Info other) {
-            for (AudioFormat format : other.getFormats()) {
-                if (!((DataLine.Info) line.getLineInfo()).isFormatSupported(format))
-                    return false;
-            }
-
-            return true;
+        boolean isCompatible(@NotNull DataLine.Info otherInfo) {
+            AudioFormat[] otherFormats = otherInfo.getFormats();
+            if (otherFormats.length > 1) throw new UnsupportedOperationException();
+            return line.getFormat().matches(otherFormats[0]);
         }
 
         void waitFreed() throws InterruptedException {
@@ -171,6 +168,11 @@ public class LinesHolder {
         public Control getControl(@NotNull Control.Type type) {
             if (openLine == null) throw new IllegalStateException();
             return openLine.line.getControl(type);
+        }
+
+        public void drain() {
+            if (openLine == null) throw new IllegalStateException();
+            openLine.line.drain();
         }
     }
 }

@@ -81,6 +81,8 @@ public class Mp3Codec extends Codec {
                 }
             }
         }
+
+        outputLine.drain();
     }
 
     @Override

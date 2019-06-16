@@ -190,6 +190,8 @@ public class VorbisCodec extends Codec {
                 }
             }
         }
+
+        outputLine.drain();
     }
 
     private void decodeCurrentPacket() {
