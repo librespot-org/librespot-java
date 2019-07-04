@@ -87,8 +87,15 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
+    private void notifyVolumeChange() {
+        synchronized (listeners) {
+            for (Listener listener : listeners)
+                listener.volumeChanged();
+        }
+    }
+
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
@@ -102,6 +109,17 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
                 e.printStackTrace();
             }
             */
+        } else if (uri.startsWith("hm://connect-state/v1/connect/volume")) {
+            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payloads.stream());
+            deviceInfo.setVolume(cmd.getVolume());
+
+            LOGGER.trace(String.format("Update volume. {volume: %d/65536}", cmd.getVolume()));
+            if (cmd.hasCommandOptions()) {
+                putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
+                        .clearLastCommandSentByDeviceId();
+            }
+
+            notifyVolumeChange();
         } else {
             System.out.println("RECEIVED MSG: " + uri); // FIXME
             System.out.println(payloads.toHex());
@@ -117,37 +135,37 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
         try {
             putState(reason, state);
+            LOGGER.info(String.format("Updated state. {reason: %s}", reason));
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed updating state!", ex);
         }
     }
 
     public void setIsActive(boolean active) {
-        putState.setIsActive(active);
-        if (!putState.getIsActive() && active) {
+        if (!putState.getIsActive() && active)
             putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
-        } else {
+        else
             putState.setIsActive(false).clearStartedPlayingAt();
-        }
     }
 
     private void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
         if (connectionId == null) throw new IllegalStateException();
 
         putState.setPutStateReason(reason)
-                .getDeviceBuilder().setPlayerState(state);
+                .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
         session.api().putConnectState(connectionId, putState.build());
     }
 
-    @NotNull
-    public Connect.DeviceInfo.Builder info() {
-        return deviceInfo;
+    public int getVolume() {
+        return deviceInfo.getVolume();
     }
 
     public interface Listener {
         void ready();
 
         void command(@NotNull String endpoint, @NotNull byte[] data) throws InvalidProtocolBufferException;
+
+        void volumeChanged();
     }
 }

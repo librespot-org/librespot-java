@@ -146,8 +146,12 @@ public class DealerClient extends WebSocketListener {
                 List<String> keys = listeners.get(listener);
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
-                        listener.onMessage(uri, parsedHeaders, new BytesArrayList(decodedPayloads));
-                        dispatched = true;
+                        try {
+                            listener.onMessage(uri, parsedHeaders, new BytesArrayList(decodedPayloads));
+                            dispatched = true;
+                        } catch (IOException ex) {
+                            LOGGER.error("Failed dispatching message!", ex);
+                        }
                     }
                 }
             }
@@ -167,7 +171,7 @@ public class DealerClient extends WebSocketListener {
     }
 
     public interface MessageListener {
-        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads);
+        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) throws IOException;
 
         void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull String endpoint, @NotNull byte[] data);
     }

@@ -42,16 +42,21 @@ public final class PagesLoader {
     }
 
     @NotNull
+    private List<ContextTrack> fetchTracks(@NotNull String url) throws IOException {
+        MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
+                .setUri(url).setMethod("GET").build());
+
+        JsonObject obj = PARSER.parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
+        return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
+    }
+
+    @NotNull
     private List<ContextTrack> resolvePage(@NotNull ContextPage page) throws IOException {
         if (page.getTracksCount() > 0) {
             return page.getTracksList();
         } else {
             if (page.hasPageUrl()) {
-                MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
-                        .setUri(page.getPageUrl()).setMethod("GET").build());
-
-                JsonObject obj = PARSER.parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
-                return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
+                return fetchTracks(page.getPageUrl());
             } else if (page.hasLoading() && page.getLoading()) {
                 throw new UnsupportedOperationException("What does loading even mean?");
             } else {
@@ -61,14 +66,27 @@ public final class PagesLoader {
     }
 
     @NotNull
-    public List<ContextTrack> getPage(int index) throws IOException {
+    private List<ContextTrack> getPage(int index) throws IOException, IllegalStateException {
         if (index < pages.size()) {
             ContextPage page = pages.get(index);
-            return resolvePage(page);
+            List<ContextTrack> tracks = resolvePage(page);
+            pages.set(index, page.toBuilder().clearPageUrl().clearTracks().addAllTracks(tracks).build());
+            return tracks;
         } else {
             if (index > pages.size()) throw new IndexOutOfBoundsException();
 
-            throw new UnsupportedOperationException(); // TODO: Try to load it by looking at the previous page
+            ContextPage prev = pages.get(index - 1);
+            if (!prev.hasNextPageUrl()) throw new IllegalStateException();
+
+            String nextPageUrl = prev.getNextPageUrl();
+            pages.set(index - 1, prev.toBuilder().clearNextPageUrl().build());
+
+            List<ContextTrack> tracks = fetchTracks(nextPageUrl);
+            pages.add(ContextPage.newBuilder()
+                    .addAllTracks(tracks)
+                    .build());
+
+            return tracks;
         }
     }
 
@@ -77,8 +95,12 @@ public final class PagesLoader {
         return getPage(currentPage);
     }
 
-    @NotNull
-    public List<ContextTrack> nextPage() throws IOException {
-        return getPage(++currentPage);
+    public boolean nextPage() throws IOException {
+        try {
+            getPage(++currentPage);
+            return true;
+        } catch (IllegalStateException ex) {
+            return false;
+        }
     }
 }

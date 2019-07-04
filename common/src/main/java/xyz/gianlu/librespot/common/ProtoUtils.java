@@ -9,11 +9,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.ContextOuterClass;
 import spotify.player.proto.ContextPageOuterClass.ContextPage;
+import spotify.player.proto.ContextPlayerOptionsOuterClass;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.PlayOriginOuterClass;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -85,9 +87,58 @@ public final class ProtoUtils {
         return builder.build();
     }
 
+    @Contract("null -> null")
+    @Nullable
+    public static Player.ContextPlayerOptions convertPlayerOptions(@Nullable ContextPlayerOptionsOuterClass.ContextPlayerOptions options) {
+        if (options == null) return null;
+
+        Player.ContextPlayerOptions.Builder builder = Player.ContextPlayerOptions.newBuilder();
+        if (options.hasRepeatingContext()) builder.setRepeatingContext(options.getRepeatingContext());
+        if (options.hasRepeatingTrack()) builder.setRepeatingTrack(options.getRepeatingTrack());
+        if (options.hasShufflingContext()) builder.setShufflingContext(options.getShufflingContext());
+
+        return builder.build();
+    }
+
     public static void moveOverMetadata(@NotNull ContextOuterClass.Context from, @NotNull Player.PlayerState.Builder to, @NotNull String... keys) {
         for (String key : keys)
             if (from.containsMetadata(key))
                 to.putContextMetadata(key, from.getMetadataOrThrow(key));
+    }
+
+    public static int indexOfTrackByUid(@NotNull List<ContextTrack> tracks, @NotNull String uid) {
+        for (int i = 0; i < tracks.size(); i++) {
+            if (Objects.equals(tracks.get(i).getUid(), uid))
+                return i;
+        }
+
+        return -1;
+    }
+
+    public static void enrichTrack(@NotNull ContextTrack.Builder subject, @NotNull ContextTrack track) {
+        if (subject.hasUri() && track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
+            throw new IllegalArgumentException();
+
+        if (subject.hasGid() && track.hasGid() && !Objects.equals(subject.getGid(), track.getGid()))
+            throw new IllegalArgumentException();
+
+        subject.putAllMetadata(track.getMetadataMap());
+    }
+
+    @Nullable
+    @Contract("null -> null")
+    public static Player.ProvidedTrack convertToProvidedTrack(@Nullable ContextTrack track) {
+        if (track == null) return null;
+
+        Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
+        builder.setProvider("context");
+        Optional.ofNullable(track.getUri()).ifPresent(builder::setUri);
+        Optional.ofNullable(track.getUid()).ifPresent(builder::setUid);
+        Optional.ofNullable(track.getMetadataOrDefault("album_uri", null)).ifPresent(builder::setAlbumUri);
+        Optional.ofNullable(track.getMetadataOrDefault("artist_uri", null)).ifPresent(builder::setArtistUri);
+
+        builder.putAllMetadata(track.getMetadataMap());
+
+        return builder.build();
     }
 }

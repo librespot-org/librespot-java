@@ -1,24 +1,24 @@
 package xyz.gianlu.librespot.player;
 
 import com.spotify.connectstate.model.Connect;
-import com.spotify.connectstate.model.Player.ContextPlayerOptions;
-import com.spotify.connectstate.model.Player.PlayerState;
-import com.spotify.connectstate.model.Player.Restrictions;
-import com.spotify.connectstate.model.Player.Suppressions;
+import com.spotify.connectstate.model.Player.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
+import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
 import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
-import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static spotify.player.proto.ContextOuterClass.Context;
 
@@ -32,6 +32,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     private final DeviceStateHandler device;
     private AbsSpotifyContext<?> context;
     private PagesLoader pages;
+    private TracksKeeper tracksKeeper;
 
     StateWrapper(@NotNull Session session) {
         this.session = session;
@@ -44,11 +45,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     @NotNull
     private static PlayerState.Builder initState() {
         return PlayerState.newBuilder()
-                .setIsSystemInitiated(false)
                 .setPlaybackSpeed(1.0)
-                .setQueueRevision("0")
                 .setSuppressions(Suppressions.newBuilder().build())
-                .setRestrictions(Restrictions.newBuilder().build())
                 .setContextRestrictions(Restrictions.newBuilder().build())
                 .setOptions(ContextPlayerOptions.newBuilder()
                         .setRepeatingContext(false)
@@ -98,10 +96,19 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         if (ctx.hasUrl()) this.state.setContextUrl(ctx.getUrl());
         else this.state.clearContextUrl();
-        if (ctx.hasRestrictions()) this.context.updateRestrictions(ctx.getRestrictions());
+
+        if (ctx.hasRestrictions()) {
+            this.context.updateRestrictions(ctx.getRestrictions());
+            // TODO: this.state.setRestrictions(ctx.getRestrictions());
+        } else {
+            this.state.clearRestrictions();
+            this.state.clearContextRestrictions();
+        }
+
         ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
 
         this.pages = PagesLoader.from(session, ctx);
+        this.tracksKeeper = new TracksKeeper();
     }
 
     synchronized void updated() {
@@ -109,12 +116,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
     }
 
-    public void updateVolume(int volume) {
-        device.info().setVolume(volume);
-        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
-    }
-
-    public void addListener(@NotNull DeviceStateHandler.Listener listener) {
+    void addListener(@NotNull DeviceStateHandler.Listener listener) {
         device.addListener(listener);
     }
 
@@ -128,16 +130,21 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     public void command(@NotNull String endpoint, @NotNull byte[] data) {
     }
 
-    public int getVolume() {
-        return device.info().getVolume();
+    @Override
+    public void volumeChanged() {
+        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
     }
 
-    public int getPosition() {
+    int getVolume() {
+        return device.getVolume();
+    }
+
+    int getPosition() {
         int diff = (int) (TimeProvider.currentTimeMillis() - state.getTimestamp());
         return (int) (state.getPosition() + diff);
     }
 
-    public void setPosition(long pos) {
+    void setPosition(long pos) {
         state.setTimestamp(TimeProvider.currentTimeMillis());
         state.setPositionAsOfTimestamp(pos);
     }
@@ -146,7 +153,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setPosition(getPosition());
     }
 
-    public void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException, IOException {
+    void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException {
         SessionOuterClass.Session ps = cmd.getCurrentSession();
 
         state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
@@ -154,26 +161,35 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Context ctx = ps.getContext();
         setContext(ctx);
 
-        System.out.println(cmd);
+        state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
+
+        Playback pb = cmd.getPlayback();
+        tracksKeeper.initialize(ps.getCurrentUid(), pb.getCurrentTrack());
+
+        state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
+        state.setTimestamp(pb.getTimestamp());
+        updatePosition();
+
+        device.setIsActive(true);
     }
 
     @Nullable
-    public PlayableId nextPlayableDoNotSet() {
+    PlayableId nextPlayableDoNotSet() {
         return null; // TODO
     }
 
     @NotNull
-    public PlayableId getCurrentPlayable() {
-        return null; // TODO
+    PlayableId getCurrentPlayable() {
+        return PlayableId.from(tracksKeeper.getCurrentTrack());
     }
 
     @NotNull
-    public NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+    NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
         return NextPlayable.MISSING_TRACKS; // TODO
     }
 
     @NotNull
-    public PreviousPlayable previousPlayable() {
+    PreviousPlayable previousPlayable() {
         return PreviousPlayable.MISSING_TRACKS; // TODO
     }
 
@@ -191,6 +207,58 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         public boolean isOk() {
             return this == OK_PLAY || this == OK_PAUSE;
+        }
+    }
+
+    private class TracksKeeper {
+        private final List<ContextTrack> tracks = new ArrayList<>();
+
+        private TracksKeeper() {
+        }
+
+        @NotNull
+        private ProvidedTrack getCurrentTrack() {
+            return state.getTrack();
+        }
+
+        private int getCurrentTrackIndex() {
+            return state.getIndex().getTrack();
+        }
+
+        void initialize(@NotNull String currentUid, @NotNull ContextTrack track) throws IOException {
+            tracks.clear();
+
+            boolean found = false;
+            while (!found) {
+                List<ContextTrack> newTracks = pages.currentPage();
+                int index = ProtoUtils.indexOfTrackByUid(newTracks, currentUid);
+                if (index == -1) {
+                    tracks.addAll(newTracks);
+                    if (!pages.nextPage()) throw new IllegalStateException("Couldn't find current track!");
+                    continue;
+                }
+
+                index += tracks.size();
+                tracks.addAll(newTracks);
+
+                state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
+                found = true;
+            }
+
+            int index = getCurrentTrackIndex();
+            ContextTrack.Builder current = tracks.get(index).toBuilder();
+            ProtoUtils.enrichTrack(current, track);
+            tracks.set(index, current.build());
+
+            state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+
+            state.clearPrevTracks();
+            for (int i = 0; i < index; i++)
+                state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(index)));
+
+            state.clearNextTracks();
+            for (int i = index + 1; i < tracks.size(); i++)
+                state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(index)));
         }
     }
 }

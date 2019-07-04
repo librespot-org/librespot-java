@@ -65,7 +65,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
         try {
             state.transfer(cmd);
-        } catch (MercuryClient.MercuryException | IOException ex) {
+        } catch (IOException ex) {
             LOGGER.fatal("Failed loading context!", ex);
             panicState();
             return;
@@ -89,6 +89,14 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     public void command(@NotNull String endpoint, @NotNull byte[] data) throws InvalidProtocolBufferException {
         if (endpoint.equals("transfer")) transferState(TransferStateOuterClass.TransferState.parseFrom(data));
         else LOGGER.warn("Unknown endpoint: " + endpoint);
+    }
+
+    @Override
+    public void volumeChanged() {
+        if (trackHandler != null) {
+            PlayerRunner.Controller controller = trackHandler.controller();
+            if (controller != null) controller.setVolume(state.getVolume());
+        }
     }
 
     private void handlePlayPause() {
