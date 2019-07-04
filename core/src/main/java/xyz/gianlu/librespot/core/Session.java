@@ -253,8 +253,8 @@ public class Session implements Closeable {
         channelManager = new ChannelManager(this);
         api = new ApiClient(this);
         cdnManager = new CdnManager(this);
-        dealer = new DealerClient(this);
         cacheManager = new CacheManager(inner.configuration);
+        dealer = new DealerClient(this);
         player = new Player(inner.configuration, this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));

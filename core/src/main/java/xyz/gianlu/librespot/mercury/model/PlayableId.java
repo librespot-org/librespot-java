@@ -1,7 +1,8 @@
 package xyz.gianlu.librespot.mercury.model;
 
+import com.spotify.connectstate.model.Player;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.player.remote.Remote3Track;
+import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
 import java.util.List;
 
@@ -22,16 +23,35 @@ public interface PlayableId {
         }
     }
 
-    static boolean hasAtLeastOneSupportedId(@NotNull List<Remote3Track> tracks) {
-        for (Remote3Track track : tracks)
-            if (track.isSupported())
+    static boolean hasAtLeastOneSupportedId(@NotNull List<ContextTrack> tracks) {
+        for (ContextTrack track : tracks)
+            if (PlayableId.isSupported(track.getUri()))
                 return true;
 
         return false;
     }
 
+    @NotNull
+    static PlayableId from(@NotNull Player.ProvidedTrack track) {
+        return fromUri(track.getUri());
+    }
+
     static boolean isSupported(@NotNull String uri) {
         return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
+    }
+
+    @NotNull
+    static PlayableId from(@NotNull ContextTrack track) {
+        return fromUri(track.getUri());
+    }
+
+    static boolean isSupported(@NotNull ContextTrack track) {
+        return isSupported(track.getUri());
+    }
+
+    @NotNull
+    default Player.ProvidedTrack toProvidedTrack() {
+        return Player.ProvidedTrack.newBuilder().setUri(toSpotifyUri()).build();
     }
 
     @NotNull byte[] getGid();

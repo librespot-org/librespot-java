@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -92,11 +91,6 @@ public abstract class BaseFeeder {
         }
 
         return loadTrack(track, file, haltListener);
-    }
-
-    @NotNull
-    public final LoadedStream loadTrack(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        return loadTrack(TrackId.fromTrackRef(ref), audioQualityPreference, haltListener);
     }
 
     @NotNull

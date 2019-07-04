@@ -30,7 +30,7 @@ public final class Mp3Sound extends FilterInputStream {
     /**
      * Creates a new Sound, that will read from the specified encoded MPEG data stream.
      * <p>
-     * This method will try to read the very beginning of the MPEG stream (i.e. 1 MPEG frame) to get its sampling frequency and various other metadata. <b>A stream containing no MPEG data frames/a zero duration MPEG data source will be considered as invalid and will throw {@link IOException}.</b>
+     * This method will try to read the very beginning of the MPEG stream (i.e. 1 MPEG command) to get its sampling frequency and various other metadata. <b>A stream containing no MPEG data frames/a zero duration MPEG data source will be considered as invalid and will throw {@link IOException}.</b>
      * <p>
      * This method will not read or decode the file fully, which means it doesn't block and is very fast (as opposed to {@link #decodeFullyInto(OutputStream)}; you probably don't need to execute this method in a specific background thread.
      * <p>It is only when reading from this stream that the decoding process will take place (as you read from the stream). <b>The decoding process is quite CPU-intensive, though, so you are encouraged to use a background thread/other multithreading techniques to read from the stream without blocking the whole application.</b>
@@ -45,7 +45,7 @@ public final class Mp3Sound extends FilterInputStream {
      * </ul>
      *
      * @param in The input stream from which to read the encoded MPEG data, must be non-null.
-     * @throws IOException If an {@link IOException} is thrown when reading the underlying stream, or if there's an unexpected EOF during an MPEG frame, or if there's an error while decoding the MPEG data, e.g. if there's no MPEG data in the specified stream.
+     * @throws IOException If an {@link IOException} is thrown when reading the underlying stream, or if there's an unexpected EOF during an MPEG command, or if there's an error while decoding the MPEG data, e.g. if there's no MPEG data in the specified stream.
      */
     public Mp3Sound(InputStream in) throws IOException {
         super(Objects.requireNonNull(in, "The specified InputStream must be non-null!"));
@@ -141,7 +141,7 @@ public final class Mp3Sound extends FilterInputStream {
     /**
      * {@inheritDoc}
      *
-     * <b>This method returns the number of bytes that can be read until a new MPEG frame has to be read and decoded/processed.</b>
+     * <b>This method returns the number of bytes that can be read until a new MPEG command has to be read and decoded/processed.</b>
      */
     @Override
     public int available() throws IOException {
@@ -215,7 +215,7 @@ public final class Mp3Sound extends FilterInputStream {
      *
      * @param os The output stream in which to put the decoded raw PCM sound samples, must be non-null.
      * @return The number of <b>BYTES</b> that were written into the output steam. <b>This is different from the number of samples that were written.</b>
-     * @throws IOException If an {@link IOException} is thrown when reading the underlying stream, or if there's an unexpected EOF during an MPEG frame, or if there's an error while decoding the MPEG data.
+     * @throws IOException If an {@link IOException} is thrown when reading the underlying stream, or if there's an unexpected EOF during an MPEG command, or if there's an error while decoding the MPEG data.
      */
     public int decodeFullyInto(OutputStream os) throws IOException {
         Objects.requireNonNull(os);

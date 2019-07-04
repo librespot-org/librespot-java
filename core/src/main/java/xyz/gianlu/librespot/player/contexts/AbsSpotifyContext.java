@@ -2,11 +2,10 @@ package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Spirc;
+import spotify.player.proto.RestrictionsOuterClass.Restrictions;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.providers.ContentProvider;
-import xyz.gianlu.librespot.player.remote.Remote3Frame;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -16,9 +15,7 @@ import java.net.URLDecoder;
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
     protected final String context;
-    private boolean canRepeatContext = false;
-    private boolean canShuffle = false;
-    private boolean canRepeatTrack = false;
+    private Restrictions restrictions;
 
     public AbsSpotifyContext(@NotNull String context) {
         this.context = context;
@@ -102,29 +99,20 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
         }
     }
 
-    @NotNull
-    public abstract P createId(@NotNull Spirc.TrackRef ref);
-
     public abstract P createId(@NotNull String uri);
 
     public abstract boolean isFinite();
 
     public final boolean canRepeatContext() {
-        return canRepeatContext;
+        return restrictions.getDisallowTogglingRepeatContextReasonsCount() == 0;
     }
 
     public final boolean canRepeatTrack() {
-        return canRepeatTrack;
+        return restrictions.getDisallowTogglingRepeatTrackReasonsCount() == 0;
     }
 
     public final boolean canShuffle() {
-        return canShuffle;
-    }
-
-    public final void updateRestrictions(@NotNull Remote3Frame.Context.Restrictions restrictions) {
-        canRepeatContext = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_CONTEXT);
-        canRepeatTrack = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_TRACK);
-        canShuffle = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_SHUFFLE);
+        return restrictions.getDisallowTogglingShuffleReasonsCount() == 0;
     }
 
     @Nullable
@@ -135,6 +123,10 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
 
     public final @NotNull String uri() {
         return context;
+    }
+
+    public void updateRestrictions(@NotNull Restrictions restrictions) {
+        this.restrictions = restrictions;
     }
 
     public static class UnsupportedContextException extends Exception {

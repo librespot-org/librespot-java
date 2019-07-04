@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -34,7 +35,7 @@ public class DealerClient extends WebSocketListener {
     }
 
     @Override
-    public void onOpen(WebSocket webSocket, Response response) {
+    public void onOpen(@NotNull WebSocket webSocket, Response response) {
         LOGGER.debug(String.format("Dealer connected! {host: %s}", response.request().url().host()));
 
         scheduler.scheduleAtFixedRate(() -> {
@@ -60,25 +61,25 @@ public class DealerClient extends WebSocketListener {
     }
 
     @Override
-    public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+    public void onFailure(@NotNull WebSocket webSocket, Throwable t, Response response) {
         t.printStackTrace(); // TODO: Handle failure
     }
 
     @Override
-    public void onClosed(WebSocket webSocket, int code, String reason) {
+    public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
         listeners.clear();
 
         // TODO: Closed
     }
 
     @Override
-    public void onMessage(WebSocket webSocket, String text) {
+    public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
         JsonObject obj = PARSER.parse(text).getAsJsonObject();
 
         MessageType type = MessageType.parse(obj.get("type").getAsString());
         switch (type) {
             case MESSAGE:
-                handleMessage(obj);
+                handleMessage(obj); // FIXME: Sometimes, this fails due to a race condition (network too fast)
                 break;
             case PONG:
                 receivedPong = true;
@@ -111,10 +112,14 @@ public class DealerClient extends WebSocketListener {
 
         synchronized (listeners) {
             for (MessageListener listener : listeners.keySet()) {
+                boolean dispatched = false;
                 List<String> keys = listeners.get(listener);
-                for (String key : keys)
-                    if (uri.startsWith(key))
-                        listener.onMessage(uri, parsedHeaders, decodedPayloads);
+                for (String key : keys) {
+                    if (uri.startsWith(key) && !dispatched) {
+                        listener.onMessage(uri, parsedHeaders, new BytesArrayList(decodedPayloads));
+                        dispatched = true;
+                    }
+                }
             }
         }
     }
@@ -132,6 +137,6 @@ public class DealerClient extends WebSocketListener {
     }
 
     public interface MessageListener {
-        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[][] payloads);
+        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads);
     }
 }

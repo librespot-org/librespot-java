@@ -3,11 +3,12 @@ package xyz.gianlu.librespot.player.providers;
 import com.google.gson.JsonParser;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import spotify.player.proto.ContextPageOuterClass.ContextPage;
+import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
-import xyz.gianlu.librespot.player.remote.Remote3Page;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -28,16 +29,16 @@ public class StationProvider implements ContentProvider {
     }
 
     @NotNull
-    private Remote3Page loadPage() throws IOException {
+    private ContextPage loadPage() throws IOException {
         MercuryClient.Response resp = mercury.sendSync(RawMercuryRequest.newBuilder()
                 .setUri(nextPageUrl).setMethod("GET").build());
 
-        return new Remote3Page(PARSER.parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject());
+        return ProtoUtils.jsonToContextPage(PARSER.parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject());
     }
 
     private void resolveContext() throws IOException, MercuryClient.MercuryException {
         MercuryRequests.ResolvedContextWrapper json = mercury.sendSync(MercuryRequests.resolveContext(context));
-        knowsNextPageUrl(json.pages().get(0).nextPageUrl);
+        knowsNextPageUrl(json.pages().get(0).getNextPageUrl());
     }
 
     private void knowsNextPageUrl(@NotNull String url) {
@@ -52,12 +53,12 @@ public class StationProvider implements ContentProvider {
     }
 
     @Override
-    public @NotNull Remote3Page nextPage() throws IOException, MercuryClient.MercuryException {
+    public @NotNull ContextPage nextPage() throws IOException, MercuryClient.MercuryException {
         if (nextPageUrl == null) resolveContext();
 
-        Remote3Page page = loadPage();
+        ContextPage page = loadPage();
         nextPageUrl = null;
-        if (page.nextPageUrl != null) knowsNextPageUrl(page.nextPageUrl);
+        if (page.hasNextPageUrl()) knowsNextPageUrl(page.getNextPageUrl());
         return page;
     }
 }

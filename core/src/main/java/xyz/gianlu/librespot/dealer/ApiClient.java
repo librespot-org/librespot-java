@@ -35,7 +35,7 @@ public class ApiClient {
             }
 
             @Override
-            public void writeTo(BufferedSink sink) throws IOException {
+            public void writeTo(@NotNull BufferedSink sink) throws IOException {
                 sink.write(msg.toByteArray());
             }
         };

@@ -2,9 +2,10 @@ package xyz.gianlu.librespot.player.providers;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.remote.Remote3Page;
 
 import java.io.IOException;
+
+import static spotify.player.proto.ContextPageOuterClass.ContextPage;
 
 /**
  * Provides content for infinite contexts
@@ -13,5 +14,5 @@ import java.io.IOException;
  */
 public interface ContentProvider {
 
-    @NotNull Remote3Page nextPage() throws IOException, MercuryClient.MercuryException;
+    @NotNull ContextPage nextPage() throws IOException, MercuryClient.MercuryException;
 }

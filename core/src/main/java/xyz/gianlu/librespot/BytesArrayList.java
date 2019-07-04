@@ -20,7 +20,7 @@ public class BytesArrayList implements Iterable<byte[]> {
         elementData = new byte[5][];
     }
 
-    private BytesArrayList(byte[][] buffer) {
+    public BytesArrayList(byte[][] buffer) {
         elementData = buffer;
         size = buffer.length;
     }

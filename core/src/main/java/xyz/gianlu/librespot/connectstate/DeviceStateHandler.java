@@ -1,20 +1,25 @@
 package xyz.gianlu.librespot.connectstate;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import spotify.player.proto.transfer.TransferStateOuterClass;
+import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
-import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -26,11 +31,17 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     private final Session session;
     private final Connect.DeviceInfo.Builder deviceInfo;
     private final List<Listener> listeners = new ArrayList<>();
+    private final Connect.PutStateRequest.Builder putState;
     private volatile String connectionId = null;
 
     public DeviceStateHandler(@NotNull Session session) {
         this.session = session;
         this.deviceInfo = initializeDeviceInfo(session);
+        this.putState = Connect.PutStateRequest.newBuilder()
+                .setMemberType(Connect.MemberType.CONNECT_STATE)
+                .setDevice(Connect.Device.newBuilder()
+                        .setDeviceInfo(deviceInfo)
+                        .build());
 
         session.dealer().addListener(this, "hm://pusher/v1/connections/", "hm://");
     }
@@ -41,22 +52,17 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
                 .setCanPlay(true)
                 .setVolume(session.conf().initialVolume())
                 .setName(session.deviceName())
+                .setDeviceId(session.deviceId())
                 .setDeviceType(session.deviceType())
                 .setDeviceSoftwareVersion(Version.versionString())
                 .setSpircVersion("3.2.6")
                 .setCapabilities(Connect.Capabilities.newBuilder()
-                        .setCanBePlayer(true)
-                        .setGaiaEqConnectId(true)
-                        .setSupportsLogout(true)
-                        .setIsObservable(true)
-                        .setVolumeSteps(PlayerRunner.VOLUME_STEPS)
-                        // .addSupportedTypes("audio/ad")
+                        .setCanBePlayer(true).setGaiaEqConnectId(true).setSupportsLogout(true)
+                        .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
+                        .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
+                        .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
                         .addSupportedTypes("audio/episode")
-                        // .addSupportedTypes("audio/interruption")
-                        // .addSupportedTypes("audio/local")
                         .addSupportedTypes("audio/track")
-                        // .addSupportedTypes("video/ad")
-                        // .addSupportedTypes("video/episode")
                         .build());
     }
 
@@ -74,28 +80,42 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
-    private void notifyFrame(@NotNull Spirc.Frame frame) {
+    private void notifyCommand(@NotNull String endpoint, @NotNull TransferStateOuterClass.TransferState command) {
         synchronized (listeners) {
             for (Listener listener : listeners) {
-                listener.frame(frame);
+                listener.command(endpoint, command);
             }
         }
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[][] payloads) {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
-        } else if (uri.startsWith("hm://remote/3/user/")) {
+        } else if (uri.startsWith("hm://connect-state/v1/cluster")) {
+            System.out.println("RECEIVED CLUSTER UPDATE");
+
+            /*
             try {
-                notifyFrame(Spirc.Frame.parseFrom(payloads[0]));
+                System.out.println(Connect.ClusterUpdate.parseFrom(payloads.stream()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            */
+        } else if (uri.startsWith("hm://connect-state/v1/player/command")) {
+            try {
+                JsonObject obj = new JsonParser().parse(new InputStreamReader(payloads.stream())).getAsJsonObject();
+                JsonObject cmd = obj.getAsJsonObject("command");
+
+                byte[] command = Base64.getDecoder().decode(cmd.get("data").getAsString());
+                notifyCommand(cmd.get("endpoint").getAsString(), TransferStateOuterClass.TransferState.parseFrom(command));
             } catch (InvalidProtocolBufferException ex) {
-                LOGGER.error("Failed paring frame!", ex);
+                LOGGER.error(String.format("Failed receiving command! {uri: %s, payload: %s}", uri, payloads.toHex()), ex);
             }
         } else {
             System.out.println("RECEIVED MSG: " + uri); // FIXME
-            System.out.println(Utils.bytesToHex(payloads[0]));
+            System.out.println(payloads.toHex());
         }
     }
 
@@ -107,18 +127,22 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
+    public void setIsActive(boolean active) {
+        putState.setIsActive(active);
+        if (!putState.getIsActive() && active) {
+            putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
+        } else {
+            putState.setIsActive(false).clearStartedPlayingAt();
+        }
+    }
+
     private void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
         if (connectionId == null) throw new IllegalStateException();
 
-        Connect.PutStateRequest.Builder builder = Connect.PutStateRequest.newBuilder();
-        builder.setPutStateReason(reason);
-        builder.setMemberType(Connect.MemberType.SPIRC_V3);
-        builder.setDevice(Connect.Device.newBuilder()
-                .setDeviceInfo(deviceInfo)
-                .setPlayerState(state)
-                .build());
+        putState.setPutStateReason(reason)
+                .getDeviceBuilder().setPlayerState(state);
 
-        session.api().putConnectState(connectionId, builder.build());
+        session.api().putConnectState(connectionId, putState.build());
     }
 
     @NotNull
@@ -129,6 +153,6 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     public interface Listener {
         void ready();
 
-        void frame(@NotNull Spirc.Frame frame);
+        void command(@NotNull String endpoint, @NotNull TransferStateOuterClass.TransferState cmd);
     }
 }

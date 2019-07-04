@@ -1,19 +1,18 @@
 package xyz.gianlu.librespot.mercury;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextPageOuterClass;
+import spotify.player.proto.ContextTrackOuterClass;
+import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Playlist4Changes;
 import xyz.gianlu.librespot.mercury.model.*;
-import xyz.gianlu.librespot.player.remote.Remote3Page;
-import xyz.gianlu.librespot.player.remote.Remote3Track;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -123,11 +122,8 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public List<Remote3Track> tracks() {
-            JsonArray array = obj.getAsJsonArray("tracks");
-            List<Remote3Track> list = new ArrayList<>(array.size());
-            for (JsonElement elm : array) list.add(new Remote3Track(elm.getAsJsonObject()));
-            return list;
+        public List<ContextTrackOuterClass.ContextTrack> tracks() {
+            return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
         }
     }
 
@@ -138,10 +134,8 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public List<Remote3Page> pages() {
-            List<Remote3Page> list = Remote3Page.opt(obj.getAsJsonArray("pages"));
-            if (list == null) throw new IllegalArgumentException("Invalid context!");
-            return list;
+        public List<ContextPageOuterClass.ContextPage> pages() {
+            return ProtoUtils.jsonToContextPages(obj.getAsJsonArray("pages"));
         }
 
         @Nullable

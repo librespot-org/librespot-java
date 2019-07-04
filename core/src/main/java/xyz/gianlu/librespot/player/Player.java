@@ -1,33 +1,28 @@
 package xyz.gianlu.librespot.player;
 
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.transfer.PlaybackOuterClass;
+import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
-import xyz.gianlu.librespot.player.remote.Remote3Frame;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Objects;
 
 /**
  * @author Gianlu
  */
 public class Player implements TrackHandler.Listener, Closeable, DeviceStateHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
-    private static final JsonParser PARSER = new JsonParser();
     private final Session session;
     private final StateWrapper state;
     private final Configuration conf;
@@ -64,113 +59,25 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         handlePrev();
     }
 
-    private void handleFrame(@NotNull Spirc.MessageType type, @NotNull Spirc.Frame spircFrame, @Nullable Remote3Frame frame) {
-        switch (type) {
-            case kMessageTypeNotify:
-                /* TODO
-                if (spirc.deviceState().getIsActive() && frame != null) {
-                    if (frame.isPlaying && !frame.isPaused) {
-                        spirc.deviceState().setIsActive(false);
-                        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
-                        if (trackHandler != null && !trackHandler.isStopped()) trackHandler.sendStop();
-                        state.updated();
+    private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
+        LOGGER.debug(String.format("Loading context, uri: %s", cmd.getCurrentSession().getContext().getUri()));
 
-                        LOGGER.warn("Stopping player due to kMessageTypeNotify!");
-                    }
-                }
-                 */
-                break;
-            case kMessageTypeLoad:
-                if (frame == null)
-                    break;
-
-                if (frame.endpoint == Remote3Frame.Endpoint.Play) {
-                    handleLoad(frame);
-                } else if (frame.endpoint == Remote3Frame.Endpoint.SkipNext) {
-                    handleSkipNext(frame);
-                }
-                break;
-            case kMessageTypePlay:
-                if (frame != null && (frame.endpoint == Remote3Frame.Endpoint.Play ||
-                        frame.endpoint == Remote3Frame.Endpoint.Resume))
-                    handlePlay();
-                break;
-            case kMessageTypePause:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.Pause)
-                    handlePause();
-                break;
-            case kMessageTypePlayPause:
-                handlePlayPause();
-                break;
-            case kMessageTypeNext:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.SkipNext)
-                    handleNext();
-                break;
-            case kMessageTypePrev:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.SkipPrev)
-                    handlePrev();
-                break;
-            case kMessageTypeSeek:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.SeekTo)
-                    handleSeek(frame.value.getAsInt());
-                break;
-            case kMessageTypeReplace:
-                if (frame == null) break;
-
-                if (frame.endpoint == Remote3Frame.Endpoint.UpdateContext) {
-                    state.updateContext(frame.context);
-                    state.updated();
-                } else if (frame.endpoint == Remote3Frame.Endpoint.SetQueue) {
-                    state.setQueue(frame);
-                    state.updated();
-                } else if (frame.endpoint == Remote3Frame.Endpoint.AddToQueue) {
-                    state.addToQueue(frame);
-                    state.updated();
-                }
-                break;
-            case kMessageTypeRepeat:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.SetRepeatingContext) {
-                    state.setRepeat(frame.value.getAsBoolean());
-                    state.updated();
-                }
-                break;
-            case kMessageTypeShuffle:
-                if (frame != null && frame.endpoint == Remote3Frame.Endpoint.SetShufflingContext) {
-                    state.setShuffle(frame.value.getAsBoolean());
-                    state.updated();
-                }
-                break;
-            case kMessageTypeVolume:
-                handleSetVolume(spircFrame.getVolume());
-                break;
-            case kMessageTypeVolumeDown:
-                handleVolumeDown();
-                break;
-            case kMessageTypeVolumeUp:
-                handleVolumeUp();
-                break;
-            case kMessageTypeAction:
-                if (frame == null) break;
-
-                if (frame.endpoint == Remote3Frame.Endpoint.SetRepeatingTrack) {
-                    state.setRepeatingTrack(frame.value.getAsBoolean());
-                    state.updated();
-                }
-                break;
-        }
-    }
-
-    private void handleSkipNext(@NotNull Remote3Frame frame) {
-        if (frame.track == null) {
-            LOGGER.fatal("Received invalid request, track is missing!");
+        try {
+            state.transfer(cmd);
+        } catch (MercuryClient.MercuryException | IOException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState();
+            return;
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState();
             return;
         }
 
-        state.seekTo(frame.track.uri);
-        state.setPositionMs(0);
-        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+        PlaybackOuterClass.Playback playback = cmd.getPlayback();
+        loadTrack(!playback.getIsPaused());
 
-        loadTrack(true);
+        state.updated();
     }
 
     @Override
@@ -178,69 +85,21 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     @Override
-    public void frame(@NotNull Spirc.Frame frame) {
-        if (Objects.equals(frame.getIdent(), "play-token")) {
-            LOGGER.debug(String.format("Skipping frame. {ident: %s}", frame.getIdent()));
-            return;
-        }
-
-        String json;
-        try {
-            json = Utils.decodeGZip(frame.getContextPlayerState());
-            if (!json.isEmpty()) LOGGER.trace("Frame has context_player_state: " + Utils.removeLineBreaks(json));
-        } catch (IOException | JsonSyntaxException ex) {
-            LOGGER.warn(String.format("Failed parsing frame. {ident: %s, seq: %d}", frame.getIdent(), frame.getSeqNr()), ex);
-            return;
-        }
-
-        handleFrame(frame.getTyp(), frame, json.isEmpty() ? null : new Remote3Frame(PARSER.parse(json).getAsJsonObject()));
+    public void command(@NotNull String endpoint, TransferStateOuterClass.@NotNull TransferState cmd) {
+        if (endpoint.equals("transfer")) transferState(cmd);
+        else LOGGER.warn("Unknown endpoint: " + endpoint);
     }
 
     private void handlePlayPause() {
-        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPlay)) handlePause();
-        else if (state.isStatus(Spirc.PlayStatus.kPlayStatusPause)) handlePlay();
-    }
-
-    private void handleSetVolume(int volume) {
-        if (trackHandler != null) {
-            PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.setVolume(volume);
-        }
-
-        state.updateVolume(volume);
-    }
-
-    private void handleVolumeDown() {
-        if (trackHandler != null) {
-            PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) state.updateVolume(controller.volumeDown());
-        }
-    }
-
-    private void handleVolumeUp() {
-        if (trackHandler != null) {
-            PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) state.updateVolume(controller.volumeUp());
-        }
-    }
-
-    private int getPosition() {
-        int diff = (int) (TimeProvider.currentTimeMillis() - state.getPositionMeasuredAt());
-        return state.getPositionMs() + diff;
-    }
-
-    private void handleSeek(int pos) {
-        state.setPositionMs(pos);
-        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-        if (trackHandler != null) trackHandler.sendSeek(pos);
-        state.updated();
+        if (state.isActuallyPlaying()) handlePause();
+        else handlePlay();
     }
 
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
             if (conf.enableLoadingState()) {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+                state.setState(true, false, true);
                 state.updated();
             }
         }
@@ -249,11 +108,10 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
-            if (play) state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-            else state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+            if (play) state.setState(true, false, false);
+            else state.setState(false, true, false);
 
-            state.setPositionMs(pos);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+            state.setPosition(pos);
 
             state.updated();
         } else if (handler == preloadTrackHandler) {
@@ -282,8 +140,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     public void endOfTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
             if (state.isRepeatingTrack()) {
-                state.setPositionMs(0);
-                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                state.setPosition(0);
 
                 LOGGER.trace("End of track. Repeating.");
                 loadTrack(true);
@@ -296,7 +153,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     @Override
     public void preloadNextTrack(@NotNull TrackHandler handler) {
-        if (handler == trackHandler && state.hasTracks()) {
+        if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null) {
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
@@ -327,7 +184,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
 
             if (conf.enableLoadingState()) {
-                state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
+                state.setState(true, false, true);
                 state.updated();
             }
         }
@@ -338,10 +195,8 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (handler == trackHandler) {
             LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
 
-            long now = TimeProvider.currentTimeMillis();
-            state.setPositionMs(state.getPositionMs() + (int) (now - state.getPositionMeasuredAt() - diff));
-            state.setPositionMeasuredAt(now);
-            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            state.setPosition(state.getPosition() - diff);
+            state.setState(true, false, false);
             state.updated();
         }
     }
@@ -353,92 +208,50 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void panicState() {
         if (trackHandler != null) trackHandler.sendStop();
-        state.setStatus(Spirc.PlayStatus.kPlayStatusStop);
+        state.setState(false, false, false);
         state.updated();
-    }
-
-    private void handleLoad(@NotNull Remote3Frame frame) {
-        /* TODO
-        if (!spirc.deviceState().getIsActive()) {
-            spirc.deviceState()
-                    .setIsActive(true)
-                    .setBecameActiveAt(TimeProvider.currentTimeMillis());
-        }
-        */
-
-        LOGGER.debug(String.format("Loading context, uri: %s", frame.context.uri));
-
-        try {
-            state.load(frame);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed loading context!", ex);
-            panicState();
-            return;
-        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState();
-            return;
-        }
-
-        state.setPositionMs(frame.options.seekTo == -1 ? 0 : frame.options.seekTo);
-        state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-
-        boolean play;
-        if (frame.options.initiallyPaused != null) play = !frame.options.initiallyPaused;
-        else play = true;
-        loadTrack(play);
     }
 
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
-        PlayableId id = state.getCurrentTrack();
+        PlayableId id = state.getCurrentPlayable();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
-            trackHandler.sendSeek(state.getPositionMs());
+            trackHandler.sendSeek(state.getPosition());
         } else {
             trackHandler = new TrackHandler(session, lines, conf, this);
-            trackHandler.sendLoad(id, play, state.getPositionMs());
+            trackHandler.sendLoad(id, play, state.getPosition());
         }
 
         if (play) {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
+            state.setState(true, false, false);
             trackHandler.sendPlay();
         } else {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
+            state.setState(false, true, false);
         }
 
         state.updated();
     }
 
     private void handlePlay() {
-        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPause)) {
-            state.setStatus(Spirc.PlayStatus.kPlayStatusPlay);
-            if (trackHandler != null) {
-                trackHandler.sendPlay();
-                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
-            }
-
+        if (state.isPaused()) {
+            state.setState(true, false, false);
+            if (trackHandler != null) trackHandler.sendPlay();
             state.updated();
         }
     }
 
     private void handlePause() {
-        if (state.isStatus(Spirc.PlayStatus.kPlayStatusPlay)) {
+        if (state.isActuallyPlaying()) {
             if (trackHandler != null) trackHandler.sendPause();
-            state.setStatus(Spirc.PlayStatus.kPlayStatusPause);
-
-            long now = TimeProvider.currentTimeMillis();
-            state.setPositionMs(state.getPositionMs() + (int) (now - state.getPositionMeasuredAt()));
-            state.setPositionMeasuredAt(now);
+            state.setState(false, true, false);
             state.updated();
         }
     }
 
     private void handleNext() {
-        if (!state.hasTracks()) return;
-
         StateWrapper.NextPlayable next = state.nextPlayable(conf);
         if (next == StateWrapper.NextPlayable.AUTOPLAY) {
             loadAutoplay();
@@ -446,8 +259,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
 
         if (next.isOk()) {
-            state.setPositionMs(0);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+            state.setPosition(0);
             loadTrack(next == StateWrapper.NextPlayable.OK_PLAY);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
@@ -466,19 +278,17 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
-                state.loadFromUri(newContext);
+                // TODO: state.loadFromUri(newContext);
 
-                state.setPositionMs(0);
-                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                state.setPosition(0);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
-                state.loadStation(station);
+                // TODO: state.loadStation(station);
 
-                state.setPositionMs(0);
-                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                state.setPosition(0);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -489,27 +299,27 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             panicState();
-        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+        }
+
+        /*
+        catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState();
         }
+        */
     }
 
     private void handlePrev() {
-        if (!state.hasTracks()) return;
-
-        if (getPosition() < 3000) {
+        if (state.getPosition() < 3000) {
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
-                state.setPositionMs(0);
-                state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+                state.setPosition(0);
                 loadTrack(true);
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
             }
         } else {
-            state.setPositionMs(0);
-            state.setPositionMeasuredAt(TimeProvider.currentTimeMillis());
+            state.setPosition(0);
             if (trackHandler != null) trackHandler.sendSeek(0);
             state.updated();
         }
@@ -540,7 +350,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     @Nullable
     public PlayableId currentPlayableId() {
-        return state.hasTracks() ? state.getCurrentTrack() : null;
+        return state.getCurrentPlayable();
     }
 
     public interface Configuration {
