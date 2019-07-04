@@ -76,16 +76,46 @@ public class DealerClient extends WebSocketListener {
     public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
         JsonObject obj = PARSER.parse(text).getAsJsonObject();
 
+        // FIXME: Sometimes, this fails due to a race condition (network too fast)
+
         MessageType type = MessageType.parse(obj.get("type").getAsString());
         switch (type) {
             case MESSAGE:
-                handleMessage(obj); // FIXME: Sometimes, this fails due to a race condition (network too fast)
+                handleMessage(obj);
+                break;
+            case REQUEST:
+                handleRequest(obj);
                 break;
             case PONG:
                 receivedPong = true;
                 break;
             case PING:
                 break;
+        }
+    }
+
+    private void handleRequest(@NotNull JsonObject obj) {
+        String mid = obj.get("message_ident").getAsString();
+
+        JsonObject payload = obj.getAsJsonObject("payload");
+        int pid = payload.get("message_id").getAsInt();
+        String sender = payload.get("sent_by_device_id").getAsString();
+
+        JsonObject command = payload.getAsJsonObject("command");
+        byte[] data = Base64.getDecoder().decode(command.get("data").getAsString());
+        String endpoint = command.get("endpoint").getAsString();
+
+        synchronized (listeners) {
+            for (MessageListener listener : listeners.keySet()) {
+                boolean dispatched = false;
+                List<String> keys = listeners.get(listener);
+                for (String key : keys) {
+                    if (mid.startsWith(key) && !dispatched) {
+                        listener.onRequest(mid, pid, sender, endpoint, data);
+                        dispatched = true;
+                    }
+                }
+            }
         }
     }
 
@@ -138,5 +168,7 @@ public class DealerClient extends WebSocketListener {
 
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads);
+
+        void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull String endpoint, @NotNull byte[] data);
     }
 }

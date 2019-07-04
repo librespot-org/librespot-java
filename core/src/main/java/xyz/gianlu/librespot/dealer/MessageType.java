@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
  * @author Gianlu
  */
 public enum MessageType {
-    PING("ping"), PONG("pong"), MESSAGE("message");
+    PING("ping"), PONG("pong"), MESSAGE("message"), REQUEST("request");
 
     private final String val;
 

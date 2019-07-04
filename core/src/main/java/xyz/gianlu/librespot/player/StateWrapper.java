@@ -8,7 +8,9 @@ import com.spotify.connectstate.model.Player.Suppressions;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
+import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -29,6 +31,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     private final Session session;
     private final DeviceStateHandler device;
     private AbsSpotifyContext<?> context;
+    private PagesLoader pages;
 
     StateWrapper(@NotNull Session session) {
         this.session = session;
@@ -88,14 +91,17 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return state.getContextUri();
     }
 
-    private void setContext(@NotNull Context context) throws AbsSpotifyContext.UnsupportedContextException {
-        setContext(context.getUri());
-        if (context.hasRestrictions()) this.context.updateRestrictions(context.getRestrictions());
-    }
+    private void setContext(@NotNull Context ctx) throws AbsSpotifyContext.UnsupportedContextException {
+        String uri = ctx.getUri();
+        this.context = AbsSpotifyContext.from(uri);
+        this.state.setContextUri(uri);
 
-    private void setContext(@NotNull String context) throws AbsSpotifyContext.UnsupportedContextException {
-        this.context = AbsSpotifyContext.from(context);
-        this.state.setContextUri(context);
+        if (ctx.hasUrl()) this.state.setContextUrl(ctx.getUrl());
+        else this.state.clearContextUrl();
+        if (ctx.hasRestrictions()) this.context.updateRestrictions(ctx.getRestrictions());
+        ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
+
+        this.pages = PagesLoader.from(session, ctx);
     }
 
     synchronized void updated() {
@@ -119,7 +125,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     @Override
-    public void command(@NotNull String endpoint, TransferStateOuterClass.@NotNull TransferState cmd) {
+    public void command(@NotNull String endpoint, @NotNull byte[] data) {
     }
 
     public int getVolume() {
@@ -141,7 +147,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     public void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException, IOException {
+        SessionOuterClass.Session ps = cmd.getCurrentSession();
 
+        state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
+
+        Context ctx = ps.getContext();
+        setContext(ctx);
+
+        System.out.println(cmd);
     }
 
     @Nullable

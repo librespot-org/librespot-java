@@ -1,11 +1,8 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.RestrictionsOuterClass.Restrictions;
-import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.providers.ContentProvider;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -15,7 +12,7 @@ import java.net.URLDecoder;
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
     protected final String context;
-    private Restrictions restrictions;
+    private Restrictions restrictions = null; // FIXME: May cause NPE
 
     public AbsSpotifyContext(@NotNull String context) {
         this.context = context;
@@ -113,12 +110,6 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
 
     public final boolean canShuffle() {
         return restrictions.getDisallowTogglingShuffleReasonsCount() == 0;
-    }
-
-    @Nullable
-    public ContentProvider initProvider(@NotNull Session session) {
-        if (isFinite()) return null;
-        else throw new UnsupportedOperationException(context);
     }
 
     public final @NotNull String uri() {

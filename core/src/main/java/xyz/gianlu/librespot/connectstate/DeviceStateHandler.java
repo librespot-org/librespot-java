@@ -1,13 +1,10 @@
 package xyz.gianlu.librespot.connectstate;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
@@ -17,9 +14,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -80,10 +75,14 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
-    private void notifyCommand(@NotNull String endpoint, @NotNull TransferStateOuterClass.TransferState command) {
+    private void notifyCommand(@NotNull String endpoint, @NotNull byte[] data) {
         synchronized (listeners) {
             for (Listener listener : listeners) {
-                listener.command(endpoint, command);
+                try {
+                    listener.command(endpoint, data);
+                } catch (InvalidProtocolBufferException ex) {
+                    LOGGER.error("Failed parsing command!", ex);
+                }
             }
         }
     }
@@ -103,20 +102,16 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
                 e.printStackTrace();
             }
             */
-        } else if (uri.startsWith("hm://connect-state/v1/player/command")) {
-            try {
-                JsonObject obj = new JsonParser().parse(new InputStreamReader(payloads.stream())).getAsJsonObject();
-                JsonObject cmd = obj.getAsJsonObject("command");
-
-                byte[] command = Base64.getDecoder().decode(cmd.get("data").getAsString());
-                notifyCommand(cmd.get("endpoint").getAsString(), TransferStateOuterClass.TransferState.parseFrom(command));
-            } catch (InvalidProtocolBufferException ex) {
-                LOGGER.error(String.format("Failed receiving command! {uri: %s, payload: %s}", uri, payloads.toHex()), ex);
-            }
         } else {
             System.out.println("RECEIVED MSG: " + uri); // FIXME
             System.out.println(payloads.toHex());
         }
+    }
+
+    @Override
+    public void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull String endpoint, @NotNull byte[] data) {
+        putState.setLastCommandMessageId(pid).setLastCommandSentByDeviceId(sender);
+        notifyCommand(endpoint, data);
     }
 
     public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
@@ -153,6 +148,6 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     public interface Listener {
         void ready();
 
-        void command(@NotNull String endpoint, @NotNull TransferStateOuterClass.TransferState cmd);
+        void command(@NotNull String endpoint, @NotNull byte[] data) throws InvalidProtocolBufferException;
     }
 }

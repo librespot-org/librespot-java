@@ -3,9 +3,14 @@ package xyz.gianlu.librespot.common;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.spotify.connectstate.model.Player;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextOuterClass;
 import spotify.player.proto.ContextPageOuterClass.ContextPage;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
+import spotify.player.proto.PlayOriginOuterClass;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,4 +64,30 @@ public final class ProtoUtils {
         return list;
     }
 
+    @Nullable
+    @Contract("null -> null")
+    public static Player.PlayOrigin convertPlayOrigin(@Nullable PlayOriginOuterClass.PlayOrigin po) {
+        if (po == null) return null;
+
+        Player.PlayOrigin.Builder builder = Player.PlayOrigin.newBuilder();
+
+        Optional.ofNullable(po.getFeatureIdentifier()).ifPresent(builder::setFeatureIdentifier);
+        Optional.ofNullable(po.getFeatureVersion()).ifPresent(builder::setFeatureVersion);
+        Optional.ofNullable(po.getViewUri()).ifPresent(builder::setViewUri);
+        Optional.ofNullable(po.getExternalReferrer()).ifPresent(builder::setExternalReferrer);
+        Optional.ofNullable(po.getReferrerIdentifier()).ifPresent(builder::setReferrerIdentifier);
+        Optional.ofNullable(po.getDeviceIdentifier()).ifPresent(builder::setDeviceIdentifier);
+
+        if (po.getFeatureClassesCount() > 0)
+            for (String feature : po.getFeatureClassesList())
+                builder.addFeatureClasses(feature);
+
+        return builder.build();
+    }
+
+    public static void moveOverMetadata(@NotNull ContextOuterClass.Context from, @NotNull Player.PlayerState.Builder to, @NotNull String... keys) {
+        for (String key : keys)
+            if (from.containsMetadata(key))
+                to.putContextMetadata(key, from.getMetadataOrThrow(key));
+    }
 }
