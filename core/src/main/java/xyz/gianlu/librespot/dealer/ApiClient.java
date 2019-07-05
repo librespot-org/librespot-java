@@ -43,7 +43,7 @@ public class ApiClient {
 
     public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
         send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
-                .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto));
+                .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto)).close();
     }
 
     @NotNull

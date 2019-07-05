@@ -45,7 +45,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     public void play() {
-        handlePlay();
+        handleResume();
     }
 
     public void pause() {
@@ -75,8 +75,12 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             return;
         }
 
-        PlaybackOuterClass.Playback playback = cmd.getPlayback();
-        loadTrack(!playback.getIsPaused());
+        PlaybackOuterClass.Playback pb = cmd.getPlayback();
+
+        state.setState(!pb.getIsPaused(), pb.getIsPaused(), conf.enableLoadingState());
+        state.updated();
+
+        loadTrack(!pb.getIsPaused());
 
         state.updated();
     }
@@ -86,9 +90,39 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     @Override
-    public void command(@NotNull String endpoint, @NotNull byte[] data) throws InvalidProtocolBufferException {
-        if (endpoint.equals("transfer")) transferState(TransferStateOuterClass.TransferState.parseFrom(data));
-        else LOGGER.warn("Unknown endpoint: " + endpoint);
+    public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) throws InvalidProtocolBufferException {
+        LOGGER.debug("Received command: " + endpoint);
+
+        switch (endpoint) {
+            case Transfer:
+                transferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
+                break;
+            case Resume:
+                handleResume();
+                break;
+            case Pause:
+                handlePause();
+                break;
+            case SeekTo:
+                handleSeek(data.valueInt());
+                break;
+            case SkipNext:
+                handleNext();
+                break;
+            case SkipPrev:
+                handlePrev();
+                break;
+            case SetShufflingContext:
+            case SetRepeatingContext:
+            case SetRepeatingTrack:
+            case AddToQueue:
+            case SetQueue:
+            case UpdateContext:
+                throw new UnsupportedOperationException();
+            default:
+                LOGGER.warn("Endpoint left unhandled: " + endpoint);
+                break;
+        }
     }
 
     @Override
@@ -101,7 +135,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void handlePlayPause() {
         if (state.isActuallyPlaying()) handlePause();
-        else handlePlay();
+        else handleResume();
     }
 
     @Override
@@ -210,6 +244,12 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
+    private void handleSeek(int pos) {
+        state.setPosition(pos);
+        if (trackHandler != null) trackHandler.sendSeek(pos);
+        state.updated();
+    }
+
     @Override
     public int getVolume() {
         return state.getVolume();
@@ -244,7 +284,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         state.updated();
     }
 
-    private void handlePlay() {
+    private void handleResume() {
         if (state.isPaused()) {
             state.setState(true, false, false);
             if (trackHandler != null) trackHandler.sendPlay();

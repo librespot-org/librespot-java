@@ -127,7 +127,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     @Override
-    public void command(@NotNull String endpoint, @NotNull byte[] data) {
+    public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) {
     }
 
     @Override

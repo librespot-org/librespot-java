@@ -1,10 +1,12 @@
 package xyz.gianlu.librespot.connectstate;
 
+import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
@@ -15,6 +17,7 @@ import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -75,7 +78,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
-    private void notifyCommand(@NotNull String endpoint, @NotNull byte[] data) {
+    private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
         synchronized (listeners) {
             for (Listener listener : listeners) {
                 try {
@@ -127,9 +130,20 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     @Override
-    public void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull String endpoint, @NotNull byte[] data) {
+    public void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command) {
         putState.setLastCommandMessageId(pid).setLastCommandSentByDeviceId(sender);
-        notifyCommand(endpoint, data);
+
+        Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
+
+        byte[] data = null;
+        if (command.has("data"))
+            data = Base64.getDecoder().decode(command.get("data").getAsString());
+
+        String value = null;
+        if (command.has("value"))
+            value = command.get("value").getAsString();
+
+        notifyCommand(endpoint, new CommandBody(data, value));
     }
 
     public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
@@ -161,11 +175,55 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         return deviceInfo.getVolume();
     }
 
+    public enum Endpoint {
+        Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
+        SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),
+        SetRepeatingTrack("set_repeating_track"), UpdateContext("update_context"), SetQueue("set_queue"),
+        AddToQueue("add_to_queue"), Transfer("transfer");
+
+        private final String val;
+
+        Endpoint(@NotNull String val) {
+            this.val = val;
+        }
+
+        @NotNull
+        public static Endpoint parse(@NotNull String value) {
+            for (Endpoint e : values())
+                if (e.val.equals(value))
+                    return e;
+
+            throw new IllegalArgumentException("Unknown endpoint for " + value);
+        }
+    }
+
     public interface Listener {
         void ready();
 
-        void command(@NotNull String endpoint, @NotNull byte[] data) throws InvalidProtocolBufferException;
+        void command(@NotNull Endpoint endpoint, @NotNull CommandBody data) throws InvalidProtocolBufferException;
 
         void volumeChanged();
+    }
+
+    public static class CommandBody {
+        private final byte[] data;
+        private final String value;
+
+        private CommandBody(@Nullable byte[] data, @Nullable String value) {
+            this.data = data;
+            this.value = value;
+        }
+
+        public byte[] data() {
+            return data;
+        }
+
+        public String value() {
+            return value;
+        }
+
+        public Integer valueInt() {
+            return value == null ? null : Integer.parseInt(value);
+        }
     }
 }

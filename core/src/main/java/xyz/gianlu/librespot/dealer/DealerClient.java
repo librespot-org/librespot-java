@@ -102,8 +102,6 @@ public class DealerClient extends WebSocketListener {
         String sender = payload.get("sent_by_device_id").getAsString();
 
         JsonObject command = payload.getAsJsonObject("command");
-        byte[] data = Base64.getDecoder().decode(command.get("data").getAsString());
-        String endpoint = command.get("endpoint").getAsString();
 
         boolean interesting = false;
         synchronized (listeners) {
@@ -113,7 +111,7 @@ public class DealerClient extends WebSocketListener {
                 for (String key : keys) {
                     if (mid.startsWith(key) && !dispatched) {
                         interesting = true;
-                        listener.onRequest(mid, pid, sender, endpoint, data);
+                        listener.onRequest(mid, pid, sender, command);
                         dispatched = true;
                     }
                 }
@@ -181,6 +179,6 @@ public class DealerClient extends WebSocketListener {
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) throws IOException;
 
-        void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull String endpoint, @NotNull byte[] data);
+        void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
     }
 }
