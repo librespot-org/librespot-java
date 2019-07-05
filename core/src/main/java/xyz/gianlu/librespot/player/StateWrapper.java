@@ -180,7 +180,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     @Nullable
     PlayableId nextPlayableDoNotSet() {
-        return null; // TODO
+        try {
+            return tracksKeeper.nextPlayableDoNotSet();
+        } catch (IOException ex) {
+            LOGGER.error("Failed fetching next playable.", ex);
+            return null;
+        }
     }
 
     @NotNull
@@ -190,12 +195,20 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     @NotNull
     NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
-        return NextPlayable.MISSING_TRACKS; // TODO
+        if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
+
+        try {
+            return tracksKeeper.nextPlayable(conf);
+        } catch (IOException ex) {
+            LOGGER.error("Failed fetching next playable.", ex);
+            return NextPlayable.MISSING_TRACKS;
+        }
     }
 
     @NotNull
     PreviousPlayable previousPlayable() {
-        return PreviousPlayable.MISSING_TRACKS; // TODO
+        if (tracksKeeper == null) return PreviousPlayable.MISSING_TRACKS;
+        return tracksKeeper.previousPlayable();
     }
 
     public enum PreviousPlayable {
@@ -230,6 +243,28 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             return state.getIndex().getTrack();
         }
 
+        private void setCurrentTrackIndex(int index) {
+            state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
+            updateState();
+        }
+
+        private void updatePrevNextTracks() {
+            int index = getCurrentTrackIndex();
+
+            state.clearPrevTracks();
+            for (int i = 0; i < index; i++)
+                state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+
+            state.clearNextTracks();
+            for (int i = index + 1; i < tracks.size(); i++)
+                state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+        }
+
+        private void updateState() {
+            state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+            updatePrevNextTracks();
+        }
+
         void initialize(@NotNull String currentUid, @NotNull ContextTrack track) throws IOException {
             tracks.clear();
 
@@ -246,7 +281,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 index += tracks.size();
                 tracks.addAll(newTracks);
 
-                state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
+                setCurrentTrackIndex(index);
                 found = true;
             }
 
@@ -256,14 +291,58 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             tracks.set(index, current.build());
 
             state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+            updatePrevNextTracks();
+        }
 
-            state.clearPrevTracks();
-            for (int i = 0; i < index; i++)
-                state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(index)));
+        @Nullable
+        PlayableId nextPlayableDoNotSet() throws IOException {
+            // TODO: Unsupported elements, infinite contexts, shuffled contexts
 
-            state.clearNextTracks();
-            for (int i = index + 1; i < tracks.size(); i++)
-                state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(index)));
+            int current = getCurrentTrackIndex();
+            if (current == tracks.size() - 1) {
+                if (pages.nextPage()) tracks.addAll(pages.currentPage());
+                else return null;
+            }
+
+            return PlayableId.from(tracks.get(current + 1));
+        }
+
+        @NotNull
+        NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException {
+            boolean play = true;
+            PlayableId next = nextPlayableDoNotSet();
+            if (next == null) {
+                if (isRepeatingContext()) {
+                    setCurrentTrackIndex(0);
+                } else {
+                    if (conf.autoplayEnabled()) {
+                        return NextPlayable.AUTOPLAY;
+                    } else {
+                        setCurrentTrackIndex(0);
+                        play = false;
+                    }
+                }
+            } else {
+                setCurrentTrackIndex(getCurrentTrackIndex() + 1);
+            }
+
+            if (play) return NextPlayable.OK_PLAY;
+            else return NextPlayable.OK_PAUSE;
+        }
+
+        @NotNull
+        PreviousPlayable previousPlayable() {
+            // TODO: Unsupported elements
+
+            int index = getCurrentTrackIndex();
+            if (index == 0) {
+                if (isRepeatingContext() && context.isFinite())
+                    setCurrentTrackIndex(tracks.size() - 1);
+            } else {
+                setCurrentTrackIndex(index - 1);
+            }
+
+            return PreviousPlayable.OK;
         }
     }
 }
