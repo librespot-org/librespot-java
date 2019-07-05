@@ -138,6 +138,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             case AddToQueue:
             case SetQueue:
             case UpdateContext:
+                System.out.println(data.obj());
                 throw new UnsupportedOperationException();
             default:
                 LOGGER.warn("Endpoint left unhandled: " + endpoint);

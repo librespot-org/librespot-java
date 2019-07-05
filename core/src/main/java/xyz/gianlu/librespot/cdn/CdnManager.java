@@ -5,11 +5,11 @@ import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.download.proto.StorageResolve;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 
 import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
@@ -35,7 +35,6 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public class CdnManager {
-    private static final String STORAGE_RESOLVE_AUDIO_URL = "https://spclient.wg.spotify.com/storage-resolve/files/audio/interactive/%s";
     private static final Logger LOGGER = Logger.getLogger(CdnManager.class);
     private final Session session;
     private final OkHttpClient client;
@@ -68,7 +67,8 @@ public class CdnManager {
 
     @NotNull
     public Streamer streamEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
-        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, new CdnUrl(externalUrl), session.cache(), new NoopAudioDecrypt(), haltListener);
+        return new Streamer(new StreamId(episode), SuperAudioFormat.MP3, new CdnUrl(null, externalUrl),
+                session.cache(), new NoopAudioDecrypt(), haltListener);
     }
 
     @NotNull
@@ -78,18 +78,13 @@ public class CdnManager {
     }
 
     @NotNull
-    private HttpUrl getAudioUrl(@NotNull ByteString fileId, @NotNull TokenProvider.ExpireListener listener) throws IOException, CdnException, MercuryClient.MercuryException {
-        try (Response resp = client.newCall(new Request.Builder().get()
-                .header("Authorization", "Bearer " + session.tokens().get("playlist-read", listener))
-                .url(String.format(STORAGE_RESOLVE_AUDIO_URL, Utils.bytesToHex(fileId)))
-                .build()).execute()) {
-
+    private HttpUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, CdnException, MercuryClient.MercuryException {
+        try (Response resp = session.api().send("GET", String.format("/storage-resolve/files/audio/interactive/%s", Utils.bytesToHex(fileId)), null, null)) {
             if (resp.code() != 200)
                 throw new IOException(resp.code() + ": " + resp.message());
 
             ResponseBody body = resp.body();
-            if (body == null)
-                throw new IOException("Response body is empty!");
+            if (body == null) throw new IOException("Response body is empty!");
 
             StorageResolve.StorageResolveResponse proto = StorageResolve.StorageResolveResponse.parseFrom(body.byteStream());
             if (proto.getResult() == StorageResolve.StorageResolveResponse.Result.CDN) {
@@ -104,9 +99,7 @@ public class CdnManager {
 
     @NotNull
     private CdnUrl getCdnUrl(@NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException, CdnException {
-        CdnUrl cdnUrl = new CdnUrl(fileId);
-        cdnUrl.url = getAudioUrl(fileId, cdnUrl);
-        return cdnUrl;
+        return new CdnUrl(fileId, getAudioUrl(fileId));
     }
 
     public static class CdnException extends Exception {
@@ -115,7 +108,7 @@ public class CdnManager {
             super(message);
         }
 
-        CdnException(Throwable ex) {
+        CdnException(@NotNull Throwable ex) {
             super(ex);
         }
     }
@@ -130,34 +123,14 @@ public class CdnManager {
         }
     }
 
-    private class CdnUrl implements TokenProvider.ExpireListener {
+    private class CdnUrl {
         private final ByteString fileId;
-        private final AtomicReference<Exception> urlLock = new AtomicReference<>(null);
+        private long expiration;
         private HttpUrl url;
 
-        CdnUrl(@NotNull HttpUrl url) {
-            this.url = url;
-            this.fileId = null;
-        }
-
-        CdnUrl(@NotNull ByteString fileId) {
+        CdnUrl(@Nullable ByteString fileId, @NotNull HttpUrl url) {
             this.fileId = fileId;
-            this.url = null;
-        }
-
-        private void waitUrl() throws CdnException {
-            if (url == null) {
-                synchronized (urlLock) {
-                    try {
-                        urlLock.wait();
-                    } catch (InterruptedException ex) {
-                        throw new CdnException(ex);
-                    }
-
-                    Exception ex = urlLock.get();
-                    if (ex != null) throw new CdnException(ex);
-                }
-            }
+            this.setUrl(url);
         }
 
         @Nullable
@@ -167,30 +140,58 @@ public class CdnManager {
 
         @NotNull
         HttpUrl url() throws CdnException {
-            waitUrl();
+            if (expiration == -1) return url;
+
+            if (expiration <= System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)) {
+                try {
+                    url = getAudioUrl(fileId);
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    throw new CdnException(ex);
+                }
+            }
+
             return url;
         }
 
-        @Override
-        public void tokenExpired() {
-            if (fileId == null) throw new IllegalStateException();
+        void setUrl(@NotNull HttpUrl url) {
+            this.url = url;
 
-            url = null;
+            if (fileId != null) {
+                String tokenStr = url.queryParameter("__token__");
+                if (tokenStr != null && !tokenStr.isEmpty()) {
+                    Long expireAt = null;
+                    String[] split = tokenStr.split("~");
+                    for (String str : split) {
+                        int i = str.indexOf('=');
+                        if (i == -1) continue;
 
-            synchronized (urlLock) {
-                try {
-                    url = getAudioUrl(fileId, this);
-                    urlLock.set(null);
-                } catch (IOException | CdnException | MercuryClient.MercuryException ex) {
-                    urlLock.set(ex);
+                        if (str.substring(0, i).equals("exp")) {
+                            expireAt = Long.parseLong(str.substring(i + 1));
+                            break;
+                        }
+                    }
+
+                    if (expireAt == null) {
+                        expiration = -1;
+                        LOGGER.warn("Invalid __token__ in CDN url: " + url);
+                        return;
+                    }
+
+                    expiration = expireAt * 1000;
+                } else {
+                    String param = url.queryParameterName(0);
+                    int i = param.indexOf('_');
+                    if (i == -1) {
+                        expiration = -1;
+                        LOGGER.warn("Couldn't extract expiration, invalid parameter in CDN url: " + url);
+                        return;
+                    }
+
+                    expiration = Long.parseLong(param.substring(0, i)) * 1000;
                 }
-
-                urlLock.notifyAll();
+            } else {
+                expiration = -1;
             }
-        }
-
-        void discard() {
-            session.tokens().removeExpireListener(this);
         }
     }
 
@@ -251,12 +252,6 @@ public class CdnManager {
 
             this.internalStream = new InternalStream(haltListener);
             writeChunk(firstChunk, 0, false);
-        }
-
-        @Override
-        protected void finalize() throws Throwable {
-            super.finalize();
-            cdnUrl.discard();
         }
 
         @Override
@@ -339,7 +334,7 @@ public class CdnManager {
 
         private class InternalStream extends AbsChunckedInputStream {
 
-            protected InternalStream(@Nullable HaltListener haltListener) {
+            InternalStream(@Nullable HaltListener haltListener) {
                 super(haltListener);
             }
 
@@ -371,12 +366,6 @@ public class CdnManager {
             @Override
             protected void requestChunkFromStream(int index) {
                 executorService.execute(() -> requestChunk(index, false));
-            }
-
-            @Override
-            public void close() {
-                super.close();
-                cdnUrl.discard();
             }
         }
     }

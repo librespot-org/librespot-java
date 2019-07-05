@@ -51,7 +51,7 @@ public class ApiClient {
         Request.Builder request = new Request.Builder();
         request.method(method, body);
         if (headers != null) request.headers(headers);
-        request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read", null));
+        request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         request.url(baseUrl + suffix);
 
         return client.newCall(request.build()).execute();

@@ -30,7 +30,7 @@ public class DealerClient extends WebSocketListener {
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
         this.ws = new OkHttpClient().newWebSocket(new Request.Builder()
-                .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read", null)))
+                .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
                 .build(), this);
     }
 
