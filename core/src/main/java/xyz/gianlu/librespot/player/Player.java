@@ -272,6 +272,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             loadTrack(next == StateWrapper.NextPlayable.OK_PLAY);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
+            panicState();
         }
     }
 
@@ -326,6 +327,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 loadTrack(true);
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
+                panicState();
             }
         } else {
             state.setPosition(0);

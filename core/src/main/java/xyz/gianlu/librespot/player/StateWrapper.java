@@ -141,7 +141,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     int getPosition() {
         int diff = (int) (TimeProvider.currentTimeMillis() - state.getTimestamp());
-        return (int) (state.getPosition() + diff);
+        return (int) (state.getPositionAsOfTimestamp() + diff);
     }
 
     void setPosition(long pos) {
@@ -168,7 +168,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
-        updatePosition();
+
+        ProvidedTrack current = tracksKeeper.getCurrentTrack();
+        if (current.containsMetadata("duration"))
+            state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
+        else
+            LOGGER.warn("Track duration is unknown!"); // FIXME
 
         device.setIsActive(true);
     }

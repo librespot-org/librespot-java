@@ -105,18 +105,22 @@ public class DealerClient extends WebSocketListener {
         byte[] data = Base64.getDecoder().decode(command.get("data").getAsString());
         String endpoint = command.get("endpoint").getAsString();
 
+        boolean interesting = false;
         synchronized (listeners) {
             for (MessageListener listener : listeners.keySet()) {
                 boolean dispatched = false;
                 List<String> keys = listeners.get(listener);
                 for (String key : keys) {
                     if (mid.startsWith(key) && !dispatched) {
+                        interesting = true;
                         listener.onRequest(mid, pid, sender, endpoint, data);
                         dispatched = true;
                     }
                 }
             }
         }
+
+        if (!interesting) LOGGER.warn("Couldn't dispatch command: " + mid);
     }
 
     private void handleMessage(@NotNull JsonObject obj) {
@@ -140,6 +144,7 @@ public class DealerClient extends WebSocketListener {
                 parsedHeaders.put(key, headers.get(key).getAsString());
         }
 
+        boolean interesting = false;
         synchronized (listeners) {
             for (MessageListener listener : listeners.keySet()) {
                 boolean dispatched = false;
@@ -147,6 +152,7 @@ public class DealerClient extends WebSocketListener {
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
                         try {
+                            interesting = true;
                             listener.onMessage(uri, parsedHeaders, new BytesArrayList(decodedPayloads));
                             dispatched = true;
                         } catch (IOException ex) {
@@ -156,6 +162,8 @@ public class DealerClient extends WebSocketListener {
                 }
             }
         }
+
+        if (!interesting) LOGGER.warn("Couldn't dispatch message: " + uri);
     }
 
     public void addListener(@NotNull MessageListener listener, @NotNull String... uris) {

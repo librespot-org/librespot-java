@@ -38,7 +38,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
                         .setDeviceInfo(deviceInfo)
                         .build());
 
-        session.dealer().addListener(this, "hm://pusher/v1/connections/", "hm://");
+        session.dealer().addListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/");
     }
 
     @NotNull
