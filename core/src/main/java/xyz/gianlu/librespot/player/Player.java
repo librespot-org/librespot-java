@@ -1,10 +1,11 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.transfer.PlaybackOuterClass;
+import spotify.player.proto.ContextTrackOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
@@ -18,6 +19,9 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
 import java.io.IOException;
+
+import static xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper.getContextUri;
+import static xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper.isInitiallyPaused;
 
 /**
  * @author Gianlu
@@ -53,7 +57,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     public void next() {
-        handleNext();
+        handleNext(null);
     }
 
     public void previous() {
@@ -61,11 +65,11 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
-        LOGGER.debug(String.format("Loading context, uri: %s", cmd.getCurrentSession().getContext().getUri()));
+        LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
 
         try {
             state.transfer(cmd);
-        } catch (IOException ex) {
+        } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
             panicState();
             return;
@@ -75,14 +79,27 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             return;
         }
 
-        PlaybackOuterClass.Playback pb = cmd.getPlayback();
+        loadTrack(!cmd.getPlayback().getIsPaused());
+    }
 
-        state.setState(!pb.getIsPaused(), pb.getIsPaused(), conf.enableLoadingState());
-        state.updated();
+    private void handleLoad(@NotNull JsonObject obj) {
+        LOGGER.debug(String.format("Loading context (play), uri: %s", getContextUri(obj)));
 
-        loadTrack(!pb.getIsPaused());
+        try {
+            state.load(obj);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState();
+            return;
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState();
+            return;
+        }
 
-        state.updated();
+        Boolean play = isInitiallyPaused(obj);
+        if (play == null) play = true;
+        loadTrack(play);
     }
 
     @Override
@@ -94,6 +111,9 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         LOGGER.debug("Received command: " + endpoint);
 
         switch (endpoint) {
+            case Play:
+                handleLoad(data.obj());
+                break;
             case Transfer:
                 transferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
                 break;
@@ -107,7 +127,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 handleSeek(data.valueInt());
                 break;
             case SkipNext:
-                handleNext();
+                handleNext(data.obj());
                 break;
             case SkipPrev:
                 handlePrev();
@@ -141,10 +161,8 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            if (conf.enableLoadingState()) {
-                state.setState(true, false, true);
-                state.updated();
-            }
+            state.setState(true, false, conf.enableLoadingState());
+            state.updated();
         }
     }
 
@@ -167,7 +185,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (handler == trackHandler) {
             if (ex instanceof ContentRestrictedException) {
                 LOGGER.fatal(String.format("Can't load track (content restricted), gid: %s", Utils.bytesToHex(id.getGid())), ex);
-                handleNext();
+                handleNext(null);
                 return;
             }
 
@@ -189,7 +207,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 loadTrack(true);
             } else {
                 LOGGER.trace("End of track. Proceeding with next.");
-                handleNext();
+                handleNext(null);
             }
         }
     }
@@ -275,10 +293,10 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
 
         if (play) {
-            state.setState(true, false, false);
+            state.setState(true, false, conf.enableLoadingState());
             trackHandler.sendPlay();
         } else {
-            state.setState(false, true, false);
+            state.setState(false, true, conf.enableLoadingState());
         }
 
         state.updated();
@@ -300,7 +318,16 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
-    private void handleNext() {
+    private void handleNext(@Nullable JsonObject obj) {
+        ContextTrackOuterClass.ContextTrack track = null;
+        if (obj != null) track = DeviceStateHandler.PlayCommandWrapper.getTrack(obj);
+
+        if (track != null) {
+            state.skipTo(track);
+            loadTrack(true);
+            return;
+        }
+
         StateWrapper.NextPlayable next = state.nextPlayable(conf);
         if (next == StateWrapper.NextPlayable.AUTOPLAY) {
             loadAutoplay();
@@ -328,17 +355,15 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
-                // TODO: state.loadFromUri(newContext);
+                state.loadContext(newContext);
 
-                state.setPosition(0);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
-                // TODO: state.loadStation(station);
+                state.loadContextWithTracks(station.uri(), station.tracks());
 
-                state.setPosition(0);
                 loadTrack(true);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -349,14 +374,10 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
             panicState();
-        }
-
-        /*
-        catch (AbsSpotifyContext.UnsupportedContextException ex) {
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState();
         }
-        */
     }
 
     private void handlePrev() {

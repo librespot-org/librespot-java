@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.connectstate;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.connectstate.model.Connect;
@@ -7,8 +8,10 @@ import com.spotify.connectstate.model.Player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
@@ -134,16 +137,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         putState.setLastCommandMessageId(pid).setLastCommandSentByDeviceId(sender);
 
         Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
-
-        byte[] data = null;
-        if (command.has("data"))
-            data = Base64.getDecoder().decode(command.get("data").getAsString());
-
-        String value = null;
-        if (command.has("value"))
-            value = command.get("value").getAsString();
-
-        notifyCommand(endpoint, new CommandBody(data, value));
+        notifyCommand(endpoint, new CommandBody(command));
     }
 
     public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
@@ -156,10 +150,12 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     public void setIsActive(boolean active) {
-        if (!putState.getIsActive() && active)
-            putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
-        else
+        if (active) {
+            if (!putState.getIsActive())
+                putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
+        } else {
             putState.setIsActive(false).clearStartedPlayingAt();
+        }
     }
 
     private void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
@@ -176,7 +172,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     public enum Endpoint {
-        Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
+        Play("play"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
         SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),
         SetRepeatingTrack("set_repeating_track"), UpdateContext("update_context"), SetQueue("set_queue"),
         AddToQueue("add_to_queue"), Transfer("transfer");
@@ -205,13 +201,110 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         void volumeChanged();
     }
 
+    public static final class PlayCommandWrapper {
+        private PlayCommandWrapper() {
+        }
+
+        @Nullable
+        public static Boolean isInitiallyPaused(@NotNull JsonObject obj) {
+            JsonObject options = obj.getAsJsonObject("options");
+            if (options == null) return null;
+
+            JsonElement elm;
+            if ((elm = options.get("initially_paused")) != null && elm.isJsonPrimitive()) return elm.getAsBoolean();
+            else return null;
+        }
+
+        @Nullable
+        public static String getContextUri(JsonObject obj) {
+            JsonObject context = obj.getAsJsonObject("context");
+            if (context == null) return null;
+
+            JsonElement elm;
+            if ((elm = context.get("uri")) != null && elm.isJsonPrimitive()) return elm.getAsString();
+            else return null;
+        }
+
+        @NotNull
+        public static JsonObject getPlayOrigin(@NotNull JsonObject obj) {
+            return obj.getAsJsonObject("play_origin");
+        }
+
+        @NotNull
+        public static JsonObject getContext(@NotNull JsonObject obj) {
+            return obj.getAsJsonObject("context");
+        }
+
+        @NotNull
+        public static JsonObject getPlayerOptionsOverride(@NotNull JsonObject obj) {
+            return obj.getAsJsonObject("options").getAsJsonObject("player_options_override");
+        }
+
+        @Nullable
+        public static String getSkipToUid(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return null;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return null;
+
+            JsonElement elm;
+            if ((elm = parent.get("track_uid")) != null && elm.isJsonPrimitive()) return elm.getAsString();
+            else return null;
+        }
+
+        @Nullable
+        public static String getSkipToUri(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return null;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return null;
+
+            JsonElement elm;
+            if ((elm = parent.get("track_uri")) != null && elm.isJsonPrimitive()) return elm.getAsString();
+            else return null;
+        }
+
+        @Nullable
+        public static ContextTrack getTrack(@NotNull JsonObject obj) {
+            JsonObject track = obj.getAsJsonObject("track");
+            if (track == null) return null;
+            return ProtoUtils.jsonToContextTrack(track);
+        }
+
+        @Nullable
+        public static Integer getSkipToIndex(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return null;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return null;
+
+            JsonElement elm;
+            if ((elm = parent.get("track_index")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
+            else return null;
+        }
+    }
+
     public static class CommandBody {
+        private final JsonObject obj;
         private final byte[] data;
         private final String value;
 
-        private CommandBody(@Nullable byte[] data, @Nullable String value) {
-            this.data = data;
-            this.value = value;
+        private CommandBody(@NotNull JsonObject obj) {
+            this.obj = obj;
+
+            if (obj.has("data")) data = Base64.getDecoder().decode(obj.get("data").getAsString());
+            else data = null;
+
+            if (obj.has("value")) value = obj.get("value").getAsString();
+            else value = null;
+        }
+
+        @NotNull
+        public JsonObject obj() {
+            return obj;
         }
 
         public byte[] data() {

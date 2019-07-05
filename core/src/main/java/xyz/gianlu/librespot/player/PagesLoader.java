@@ -7,6 +7,7 @@ import spotify.player.proto.ContextPageOuterClass.ContextPage;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 
 import java.io.IOException;
@@ -24,6 +25,7 @@ public final class PagesLoader {
     private static final JsonParser PARSER = new JsonParser();
     private final List<ContextPage> pages;
     private final Session session;
+    private String resolveUrl = null;
     private int currentPage = 0;
 
     private PagesLoader(@NotNull Session session) {
@@ -32,9 +34,16 @@ public final class PagesLoader {
     }
 
     @NotNull
+    public static PagesLoader from(@NotNull Session session, @NotNull String context) {
+        PagesLoader loader = new PagesLoader(session);
+        loader.resolveUrl = context;
+        return loader;
+    }
+
+    @NotNull
     public static PagesLoader from(@NotNull Session session, @NotNull Context context) {
         List<ContextPage> pages = context.getPagesList();
-        if (pages.isEmpty()) throw new UnsupportedOperationException("There are no pages here!"); // TODO
+        if (pages.isEmpty()) return from(session, context.getUri());
 
         PagesLoader loader = new PagesLoader(session);
         loader.pages.addAll(pages);
@@ -66,7 +75,16 @@ public final class PagesLoader {
     }
 
     @NotNull
-    private List<ContextTrack> getPage(int index) throws IOException, IllegalStateException {
+    private List<ContextTrack> getPage(int index) throws IOException, IllegalStateException, MercuryClient.MercuryException {
+        if (resolveUrl != null) {
+            if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+
+            List<ContextPage> resolved = session.mercury().sendSync(MercuryRequests.resolveContext(resolveUrl)).pages();
+            pages.addAll(0, resolved);
+
+            resolveUrl = null;
+        }
+
         if (index < pages.size()) {
             ContextPage page = pages.get(index);
             List<ContextTrack> tracks = resolvePage(page);
@@ -91,16 +109,21 @@ public final class PagesLoader {
     }
 
     @NotNull
-    public List<ContextTrack> currentPage() throws IOException {
+    List<ContextTrack> currentPage() throws IOException, MercuryClient.MercuryException {
         return getPage(currentPage);
     }
 
-    public boolean nextPage() throws IOException {
+    boolean nextPage() throws IOException, MercuryClient.MercuryException {
         try {
             getPage(++currentPage);
             return true;
         } catch (IllegalStateException ex) {
             return false;
         }
+    }
+
+    void putFirstPage(@NotNull List<ContextTrack> tracks) {
+        if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+        pages.add(ContextPage.newBuilder().addAllTracks(tracks).build());
     }
 }

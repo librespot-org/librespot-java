@@ -4,10 +4,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.spotify.connectstate.model.Player;
+import com.spotify.connectstate.model.Player.ContextPlayerOptions;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextOuterClass;
 import spotify.player.proto.ContextPageOuterClass.ContextPage;
 import spotify.player.proto.ContextPlayerOptionsOuterClass;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static spotify.player.proto.ContextOuterClass.Context;
 
 /**
  * @author Gianlu
@@ -66,6 +68,20 @@ public final class ProtoUtils {
         return list;
     }
 
+    @NotNull
+    public static Player.PlayOrigin jsonToPlayOrigin(@NotNull JsonObject obj) {
+        Player.PlayOrigin.Builder builder = Player.PlayOrigin.newBuilder();
+
+        Optional.ofNullable(obj.get("feature_identifier")).ifPresent(elm -> builder.setFeatureIdentifier(elm.getAsString()));
+        Optional.ofNullable(obj.get("feature_version")).ifPresent(elm -> builder.setFeatureVersion(elm.getAsString()));
+        Optional.ofNullable(obj.get("view_uri")).ifPresent(elm -> builder.setViewUri(elm.getAsString()));
+        Optional.ofNullable(obj.get("external_referrer")).ifPresent(elm -> builder.setExternalReferrer(elm.getAsString()));
+        Optional.ofNullable(obj.get("referrer_identifier")).ifPresent(elm -> builder.setReferrerIdentifier(elm.getAsString()));
+        Optional.ofNullable(obj.get("device_identifier")).ifPresent(elm -> builder.setDeviceIdentifier(elm.getAsString()));
+
+        return builder.build();
+    }
+
     @Nullable
     @Contract("null -> null")
     public static Player.PlayOrigin convertPlayOrigin(@Nullable PlayOriginOuterClass.PlayOrigin po) {
@@ -87,12 +103,45 @@ public final class ProtoUtils {
         return builder.build();
     }
 
+
+    @NotNull
+    public static ContextPlayerOptions jsonToPlayerOptions(@NotNull JsonObject obj) {
+        ContextPlayerOptions.Builder builder = ContextPlayerOptions.newBuilder();
+
+        Optional.ofNullable(obj.get("repeating_context")).ifPresent(elm -> builder.setRepeatingContext(elm.getAsBoolean()));
+        Optional.ofNullable(obj.get("repeating_track")).ifPresent(elm -> builder.setRepeatingTrack(elm.getAsBoolean()));
+        Optional.ofNullable(obj.get("shuffling_context")).ifPresent(elm -> builder.setShufflingContext(elm.getAsBoolean()));
+
+        return builder.build();
+    }
+
+    @NotNull
+    public static Context jsonToContext(@NotNull JsonObject obj) {
+        Context.Builder builder = Context.newBuilder();
+
+        Optional.ofNullable(obj.get("uri")).ifPresent(elm -> builder.setUri(elm.getAsString()));
+        Optional.ofNullable(obj.get("url")).ifPresent(elm -> builder.setUrl(elm.getAsString()));
+
+        JsonObject metadata = obj.getAsJsonObject("metadata");
+        if (metadata != null) {
+            for (String key : metadata.keySet())
+                builder.putMetadata(key, metadata.get(key).getAsString());
+        }
+
+        for (JsonElement elm : obj.getAsJsonArray("pages"))
+            builder.addPages(jsonToContextPage(elm.getAsJsonObject()));
+
+        // TODO: Restrictions
+
+        return builder.build();
+    }
+
     @Contract("null -> null")
     @Nullable
-    public static Player.ContextPlayerOptions convertPlayerOptions(@Nullable ContextPlayerOptionsOuterClass.ContextPlayerOptions options) {
+    public static ContextPlayerOptions convertPlayerOptions(@Nullable ContextPlayerOptionsOuterClass.ContextPlayerOptions options) {
         if (options == null) return null;
 
-        Player.ContextPlayerOptions.Builder builder = Player.ContextPlayerOptions.newBuilder();
+        ContextPlayerOptions.Builder builder = ContextPlayerOptions.newBuilder();
         if (options.hasRepeatingContext()) builder.setRepeatingContext(options.getRepeatingContext());
         if (options.hasRepeatingTrack()) builder.setRepeatingTrack(options.getRepeatingTrack());
         if (options.hasShufflingContext()) builder.setShufflingContext(options.getShufflingContext());
@@ -100,7 +149,7 @@ public final class ProtoUtils {
         return builder.build();
     }
 
-    public static void moveOverMetadata(@NotNull ContextOuterClass.Context from, @NotNull Player.PlayerState.Builder to, @NotNull String... keys) {
+    public static void moveOverMetadata(@NotNull Context from, @NotNull Player.PlayerState.Builder to, @NotNull String... keys) {
         for (String key : keys)
             if (from.containsMetadata(key))
                 to.putContextMetadata(key, from.getMetadataOrThrow(key));
@@ -109,6 +158,15 @@ public final class ProtoUtils {
     public static int indexOfTrackByUid(@NotNull List<ContextTrack> tracks, @NotNull String uid) {
         for (int i = 0; i < tracks.size(); i++) {
             if (Objects.equals(tracks.get(i).getUid(), uid))
+                return i;
+        }
+
+        return -1;
+    }
+
+    public static int indexOfTrackByUri(@NotNull List<ContextTrack> tracks, @NotNull String uri) {
+        for (int i = 0; i < tracks.size(); i++) {
+            if (Objects.equals(tracks.get(i).getUri(), uri))
                 return i;
         }
 

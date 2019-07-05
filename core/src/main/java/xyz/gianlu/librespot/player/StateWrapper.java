@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonObject;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player.*;
 import org.apache.log4j.Logger;
@@ -11,8 +12,10 @@ import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
@@ -89,6 +92,21 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return state.getContextUri();
     }
 
+    private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
+        this.context = AbsSpotifyContext.from(uri);
+        this.state.setContextUri(uri);
+
+        this.state.clearContextUrl();
+        this.state.clearRestrictions();
+        this.state.clearContextRestrictions();
+        this.state.clearContextMetadata();
+
+        this.pages = PagesLoader.from(session, uri);
+        this.tracksKeeper = new TracksKeeper();
+
+        this.device.setIsActive(true);
+    }
+
     private void setContext(@NotNull Context ctx) throws AbsSpotifyContext.UnsupportedContextException {
         String uri = ctx.getUri();
         this.context = AbsSpotifyContext.from(uri);
@@ -105,10 +123,13 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             this.state.clearContextRestrictions();
         }
 
+        state.clearContextMetadata();
         ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
 
         this.pages = PagesLoader.from(session, ctx);
         this.tracksKeeper = new TracksKeeper();
+
+        this.device.setIsActive(true);
     }
 
     synchronized void updated() {
@@ -153,36 +174,79 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setPosition(getPosition());
     }
 
-    void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException {
+    void loadContextWithTracks(@NotNull String uri, @NotNull List<ContextTrack> tracks) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+        state.clearPlayOrigin();
+        state.clearOptions();
+
+        setContext(uri);
+        pages.putFirstPage(tracks);
+        tracksKeeper.initializeStart();
+        setPosition(0);
+    }
+
+    void loadContext(@NotNull String uri) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+        state.clearPlayOrigin();
+        state.clearOptions();
+
+        setContext(uri);
+        tracksKeeper.initializeStart();
+        setPosition(0);
+    }
+
+    void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
         SessionOuterClass.Session ps = cmd.getCurrentSession();
 
         state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
-
-        Context ctx = ps.getContext();
-        setContext(ctx);
-
+        setContext(ps.getContext());
         state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
 
         Playback pb = cmd.getPlayback();
-        tracksKeeper.initialize(ps.getCurrentUid(), pb.getCurrentTrack());
+        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack());
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
+    }
 
-        ProvidedTrack current = tracksKeeper.getCurrentTrack();
-        if (current.containsMetadata("duration"))
-            state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
-        else
-            LOGGER.warn("Track duration is unknown!"); // FIXME
+    void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
+        state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandWrapper.getPlayOrigin(obj)));
+        setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
+        state.setOptions(ProtoUtils.jsonToPlayerOptions((PlayCommandWrapper.getPlayerOptionsOverride(obj))));
 
-        device.setIsActive(true);
+        System.out.println(obj); // FIXME
+
+        String trackUid = PlayCommandWrapper.getSkipToUid(obj);
+        String trackUri = PlayCommandWrapper.getSkipToUri(obj);
+        Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
+
+        if (trackIndex != null) {
+            tracksKeeper.initializeFrom(tracks -> {
+                if (trackIndex < tracks.size()) return trackIndex;
+                else return -1;
+            }, null);
+        } else if (trackUid == null && trackUri == null) {
+            tracksKeeper.initializeStart();
+        } else {
+            tracksKeeper.initializeFrom(tracks -> {
+                int index;
+                if (trackUid != null) index = ProtoUtils.indexOfTrackByUid(tracks, trackUid);
+                else index = ProtoUtils.indexOfTrackByUri(tracks, trackUri);
+                return index;
+            }, null);
+        }
+
+        setPosition(0); // FIXME
+    }
+
+    void skipTo(@NotNull ContextTrack track) {
+        tracksKeeper.skipTo(track);
+        setPosition(0);
     }
 
     @Nullable
     PlayableId nextPlayableDoNotSet() {
         try {
             return tracksKeeper.nextPlayableDoNotSet();
-        } catch (IOException ex) {
+        } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed fetching next playable.", ex);
             return null;
         }
@@ -199,7 +263,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         try {
             return tracksKeeper.nextPlayable(conf);
-        } catch (IOException ex) {
+        } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed fetching next playable.", ex);
             return NextPlayable.MISSING_TRACKS;
         }
@@ -226,6 +290,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         public boolean isOk() {
             return this == OK_PLAY || this == OK_PAUSE;
         }
+    }
+
+    private interface TrackFinder {
+        int find(@NotNull List<ContextTrack> tracks);
     }
 
     private class TracksKeeper {
@@ -260,18 +328,34 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
         }
 
+        private void updateTrackDuration() {
+            ProvidedTrack current = getCurrentTrack();
+            if (current.containsMetadata("duration"))
+                state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
+            else
+                LOGGER.warn("Track duration is unknown!"); // FIXME
+        }
+
         private void updateState() {
             state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+            updateTrackDuration();
             updatePrevNextTracks();
         }
 
-        void initialize(@NotNull String currentUid, @NotNull ContextTrack track) throws IOException {
+        void initializeStart() throws IOException, MercuryClient.MercuryException {
+            tracks.clear();
+            tracks.addAll(pages.currentPage());
+
+            setCurrentTrackIndex(0);
+        }
+
+        void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track) throws IOException, MercuryClient.MercuryException {
             tracks.clear();
 
             boolean found = false;
             while (!found) {
                 List<ContextTrack> newTracks = pages.currentPage();
-                int index = ProtoUtils.indexOfTrackByUid(newTracks, currentUid);
+                int index = finder.find(newTracks);
                 if (index == -1) {
                     tracks.addAll(newTracks);
                     if (!pages.nextPage()) throw new IllegalStateException("Couldn't find current track!");
@@ -285,17 +369,27 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 found = true;
             }
 
+            if (track != null) enrichCurrentTrack(track);
+        }
+
+        private void enrichCurrentTrack(@NotNull ContextTrack track) {
             int index = getCurrentTrackIndex();
             ContextTrack.Builder current = tracks.get(index).toBuilder();
             ProtoUtils.enrichTrack(current, track);
             tracks.set(index, current.build());
-
             state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
-            updatePrevNextTracks();
+        }
+
+        void skipTo(@NotNull ContextTrack track) {
+            int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
+            if (index == -1) throw new IllegalStateException();
+
+            setCurrentTrackIndex(index);
+            enrichCurrentTrack(track);
         }
 
         @Nullable
-        PlayableId nextPlayableDoNotSet() throws IOException {
+        PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
             // TODO: Unsupported elements, infinite contexts, shuffled contexts
 
             int current = getCurrentTrackIndex();
@@ -308,7 +402,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @NotNull
-        NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException {
+        NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
