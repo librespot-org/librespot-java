@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.player.feeders;
 
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.model.PlayableId;

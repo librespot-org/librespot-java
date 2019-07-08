@@ -2,13 +2,13 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.ContextTrackOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;

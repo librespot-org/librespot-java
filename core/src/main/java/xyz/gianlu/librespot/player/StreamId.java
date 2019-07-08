@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.player;
 
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 /**
  * @author Gianlu

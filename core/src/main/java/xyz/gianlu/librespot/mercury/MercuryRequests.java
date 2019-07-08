@@ -2,6 +2,8 @@ package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.spotify.metadata.proto.Metadata;
+import com.spotify.playlist4.proto.Playlist4ApiProto;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -9,8 +11,6 @@ import spotify.player.proto.ContextPageOuterClass;
 import spotify.player.proto.ContextTrackOuterClass;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Playlist4Changes;
 import xyz.gianlu.librespot.mercury.model.*;
 
 import java.util.List;
@@ -25,15 +25,15 @@ public final class MercuryRequests {
     }
 
     @NotNull
-    public static ProtobufMercuryRequest<Playlist4Changes.SelectedListContent> getRootPlaylists(@NotNull String username) {
+    public static ProtobufMercuryRequest<Playlist4ApiProto.SelectedListContent> getRootPlaylists(@NotNull String username) {
         return new ProtobufMercuryRequest<>(RawMercuryRequest.get(String.format("hm://playlist/user/%s/rootlist", username)),
-                Playlist4Changes.SelectedListContent.parser());
+                Playlist4ApiProto.SelectedListContent.parser());
     }
 
     @NotNull
-    public static ProtobufMercuryRequest<Playlist4Changes.SelectedListContent> getPlaylist(@NotNull PlaylistId id) {
+    public static ProtobufMercuryRequest<Playlist4ApiProto.SelectedListContent> getPlaylist(@NotNull PlaylistId id) {
         return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()),
-                Playlist4Changes.SelectedListContent.parser());
+                Playlist4ApiProto.SelectedListContent.parser());
     }
 
     @NotNull

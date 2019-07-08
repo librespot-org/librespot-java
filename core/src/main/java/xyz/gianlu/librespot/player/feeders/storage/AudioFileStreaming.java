@@ -1,13 +1,13 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.AbsChunckedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;

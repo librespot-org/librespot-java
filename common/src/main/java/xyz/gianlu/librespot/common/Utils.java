@@ -4,11 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 import javax.sound.sampled.Mixer;
 import java.io.ByteArrayInputStream;

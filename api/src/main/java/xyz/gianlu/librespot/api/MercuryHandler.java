@@ -17,11 +17,11 @@ import java.util.Base64;
  * @author Gianlu
  */
 public class MercuryHandler extends AbsApiHandler {
-    private final MercuryClient client;
+    private final Session session;
 
     public MercuryHandler(@NotNull Session session) {
         super("mercury");
-        this.client = session.mercury();
+        this.session = session;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class MercuryHandler extends AbsApiHandler {
             }
 
             try {
-                MercuryClient.Response response = client.sendSync(builder.build());
+                MercuryClient.Response response = session.mercury().sendSync(builder.build());
 
                 JsonArray payloads = new JsonArray(response.payload.size());
                 for (byte[] bytes : response.payload)

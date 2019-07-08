@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.cdn;
 
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.proto.Metadata;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -8,7 +9,6 @@ import org.jetbrains.annotations.Nullable;
 import spotify.download.proto.StorageResolve;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AbsChunckedInputStream;
