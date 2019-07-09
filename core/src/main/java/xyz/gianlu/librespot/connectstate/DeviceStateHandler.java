@@ -73,6 +73,12 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
+    public void removeListener(@NotNull Listener listener) {
+        synchronized (listeners) {
+            listeners.remove(listener);
+        }
+    }
+
     private void notifyReady() {
         synchronized (listeners) {
             for (Listener listener : listeners) {

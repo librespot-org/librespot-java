@@ -416,6 +416,8 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             preloadTrackHandler.close();
             preloadTrackHandler = null;
         }
+
+        state.removeListener(this);
     }
 
     @Nullable

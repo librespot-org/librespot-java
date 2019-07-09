@@ -288,6 +288,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return tracksKeeper.previousPlayable();
     }
 
+    void removeListener(@NotNull DeviceStateHandler.Listener listener) {
+        device.removeListener(listener);
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 

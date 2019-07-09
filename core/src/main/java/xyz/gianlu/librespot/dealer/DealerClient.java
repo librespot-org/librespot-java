@@ -42,13 +42,10 @@ public class DealerClient extends WebSocketListener {
             sendPing();
             receivedPong = false;
 
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
-
-            if (!receivedPong) wentAway();
+            scheduler.schedule(() -> {
+                if (!receivedPong) wentAway();
+                receivedPong = false;
+            }, 3, TimeUnit.SECONDS);
         }, 0, 30, TimeUnit.SECONDS);
     }
 
