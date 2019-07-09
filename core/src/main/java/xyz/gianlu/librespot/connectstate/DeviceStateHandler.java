@@ -111,21 +111,11 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
-        } else if (uri.startsWith("hm://connect-state/v1/cluster")) {
-            System.out.println("RECEIVED CLUSTER UPDATE");
-
-            /*
-            try {
-                System.out.println(Connect.ClusterUpdate.parseFrom(payloads.stream()));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            */
         } else if (uri.startsWith("hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payloads.stream());
             deviceInfo.setVolume(cmd.getVolume());
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/65536}", cmd.getVolume()));
+            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
             if (cmd.hasCommandOptions()) {
                 putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
                         .clearLastCommandSentByDeviceId();
@@ -133,8 +123,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
 
             notifyVolumeChange();
         } else {
-            System.out.println("RECEIVED MSG: " + uri); // FIXME
-            System.out.println(payloads.toHex());
+            LOGGER.warn(String.format("Message left unhandled! {uri: %s, payloads: %s}", uri, payloads.toString()));
         }
     }
 

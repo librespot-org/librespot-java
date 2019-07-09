@@ -225,8 +225,6 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
         state.setOptions(ProtoUtils.jsonToPlayerOptions((PlayCommandWrapper.getPlayerOptionsOverride(obj))));
 
-        System.out.println(obj); // FIXME
-
         String trackUid = PlayCommandWrapper.getSkipToUid(obj);
         String trackUri = PlayCommandWrapper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
@@ -349,8 +347,6 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             ProvidedTrack current = getCurrentTrack();
             if (current.containsMetadata("duration"))
                 state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
-            else
-                LOGGER.warn("Track duration is unknown!"); // FIXME
         }
 
         private void updateState() {
