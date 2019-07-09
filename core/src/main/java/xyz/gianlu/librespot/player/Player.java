@@ -10,6 +10,7 @@ import spotify.player.proto.ContextTrackOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -19,9 +20,6 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
 import java.io.IOException;
-
-import static xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper.getContextUri;
-import static xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper.isInitiallyPaused;
 
 /**
  * @author Gianlu
@@ -83,7 +81,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
-        LOGGER.debug(String.format("Loading context (play), uri: %s", getContextUri(obj)));
+        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandWrapper.getContextUri(obj)));
 
         try {
             state.load(obj);
@@ -97,7 +95,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             return;
         }
 
-        Boolean play = isInitiallyPaused(obj);
+        Boolean play = PlayCommandWrapper.isInitiallyPaused(obj);
         if (play == null) play = true;
         loadTrack(play);
     }
@@ -167,20 +165,23 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
+    private void updateStateWithHandler() {
+        Metadata.Episode episode;
+        Metadata.Track track;
+        if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
+        else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
+        else LOGGER.warn("Couldn't update track duration!");
+    }
+
     @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
             if (play) state.setState(true, false, false);
             else state.setState(false, true, false);
 
-            Metadata.Episode ep;
-            Metadata.Track track;
-            if ((track = handler.track()) != null && track.hasDuration()) state.setDuration(track.getDuration());
-            else if ((ep = handler.episode()) != null && ep.hasDuration()) state.setDuration(ep.getDuration());
-            else LOGGER.warn("Couldn't update track duration!");
+            updateStateWithHandler();
 
             state.setPosition(pos);
-
             state.updated();
         } else if (handler == preloadTrackHandler) {
             LOGGER.trace("Preloaded track is ready.");
@@ -294,6 +295,9 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
+
+            updateStateWithHandler();
+
             trackHandler.sendSeek(state.getPosition());
             if (play) trackHandler.sendPlay();
         } else {
@@ -324,7 +328,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void handleNext(@Nullable JsonObject obj) {
         ContextTrackOuterClass.ContextTrack track = null;
-        if (obj != null) track = DeviceStateHandler.PlayCommandWrapper.getTrack(obj);
+        if (obj != null) track = PlayCommandWrapper.getTrack(obj);
 
         if (track != null) {
             state.skipTo(track);

@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.gson.JsonObject;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player.*;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -160,8 +161,16 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return device.getVolume();
     }
 
-    synchronized void setDuration(int duration) {
-        state.setDuration(duration);
+    synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
+        if (track.hasDuration()) state.setDuration(track.getDuration());
+
+        // TODO: Create metadata for state
+    }
+
+    synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
+        if (episode.hasDuration()) state.setDuration(episode.getDuration());
+
+        // TODO: Create metadata for state
     }
 
     synchronized int getPosition() {
