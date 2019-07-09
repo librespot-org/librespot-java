@@ -76,7 +76,7 @@ public class DealerClient extends WebSocketListener {
     public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
         JsonObject obj = PARSER.parse(text).getAsJsonObject();
 
-        // FIXME: Sometimes, this fails due to a race condition (network too fast)
+        waitForListeners();
 
         MessageType type = MessageType.parse(obj.get("type").getAsString());
         switch (type) {
@@ -91,6 +91,17 @@ public class DealerClient extends WebSocketListener {
                 break;
             case PING:
                 break;
+        }
+    }
+
+    private void waitForListeners() {
+        synchronized (listeners) {
+            if (!listeners.isEmpty()) return;
+
+            try {
+                listeners.wait();
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 
@@ -167,6 +178,7 @@ public class DealerClient extends WebSocketListener {
     public void addListener(@NotNull MessageListener listener, @NotNull String... uris) {
         synchronized (listeners) {
             listeners.put(listener, Arrays.asList(uris));
+            listeners.notifyAll();
         }
     }
 
