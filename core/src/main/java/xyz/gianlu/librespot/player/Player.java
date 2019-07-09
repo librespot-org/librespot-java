@@ -173,6 +173,12 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             if (play) state.setState(true, false, false);
             else state.setState(false, true, false);
 
+            Metadata.Episode ep;
+            Metadata.Track track;
+            if ((track = handler.track()) != null && track.hasDuration()) state.setDuration(track.getDuration());
+            else if ((ep = handler.episode()) != null && ep.hasDuration()) state.setDuration(ep.getDuration());
+            else LOGGER.warn("Couldn't update track duration!");
+
             state.setPosition(pos);
 
             state.updated();
@@ -283,23 +289,20 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
+        boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
         PlayableId id = state.getCurrentPlayable();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
             trackHandler.sendSeek(state.getPosition());
+            if (play) trackHandler.sendPlay();
         } else {
             trackHandler = new TrackHandler(session, lines, conf, this);
             trackHandler.sendLoad(id, play, state.getPosition());
         }
 
-        if (play) {
-            state.setState(true, false, conf.enableLoadingState());
-            trackHandler.sendPlay();
-        } else {
-            state.setState(false, true, conf.enableLoadingState());
-        }
-
+        if (play) state.setState(true, false, buffering);
+        else state.setState(false, true, buffering);
         state.updated();
     }
 

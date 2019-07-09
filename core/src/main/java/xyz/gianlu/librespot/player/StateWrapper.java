@@ -156,16 +156,20 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
     }
 
-    int getVolume() {
+    synchronized int getVolume() {
         return device.getVolume();
     }
 
-    int getPosition() {
+    synchronized void setDuration(int duration) {
+        state.setDuration(duration);
+    }
+
+    synchronized int getPosition() {
         int diff = (int) (TimeProvider.currentTimeMillis() - state.getTimestamp());
         return (int) (state.getPositionAsOfTimestamp() + diff);
     }
 
-    void setPosition(long pos) {
+    synchronized void setPosition(long pos) {
         state.setTimestamp(TimeProvider.currentTimeMillis());
         state.setPositionAsOfTimestamp(pos);
     }
@@ -303,7 +307,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @NotNull
-        private ProvidedTrack getCurrentTrack() {
+        synchronized ProvidedTrack getCurrentTrack() {
             return state.getTrack();
         }
 
@@ -342,14 +346,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             updatePrevNextTracks();
         }
 
-        void initializeStart() throws IOException, MercuryClient.MercuryException {
+        synchronized void initializeStart() throws IOException, MercuryClient.MercuryException {
             tracks.clear();
             tracks.addAll(pages.currentPage());
 
             setCurrentTrackIndex(0);
         }
 
-        void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track) throws IOException, MercuryClient.MercuryException {
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track) throws IOException, MercuryClient.MercuryException {
             tracks.clear();
 
             boolean found = false;
@@ -380,7 +384,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
         }
 
-        void skipTo(@NotNull ContextTrack track) {
+        synchronized void skipTo(@NotNull ContextTrack track) {
             int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
             if (index == -1) throw new IllegalStateException();
 
@@ -389,7 +393,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @Nullable
-        PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
+        synchronized PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
             // TODO: Unsupported elements, infinite contexts, shuffled contexts
 
             int current = getCurrentTrackIndex();
@@ -402,7 +406,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @NotNull
-        NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+        synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
@@ -425,7 +429,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @NotNull
-        PreviousPlayable previousPlayable() {
+        synchronized PreviousPlayable previousPlayable() {
             // TODO: Unsupported elements
 
             int index = getCurrentTrackIndex();

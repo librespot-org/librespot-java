@@ -149,7 +149,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
-    public void setIsActive(boolean active) {
+    public synchronized void setIsActive(boolean active) {
         if (active) {
             if (!putState.getIsActive())
                 putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
@@ -158,7 +158,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
-    private void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
+    private synchronized void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
         if (connectionId == null) throw new IllegalStateException();
 
         putState.setPutStateReason(reason)
@@ -167,7 +167,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         session.api().putConnectState(connectionId, putState.build());
     }
 
-    public int getVolume() {
+    public synchronized int getVolume() {
         return deviceInfo.getVolume();
     }
 
