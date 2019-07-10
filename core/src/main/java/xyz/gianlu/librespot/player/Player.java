@@ -130,14 +130,20 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             case SkipPrev:
                 handlePrev();
                 break;
-            case SetShufflingContext:
             case SetRepeatingContext:
+                state.setRepeatingContext(data.valueBool());
+                break;
             case SetRepeatingTrack:
+                state.setRepeatingTrack(data.valueBool());
+                break;
+            case SetShufflingContext:
+                state.setShufflingContext(data.valueBool());
+                break;
             case AddToQueue:
             case SetQueue:
             case UpdateContext:
-                System.out.println(data.obj());
-                throw new UnsupportedOperationException();
+                System.out.println("UNSUPPORTED: " + data.obj()); // TODO
+                break;
             default:
                 LOGGER.warn("Endpoint left unhandled: " + endpoint);
                 break;

@@ -115,7 +115,8 @@ public final class PagesLoader {
 
     boolean nextPage() throws IOException, MercuryClient.MercuryException {
         try {
-            getPage(++currentPage);
+            getPage(currentPage + 1);
+            currentPage++;
             return true;
         } catch (IllegalStateException ex) {
             return false;

@@ -15,6 +15,7 @@ import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
+import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -68,6 +69,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         state.setIsPlaying(playing).setIsPaused(paused).setIsBuffering(buffering);
     }
 
+    boolean isPlaying() {
+        return state.getIsPlaying();
+    }
+
     boolean isPaused() {
         return state.getIsPaused();
     }
@@ -80,16 +85,37 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return state.getIsBuffering();
     }
 
-    boolean isShuffling() {
+    boolean isShufflingContext() {
         return state.getOptions().getShufflingContext();
+    }
+
+    void setShufflingContext(boolean value) {
+        if (context == null) return;
+
+        boolean old = isShufflingContext();
+        state.getOptionsBuilder().setShufflingContext(value && context.restrictions.can(RestrictionsManager.Action.SHUFFLE));
+
+        if (old != isShufflingContext()) tracksKeeper.toggleShuffle(isShufflingContext());
     }
 
     boolean isRepeatingContext() {
         return state.getOptions().getRepeatingContext();
     }
 
+    void setRepeatingContext(boolean value) {
+        if (context == null) return;
+
+        state.getOptionsBuilder().setRepeatingContext(value && context.restrictions.can(RestrictionsManager.Action.REPEAT_CONTEXT));
+    }
+
     boolean isRepeatingTrack() {
         return state.getOptions().getRepeatingTrack();
+    }
+
+    void setRepeatingTrack(boolean value) {
+        if (context == null) return;
+
+        state.getOptionsBuilder().setRepeatingTrack(value && context.restrictions.can(RestrictionsManager.Action.REPEAT_TRACK));
     }
 
     @Nullable
@@ -100,6 +126,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
+
+        if (!context.isFinite()) {
+            setRepeatingContext(false);
+            setShufflingContext(false);
+        }
 
         this.state.clearContextUrl();
         this.state.clearRestrictions();
@@ -117,15 +148,13 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
 
+        if (!context.isFinite()) {
+            setRepeatingContext(false);
+            setShufflingContext(false);
+        }
+
         if (ctx.hasUrl()) this.state.setContextUrl(ctx.getUrl());
         else this.state.clearContextUrl();
-
-        if (ctx.hasRestrictions()) {
-            // TODO: Create our own restrictions???
-        } else {
-            this.state.clearRestrictions();
-            this.state.clearContextRestrictions();
-        }
 
         state.clearContextMetadata();
         ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
@@ -136,8 +165,32 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         this.device.setIsActive(true);
     }
 
+    private void updateRestrictions() {
+        if (isPaused()) context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
+        else context.restrictions.allow(RestrictionsManager.Action.PAUSE);
+
+        if (isPlaying()) context.restrictions.disallow(RestrictionsManager.Action.RESUME, "not_paused");
+        else context.restrictions.allow(RestrictionsManager.Action.RESUME);
+
+        if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
+            context.restrictions.disallow(RestrictionsManager.Action.SKIP_PREV, "no_prev_track");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.SKIP_PREV);
+
+        if (tracksKeeper.isPlayingLast() && !isRepeatingContext())
+            context.restrictions.disallow(RestrictionsManager.Action.SKIP_NEXT, "no_next_track");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.SKIP_NEXT);
+
+        // TODO: Update restrictions
+
+        state.setRestrictions(context.restrictions.toProto());
+    }
+
     synchronized void updated() {
         updatePosition();
+        updateRestrictions();
+
         device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
     }
 
@@ -277,8 +330,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         SessionOuterClass.Session ps = cmd.getCurrentSession();
 
         state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
-        setContext(ps.getContext());
         state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
+        setContext(ps.getContext());
 
         Playback pb = cmd.getPlayback();
         tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack());
@@ -289,31 +342,29 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
         state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandWrapper.getPlayOrigin(obj)));
-        setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
         state.setOptions(ProtoUtils.jsonToPlayerOptions((PlayCommandWrapper.getPlayerOptionsOverride(obj))));
+        setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
 
         String trackUid = PlayCommandWrapper.getSkipToUid(obj);
         String trackUri = PlayCommandWrapper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
 
-        if (trackIndex != null) {
+        if (trackUri != null) {
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null);
+        } else if (trackUid != null) {
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null);
+        } else if (trackIndex != null) {
             tracksKeeper.initializeFrom(tracks -> {
                 if (trackIndex < tracks.size()) return trackIndex;
                 else return -1;
             }, null);
-        } else if (trackUid == null && trackUri == null) {
-            tracksKeeper.initializeStart();
         } else {
-            tracksKeeper.initializeFrom(tracks -> {
-                int index;
-                if (trackUid != null) index = ProtoUtils.indexOfTrackByUid(tracks, trackUid);
-                else index = ProtoUtils.indexOfTrackByUri(tracks, trackUri);
-                return index;
-            }, null);
+            tracksKeeper.initializeStart();
         }
 
         Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
         if (seekTo != null) setPosition(seekTo);
+        else setPosition(0);
     }
 
     void skipTo(@NotNull ContextTrack track) {
@@ -381,8 +432,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     private class TracksKeeper {
         private final List<ContextTrack> tracks = new ArrayList<>();
+        private volatile boolean cannotLoadMore = false;
 
         private TracksKeeper() {
+            if (!context.isFinite()) cannotLoadMore = false;
         }
 
         @NotNull
@@ -439,7 +492,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 int index = finder.find(newTracks);
                 if (index == -1) {
                     tracks.addAll(newTracks);
-                    if (!pages.nextPage()) throw new IllegalStateException("Couldn't find current track!");
+                    if (!pages.nextPage()) {
+                        cannotLoadMore = true;
+                        throw new IllegalStateException("Couldn't find current track!");
+                    }
+
                     continue;
                 }
 
@@ -475,8 +532,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
             int current = getCurrentTrackIndex();
             if (current == tracks.size() - 1) {
-                if (pages.nextPage()) tracks.addAll(pages.currentPage());
-                else return null;
+                if (pages.nextPage()) {
+                    tracks.addAll(pages.currentPage());
+                } else {
+                    cannotLoadMore = true;
+                    return null;
+                }
             }
 
             return PlayableId.from(tracks.get(current + 1));
@@ -518,6 +579,19 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             }
 
             return PreviousPlayable.OK;
+        }
+
+        synchronized boolean isPlayingFirst() {
+            return getCurrentTrackIndex() == 0;
+        }
+
+        synchronized boolean isPlayingLast() {
+            if (cannotLoadMore) return getCurrentTrackIndex() == tracks.size();
+            else return false;
+        }
+
+        void toggleShuffle(boolean value) {
+            // TODO: Shuffle/unshuffle context
         }
     }
 }

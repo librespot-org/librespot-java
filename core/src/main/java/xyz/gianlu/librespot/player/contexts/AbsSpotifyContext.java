@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 import java.io.UnsupportedEncodingException;
@@ -11,9 +12,11 @@ import java.net.URLDecoder;
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
     protected final String context;
+    public final RestrictionsManager restrictions;
 
-    public AbsSpotifyContext(@NotNull String context) {
+    AbsSpotifyContext(@NotNull String context) {
         this.context = context;
+        this.restrictions = new RestrictionsManager(this);
     }
 
     @NotNull

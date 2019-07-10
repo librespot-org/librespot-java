@@ -323,5 +323,9 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         public Integer valueInt() {
             return value == null ? null : Integer.parseInt(value);
         }
+
+        public Boolean valueBool() {
+            return value == null ? null : Boolean.parseBoolean(value);
+        }
     }
 }
