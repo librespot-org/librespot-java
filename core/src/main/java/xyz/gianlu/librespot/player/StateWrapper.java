@@ -12,11 +12,15 @@ import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
 import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.ProtoUtils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.model.AlbumId;
+import xyz.gianlu.librespot.mercury.model.ArtistId;
+import xyz.gianlu.librespot.mercury.model.ImageId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
@@ -164,13 +168,75 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
         if (track.hasDuration()) state.setDuration(track.getDuration());
 
-        // TODO: Create metadata for state
+        ProvidedTrack.Builder builder = state.getTrackBuilder();
+        if (track.hasPopularity()) builder.putMetadata("popularity", String.valueOf(track.getPopularity()));
+        if (track.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(track.getExplicit()));
+        if (track.hasHasLyrics()) builder.putMetadata("has_lyrics", String.valueOf(track.getHasLyrics()));
+        if (track.hasName()) builder.putMetadata("title", String.valueOf(track.getName()));
+        if (track.hasDiscNumber()) builder.putMetadata("album_disc_number", String.valueOf(track.getDiscNumber()));
+
+        for (int i = 0; i < track.getArtistCount(); i++) {
+            Metadata.Artist artist = track.getArtist(i);
+            if (artist.hasName()) builder.putMetadata("artist_name" + (i == 0 ? "" : (":" + i)), artist.getName());
+            if (artist.hasGid()) builder.putMetadata("artist_uri" + (i == 0 ? "" : (":" + i)),
+                    ArtistId.fromHex(Utils.bytesToHex(artist.getGid())).toSpotifyUri());
+        }
+
+        if (track.hasAlbum()) {
+            Metadata.Album album = track.getAlbum();
+            if (album.getDiscCount() > 0) {
+                builder.putMetadata("album_track_count", String.valueOf(ProtoUtils.getTrackCount(album)));
+                builder.putMetadata("album_disc_count", String.valueOf(album.getDiscCount()));
+            }
+            if (album.hasName()) builder.putMetadata("album_title", album.getName());
+            if (album.hasGid()) builder.putMetadata("album_uri",
+                    AlbumId.fromHex(Utils.bytesToHex(album.getGid())).toSpotifyUri());
+
+            for (int i = 0; i < album.getArtistCount(); i++) {
+                Metadata.Artist artist = album.getArtist(i);
+                if (artist.hasName())
+                    builder.putMetadata("album_artist_name" + (i == 0 ? "" : (":" + i)), artist.getName());
+                if (artist.hasGid()) builder.putMetadata("album_artist_uri" + (i == 0 ? "" : (":" + i)),
+                        ArtistId.fromHex(Utils.bytesToHex(artist.getGid())).toSpotifyUri());
+            }
+
+            if (track.hasDiscNumber() && album.getDiscCount() < track.getDiscNumber() - 1) {
+                Metadata.Disc disc = album.getDisc(track.getDiscNumber() - 1);
+                for (int i = 0; i < disc.getTrackCount(); i++) {
+                    if (disc.getTrack(i).getGid() == track.getGid()) {
+                        builder.putMetadata("album_track_number", String.valueOf(i + 1));
+                        break;
+                    }
+                }
+            }
+
+            if (album.hasCoverGroup()) ImageId.putAsMetadata(builder, album.getCoverGroup());
+        }
+
+        ProtoUtils.putFilesAsMetadata(builder, track.getFileList());
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
         if (episode.hasDuration()) state.setDuration(episode.getDuration());
 
-        // TODO: Create metadata for state
+        ProvidedTrack.Builder builder = state.getTrackBuilder();
+        if (episode.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(episode.getExplicit()));
+        if (episode.hasName()) builder.putMetadata("title", String.valueOf(episode.getName()));
+
+        if (episode.hasShow()) {
+            Metadata.Show show = episode.getShow();
+            if (show.hasName()) builder.putMetadata("album_title", show.getName());
+
+            if (show.hasCoverImage()) ImageId.putAsMetadata(builder, show.getCoverImage());
+        }
+
+        if (episode.getAudioCount() > 0 && episode.getVideoCount() == 0) {
+            builder.putMetadata("media.type", "audio");
+        } else if (episode.getVideoCount() > 0) {
+            builder.putMetadata("media.type", "video");
+        }
+
+        ProtoUtils.putFilesAsMetadata(builder, episode.getAudioList());
     }
 
     synchronized int getPosition() {

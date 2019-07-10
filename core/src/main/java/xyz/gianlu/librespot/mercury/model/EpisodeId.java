@@ -40,7 +40,6 @@ public final class EpisodeId implements SpotifyId, PlayableId {
         return new EpisodeId(hex);
     }
 
-    @Override
     public @NotNull String toMercuryUri() {
         return "hm://metadata/4/episode/" + hexId;
     }

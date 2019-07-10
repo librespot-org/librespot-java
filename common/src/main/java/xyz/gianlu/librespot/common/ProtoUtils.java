@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.spotify.connectstate.model.Player;
 import com.spotify.connectstate.model.Player.ContextPlayerOptions;
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -198,5 +199,22 @@ public final class ProtoUtils {
         builder.putAllMetadata(track.getMetadataMap());
 
         return builder.build();
+    }
+
+    public static void putFilesAsMetadata(@NotNull Player.ProvidedTrack.Builder builder, @NotNull List<Metadata.AudioFile> files) {
+        if (files.size() == 0) return;
+
+        JsonArray formats = new JsonArray(files.size());
+        for (Metadata.AudioFile file : files) {
+            if (file.hasFormat()) formats.add(file.getFormat().name());
+        }
+
+        if (formats.size() > 0) builder.putMetadata("available_file_formats", formats.toString());
+    }
+
+    public static int getTrackCount(@NotNull Metadata.Album album) {
+        int total = 0;
+        for (Metadata.Disc disc : album.getDiscList()) total += disc.getTrackCount();
+        return total;
     }
 }

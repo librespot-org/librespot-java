@@ -40,7 +40,6 @@ public final class AlbumId implements SpotifyId {
         return new AlbumId(hex);
     }
 
-    @Override
     public @NotNull String toMercuryUri() {
         return "hm://metadata/4/album/" + hexId;
     }

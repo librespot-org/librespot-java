@@ -39,8 +39,6 @@ public interface SpotifyId {
         }
     }
 
-    @NotNull String toMercuryUri();
-
     @NotNull String toSpotifyUri();
 
     class SpotifyIdParsingException extends Exception {
