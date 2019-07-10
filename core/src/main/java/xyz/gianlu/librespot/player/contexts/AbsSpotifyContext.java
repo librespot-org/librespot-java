@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import spotify.player.proto.RestrictionsOuterClass.Restrictions;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 
 import java.io.UnsupportedEncodingException;
@@ -12,7 +11,6 @@ import java.net.URLDecoder;
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
     protected final String context;
-    private Restrictions restrictions = null; // FIXME: May cause NPE
 
     public AbsSpotifyContext(@NotNull String context) {
         this.context = context;
@@ -100,24 +98,8 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
 
     public abstract boolean isFinite();
 
-    public final boolean canRepeatContext() {
-        return restrictions.getDisallowTogglingRepeatContextReasonsCount() == 0;
-    }
-
-    public final boolean canRepeatTrack() {
-        return restrictions.getDisallowTogglingRepeatTrackReasonsCount() == 0;
-    }
-
-    public final boolean canShuffle() {
-        return restrictions.getDisallowTogglingShuffleReasonsCount() == 0;
-    }
-
     public final @NotNull String uri() {
         return context;
-    }
-
-    public void updateRestrictions(@NotNull Restrictions restrictions) {
-        this.restrictions = restrictions;
     }
 
     public static class UnsupportedContextException extends Exception {

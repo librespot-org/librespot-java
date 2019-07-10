@@ -280,6 +280,16 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             if ((elm = parent.get("track_index")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
             else return null;
         }
+
+        @Nullable
+        public static Integer getSeekTo(@NotNull JsonObject obj) {
+            JsonObject options = obj.getAsJsonObject("options");
+            if (options == null) return null;
+
+            JsonElement elm;
+            if ((elm = options.get("seek_to")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
+            else return null;
+        }
     }
 
     public static class CommandBody {

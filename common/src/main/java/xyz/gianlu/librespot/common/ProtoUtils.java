@@ -132,8 +132,6 @@ public final class ProtoUtils {
         for (JsonElement elm : obj.getAsJsonArray("pages"))
             builder.addPages(jsonToContextPage(elm.getAsJsonObject()));
 
-        // TODO: Restrictions
-
         return builder.build();
     }
 

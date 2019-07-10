@@ -121,8 +121,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         else this.state.clearContextUrl();
 
         if (ctx.hasRestrictions()) {
-            this.context.updateRestrictions(ctx.getRestrictions());
-            // TODO: this.state.setRestrictions(ctx.getRestrictions());
+            // TODO: Create our own restrictions???
         } else {
             this.state.clearRestrictions();
             this.state.clearContextRestrictions();
@@ -214,6 +213,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         ProtoUtils.putFilesAsMetadata(builder, track.getFileList());
+        state.setTrack(builder.build());
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
@@ -237,6 +237,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         ProtoUtils.putFilesAsMetadata(builder, episode.getAudioList());
+        state.setTrack(builder.build());
     }
 
     synchronized int getPosition() {
@@ -311,7 +312,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             }, null);
         }
 
-        setPosition(0); // FIXME
+        Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
+        if (seekTo != null) setPosition(seekTo);
     }
 
     void skipTo(@NotNull ContextTrack track) {
