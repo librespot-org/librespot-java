@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.connectstate;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -259,6 +260,22 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             JsonElement elm;
             if ((elm = parent.get("track_uri")) != null && elm.isJsonPrimitive()) return elm.getAsString();
             else return null;
+        }
+
+        @Nullable
+        public static List<ContextTrack> getNextTracks(@NotNull JsonObject obj) {
+            JsonArray prevTracks = obj.getAsJsonArray("next_tracks");
+            if (prevTracks == null) return null;
+
+            return ProtoUtils.jsonToContextTracks(prevTracks);
+        }
+
+        @Nullable
+        public static List<ContextTrack> getPrevTracks(@NotNull JsonObject obj) {
+            JsonArray prevTracks = obj.getAsJsonArray("prev_tracks");
+            if (prevTracks == null) return null;
+
+            return ProtoUtils.jsonToContextTracks(prevTracks);
         }
 
         @Nullable

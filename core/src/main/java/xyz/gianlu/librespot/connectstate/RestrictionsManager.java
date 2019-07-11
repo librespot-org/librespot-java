@@ -14,7 +14,7 @@ public final class RestrictionsManager {
         restrictions = Player.Restrictions.newBuilder();
 
         if (!context.isFinite()) {
-            disallow(Action.SHUFFLE, "infinite-context"); // FIXME: Proper name?
+            disallow(Action.SHUFFLE, "infinite-context");
             disallow(Action.REPEAT_CONTEXT, "infinite-context");
         }
     }

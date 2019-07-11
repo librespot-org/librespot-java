@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
+import spotify.player.proto.transfer.QueueOuterClass;
 import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
@@ -333,7 +334,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setContext(ps.getContext());
 
         Playback pb = cmd.getPlayback();
-        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), false);
+        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue(), false);
+
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
@@ -349,14 +351,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
 
         if (trackUri != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, true);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null, true);
         } else if (trackUid != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, true);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null, true);
         } else if (trackIndex != null) {
             tracksKeeper.initializeFrom(tracks -> {
                 if (trackIndex < tracks.size()) return trackIndex;
                 else return -1;
-            }, null, true);
+            }, null, null, true);
         } else {
             tracksKeeper.initializeStart();
         }
@@ -412,6 +414,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         tracksKeeper.addToQueue(track);
     }
 
+    synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
+        tracksKeeper.setQueue(prevTracks, nextTracks);
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 
@@ -434,7 +440,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private class TracksKeeper {
-        private final Queue<ContextTrack> queue = new LinkedList<>();
+        private final LinkedList<ContextTrack> queue = new LinkedList<>();
         private final List<ContextTrack> tracks = new ArrayList<>();
         private final FisherYatesShuffle<ContextTrack> shuffle = new FisherYatesShuffle<>(session.random());
         private volatile boolean isPlayingQueue = false;
@@ -510,10 +516,30 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             updatePrevNextTracks();
         }
 
-        void addToQueue(@NotNull ContextTrack track) {
+        synchronized void addToQueue(@NotNull ContextTrack track) {
             queue.add(track);
             updatePrevNextTracks();
             updateTrackCount();
+        }
+
+        synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
+            ContextTrack current = tracks.get(getCurrentTrackIndex());
+
+            queue.clear();
+            tracks.clear();
+
+            if (prevTracks != null) tracks.addAll(prevTracks);
+            tracks.add(current);
+
+            if (nextTracks != null) {
+                for (ContextTrack track : nextTracks) {
+                    if (ProtoUtils.isQueued(track)) queue.add(track);
+                    else tracks.add(track);
+                }
+            }
+
+            updateTrackCount();
+            updatePrevNextTracks();
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
@@ -532,8 +558,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             setCurrentTrackIndex(0);
         }
 
-        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
             tracks.clear();
+            queue.clear();
 
             while (true) {
                 if (pages.nextPage()) {
@@ -559,6 +586,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 }
             }
 
+            if (contextQueue != null) {
+                queue.addAll(contextQueue.getTracksList());
+                isPlayingQueue = contextQueue.getIsPlayingQueue();
+                updateState();
+            }
+
             checkComplete();
             if (!PlayableId.hasAtLeastOneSupportedId(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.noSupported();
@@ -567,20 +600,25 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         private void enrichCurrentTrack(@NotNull ContextTrack track) {
-            int index = getCurrentTrackIndex();
-            ContextTrack.Builder current = tracks.get(index).toBuilder();
-            ProtoUtils.enrichTrack(current, track);
-            tracks.set(index, current.build());
-            state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+            if (isPlayingQueue) {
+                ProvidedTrack.Builder builder = state.getTrackBuilder();
+                ProtoUtils.enrichTrack(builder, track);
+            } else {
+                int index = getCurrentTrackIndex();
+                ContextTrack.Builder current = tracks.get(index).toBuilder();
+                ProtoUtils.enrichTrack(current, track);
+                tracks.set(index, current.build());
+                state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+            }
         }
 
-        synchronized void skipTo(@NotNull ContextTrack track) {
+        synchronized void skipTo(@NotNull String uri) {
             if (!queue.isEmpty()) {
                 List<ContextTrack> queueCopy = new ArrayList<>(queue);
 
                 Iterator<ContextTrack> iterator = queue.iterator();
                 while (iterator.hasNext()) {
-                    if (Objects.equals(iterator.next().getUri(), track.getUri())) {
+                    if (Objects.equals(iterator.next().getUri(), uri)) {
                         isPlayingQueue = true;
                         updateState();
                         return;
@@ -593,10 +631,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 queue.addAll(queueCopy);
             }
 
-            int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
+            int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
             if (index == -1) throw new IllegalStateException();
 
             setCurrentTrackIndex(index);
+        }
+
+        synchronized void skipTo(@NotNull ContextTrack track) {
+            skipTo(track.getUri());
             enrichCurrentTrack(track);
         }
 

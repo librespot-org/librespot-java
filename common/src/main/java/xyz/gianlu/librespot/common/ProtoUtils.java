@@ -172,11 +172,24 @@ public final class ProtoUtils {
         return -1;
     }
 
+    public static boolean isQueued(@NotNull ContextTrack track) {
+        String value = track.getMetadataOrDefault("is_queued", null);
+        if (value == null) return false;
+        else return Boolean.parseBoolean(value);
+    }
+
     public static void enrichTrack(@NotNull ContextTrack.Builder subject, @NotNull ContextTrack track) {
         if (subject.hasUri() && track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
             throw new IllegalArgumentException();
 
         if (subject.hasGid() && track.hasGid() && !Objects.equals(subject.getGid(), track.getGid()))
+            throw new IllegalArgumentException();
+
+        subject.putAllMetadata(track.getMetadataMap());
+    }
+
+    public static void enrichTrack(@NotNull Player.ProvidedTrack.Builder subject, @NotNull ContextTrack track) {
+        if (track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
             throw new IllegalArgumentException();
 
         subject.putAllMetadata(track.getMetadataMap());

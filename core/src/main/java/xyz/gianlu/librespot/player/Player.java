@@ -20,6 +20,7 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 
 import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
@@ -148,8 +149,10 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 addToQueue(data.obj());
                 break;
             case SetQueue:
+                setQueue(data.obj());
+                break;
             case UpdateContext:
-                System.out.println("UNSUPPORTED: " + data.obj()); // TODO
+                System.out.println("UPDATE CONTEXT: " + data.obj()); // TODO
                 break;
             default:
                 LOGGER.warn("Endpoint left unhandled: " + endpoint);
@@ -337,6 +340,15 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             state.setState(false, true, false);
             state.updated();
         }
+    }
+
+    private void setQueue(@NotNull JsonObject obj) {
+        List<ContextTrack> prevTracks = PlayCommandWrapper.getPrevTracks(obj);
+        List<ContextTrack> nextTracks = PlayCommandWrapper.getNextTracks(obj);
+        if (prevTracks == null && nextTracks == null) throw new IllegalArgumentException();
+
+        state.setQueue(prevTracks, nextTracks);
+        state.updated();
     }
 
     private void addToQueue(@NotNull JsonObject obj) {
