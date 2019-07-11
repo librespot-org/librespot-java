@@ -78,14 +78,10 @@ public final class PagesLoader {
     private List<ContextTrack> getPage(int index) throws IOException, IllegalStateException, MercuryClient.MercuryException {
         if (index == -1) throw new IllegalStateException("You must call nextPage() first!");
 
-        if (resolveUrl != null) {
-            if (index != 0 || !pages.isEmpty()) throw new IllegalStateException();
+        if (index == 0 && pages.isEmpty() && resolveUrl != null)
+            pages.addAll(session.mercury().sendSync(MercuryRequests.resolveContext(resolveUrl)).pages());
 
-            List<ContextPage> resolved = session.mercury().sendSync(MercuryRequests.resolveContext(resolveUrl)).pages();
-            pages.addAll(0, resolved);
-
-            resolveUrl = null;
-        }
+        resolveUrl = null;
 
         if (index < pages.size()) {
             ContextPage page = pages.get(index);
@@ -126,12 +122,12 @@ public final class PagesLoader {
     }
 
     void putFirstPages(@NotNull List<ContextPage> pages) {
-        if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+        if (currentPage != -1 || !this.pages.isEmpty()) throw new IllegalStateException();
         this.pages.addAll(pages);
     }
 
     void putFirstPage(@NotNull List<ContextTrack> tracks) {
-        if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+        if (currentPage != -1 || !pages.isEmpty()) throw new IllegalStateException();
         pages.add(ContextPage.newBuilder().addAllTracks(tracks).build());
     }
 }

@@ -6,13 +6,15 @@ import com.google.gson.JsonParser;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -133,14 +135,12 @@ public class DealerClient extends WebSocketListener {
         String uri = obj.get("uri").getAsString();
 
         JsonArray payloads = obj.getAsJsonArray("payloads");
-        byte[][] decodedPayloads;
+        String[] decodedPayloads;
         if (payloads != null) {
-            decodedPayloads = new byte[payloads.size()][];
-            for (int i = 0; i < payloads.size(); i++) {
-                decodedPayloads[i] = Base64.getDecoder().decode(payloads.get(i).getAsString());
-            }
+            decodedPayloads = new String[payloads.size()];
+            for (int i = 0; i < payloads.size(); i++) decodedPayloads[i] = payloads.get(i).getAsString();
         } else {
-            decodedPayloads = new byte[0][];
+            decodedPayloads = new String[0];
         }
 
         JsonObject headers = obj.getAsJsonObject("headers");
@@ -159,7 +159,7 @@ public class DealerClient extends WebSocketListener {
                     if (uri.startsWith(key) && !dispatched) {
                         try {
                             interesting = true;
-                            listener.onMessage(uri, parsedHeaders, new BytesArrayList(decodedPayloads));
+                            listener.onMessage(uri, parsedHeaders, decodedPayloads);
                             dispatched = true;
                         } catch (IOException ex) {
                             LOGGER.error("Failed dispatching message!", ex);
@@ -186,7 +186,7 @@ public class DealerClient extends WebSocketListener {
     }
 
     public interface MessageListener {
-        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) throws IOException;
+        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException;
 
         void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
     }

@@ -5,6 +5,7 @@ import xyz.gianlu.librespot.common.Utils;
 
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -20,9 +21,16 @@ public class BytesArrayList implements Iterable<byte[]> {
         elementData = new byte[5][];
     }
 
-    public BytesArrayList(byte[][] buffer) {
+    private BytesArrayList(byte[][] buffer) {
         elementData = buffer;
         size = buffer.length;
+    }
+
+    @NotNull
+    public static InputStream streamBase64(@NotNull String[] payloads) {
+        byte[][] decoded = new byte[payloads.length][];
+        for (int i = 0; i < decoded.length; i++) decoded[i] = Base64.getDecoder().decode(payloads[i]);
+        return new BytesArrayList(decoded).stream();
     }
 
     private void ensureExplicitCapacity(int minCapacity) {
@@ -68,15 +76,14 @@ public class BytesArrayList implements Iterable<byte[]> {
 
     @Override
     public String toString() {
-        return Arrays.deepToString(toArray());
+        return toHex();
     }
 
     @NotNull
     public String toHex() {
         String[] array = new String[size()];
         byte[][] copy = toArray();
-        for (int i = 0; i < copy.length; i++)
-            array[i] = Utils.bytesToHex(copy[i]);
+        for (int i = 0; i < copy.length; i++) array[i] = Utils.bytesToHex(copy[i]);
         return Arrays.toString(array);
     }
 

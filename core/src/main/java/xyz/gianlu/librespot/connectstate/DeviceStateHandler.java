@@ -20,10 +20,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Gianlu
@@ -108,12 +105,12 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull BytesArrayList payloads) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
         } else if (uri.startsWith("hm://connect-state/v1/connect/volume")) {
-            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payloads.stream());
+            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
             deviceInfo.setVolume(cmd.getVolume());
 
             LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
@@ -124,7 +121,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
 
             notifyVolumeChange();
         } else {
-            LOGGER.warn(String.format("Message left unhandled! {uri: %s, payloads: %s}", uri, payloads.toString()));
+            LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
         }
     }
 
