@@ -20,10 +20,7 @@ import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.model.AlbumId;
-import xyz.gianlu.librespot.mercury.model.ArtistId;
-import xyz.gianlu.librespot.mercury.model.ImageId;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.mercury.model.*;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.IOException;
@@ -499,12 +496,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             updatePrevNextTracks();
         }
 
-        synchronized void initializeStart() throws IOException, MercuryClient.MercuryException {
+        synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
             if (!pages.nextPage()) throw new IllegalStateException();
 
             tracks.clear();
             tracks.addAll(pages.currentPage());
+
             checkComplete();
+            if (!PlayableId.hasAtLeastOneSupportedId(tracks))
+                throw AbsSpotifyContext.UnsupportedContextException.noSupported();
 
             if (context.isFinite() && isShufflingContext())
                 shuffleEntirely();
@@ -512,7 +512,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             setCurrentTrackIndex(0);
         }
 
-        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException {
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
             tracks.clear();
 
             while (true) {
@@ -540,6 +540,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             }
 
             checkComplete();
+            if (!PlayableId.hasAtLeastOneSupportedId(tracks))
+                throw AbsSpotifyContext.UnsupportedContextException.noSupported();
 
             if (track != null) enrichCurrentTrack(track);
         }
@@ -560,10 +562,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             enrichCurrentTrack(track);
         }
 
+        /**
+         * Figures out what the next {@link PlayableId} should be. This is called directly by the preload function and therefore can return {@code null} as it doesn't account for repeating contexts.
+         * This will also return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
+         *
+         * @return The next {@link PlayableId} or {@code null}
+         */
         @Nullable
         synchronized PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
-            // TODO: Unsupported elements
-
             int current = getCurrentTrackIndex();
             if (current == tracks.size() - 1) {
                 if (isShufflingContext() || cannotLoadMore) return null;
@@ -610,14 +616,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 setCurrentTrackIndex(getCurrentTrackIndex() + 1);
             }
 
+            if (getCurrentPlayable() instanceof UnsupportedId)
+                return nextPlayable(conf);
+
             if (play) return NextPlayable.OK_PLAY;
             else return NextPlayable.OK_PAUSE;
         }
 
         @NotNull
         synchronized PreviousPlayable previousPlayable() {
-            // TODO: Unsupported elements
-
             int index = getCurrentTrackIndex();
             if (index == 0) {
                 if (isRepeatingContext() && context.isFinite())
@@ -625,6 +632,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             } else {
                 setCurrentTrackIndex(index - 1);
             }
+
+            if (getCurrentPlayable() instanceof UnsupportedId)
+                return previousPlayable();
 
             return PreviousPlayable.OK;
         }

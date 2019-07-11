@@ -15,6 +15,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.mercury.model.UnsupportedId;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
@@ -233,7 +234,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
-            if (next != null) {
+            if (next != null && !(next instanceof UnsupportedId)) {
                 preloadTrackHandler = new TrackHandler(session, lines, conf, this);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
