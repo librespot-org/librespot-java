@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -28,7 +29,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
     private final WebSocket ws;
     private final Map<MessageListener, List<String>> listeners = new HashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-ping-" + r.hashCode()));
     private volatile boolean receivedPong = false;
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {

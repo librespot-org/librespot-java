@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.download.proto.StorageResolve;
 import xyz.gianlu.librespot.cache.CacheManager;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -197,7 +198,7 @@ public class CdnManager {
 
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
         private final StreamId streamId;
-        private final ExecutorService executorService = Executors.newCachedThreadPool();
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "cdn-chunk-async-" + r.hashCode()));
         private final SuperAudioFormat format;
         private final AudioDecrypt audioDecrypt;
         private final CdnUrl cdnUrl;
@@ -336,6 +337,12 @@ public class CdnManager {
 
             InternalStream(@Nullable HaltListener haltListener) {
                 super(haltListener);
+            }
+
+            @Override
+            public void close() {
+                super.close();
+                executorService.shutdown();
             }
 
             @Override

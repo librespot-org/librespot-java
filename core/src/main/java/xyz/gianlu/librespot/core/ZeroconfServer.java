@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
@@ -320,7 +321,7 @@ public class ZeroconfServer implements Closeable {
 
     private class HttpRunner implements Runnable, Closeable {
         private final ServerSocket serverSocket;
-        private final ExecutorService executorService = Executors.newCachedThreadPool();
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "zeroconf-client-" + r.hashCode()));
         private volatile boolean shouldStop = false;
 
         HttpRunner(int port) throws IOException {
