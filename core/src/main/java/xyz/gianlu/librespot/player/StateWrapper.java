@@ -24,9 +24,7 @@ import xyz.gianlu.librespot.mercury.model.*;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static spotify.player.proto.ContextOuterClass.Context;
 
@@ -410,6 +408,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         device.removeListener(listener);
     }
 
+    synchronized void addToQueue(@NotNull ContextTrack track) {
+        tracksKeeper.addToQueue(track);
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 
@@ -432,8 +434,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private class TracksKeeper {
+        private final Queue<ContextTrack> queue = new LinkedList<>();
         private final List<ContextTrack> tracks = new ArrayList<>();
         private final FisherYatesShuffle<ContextTrack> shuffle = new FisherYatesShuffle<>(session.random());
+        private volatile boolean isPlayingQueue = false;
         private volatile boolean cannotLoadMore = false;
         private volatile int shuffleKeepIndex = -1;
 
@@ -442,7 +446,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         private void updateTrackCount() {
-            if (context.isFinite()) state.putContextMetadata("track_count", String.valueOf(tracks.size()));
+            if (context.isFinite())
+                state.putContextMetadata("track_count", String.valueOf(tracks.size() + queue.size()));
             else state.removeContextMetadata("track_count");
         }
 
@@ -468,6 +473,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         private void setCurrentTrackIndex(int index) {
+            if (isPlayingQueue) throw new IllegalStateException();
+
             state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
             updateState();
         }
@@ -480,6 +487,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
 
             state.clearNextTracks();
+            for (ContextTrack track : queue)
+                state.addNextTracks(ProtoUtils.convertToProvidedTrack(track));
+
             for (int i = index + 1; i < tracks.size(); i++)
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
         }
@@ -491,9 +501,19 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         private void updateState() {
-            state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+            if (isPlayingQueue)
+                state.setTrack(ProtoUtils.convertToProvidedTrack(queue.remove()));
+            else
+                state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+
             updateTrackDuration();
             updatePrevNextTracks();
+        }
+
+        void addToQueue(@NotNull ContextTrack track) {
+            queue.add(track);
+            updatePrevNextTracks();
+            updateTrackCount();
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
@@ -555,6 +575,24 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         synchronized void skipTo(@NotNull ContextTrack track) {
+            if (!queue.isEmpty()) {
+                List<ContextTrack> queueCopy = new ArrayList<>(queue);
+
+                Iterator<ContextTrack> iterator = queue.iterator();
+                while (iterator.hasNext()) {
+                    if (Objects.equals(iterator.next().getUri(), track.getUri())) {
+                        isPlayingQueue = true;
+                        updateState();
+                        return;
+                    } else {
+                        iterator.remove();
+                    }
+                }
+
+                queue.clear();
+                queue.addAll(queueCopy);
+            }
+
             int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
             if (index == -1) throw new IllegalStateException();
 
@@ -570,6 +608,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
          */
         @Nullable
         synchronized PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
+            if (!queue.isEmpty())
+                return PlayableId.from(queue.peek());
+
             int current = getCurrentTrackIndex();
             if (current == tracks.size() - 1) {
                 if (isShufflingContext() || cannotLoadMore) return null;
@@ -597,6 +638,18 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         @NotNull
         synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+            if (!queue.isEmpty()) {
+                isPlayingQueue = true;
+                updateState();
+
+                if (getCurrentPlayable() instanceof UnsupportedId)
+                    return nextPlayable(conf);
+
+                return NextPlayable.OK_PLAY;
+            }
+
+            isPlayingQueue = false;
+
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
@@ -626,6 +679,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         @NotNull
         synchronized PreviousPlayable previousPlayable() {
             int index = getCurrentTrackIndex();
+            if (isPlayingQueue) {
+                index += 1;
+                isPlayingQueue = false;
+            }
+
             if (index == 0) {
                 if (isRepeatingContext() && context.isFinite())
                     setCurrentTrackIndex(tracks.size() - 1);
@@ -644,7 +702,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         synchronized boolean isPlayingLast() {
-            if (cannotLoadMore) return getCurrentTrackIndex() == tracks.size();
+            if (cannotLoadMore && queue.isEmpty()) return getCurrentTrackIndex() == tracks.size();
             else return false;
         }
 
@@ -678,6 +736,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         synchronized void shuffleEntirely() {
             if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
             if (tracks.size() <= 1) return;
+            if (isPlayingQueue) return;
 
             if (!cannotLoadMore) {
                 if (loadAllTracks()) {
@@ -695,6 +754,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         synchronized void toggleShuffle(boolean value) {
             if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
             if (tracks.size() <= 1) return;
+            if (isPlayingQueue) return;
 
             if (value) {
                 if (!cannotLoadMore) {

@@ -6,7 +6,6 @@ import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextTrackOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
@@ -21,6 +20,8 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
 import java.io.IOException;
+
+import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
 /**
  * @author Gianlu
@@ -144,6 +145,8 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 state.updated();
                 break;
             case AddToQueue:
+                addToQueue(data.obj());
+                break;
             case SetQueue:
             case UpdateContext:
                 System.out.println("UNSUPPORTED: " + data.obj()); // TODO
@@ -336,8 +339,16 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
+    private void addToQueue(@NotNull JsonObject obj) {
+        ContextTrack track = PlayCommandWrapper.getTrack(obj);
+        if (track == null) throw new IllegalArgumentException();
+
+        state.addToQueue(track);
+        state.updated();
+    }
+
     private void handleNext(@Nullable JsonObject obj) {
-        ContextTrackOuterClass.ContextTrack track = null;
+        ContextTrack track = null;
         if (obj != null) track = PlayCommandWrapper.getTrack(obj);
 
         if (track != null) {

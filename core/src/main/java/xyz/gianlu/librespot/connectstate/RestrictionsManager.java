@@ -32,6 +32,16 @@ public final class RestrictionsManager {
                 return restrictions.getDisallowTogglingRepeatContextReasonsCount() == 0;
             case REPEAT_TRACK:
                 return restrictions.getDisallowTogglingRepeatTrackReasonsCount() == 0;
+            case PAUSE:
+                return restrictions.getDisallowPausingReasonsCount() == 0;
+            case RESUME:
+                return restrictions.getDisallowResumingReasonsCount() == 0;
+            case SEEK:
+                return restrictions.getDisallowSeekingReasonsCount() == 0;
+            case SKIP_PREV:
+                return restrictions.getDisallowSkippingPrevReasonsCount() == 0;
+            case SKIP_NEXT:
+                return restrictions.getDisallowSkippingNextReasonsCount() == 0;
             default:
                 throw new IllegalArgumentException("Unknown restriction for " + action);
         }
