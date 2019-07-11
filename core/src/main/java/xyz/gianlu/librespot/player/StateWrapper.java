@@ -11,6 +11,7 @@ import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
 import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
+import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
@@ -27,6 +28,7 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static spotify.player.proto.ContextOuterClass.Context;
@@ -166,11 +168,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private void updateRestrictions() {
-        if (isPaused()) context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
-        else context.restrictions.allow(RestrictionsManager.Action.PAUSE);
+        if (isPaused())
+            context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.PAUSE);
 
-        if (isPlaying()) context.restrictions.disallow(RestrictionsManager.Action.RESUME, "not_paused");
-        else context.restrictions.allow(RestrictionsManager.Action.RESUME);
+        if (isPlaying())
+            context.restrictions.disallow(RestrictionsManager.Action.RESUME, "not_paused");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.RESUME);
 
         if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
             context.restrictions.disallow(RestrictionsManager.Action.SKIP_PREV, "no_prev_track");
@@ -181,8 +187,6 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             context.restrictions.disallow(RestrictionsManager.Action.SKIP_NEXT, "no_next_track");
         else
             context.restrictions.allow(RestrictionsManager.Action.SKIP_NEXT);
-
-        // TODO: Update restrictions
 
         state.setRestrictions(context.restrictions.toProto());
     }
@@ -334,7 +338,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setContext(ps.getContext());
 
         Playback pb = cmd.getPlayback();
-        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack());
+        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), false);
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
@@ -350,14 +354,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
 
         if (trackUri != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, true);
         } else if (trackUid != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, true);
         } else if (trackIndex != null) {
             tracksKeeper.initializeFrom(tracks -> {
                 if (trackIndex < tracks.size()) return trackIndex;
                 else return -1;
-            }, null);
+            }, null, true);
         } else {
             tracksKeeper.initializeStart();
         }
@@ -432,10 +436,29 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     private class TracksKeeper {
         private final List<ContextTrack> tracks = new ArrayList<>();
+        private final FisherYatesShuffle<ContextTrack> shuffle = new FisherYatesShuffle<>(session.random());
         private volatile boolean cannotLoadMore = false;
+        private volatile int shuffleKeepIndex = -1;
 
         private TracksKeeper() {
-            if (!context.isFinite()) cannotLoadMore = false;
+            checkComplete();
+        }
+
+        private void updateTrackCount() {
+            if (context.isFinite()) state.putContextMetadata("track_count", String.valueOf(tracks.size()));
+            else state.removeContextMetadata("track_count");
+        }
+
+        private void checkComplete() {
+            if (cannotLoadMore) return;
+
+            if (context.isFinite()) {
+                int total_tracks = Integer.parseInt(state.getContextMetadataOrDefault("track_count", "-1"));
+                if (total_tracks == -1) cannotLoadMore = false;
+                else cannotLoadMore = total_tracks == tracks.size();
+            } else {
+                cannotLoadMore = false;
+            }
         }
 
         @NotNull
@@ -477,35 +500,46 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException {
+            if (!pages.nextPage()) throw new IllegalStateException();
+
             tracks.clear();
             tracks.addAll(pages.currentPage());
+            checkComplete();
+
+            if (context.isFinite() && isShufflingContext())
+                shuffleEntirely();
 
             setCurrentTrackIndex(0);
         }
 
-        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track) throws IOException, MercuryClient.MercuryException {
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException {
             tracks.clear();
 
-            boolean found = false;
-            while (!found) {
-                List<ContextTrack> newTracks = pages.currentPage();
-                int index = finder.find(newTracks);
-                if (index == -1) {
-                    tracks.addAll(newTracks);
-                    if (!pages.nextPage()) {
-                        cannotLoadMore = true;
-                        throw new IllegalStateException("Couldn't find current track!");
+            while (true) {
+                if (pages.nextPage()) {
+                    List<ContextTrack> newTracks = pages.currentPage();
+                    int index = finder.find(newTracks);
+                    if (index == -1) {
+                        tracks.addAll(newTracks);
+                        continue;
                     }
 
-                    continue;
+                    index += tracks.size();
+                    tracks.addAll(newTracks);
+
+                    if (context.isFinite() && shouldShuffle && isShufflingContext())
+                        shuffleEntirely();
+
+                    setCurrentTrackIndex(index);
+                    break;
+                } else {
+                    cannotLoadMore = true;
+                    updateTrackCount();
+                    throw new IllegalStateException("Couldn't find current track!");
                 }
-
-                index += tracks.size();
-                tracks.addAll(newTracks);
-
-                setCurrentTrackIndex(index);
-                found = true;
             }
+
+            checkComplete();
 
             if (track != null) enrichCurrentTrack(track);
         }
@@ -528,15 +562,27 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         @Nullable
         synchronized PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
-            // TODO: Unsupported elements, infinite contexts, shuffled contexts
+            // TODO: Unsupported elements
 
             int current = getCurrentTrackIndex();
             if (current == tracks.size() - 1) {
+                if (isShufflingContext() || cannotLoadMore) return null;
+
                 if (pages.nextPage()) {
                     tracks.addAll(pages.currentPage());
                 } else {
                     cannotLoadMore = true;
+                    updateTrackCount();
                     return null;
+                }
+            }
+
+            if (!context.isFinite() && tracks.size() - current <= 5) {
+                if (pages.nextPage()) {
+                    tracks.addAll(pages.currentPage());
+                    LOGGER.trace("Preloaded next page due to infinite context.");
+                } else {
+                    LOGGER.warn("Couldn't (pre)load next page of context!");
                 }
             }
 
@@ -548,6 +594,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
+                if (!context.isFinite()) return NextPlayable.MISSING_TRACKS;
+
                 if (isRepeatingContext()) {
                     setCurrentTrackIndex(0);
                 } else {
@@ -590,8 +638,91 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             else return false;
         }
 
-        void toggleShuffle(boolean value) {
-            // TODO: Shuffle/unshuffle context
+        /**
+         * Tries to load all the tracks of this context, must be called on a non-shuffled and finite context!
+         *
+         * @return Whether the operation was successful.
+         */
+        private boolean loadAllTracks() {
+            if (!context.isFinite()) throw new IllegalStateException();
+
+            try {
+                while (true) {
+                    if (pages.nextPage()) tracks.addAll(pages.currentPage());
+                    else break;
+                }
+            } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.error("Failed loading all tracks!", ex);
+                return false;
+            }
+
+            cannotLoadMore = true;
+            updateTrackCount();
+
+            return true;
+        }
+
+        /**
+         * Shuffles the entire track list without caring about the current state, must be called before {@link #setCurrentTrackIndex(int)}!
+         */
+        synchronized void shuffleEntirely() {
+            if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
+            if (tracks.size() <= 1) return;
+
+            if (!cannotLoadMore) {
+                if (loadAllTracks()) {
+                    LOGGER.trace("Loaded all tracks before shuffling (entirely).");
+                } else {
+                    LOGGER.error("Cannot shuffle entire context!");
+                    return;
+                }
+            }
+
+            shuffle.shuffle(tracks, true);
+            LOGGER.trace("Shuffled context entirely!");
+        }
+
+        synchronized void toggleShuffle(boolean value) {
+            if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
+            if (tracks.size() <= 1) return;
+
+            if (value) {
+                if (!cannotLoadMore) {
+                    if (loadAllTracks()) {
+                        LOGGER.trace("Loaded all tracks before shuffling.");
+                    } else {
+                        LOGGER.error("Cannot shuffle context!");
+                        return;
+                    }
+                }
+
+                PlayableId currentlyPlaying = getCurrentPlayable();
+                shuffle.shuffle(tracks, true);
+                shuffleKeepIndex = ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri());
+                Collections.swap(tracks, 0, shuffleKeepIndex);
+                setCurrentTrackIndex(0);
+
+                LOGGER.trace(String.format("Shuffled context! {keepIndex: %d}", shuffleKeepIndex));
+            } else {
+                if (shuffle.canUnshuffle(tracks.size())) {
+                    PlayableId currentlyPlaying = getCurrentPlayable();
+                    if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
+
+                    shuffle.unshuffle(tracks);
+                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri()));
+
+                    LOGGER.trace("Unshuffled using Fisher-Yates.");
+                } else {
+                    PlayableId id = getCurrentPlayable();
+
+                    tracks.clear();
+                    pages = PagesLoader.from(session, context.uri());
+                    loadAllTracks();
+
+                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, id.toSpotifyUri()));
+                    LOGGER.trace("Unshuffled by reloading context.");
+                }
+            }
         }
     }
 }

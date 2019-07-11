@@ -26,7 +26,7 @@ public final class PagesLoader {
     private final List<ContextPage> pages;
     private final Session session;
     private String resolveUrl = null;
-    private int currentPage = 0;
+    private int currentPage = -1;
 
     private PagesLoader(@NotNull Session session) {
         this.session = session;
@@ -76,8 +76,10 @@ public final class PagesLoader {
 
     @NotNull
     private List<ContextTrack> getPage(int index) throws IOException, IllegalStateException, MercuryClient.MercuryException {
+        if (index == -1) throw new IllegalStateException("You must call nextPage() first!");
+
         if (resolveUrl != null) {
-            if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+            if (index != 0 || !pages.isEmpty()) throw new IllegalStateException();
 
             List<ContextPage> resolved = session.mercury().sendSync(MercuryRequests.resolveContext(resolveUrl)).pages();
             pages.addAll(0, resolved);

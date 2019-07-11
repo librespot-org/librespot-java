@@ -132,12 +132,15 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 break;
             case SetRepeatingContext:
                 state.setRepeatingContext(data.valueBool());
+                state.updated();
                 break;
             case SetRepeatingTrack:
                 state.setRepeatingTrack(data.valueBool());
+                state.updated();
                 break;
             case SetShufflingContext:
                 state.setShufflingContext(data.valueBool());
+                state.updated();
                 break;
             case AddToQueue:
             case SetQueue:

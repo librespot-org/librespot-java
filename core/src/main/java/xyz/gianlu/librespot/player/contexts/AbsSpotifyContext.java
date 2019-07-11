@@ -11,8 +11,8 @@ import java.net.URLDecoder;
  * @author Gianlu
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
-    protected final String context;
     public final RestrictionsManager restrictions;
+    protected final String context;
 
     AbsSpotifyContext(@NotNull String context) {
         this.context = context;
@@ -95,6 +95,11 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
             default:
                 throw new IllegalArgumentException(split[i]);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "AbsSpotifyContext{context='" + context + "\'}";
     }
 
     public abstract P createId(@NotNull String uri);
