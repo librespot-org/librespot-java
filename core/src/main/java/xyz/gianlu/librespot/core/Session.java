@@ -124,7 +124,7 @@ public class Session implements Closeable {
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
                         .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
                         .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(110800439)
+                        .setVersion(111000540)
                         .build())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
@@ -309,6 +309,11 @@ public class Session implements Closeable {
         if (receiver != null) {
             receiver.stop();
             receiver = null;
+        }
+
+        if (dealer != null) {
+            dealer.close();
+            dealer = null;
         }
 
         if (player != null) {

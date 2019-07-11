@@ -10,6 +10,7 @@ import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -22,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Gianlu
  */
-public class DealerClient extends WebSocketListener {
+public class DealerClient extends WebSocketListener implements Closeable {
     private static final JsonParser PARSER = new JsonParser();
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
     private final WebSocket ws;
@@ -52,6 +53,10 @@ public class DealerClient extends WebSocketListener {
     }
 
     private void wentAway() {
+        listeners.clear();
+        scheduler.shutdown();
+        ws.cancel();
+
         LOGGER.warn("Dealer went away!"); // TODO: Handling unexpected disconnection
     }
 
@@ -65,10 +70,17 @@ public class DealerClient extends WebSocketListener {
     }
 
     @Override
-    public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-        listeners.clear();
+    public void onClosing(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+        System.out.println("CLOSING"); // TODO
 
-        // TODO: Closed
+        wentAway();
+    }
+
+    @Override
+    public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+        System.out.println("CLOSED"); // TODO
+
+        wentAway();
     }
 
     @Override
@@ -183,6 +195,11 @@ public class DealerClient extends WebSocketListener {
         synchronized (listeners) {
             listeners.remove(listener);
         }
+    }
+
+    @Override
+    public void close() {
+        ws.close(100, null);
     }
 
     public interface MessageListener {
