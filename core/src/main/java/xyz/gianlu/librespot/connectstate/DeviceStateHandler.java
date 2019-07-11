@@ -307,6 +307,12 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             if ((elm = options.get("seek_to")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
             else return null;
         }
+
+        @NotNull
+        public static JsonArray getPages(@NotNull JsonObject obj) {
+            JsonObject context = getContext(obj);
+            return context.getAsJsonArray("pages");
+        }
     }
 
     public static class CommandBody {

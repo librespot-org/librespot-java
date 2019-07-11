@@ -125,6 +125,11 @@ public final class PagesLoader {
         }
     }
 
+    void putFirstPages(@NotNull List<ContextPage> pages) {
+        if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
+        this.pages.addAll(pages);
+    }
+
     void putFirstPage(@NotNull List<ContextTrack> tracks) {
         if (currentPage != 0 || !pages.isEmpty()) throw new IllegalStateException();
         pages.add(ContextPage.newBuilder().addAllTracks(tracks).build());

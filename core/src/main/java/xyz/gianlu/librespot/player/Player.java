@@ -152,7 +152,8 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
                 setQueue(data.obj());
                 break;
             case UpdateContext:
-                System.out.println("UPDATE CONTEXT: " + data.obj()); // TODO
+                state.updateContext(data.obj());
+                state.updated();
                 break;
             default:
                 LOGGER.warn("Endpoint left unhandled: " + endpoint);

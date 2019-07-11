@@ -7,6 +7,7 @@ import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextPageOuterClass.ContextPage;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
 import spotify.player.proto.transfer.QueueOuterClass;
@@ -299,7 +300,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     synchronized void setPosition(long pos) {
-        state.setTimestamp(TimeProvider.currentTimeMillis());
+        int sub = (int) Math.min(pos, 1000);
+        long now = TimeProvider.currentTimeMillis();
+        now -= sub;
+        pos -= sub;
+
+        state.setTimestamp(now);
         state.setPositionAsOfTimestamp(pos);
     }
 
@@ -366,6 +372,22 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
         if (seekTo != null) setPosition(seekTo);
         else setPosition(0);
+    }
+
+    synchronized void updateContext(@NotNull JsonObject obj) {
+        String uri = PlayCommandWrapper.getContextUri(obj);
+        if (!context.uri().equals(uri)) {
+            LOGGER.warn(String.format("Received update of the wrong context! {context: %s, newUri: %s}", context, uri));
+            return;
+        }
+
+        if (isShufflingContext()) LOGGER.warn("Updating shuffled context, that's bad!");
+
+        try {
+            tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(PlayCommandWrapper.getPages(obj)));
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed updating context!", ex);
+        }
     }
 
     void skipTo(@NotNull ContextTrack track) {
@@ -540,6 +562,37 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
             updateTrackCount();
             updatePrevNextTracks();
+        }
+
+        synchronized void updateContext(@NotNull List<ContextPage> updatedPages) throws IOException, MercuryClient.MercuryException {
+            String current = getCurrentPlayable().toSpotifyUri();
+
+            tracks.clear();
+            pages = PagesLoader.from(session, context.uri());
+            pages.putFirstPages(updatedPages);
+
+            while (true) {
+                if (pages.nextPage()) {
+                    List<ContextTrack> newTracks = pages.currentPage();
+                    int index = ProtoUtils.indexOfTrackByUri(newTracks, current);
+                    if (index == -1) {
+                        tracks.addAll(newTracks);
+                        continue;
+                    }
+
+                    index += tracks.size();
+                    tracks.addAll(newTracks);
+
+                    setCurrentTrackIndex(index);
+                    break;
+                } else {
+                    cannotLoadMore = true;
+                    updateTrackCount();
+                    throw new IllegalStateException("Couldn't find current track!");
+                }
+            }
+
+            checkComplete();
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
