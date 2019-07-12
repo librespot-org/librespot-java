@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.AbstractMessageLite;
 import com.spotify.connectstate.model.Connect;
+import com.spotify.metadata.proto.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.jetbrains.annotations.NotNull;
@@ -9,6 +10,8 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.model.EpisodeId;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 
 import java.io.IOException;
 
@@ -55,5 +58,23 @@ public class ApiClient {
         request.url(baseUrl + suffix);
 
         return client.newCall(request.build()).execute();
+    }
+
+    @NotNull
+    public Metadata.Track getMedata4Track(@NotNull TrackId track) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/metadata/4/track/" + track.hexId(), null, null)) {
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Metadata.Track.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Metadata.Episode getMedata4Episode(@NotNull EpisodeId episode) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/metadata/4/episode/" + episode.hexId(), null, null)) {
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Metadata.Episode.parseFrom(body.byteStream());
+        }
     }
 }
