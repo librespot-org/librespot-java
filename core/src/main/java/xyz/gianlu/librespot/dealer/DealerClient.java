@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,12 +28,22 @@ import java.util.concurrent.TimeUnit;
 public class DealerClient extends WebSocketListener implements Closeable {
     private static final JsonParser PARSER = new JsonParser();
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
-    private final WebSocket ws;
     private final Map<MessageListener, List<String>> listeners = new HashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-ping-" + r.hashCode()));
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
+    private final Session session;
+    private ScheduledFuture<?> lastScheduledPing;
+    private WebSocket ws;
     private volatile boolean receivedPong = false;
+    private volatile boolean reconnecting = false;
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
+        this.session = session;
+        connect();
+    }
+
+    private void connect() throws IOException, MercuryClient.MercuryException {
+        if (ws != null) ws.cancel();
+
         this.ws = new OkHttpClient().newWebSocket(new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
                 .build(), this);
@@ -42,11 +53,14 @@ public class DealerClient extends WebSocketListener implements Closeable {
     public void onOpen(@NotNull WebSocket webSocket, Response response) {
         LOGGER.debug(String.format("Dealer connected! {host: %s}", response.request().url().host()));
 
-        scheduler.scheduleAtFixedRate(() -> {
+        reconnecting = false;
+        lastScheduledPing = scheduler.scheduleAtFixedRate(() -> {
             sendPing();
             receivedPong = false;
 
             scheduler.schedule(() -> {
+                if (lastScheduledPing == null || lastScheduledPing.isCancelled()) return;
+
                 if (!receivedPong) wentAway();
                 receivedPong = false;
             }, 3, TimeUnit.SECONDS);
@@ -54,11 +68,22 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     private void wentAway() {
-        listeners.clear();
-        scheduler.shutdown();
         ws.cancel();
+        lastScheduledPing.cancel(true);
+        lastScheduledPing = null;
 
-        LOGGER.warn("Dealer went away!"); // TODO: Handling unexpected disconnection
+        LOGGER.warn("Dealer went away! Trying to reconnect...");
+        reconnect();
+    }
+
+    private void reconnect() {
+        try {
+            reconnecting = true;
+            connect();
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
+            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+        }
     }
 
     private void sendPing() {
@@ -66,21 +91,17 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     @Override
-    public void onFailure(@NotNull WebSocket webSocket, Throwable t, Response response) {
-        t.printStackTrace(); // TODO: Handle failure
+    public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
+        LOGGER.error("Unexpected failure when handling message!", t);
+
+        if (reconnecting) {
+            LOGGER.error("Failed reconnecting, retrying in 10 seconds...");
+            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+        }
     }
 
     @Override
     public void onClosing(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-        System.out.println("CLOSING"); // TODO
-
-        wentAway();
-    }
-
-    @Override
-    public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-        System.out.println("CLOSED"); // TODO
-
         wentAway();
     }
 
@@ -200,7 +221,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     @Override
     public void close() {
-        ws.close(100, null);
+        ws.close(1000, null);
     }
 
     public interface MessageListener {

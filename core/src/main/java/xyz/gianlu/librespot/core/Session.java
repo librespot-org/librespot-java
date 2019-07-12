@@ -37,9 +37,7 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -74,6 +72,7 @@ public class Session implements Closeable {
     };
     private final DiffieHellman keys;
     private final Inner inner;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private ConnectionHolder conn;
@@ -91,6 +90,7 @@ public class Session implements Closeable {
     private ApiClient api;
     private String countryCode = null;
     private volatile boolean closed = false;
+    private volatile ScheduledFuture<?> scheduledReconnect = null;
 
     private Session(Inner inner, Socket socket) throws IOException {
         this.inner = inner;
@@ -486,7 +486,8 @@ public class Session implements Closeable {
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-            throw new RuntimeException("Failed reconnecting!", ex);
+            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
+            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
         }
     }
 
@@ -650,6 +651,14 @@ public class Session implements Closeable {
             Session session = Session.from(inner);
             session.connect();
             session.authenticate(loginCredentials);
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    session.close();
+                } catch (IOException ignored) {
+                }
+            }));
+
             return session;
         }
     }
@@ -723,6 +732,12 @@ public class Session implements Closeable {
 
                 switch (cmd) {
                     case Ping:
+                        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
+                        scheduledReconnect = scheduler.schedule(() -> {
+                            LOGGER.warn("Socket timed out. Reconnecting...");
+                            reconnect();
+                        }, 2 * 60 + 5, TimeUnit.SECONDS);
+
                         try {
                             long serverTime = new BigInteger(packet.payload).longValue();
                             TimeProvider.init((int) (serverTime - System.currentTimeMillis() / 1000));
