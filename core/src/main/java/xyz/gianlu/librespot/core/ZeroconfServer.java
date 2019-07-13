@@ -6,11 +6,12 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.crypto.BlobUtils;
 import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.common.config.ZeroConf;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -311,8 +312,8 @@ public class ZeroconfServer implements Closeable {
             LOGGER.info(String.format("Accepted new user. {deviceId: %s}", conf.getDeviceId()));
             session = new Session(conf);
             session.connect();
-            session.authenticate(credentials,conf.getDeviceId());
-        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
+            session.authenticate(credentials, conf.getDeviceId());
+        } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }
@@ -320,7 +321,7 @@ public class ZeroconfServer implements Closeable {
 
     private class HttpRunner implements Runnable, Closeable {
         private final ServerSocket serverSocket;
-        private final ExecutorService executorService = Executors.newCachedThreadPool();
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "zeroconf-client-" + r.hashCode()));
         private volatile boolean shouldStop = false;
 
         HttpRunner(int port) throws IOException {

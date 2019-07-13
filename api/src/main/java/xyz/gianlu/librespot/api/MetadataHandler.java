@@ -17,13 +17,11 @@ import java.io.IOException;
  * @author Gianlu
  */
 public class MetadataHandler extends AbsApiHandler {
-    private final MercuryClient client;
     private final Session session;
 
     public MetadataHandler(@NotNull Session session) {
         super("metadata");
         this.session = session;
-        this.client = session.mercury();
     }
 
     @Override
@@ -49,7 +47,7 @@ public class MetadataHandler extends AbsApiHandler {
     @NotNull
     private <P extends Message> JsonElement handle(@NotNull ProtobufMercuryRequest<P> req) throws HandlingException {
         try {
-            return client.sendSync(req).json();
+            return session.mercury().sendSync(req).json();
         } catch (MercuryClient.MercuryException ex) {
             throw new HandlingException(ex, ErrorCode.MERCURY_EXCEPTION);
         } catch (IOException ex) {

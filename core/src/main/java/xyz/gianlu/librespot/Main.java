@@ -7,7 +7,7 @@ import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.common.enums.Strategy;
 import xyz.gianlu.librespot.core.ZeroconfServer;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.File;
 import java.io.IOException;

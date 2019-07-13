@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.proto.Spirc;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 
 /**
@@ -11,12 +10,6 @@ public abstract class AbsEpisodeContext extends AbsSpotifyContext<EpisodeId> {
 
     public AbsEpisodeContext(@NotNull String context) {
         super(context);
-    }
-
-    @NotNull
-    @Override
-    public final EpisodeId createId(Spirc.@NotNull TrackRef ref) {
-        return EpisodeId.fromTrackRef(ref);
     }
 
     @Override

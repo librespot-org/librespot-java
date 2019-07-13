@@ -1,65 +1,120 @@
 package xyz.gianlu.librespot.player;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.spotify.connectstate.model.Connect;
+import com.spotify.connectstate.model.Player.*;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import spotify.player.proto.ContextPageOuterClass.ContextPage;
+import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
+import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
+import spotify.player.proto.transfer.QueueOuterClass;
+import spotify.player.proto.transfer.SessionOuterClass;
+import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
-import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.common.ProtoUtils;
+import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
+import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.RawMercuryRequest;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.UnsupportedId;
+import xyz.gianlu.librespot.mercury.model.*;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
-import xyz.gianlu.librespot.player.contexts.SearchContext;
-import xyz.gianlu.librespot.player.providers.ContentProvider;
-import xyz.gianlu.librespot.player.providers.StationProvider;
-import xyz.gianlu.librespot.player.remote.Remote3Frame;
-import xyz.gianlu.librespot.player.remote.Remote3Page;
-import xyz.gianlu.librespot.player.remote.Remote3Track;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
+
+import static spotify.player.proto.ContextOuterClass.Context;
 
 /**
  * @author Gianlu
  */
-public class StateWrapper {
+public class StateWrapper implements DeviceStateHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
-    private static final int STATE_TRACKS_BEFORE = 20;
-    private static final int STATE_TRACKS_AFTER = 40;
-    private static final int STATE_MAX_TRACKS = STATE_TRACKS_AFTER + 1 + STATE_TRACKS_BEFORE;
-    private final Spirc.State.Builder state;
+    private final PlayerState.Builder state;
     private final Session session;
+    private final DeviceStateHandler device;
     private AbsSpotifyContext<?> context;
-    private boolean repeatingTrack = false;
+    private PagesLoader pages;
     private TracksKeeper tracksKeeper;
 
     StateWrapper(@NotNull Session session) {
         this.session = session;
+        this.device = new DeviceStateHandler(session);
         this.state = initState();
+
+        device.addListener(this);
     }
 
     @NotNull
-    private static Spirc.State.Builder initState() {
-        return Spirc.State.newBuilder()
-                .setPositionMeasuredAt(0).setPositionMs(0)
-                .setShuffle(false).setRepeat(false)
-                .setRow(0).setPlayingFromFallback(true)
-                .setStatus(Spirc.PlayStatus.kPlayStatusStop);
+    private static PlayerState.Builder initState() {
+        return PlayerState.newBuilder()
+                .setPlaybackSpeed(1.0)
+                .setSuppressions(Suppressions.newBuilder().build())
+                .setContextRestrictions(Restrictions.newBuilder().build())
+                .setOptions(ContextPlayerOptions.newBuilder()
+                        .setRepeatingContext(false)
+                        .setShufflingContext(false)
+                        .setRepeatingTrack(false))
+                .setPositionAsOfTimestamp(0)
+                .setIsPlaying(false);
+    }
+
+    void setState(boolean playing, boolean paused, boolean buffering) {
+        state.setIsPlaying(playing).setIsPaused(paused).setIsBuffering(buffering);
+    }
+
+    boolean isPlaying() {
+        return state.getIsPlaying();
+    }
+
+    boolean isPaused() {
+        return state.getIsPaused();
+    }
+
+    boolean isActuallyPlaying() {
+        return state.getIsPlaying() && !state.getIsPaused() && !state.getIsBuffering();
+    }
+
+    boolean isLoading() {
+        return state.getIsBuffering();
+    }
+
+    boolean isShufflingContext() {
+        return state.getOptions().getShufflingContext();
+    }
+
+    void setShufflingContext(boolean value) {
+        if (context == null) return;
+
+        boolean old = isShufflingContext();
+        state.getOptionsBuilder().setShufflingContext(value && context.restrictions.can(RestrictionsManager.Action.SHUFFLE));
+
+        if (old != isShufflingContext()) tracksKeeper.toggleShuffle(isShufflingContext());
+    }
+
+    boolean isRepeatingContext() {
+        return state.getOptions().getRepeatingContext();
+    }
+
+    void setRepeatingContext(boolean value) {
+        if (context == null) return;
+
+        state.getOptionsBuilder().setRepeatingContext(value && context.restrictions.can(RestrictionsManager.Action.REPEAT_CONTEXT));
     }
 
     boolean isRepeatingTrack() {
-        return repeatingTrack;
+        return state.getOptions().getRepeatingTrack();
     }
 
-    void setRepeatingTrack(boolean repeatingTrack) {
-        this.repeatingTrack = repeatingTrack && context != null && context.canRepeatTrack();
+    void setRepeatingTrack(boolean value) {
+        if (context == null) return;
+
+        state.getOptionsBuilder().setRepeatingTrack(value && context.restrictions.can(RestrictionsManager.Action.REPEAT_TRACK));
     }
 
     @Nullable
@@ -67,246 +122,322 @@ public class StateWrapper {
         return state.getContextUri();
     }
 
-    void setStatus(@NotNull Spirc.PlayStatus status) {
-        state.setStatus(status);
-    }
+    private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
+        this.context = AbsSpotifyContext.from(uri);
+        this.state.setContextUri(uri);
 
-    boolean isStatus(@NotNull Spirc.PlayStatus status) {
-        return status == state.getStatus();
-    }
-
-    long getPositionMeasuredAt() {
-        return state.getPositionMeasuredAt();
-    }
-
-    void setPositionMeasuredAt(long ms) {
-        state.setPositionMeasuredAt(ms);
-    }
-
-    int getPositionMs() {
-        return state.getPositionMs();
-    }
-
-    void setPositionMs(int pos) {
-        state.setPositionMs(pos);
-    }
-
-    void setRepeat(boolean repeat) {
-        state.setRepeat(repeat && context != null && context.canRepeatContext());
-    }
-
-    synchronized void setShuffle(boolean shuffle) {
-        state.setShuffle(shuffle && context != null && context.canShuffle());
-        if (state.getShuffle()) shuffleContent(false, true);
-        else unshuffleContent();
-    }
-
-    private void shuffleContent(boolean fully, boolean saveSeed) {
-        if (tracksKeeper == null) return;
-
-        if (context != null && context.canShuffle()) tracksKeeper.shuffle(fully, saveSeed);
-        else LOGGER.warn("Cannot shuffle: " + tracksKeeper);
-    }
-
-    private void unshuffleContent() {
-        if (tracksKeeper == null) return;
-
-        if (context != null && context.canShuffle()) tracksKeeper.unshuffle();
-        else LOGGER.warn("Cannot unshuffle: " + tracksKeeper);
-    }
-
-    private void setContext(@NotNull Remote3Frame.Context context) throws AbsSpotifyContext.UnsupportedContextException {
-        setContext(context.uri);
-        if (context.restrictions != null) this.context.updateRestrictions(context.restrictions);
-    }
-
-    private void setContext(@NotNull String context) throws AbsSpotifyContext.UnsupportedContextException {
-        this.context = AbsSpotifyContext.from(context);
-        this.state.setContextUri(context);
-    }
-
-    @NotNull
-    private List<Remote3Page> getPages(@NotNull Remote3Frame.Context context) throws IOException, MercuryClient.MercuryException {
-        MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context.uri));
-        return resolved.pages();
-    }
-
-    @NotNull
-    private List<Remote3Track> getTracks(@NotNull String pageUrl) throws IOException {
-        MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
-                .setUri(pageUrl).setMethod("GET").build());
-
-        JsonObject obj = new JsonParser().parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
-        return Remote3Track.array(obj.getAsJsonArray("tracks"));
-    }
-
-    private void loadPageTracks(@NotNull List<Remote3Track> tracks, @Nullable TrackSelector selector, int totalTracks) {
-        boolean allTracks = totalTracks == tracks.size();
-        tracksKeeper = new TracksKeeper(this.context, tracks, allTracks);
-
-        PlayableId current = selector != null ? selector.find(tracks) : null;
-        tracksKeeper.setPlaying(current);
-
-        if (state.getShuffle()) shuffleContent(current == null, false);
-    }
-
-    private void loadPage(@NotNull Remote3Page page, @Nullable TrackSelector selector, int totalTracks) throws IOException, AbsSpotifyContext.UnsupportedContextException {
-        List<Remote3Track> tracks = page.tracks;
-        if (tracks == null) {
-            if (page.pageUrl != null) {
-                tracks = getTracks(page.pageUrl);
-                totalTracks = tracks.size(); // Page URL should return all tracks
-            } else {
-                throw new IllegalStateException("How do I load this page?!");
-            }
+        if (!context.isFinite()) {
+            setRepeatingContext(false);
+            setShufflingContext(false);
         }
 
-        if (!PlayableId.hasAtLeastOneSupportedId(tracks))
-            throw AbsSpotifyContext.UnsupportedContextException.noSupported();
+        this.state.clearContextUrl();
+        this.state.clearRestrictions();
+        this.state.clearContextRestrictions();
+        this.state.clearContextMetadata();
 
-        loadPageTracks(tracks, selector, totalTracks);
+        this.pages = PagesLoader.from(session, uri);
+        this.tracksKeeper = new TracksKeeper();
+
+        this.device.setIsActive(true);
+    }
+
+    private void setContext(@NotNull Context ctx) throws AbsSpotifyContext.UnsupportedContextException {
+        String uri = ctx.getUri();
+        this.context = AbsSpotifyContext.from(uri);
+        this.state.setContextUri(uri);
+
+        if (!context.isFinite()) {
+            setRepeatingContext(false);
+            setShufflingContext(false);
+        }
+
+        if (ctx.hasUrl()) this.state.setContextUrl(ctx.getUrl());
+        else this.state.clearContextUrl();
+
+        state.clearContextMetadata();
+        ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
+
+        this.pages = PagesLoader.from(session, ctx);
+        this.tracksKeeper = new TracksKeeper();
+
+        this.device.setIsActive(true);
+    }
+
+    private void updateRestrictions() {
+        if (isPaused())
+            context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.PAUSE);
+
+        if (isPlaying())
+            context.restrictions.disallow(RestrictionsManager.Action.RESUME, "not_paused");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.RESUME);
+
+        if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
+            context.restrictions.disallow(RestrictionsManager.Action.SKIP_PREV, "no_prev_track");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.SKIP_PREV);
+
+        if (tracksKeeper.isPlayingLast() && !isRepeatingContext())
+            context.restrictions.disallow(RestrictionsManager.Action.SKIP_NEXT, "no_next_track");
+        else
+            context.restrictions.allow(RestrictionsManager.Action.SKIP_NEXT);
+
+        state.setRestrictions(context.restrictions.toProto());
     }
 
     synchronized void updated() {
-        if (tracksKeeper != null) tracksKeeper.dumpToState(state);
-        session.spirc().deviceStateUpdated(state);
+        updatePosition();
+        updateRestrictions();
+
+        device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
     }
 
-    synchronized void seekTo(@Nullable String uri) {
-        if (tracksKeeper == null || uri == null) return;
-
-        tracksKeeper.seekTo(uri);
+    void addListener(@NotNull DeviceStateHandler.Listener listener) {
+        device.addListener(listener);
     }
 
-    void loadStation(@NotNull MercuryRequests.StationsWrapper station) throws AbsSpotifyContext.UnsupportedContextException {
-        setContext(station.uri());
-
-        List<Remote3Track> tracks = station.tracks();
-        loadPageTracks(tracks, null, tracks.size());
+    @Override
+    public void ready() {
+        device.updateState(Connect.PutStateReason.NEW_DEVICE, state.build());
+        LOGGER.info("Notified new device (us)!");
     }
 
-    void loadFromUri(@NotNull String context) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
-        setContext(context);
-
-        MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context));
-        Remote3Page page = resolved.pages().get(0);
-        loadPage(page, null, page.tracks.size()); // Resolve context should always return all tracks
+    @Override
+    public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) {
     }
 
-    void load(@NotNull Remote3Frame frame) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
-        if (frame.context == null) throw new IllegalArgumentException("Missing context object!");
+    @Override
+    public void volumeChanged() {
+        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
+    }
 
-        if (frame.options != null && frame.options.playerOptionsOverride != null) {
-            Optional.ofNullable(frame.options.playerOptionsOverride.repeatingContext).ifPresent(state::setRepeat);
-            Optional.ofNullable(frame.options.playerOptionsOverride.shufflingContext).ifPresent(state::setShuffle);
-            Optional.ofNullable(frame.options.playerOptionsOverride.repeatingTrack).ifPresent(this::setRepeatingTrack);
+    synchronized int getVolume() {
+        return device.getVolume();
+    }
+
+    synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
+        if (track.hasDuration()) state.setDuration(track.getDuration());
+
+        ProvidedTrack.Builder builder = state.getTrackBuilder();
+        if (track.hasPopularity()) builder.putMetadata("popularity", String.valueOf(track.getPopularity()));
+        if (track.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(track.getExplicit()));
+        if (track.hasHasLyrics()) builder.putMetadata("has_lyrics", String.valueOf(track.getHasLyrics()));
+        if (track.hasName()) builder.putMetadata("title", String.valueOf(track.getName()));
+        if (track.hasDiscNumber()) builder.putMetadata("album_disc_number", String.valueOf(track.getDiscNumber()));
+
+        for (int i = 0; i < track.getArtistCount(); i++) {
+            Metadata.Artist artist = track.getArtist(i);
+            if (artist.hasName()) builder.putMetadata("artist_name" + (i == 0 ? "" : (":" + i)), artist.getName());
+            if (artist.hasGid()) builder.putMetadata("artist_uri" + (i == 0 ? "" : (":" + i)),
+                    ArtistId.fromHex(Utils.bytesToHex(artist.getGid())).toSpotifyUri());
         }
 
-        if (frame.context.uri == null) {
-            state.clearTrack();
-            state.setPlayingTrackIndex(0);
+        if (track.hasAlbum()) {
+            Metadata.Album album = track.getAlbum();
+            if (album.getDiscCount() > 0) {
+                builder.putMetadata("album_track_count", String.valueOf(ProtoUtils.getTrackCount(album)));
+                builder.putMetadata("album_disc_count", String.valueOf(album.getDiscCount()));
+            }
+            if (album.hasName()) builder.putMetadata("album_title", album.getName());
+            if (album.hasGid()) builder.putMetadata("album_uri",
+                    AlbumId.fromHex(Utils.bytesToHex(album.getGid())).toSpotifyUri());
+
+            for (int i = 0; i < album.getArtistCount(); i++) {
+                Metadata.Artist artist = album.getArtist(i);
+                if (artist.hasName())
+                    builder.putMetadata("album_artist_name" + (i == 0 ? "" : (":" + i)), artist.getName());
+                if (artist.hasGid()) builder.putMetadata("album_artist_uri" + (i == 0 ? "" : (":" + i)),
+                        ArtistId.fromHex(Utils.bytesToHex(artist.getGid())).toSpotifyUri());
+            }
+
+            if (track.hasDiscNumber() && album.getDiscCount() < track.getDiscNumber() - 1) {
+                Metadata.Disc disc = album.getDisc(track.getDiscNumber() - 1);
+                for (int i = 0; i < disc.getTrackCount(); i++) {
+                    if (disc.getTrack(i).getGid() == track.getGid()) {
+                        builder.putMetadata("album_track_number", String.valueOf(i + 1));
+                        break;
+                    }
+                }
+            }
+
+            if (album.hasCoverGroup()) ImageId.putAsMetadata(builder, album.getCoverGroup());
+        }
+
+        ProtoUtils.putFilesAsMetadata(builder, track.getFileList());
+        state.setTrack(builder.build());
+    }
+
+    synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
+        if (episode.hasDuration()) state.setDuration(episode.getDuration());
+
+        ProvidedTrack.Builder builder = state.getTrackBuilder();
+        if (episode.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(episode.getExplicit()));
+        if (episode.hasName()) builder.putMetadata("title", String.valueOf(episode.getName()));
+
+        if (episode.hasShow()) {
+            Metadata.Show show = episode.getShow();
+            if (show.hasName()) builder.putMetadata("album_title", show.getName());
+
+            if (show.hasCoverImage()) ImageId.putAsMetadata(builder, show.getCoverImage());
+        }
+
+        if (episode.getAudioCount() > 0 && episode.getVideoCount() == 0) {
+            builder.putMetadata("media.type", "audio");
+        } else if (episode.getVideoCount() > 0) {
+            builder.putMetadata("media.type", "video");
+        }
+
+        ProtoUtils.putFilesAsMetadata(builder, episode.getAudioList());
+        state.setTrack(builder.build());
+    }
+
+    synchronized int getPosition() {
+        int diff = (int) (TimeProvider.currentTimeMillis() - state.getTimestamp());
+        return (int) (state.getPositionAsOfTimestamp() + diff);
+    }
+
+    synchronized void setPosition(long pos) {
+        int sub = (int) Math.min(pos, 1000);
+        long now = TimeProvider.currentTimeMillis();
+        now -= sub;
+        pos -= sub;
+
+        state.setTimestamp(now);
+        state.setPositionAsOfTimestamp(pos);
+    }
+
+    private void updatePosition() {
+        setPosition(getPosition());
+    }
+
+    void loadContextWithTracks(@NotNull String uri, @NotNull List<ContextTrack> tracks) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+        state.clearPlayOrigin();
+        state.clearOptions();
+
+        setContext(uri);
+        pages.putFirstPage(tracks);
+        tracksKeeper.initializeStart();
+        setPosition(0);
+    }
+
+    void loadContext(@NotNull String uri) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+        state.clearPlayOrigin();
+        state.clearOptions();
+
+        setContext(uri);
+        tracksKeeper.initializeStart();
+        setPosition(0);
+    }
+
+    void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
+        SessionOuterClass.Session ps = cmd.getCurrentSession();
+
+        state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
+        state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
+        setContext(ps.getContext());
+
+        Playback pb = cmd.getPlayback();
+        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue(), false);
+
+
+        state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
+        state.setTimestamp(pb.getTimestamp());
+    }
+
+    void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
+        state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandWrapper.getPlayOrigin(obj)));
+        state.setOptions(ProtoUtils.jsonToPlayerOptions((PlayCommandWrapper.getPlayerOptionsOverride(obj))));
+        setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
+
+        String trackUid = PlayCommandWrapper.getSkipToUid(obj);
+        String trackUri = PlayCommandWrapper.getSkipToUri(obj);
+        Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
+
+        if (trackUri != null) {
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null, true);
+        } else if (trackUid != null) {
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null, true);
+        } else if (trackIndex != null) {
+            tracksKeeper.initializeFrom(tracks -> {
+                if (trackIndex < tracks.size()) return trackIndex;
+                else return -1;
+            }, null, null, true);
+        } else {
+            tracksKeeper.initializeStart();
+        }
+
+        Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
+        if (seekTo != null) setPosition(seekTo);
+        else setPosition(0);
+    }
+
+    synchronized void updateContext(@NotNull JsonObject obj) {
+        String uri = PlayCommandWrapper.getContextUri(obj);
+        if (!context.uri().equals(uri)) {
+            LOGGER.warn(String.format("Received update of the wrong context! {context: %s, newUri: %s}", context, uri));
             return;
         }
 
-        setContext(frame.context);
-        if (context instanceof SearchContext) {
-            state.setContextDescription(((SearchContext) context).searchTerm);
-        } else {
-            JsonObject metadata = frame.context.metadata;
-            if (metadata == null) {
-                MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(frame.context.uri));
-                metadata = resolved.metadata();
-            }
+        if (isShufflingContext()) LOGGER.warn("Updating shuffled context, that's bad!");
 
-            if (metadata == null) {
-                state.setContextDescription("");
-            } else {
-                JsonElement elm = metadata.get("context_description");
-                if (elm != null) state.setContextDescription(elm.getAsString());
-                else state.setContextDescription("");
-            }
+        try {
+            tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(PlayCommandWrapper.getPages(obj)));
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed updating context!", ex);
         }
-
-        int pageIndex;
-        if (frame.options == null || frame.options.skipTo == null) {
-            pageIndex = 0;
-        } else {
-            pageIndex = frame.options.skipTo.pageIndex;
-            if (pageIndex == -1) pageIndex = 0;
-        }
-
-        List<Remote3Page> pages = frame.context.pages;
-        if (pages == null) pages = getPages(frame.context);
-
-        int totalTracks = -1;
-        if (frame.context.metadata != null) {
-            JsonElement elm = frame.context.metadata.get("track_count");
-            if (elm != null && elm.isJsonPrimitive()) totalTracks = elm.getAsInt();
-        }
-
-        Remote3Page page = pages.get(pageIndex);
-        loadPage(page, new TrackSelector(frame.options == null ? null : frame.options.skipTo), totalTracks);
     }
 
-    synchronized void updateContext(@NotNull Remote3Frame.Context context) {
-        Remote3Page page;
-        List<Remote3Track> tracks;
-        if (context.pages == null || context.pages.isEmpty() || (page = context.pages.get(0)) == null || (tracks = page.tracks) == null) {
-            LOGGER.warn("Did not update context. Malformed request.");
-            return;
-        }
-
-        int totalTracks = -1;
-        if (context.metadata != null) {
-            JsonElement elm = context.metadata.get("track_count");
-            if (elm != null && elm.isJsonPrimitive()) totalTracks = elm.getAsInt();
-        }
-
-        if (page.nextPageUrl != null && tracksKeeper.provider instanceof StationProvider)
-            ((StationProvider) tracksKeeper.provider).updateNextPageUrl(page.nextPageUrl);
-
-        tracksKeeper.update(tracks, totalTracks == tracks.size());
-    }
-
-    synchronized void setQueue(@NotNull Remote3Frame frame) {
-        if (tracksKeeper == null) return;
-
-        tracksKeeper.setQueue(frame.prevTracks, frame.nextTracks);
-    }
-
-    synchronized void addToQueue(@NotNull Remote3Frame frame) {
-        if (tracksKeeper == null) return;
-
-        if (frame.track == null)
-            throw new IllegalArgumentException("Missing track object!");
-
-        tracksKeeper.addToQueue(frame.track);
-    }
-
-    synchronized boolean hasTracks() {
-        return tracksKeeper != null;
-    }
-
-    @NotNull
-    synchronized PlayableId getCurrentTrack() {
-        return tracksKeeper.currentlyPlaying();
-    }
-
-    @NotNull
-    synchronized StateWrapper.NextPlayable nextPlayable(@NotNull Boolean autoplayEnabled) {
-        if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
-        return tracksKeeper.nextPlayable(autoplayEnabled);
+    void skipTo(@NotNull ContextTrack track) {
+        tracksKeeper.skipTo(track);
+        setPosition(0);
     }
 
     @Nullable
-    synchronized PlayableId nextPlayableDoNotSet() {
-        return tracksKeeper.nextPlayableDoNotSet();
+    PlayableId nextPlayableDoNotSet() {
+        try {
+            return tracksKeeper.nextPlayableDoNotSet();
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed fetching next playable.", ex);
+            return null;
+        }
     }
 
     @NotNull
-    synchronized PreviousPlayable previousPlayable() {
+    PlayableId getCurrentPlayable() {
+        return PlayableId.from(tracksKeeper.getCurrentTrack());
+    }
+
+    @NotNull
+    NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+        if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
+
+        try {
+            return tracksKeeper.nextPlayable(conf);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed fetching next playable.", ex);
+            return NextPlayable.MISSING_TRACKS;
+        }
+    }
+
+    @NotNull
+    PreviousPlayable previousPlayable() {
         if (tracksKeeper == null) return PreviousPlayable.MISSING_TRACKS;
         return tracksKeeper.previousPlayable();
+    }
+
+    void removeListener(@NotNull DeviceStateHandler.Listener listener) {
+        device.removeListener(listener);
+    }
+
+    synchronized void addToQueue(@NotNull ContextTrack track) {
+        tracksKeeper.addToQueue(track);
+    }
+
+    synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
+        tracksKeeper.setQueue(prevTracks, nextTracks);
     }
 
     public enum PreviousPlayable {
@@ -326,390 +457,437 @@ public class StateWrapper {
         }
     }
 
-    private static class TrackSelector {
-        private final String trackUid;
-        private final String trackUri;
-        private final int trackIndex;
-        private int selectedIndex = -1;
-
-        TrackSelector(@Nullable Remote3Frame.Options.SkipTo skipTo) {
-            if (skipTo == null) {
-                trackUid = null;
-                trackUri = null;
-                trackIndex = -1;
-            } else {
-                trackUri = skipTo.trackUri;
-                if (skipTo.trackUid != null) {
-                    trackUid = skipTo.trackUid;
-                    trackIndex = -1;
-                } else {
-                    trackIndex = skipTo.trackIndex;
-                    trackUid = null;
-                }
-            }
-        }
-
-        TrackSelector(@NotNull PlayableId id) {
-            trackUid = null;
-            trackIndex = -1;
-            trackUri = id.toSpotifyUri();
-        }
-
-        void inspect(int index, @NotNull Remote3Track track) {
-            if (findMatch()) return;
-
-            if (trackUid == null && trackUri == null) return;
-
-            if (trackUid != null) {
-                if (Objects.equals(track.uid, trackUid))
-                    selectedIndex = index;
-            } else {
-                if (Objects.equals(track.uri, trackUri))
-                    selectedIndex = index;
-            }
-        }
-
-        boolean findMatch() {
-            return selectedIndex != -1 || trackIndex != -1;
-        }
-
-        int playingIndex() {
-            if (trackIndex != -1) return trackIndex;
-            if (trackUid == null && trackUri == null) return 0;
-            return selectedIndex == -1 ? 0 : selectedIndex;
-        }
-
-        @Nullable
-        public PlayableId find(@NotNull List<Remote3Track> tracks) {
-            if (trackIndex != -1) return tracks.get(trackIndex).id();
-
-            if (trackUid == null && trackUri == null) return null;
-
-            for (Remote3Track track : tracks) {
-                if (trackUid != null) {
-                    if (Objects.equals(track.uid, trackUid))
-                        return track.id();
-                } else {
-                    if (Objects.equals(track.uri, trackUri))
-                        return track.id();
-                }
-            }
-
-            return null;
-        }
+    private interface TrackFinder {
+        int find(@NotNull List<ContextTrack> tracks);
     }
 
     private class TracksKeeper {
-        private static final int LOAD_MORE_THRESHOLD = 3;
-        private final AbsSpotifyContext<?> context;
-        private final List<Remote3Track> tracks;
-        private final FisherYatesShuffle<Remote3Track> shuffle;
-        private int playingIndex = -1;
-        private int shuffleKeepIndex = -1;
-        private volatile boolean complete;
-        private ContentProvider provider;
+        private final LinkedList<ContextTrack> queue = new LinkedList<>();
+        private final List<ContextTrack> tracks = new ArrayList<>();
+        private final FisherYatesShuffle<ContextTrack> shuffle = new FisherYatesShuffle<>(session.random());
+        private volatile boolean isPlayingQueue = false;
+        private volatile boolean cannotLoadMore = false;
+        private volatile int shuffleKeepIndex = -1;
 
-        private TracksKeeper(@NotNull AbsSpotifyContext<?> context, @NotNull List<Remote3Track> tracks, boolean all) {
-            this.context = context;
-            this.shuffle = new FisherYatesShuffle<>(session.random());
-            this.tracks = new ArrayList<>(tracks.size());
-            this.tracks.addAll(tracks);
-
-            complete = all && context.isFinite();
-            if (!all && !state.getShuffle() && context.isFinite()) fetchAsync();
-
-            // TODO: We should probably subscribe to events on this context
+        private TracksKeeper() {
+            checkComplete();
         }
 
-        synchronized void shuffle(boolean fully, boolean saveSeed) {
-            if (tracks.size() <= 1)
-                return;
+        private void updateTrackCount() {
+            if (context.isFinite())
+                state.putContextMetadata("track_count", String.valueOf(tracks.size() + queue.size()));
+            else state.removeContextMetadata("track_count");
+        }
 
-            if (!complete) {
-                try {
-                    loadAllTracks();
-                } catch (IOException | MercuryClient.MercuryException ex) {
-                    LOGGER.warn("Failed resolving context before shuffling.", ex);
-                }
-            }
+        private void checkComplete() {
+            if (cannotLoadMore) return;
 
-            if (fully) {
-                shuffle.shuffle(tracks, saveSeed);
+            if (context.isFinite()) {
+                int total_tracks = Integer.parseInt(state.getContextMetadataOrDefault("track_count", "-1"));
+                if (total_tracks == -1) cannotLoadMore = false;
+                else cannotLoadMore = total_tracks == tracks.size();
             } else {
-                PlayableId currentlyPlaying = currentlyPlaying();
-                shuffle.shuffle(tracks, saveSeed);
-                shuffleKeepIndex = indexOf(currentlyPlaying);
-                Collections.swap(tracks, 0, shuffleKeepIndex);
-                playingIndex = 0;
+                cannotLoadMore = false;
             }
-
-            if (saveSeed) LOGGER.trace(String.format("Shuffled {fully: %b}", fully));
-            else LOGGER.trace(String.format("Shuffled without seed {fully: %b}", fully));
-        }
-
-        synchronized void unshuffle() {
-            if (tracks.size() <= 1)
-                return;
-
-            if (shuffle.canUnshuffle(tracks.size())) {
-                if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
-                if (playingIndex == 0 && shuffleKeepIndex != -1) playingIndex = shuffleKeepIndex;
-
-                PlayableId currentlyPlaying = currentlyPlaying();
-                shuffle.unshuffle(tracks);
-                setPlaying(currentlyPlaying);
-
-                LOGGER.trace("Unshuffled using Fisher-Yates.");
-                return;
-            }
-
-            if (state.hasContextUri()) {
-                try {
-                    loadAllTracks();
-                } catch (IOException | MercuryClient.MercuryException ex) {
-                    LOGGER.fatal("Cannot unshuffle context!", ex);
-                    return;
-                }
-
-                LOGGER.trace("Unshuffled using context-resolve.");
-            } else {
-                LOGGER.fatal("Cannot unshuffle context!");
-            }
-        }
-
-        private void loadAllTracks() throws IOException, MercuryClient.MercuryException {
-            if (!context.isFinite()) throw new IllegalStateException();
-            if (state.getShuffle()) LOGGER.warn("Loading tracks for shuffled context, is this right?");
-
-            MercuryRequests.ResolvedContextWrapper resolved = session.mercury().sendSync(MercuryRequests.resolveContext(context.uri()));
-            updateWithPage(resolved.pages().get(0), context.isFinite());
-        }
-
-        private void updateWithPage(@NotNull Remote3Page page, boolean complete) throws IOException {
-            List<Remote3Track> newTracks = page.tracks;
-            if (newTracks == null) {
-                if (page.pageUrl != null) {
-                    newTracks = getTracks(page.pageUrl);
-                } else {
-                    throw new IllegalStateException("How do I load this page?!");
-                }
-            }
-
-            update(newTracks, complete);
-        }
-
-        private void fetchAsync() {
-            if (!context.isFinite()) throw new IllegalStateException();
-
-            session.mercury().send(MercuryRequests.resolveContext(context.uri()), new MercuryClient.JsonCallback<MercuryRequests.ResolvedContextWrapper>() {
-                @Override
-                public void response(MercuryRequests.@NotNull ResolvedContextWrapper json) {
-                    if (state.getShuffle()) return;
-
-                    try {
-                        updateWithPage(json.pages().get(0), true);
-                    } catch (IOException ex) {
-                        exception(ex);
-                    }
-                }
-
-                @Override
-                public void exception(@NotNull Exception ex) {
-                    LOGGER.error("Failed resolving context asynchronously!", ex);
-                    complete = false;
-                }
-            });
-        }
-
-        synchronized void dumpToState(@NotNull Spirc.State.Builder state) {
-            int from = Math.max(0, playingIndex - STATE_TRACKS_BEFORE);
-            int to = Math.min(tracks.size(), playingIndex + STATE_TRACKS_AFTER);
-            int relativeIndex = playingIndex - from;
-
-            state.clearTrack();
-            for (int i = from; i < to; i++)
-                state.addTrack(tracks.get(i).toTrackRef());
-
-            state.setPlayingTrackIndex(relativeIndex);
         }
 
         @NotNull
-        synchronized PlayableId currentlyPlaying() {
-            return tracks.get(playingIndex).id();
+        synchronized ProvidedTrack getCurrentTrack() {
+            return state.getTrack();
+        }
+
+        private int getCurrentTrackIndex() {
+            return state.getIndex().getTrack();
+        }
+
+        private void setCurrentTrackIndex(int index) {
+            if (isPlayingQueue) throw new IllegalStateException();
+
+            state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
+            updateState();
+        }
+
+        private void updatePrevNextTracks() {
+            int index = getCurrentTrackIndex();
+
+            state.clearPrevTracks();
+            for (int i = 0; i < index; i++)
+                state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+
+            state.clearNextTracks();
+            for (ContextTrack track : queue)
+                state.addNextTracks(ProtoUtils.convertToProvidedTrack(track));
+
+            for (int i = index + 1; i < tracks.size(); i++)
+                state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+        }
+
+        private void updateTrackDuration() {
+            ProvidedTrack current = getCurrentTrack();
+            if (current.containsMetadata("duration"))
+                state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
+        }
+
+        private void updateState() {
+            if (isPlayingQueue)
+                state.setTrack(ProtoUtils.convertToProvidedTrack(queue.remove()));
+            else
+                state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+
+            updateTrackDuration();
+            updatePrevNextTracks();
+        }
+
+        synchronized void addToQueue(@NotNull ContextTrack track) {
+            queue.add(track);
+            updatePrevNextTracks();
+            updateTrackCount();
+        }
+
+        synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
+            ContextTrack current = tracks.get(getCurrentTrackIndex());
+
+            queue.clear();
+            tracks.clear();
+
+            if (prevTracks != null) tracks.addAll(prevTracks);
+            tracks.add(current);
+
+            if (nextTracks != null) {
+                for (ContextTrack track : nextTracks) {
+                    if (ProtoUtils.isQueued(track)) queue.add(track);
+                    else tracks.add(track);
+                }
+            }
+
+            updateTrackCount();
+            updatePrevNextTracks();
+        }
+
+        synchronized void updateContext(@NotNull List<ContextPage> updatedPages) throws IOException, MercuryClient.MercuryException {
+            String current = getCurrentPlayable().toSpotifyUri();
+
+            tracks.clear();
+            pages = PagesLoader.from(session, context.uri());
+            pages.putFirstPages(updatedPages);
+
+            while (true) {
+                if (pages.nextPage()) {
+                    List<ContextTrack> newTracks = pages.currentPage();
+                    int index = ProtoUtils.indexOfTrackByUri(newTracks, current);
+                    if (index == -1) {
+                        tracks.addAll(newTracks);
+                        continue;
+                    }
+
+                    index += tracks.size();
+                    tracks.addAll(newTracks);
+
+                    setCurrentTrackIndex(index);
+                    break;
+                } else {
+                    cannotLoadMore = true;
+                    updateTrackCount();
+                    throw new IllegalStateException("Couldn't find current track!");
+                }
+            }
+
+            checkComplete();
+        }
+
+        synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
+            if (!pages.nextPage()) throw new IllegalStateException();
+
+            tracks.clear();
+            tracks.addAll(pages.currentPage());
+
+            checkComplete();
+            if (!PlayableId.hasAtLeastOneSupportedId(tracks))
+                throw AbsSpotifyContext.UnsupportedContextException.noSupported();
+
+            if (context.isFinite() && isShufflingContext())
+                shuffleEntirely();
+
+            setCurrentTrackIndex(0);
+        }
+
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
+            tracks.clear();
+            queue.clear();
+
+            while (true) {
+                if (pages.nextPage()) {
+                    List<ContextTrack> newTracks = pages.currentPage();
+                    int index = finder.find(newTracks);
+                    if (index == -1) {
+                        tracks.addAll(newTracks);
+                        continue;
+                    }
+
+                    index += tracks.size();
+                    tracks.addAll(newTracks);
+
+                    if (context.isFinite() && shouldShuffle && isShufflingContext())
+                        shuffleEntirely();
+
+                    setCurrentTrackIndex(index);
+                    break;
+                } else {
+                    cannotLoadMore = true;
+                    updateTrackCount();
+                    throw new IllegalStateException("Couldn't find current track!");
+                }
+            }
+
+            if (contextQueue != null) {
+                queue.addAll(contextQueue.getTracksList());
+                isPlayingQueue = contextQueue.getIsPlayingQueue();
+                updateState();
+            }
+
+            checkComplete();
+            if (!PlayableId.hasAtLeastOneSupportedId(tracks))
+                throw AbsSpotifyContext.UnsupportedContextException.noSupported();
+
+            if (track != null) enrichCurrentTrack(track);
+        }
+
+        private void enrichCurrentTrack(@NotNull ContextTrack track) {
+            if (isPlayingQueue) {
+                ProvidedTrack.Builder builder = state.getTrackBuilder();
+                ProtoUtils.enrichTrack(builder, track);
+            } else {
+                int index = getCurrentTrackIndex();
+                ContextTrack.Builder current = tracks.get(index).toBuilder();
+                ProtoUtils.enrichTrack(current, track);
+                tracks.set(index, current.build());
+                state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+            }
+        }
+
+        synchronized void skipTo(@NotNull String uri) {
+            if (!queue.isEmpty()) {
+                List<ContextTrack> queueCopy = new ArrayList<>(queue);
+
+                Iterator<ContextTrack> iterator = queue.iterator();
+                while (iterator.hasNext()) {
+                    if (Objects.equals(iterator.next().getUri(), uri)) {
+                        isPlayingQueue = true;
+                        updateState();
+                        return;
+                    } else {
+                        iterator.remove();
+                    }
+                }
+
+                queue.clear();
+                queue.addAll(queueCopy);
+            }
+
+            int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
+            if (index == -1) throw new IllegalStateException();
+
+            setCurrentTrackIndex(index);
+        }
+
+        synchronized void skipTo(@NotNull ContextTrack track) {
+            skipTo(track.getUri());
+            enrichCurrentTrack(track);
         }
 
         /**
-         * @return Next song or {@code null} if at the end of the list
+         * Figures out what the next {@link PlayableId} should be. This is called directly by the preload function and therefore can return {@code null} as it doesn't account for repeating contexts.
+         * This will also return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
+         *
+         * @return The next {@link PlayableId} or {@code null}
          */
         @Nullable
-        synchronized PlayableId nextPlayableDoNotSet() {
-            if (context.isFinite()) {
-                if (!complete && tracks.size() - playingIndex <= LOAD_MORE_THRESHOLD && !state.getShuffle()) {
-                    try {
-                        loadAllTracks();
-                    } catch (IOException | MercuryClient.MercuryException ex) {
-                        LOGGER.error("Failed resolving context.", ex);
-                    }
-                }
-            } else {
-                if (complete) throw new IllegalStateException();
+        synchronized PlayableId nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
+            if (!queue.isEmpty())
+                return PlayableId.from(queue.peek());
 
-                if (playingIndex + 1 >= state.getTrackCount() - LOAD_MORE_THRESHOLD) {
-                    if (provider == null) provider = context.initProvider(session);
-                    if (provider == null) throw new IllegalStateException();
+            int current = getCurrentTrackIndex();
+            if (current == tracks.size() - 1) {
+                if (isShufflingContext() || cannotLoadMore) return null;
 
-                    try {
-                        Remote3Page page = provider.nextPage();
-                        tracks.addAll(page.tracks);
-                        LOGGER.debug("Fetched more tracks, size: " + tracks.size());
-                    } catch (IOException | MercuryClient.MercuryException ex) {
-                        LOGGER.fatal("Failed loading more content!", ex);
-                    }
+                if (pages.nextPage()) {
+                    tracks.addAll(pages.currentPage());
+                } else {
+                    cannotLoadMore = true;
+                    updateTrackCount();
+                    return null;
                 }
             }
 
-            if (playingIndex + 1 >= tracks.size()) return null;
-            PlayableId next = tracks.get(playingIndex + 1).id();
-            if (next instanceof UnsupportedId) {
-                playingIndex++;
-                return nextPlayableDoNotSet();
+            if (!context.isFinite() && tracks.size() - current <= 5) {
+                if (pages.nextPage()) {
+                    tracks.addAll(pages.currentPage());
+                    LOGGER.trace("Preloaded next page due to infinite context.");
+                } else {
+                    LOGGER.warn("Couldn't (pre)load next page of context!");
+                }
             }
 
-            return next;
+            return PlayableId.from(tracks.get(current + 1));
         }
 
         @NotNull
-        synchronized NextPlayable nextPlayable(Boolean autoplayEnabled) {
+        synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+            if (!queue.isEmpty()) {
+                isPlayingQueue = true;
+                updateState();
+
+                if (getCurrentPlayable() instanceof UnsupportedId)
+                    return nextPlayable(conf);
+
+                return NextPlayable.OK_PLAY;
+            }
+
+            isPlayingQueue = false;
+
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
-                if (state.getRepeat()) {
-                    playingIndex = 0;
+                if (!context.isFinite()) return NextPlayable.MISSING_TRACKS;
+
+                if (isRepeatingContext()) {
+                    setCurrentTrackIndex(0);
                 } else {
-                    if (autoplayEnabled) {
+                    if (conf.autoplayEnabled()) {
                         return NextPlayable.AUTOPLAY;
                     } else {
-                        playingIndex = 0;
+                        setCurrentTrackIndex(0);
                         play = false;
                     }
                 }
             } else {
-                playingIndex++;
+                setCurrentTrackIndex(getCurrentTrackIndex() + 1);
             }
+
+            if (getCurrentPlayable() instanceof UnsupportedId)
+                return nextPlayable(conf);
 
             if (play) return NextPlayable.OK_PLAY;
             else return NextPlayable.OK_PAUSE;
         }
 
-        synchronized void setPlaying(@Nullable PlayableId id) {
-            if (id == null) {
-                playingIndex = 0;
-            } else {
-                playingIndex = indexOf(id);
-                if (playingIndex == -1) playingIndex = 0;
-            }
-
-            if (!tracks.get(playingIndex).isSupported())
-                setPlaying(nextPlayableDoNotSet());
-        }
-
-        private int indexOf(@NotNull PlayableId current) {
-            for (int i = 0; i < tracks.size(); i++)
-                if (tracks.get(i).is(current))
-                    return i;
-
-            return -1;
-        }
-
         @NotNull
         synchronized PreviousPlayable previousPlayable() {
-            if (playingIndex == 0) {
-                if (state.getRepeat() && context.isFinite()) {
-                    if (!complete && !state.getShuffle()) {
-                        try {
-                            loadAllTracks();
-                        } catch (IOException | MercuryClient.MercuryException ex) {
-                            LOGGER.error("Failed resolving context.", ex);
-                        }
-                    }
-
-                    playingIndex = tracks.size() - 1;
-                }
-            } else {
-                playingIndex--;
+            int index = getCurrentTrackIndex();
+            if (isPlayingQueue) {
+                index += 1;
+                isPlayingQueue = false;
             }
+
+            if (index == 0) {
+                if (isRepeatingContext() && context.isFinite())
+                    setCurrentTrackIndex(tracks.size() - 1);
+            } else {
+                setCurrentTrackIndex(index - 1);
+            }
+
+            if (getCurrentPlayable() instanceof UnsupportedId)
+                return previousPlayable();
 
             return PreviousPlayable.OK;
         }
 
-        synchronized void update(@NotNull List<Remote3Track> newTracks, boolean complete) {
-            PlayableId previouslyPlaying = tracks.get(playingIndex).id();
-            tracks.clear();
-
-            TrackSelector selector = new TrackSelector(previouslyPlaying);
-            for (int i = 0; i < newTracks.size(); i++) {
-                Remote3Track track = newTracks.get(i);
-                tracks.add(track);
-                selector.inspect(i, track);
-            }
-
-            playingIndex = selector.playingIndex();
-
-            if (complete) this.complete = true;
+        synchronized boolean isPlayingFirst() {
+            return getCurrentTrackIndex() == 0;
         }
 
-        private int lastQueuedSongIndex() {
-            int lastQueued = -1;
-            int firstQueued = -1;
-            for (int i = playingIndex; i < tracks.size(); i++) {
-                if (tracks.get(i).isQueued()) {
-                    if (firstQueued == -1) firstQueued = i;
+        synchronized boolean isPlayingLast() {
+            if (cannotLoadMore && queue.isEmpty()) return getCurrentTrackIndex() == tracks.size();
+            else return false;
+        }
+
+        /**
+         * Tries to load all the tracks of this context, must be called on a non-shuffled and finite context!
+         *
+         * @return Whether the operation was successful.
+         */
+        private boolean loadAllTracks() {
+            if (!context.isFinite()) throw new IllegalStateException();
+
+            try {
+                while (true) {
+                    if (pages.nextPage()) tracks.addAll(pages.currentPage());
+                    else break;
+                }
+            } catch (IOException | MercuryClient.MercuryException ex) {
+                LOGGER.error("Failed loading all tracks!", ex);
+                return false;
+            }
+
+            cannotLoadMore = true;
+            updateTrackCount();
+
+            return true;
+        }
+
+        /**
+         * Shuffles the entire track list without caring about the current state, must be called before {@link #setCurrentTrackIndex(int)}!
+         */
+        synchronized void shuffleEntirely() {
+            if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
+            if (tracks.size() <= 1) return;
+            if (isPlayingQueue) return;
+
+            if (!cannotLoadMore) {
+                if (loadAllTracks()) {
+                    LOGGER.trace("Loaded all tracks before shuffling (entirely).");
                 } else {
-                    if (firstQueued != -1 && lastQueued == -1) lastQueued = i - 1;
+                    LOGGER.error("Cannot shuffle entire context!");
+                    return;
                 }
             }
 
-            return lastQueued;
+            shuffle.shuffle(tracks, true);
+            LOGGER.trace("Shuffled context entirely!");
         }
 
-        synchronized void addToQueue(@NotNull Remote3Track track) {
-            int index = lastQueuedSongIndex();
-            if (index == -1) index = playingIndex + 1;
-            tracks.add(index, track);
-        }
+        synchronized void toggleShuffle(boolean value) {
+            if (!context.isFinite()) throw new IllegalStateException("Cannot shuffle infinite context!");
+            if (tracks.size() <= 1) return;
+            if (isPlayingQueue) return;
 
-        synchronized void setQueue(@Nullable List<Remote3Track> prevTracks, @Nullable List<Remote3Track> nextTracks) {
-            Remote3Track currentlyPlaying = tracks.get(playingIndex);
-            tracks.clear();
+            if (value) {
+                if (!cannotLoadMore) {
+                    if (loadAllTracks()) {
+                        LOGGER.trace("Loaded all tracks before shuffling.");
+                    } else {
+                        LOGGER.error("Cannot shuffle context!");
+                        return;
+                    }
+                }
 
-            if (prevTracks != null) tracks.addAll(prevTracks);
+                PlayableId currentlyPlaying = getCurrentPlayable();
+                shuffle.shuffle(tracks, true);
+                shuffleKeepIndex = ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri());
+                Collections.swap(tracks, 0, shuffleKeepIndex);
+                setCurrentTrackIndex(0);
 
-            tracks.add(currentlyPlaying);
-            playingIndex = tracks.size() - 1;
+                LOGGER.trace(String.format("Shuffled context! {keepIndex: %d}", shuffleKeepIndex));
+            } else {
+                if (shuffle.canUnshuffle(tracks.size())) {
+                    PlayableId currentlyPlaying = getCurrentPlayable();
+                    if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
 
-            if (nextTracks != null) tracks.addAll(nextTracks);
-        }
+                    shuffle.unshuffle(tracks);
+                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri()));
 
-        synchronized void seekTo(@NotNull String uri) {
-            PlayableId id = context.createId(uri);
-            int index = indexOf(id);
-            if (index != -1) {
-                playingIndex = index;
-                return;
-            }
+                    LOGGER.trace("Unshuffled using Fisher-Yates.");
+                } else {
+                    PlayableId id = getCurrentPlayable();
 
-            if (!complete && !state.getShuffle() && context.isFinite()) {
-                try {
+                    tracks.clear();
+                    pages = PagesLoader.from(session, context.uri());
                     loadAllTracks();
-                    seekTo(uri);
-                    return;
-                } catch (IOException | MercuryClient.MercuryException ex) {
-                    LOGGER.error("Failed resolving context before seeking.", ex);
-                    return;
+
+                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, id.toSpotifyUri()));
+                    LOGGER.trace("Unshuffled by reloading context.");
                 }
             }
-
-            LOGGER.warn("Couldn't seek to track: did not found in list.");
         }
     }
 }

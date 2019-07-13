@@ -4,11 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 import javax.sound.sampled.Mixer;
 import java.io.ByteArrayInputStream;
@@ -25,6 +25,7 @@ import java.security.PermissionCollection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
@@ -35,8 +36,17 @@ public final class Utils {
     public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+    private static final String randomString = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     private Utils() {
+    }
+
+    @NotNull
+    public static String randomString(@NotNull Random random, int length) {
+        char[] chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = randomString.charAt(random.nextInt(randomString.length()));
+        return new String(chars);
     }
 
     @NotNull

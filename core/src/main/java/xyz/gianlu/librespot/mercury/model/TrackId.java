@@ -3,7 +3,6 @@ package xyz.gianlu.librespot.mercury.model;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Base62;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Spirc;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,22 +36,10 @@ public final class TrackId implements SpotifyId, PlayableId {
     }
 
     @NotNull
-    public static TrackId fromTrackRef(@NotNull Spirc.TrackRef ref) {
-        if (ref.hasGid()) {
-            return new TrackId(Utils.bytesToHex(ref.getGid()));
-        } else if (ref.hasUri()) {
-            return fromUri(ref.getUri());
-        } else {
-            throw new IllegalArgumentException("Not enough data to extract the track ID!");
-        }
-    }
-
-    @NotNull
     public static TrackId fromHex(@NotNull String hex) {
         return new TrackId(hex);
     }
 
-    @Override
     public @NotNull String toMercuryUri() {
         return "hm://metadata/4/track/" + hexId;
     }

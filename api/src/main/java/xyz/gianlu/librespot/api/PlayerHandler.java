@@ -2,12 +2,12 @@ package xyz.gianlu.librespot.api;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;

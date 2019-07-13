@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.protobuf.ByteString;
+import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,11 +19,12 @@ import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.Packet;
+import xyz.gianlu.librespot.dealer.ApiClient;
+import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -44,6 +46,7 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -80,6 +83,7 @@ public class Session implements Closeable {
             (byte) 0x19, (byte) 0xe6, (byte) 0x55, (byte) 0xbd
     };
     private final DiffieHellman keys;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private ConnectionHolder conn;
@@ -87,17 +91,17 @@ public class Session implements Closeable {
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
-    private SpotifyIrc spirc;
     private Player player;
     private AudioKeyManager audioKeyManager;
     private ChannelManager channelManager;
     private TokenProvider tokenProvider;
     private CdnManager cdnManager;
     private CacheManager cacheManager;
+    private DealerClient dealer;
+    private ApiClient api;
     private String countryCode = null;
     private volatile boolean closed = false;
-    private Configuration conf;
-    private SecureRandom random;
+    private volatile ScheduledFuture<?> scheduledReconnect = null;
 
 
     protected Session(Configuration conf) throws IOException {
@@ -121,7 +125,7 @@ public class Session implements Closeable {
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
                         .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
                         .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(110713766)
+                        .setVersion(111000540)
                         .build())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
@@ -241,18 +245,18 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials, String deviceId) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
-        authenticatePartial(credentials,deviceId);
+    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
+        authenticatePartial(credentials, deviceId);
 
         mercuryClient = new MercuryClient(this);
         tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
+        api = new ApiClient(this);
         cdnManager = new CdnManager(this);
         if(this.conf.getCache().isEnabled()) cacheManager = new CacheManager(conf.getCache());
-        spirc = new SpotifyIrc(this, this.conf.getPlayer());
-        spirc.sayHello();
-        player = new Player(this.conf.getPlayer(), this);
+        dealer = new DealerClient(this);
+        player = new Player(this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
@@ -308,6 +312,11 @@ public class Session implements Closeable {
             receiver = null;
         }
 
+        if (dealer != null) {
+            dealer.close();
+            dealer = null;
+        }
+
         if (player != null) {
             player.close();
             player = null;
@@ -321,11 +330,6 @@ public class Session implements Closeable {
         if (channelManager != null) {
             channelManager.close();
             channelManager = null;
-        }
-
-        if (spirc != null) {
-            spirc.close();
-            spirc = null;
         }
 
         if (mercuryClient != null) {
@@ -409,10 +413,17 @@ public class Session implements Closeable {
     }
 
     @NotNull
-    public SpotifyIrc spirc() {
+    public DealerClient dealer() {
         waitAuthLock();
-        if (spirc == null) throw new IllegalStateException("Session isn't authenticated!");
-        return spirc;
+        if (dealer == null) throw new IllegalStateException("Session isn't authenticated!");
+        return dealer;
+    }
+
+    @NotNull
+    public ApiClient api() {
+        waitAuthLock();
+        if (api == null) throw new IllegalStateException("Session isn't authenticated!");
+        return api;
     }
 
     @NotNull
@@ -474,11 +485,10 @@ public class Session implements Closeable {
                     .setAuthData(apWelcome.getReusableAuthCredentials())
                     .build(), this.conf.getDeviceId());
 
-            spirc.sayHello();
-
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
-        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
-            throw new RuntimeException("Failed reconnecting!", ex);
+        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
+            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
         }
 
 
@@ -487,10 +497,20 @@ public class Session implements Closeable {
 
 
 
-    @Nullable
-    public String countryCode() {
-        return countryCode;
-    }
+    static class Inner {
+        final DeviceType deviceType;
+        final String deviceName;
+        final SecureRandom random;
+        final String deviceId;
+        final AbsConfiguration configuration;
+
+        private Inner(DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
+            this.deviceType = deviceType;
+            this.deviceName = deviceName;
+            this.configuration = configuration;
+            this.random = new SecureRandom();
+            this.deviceId = UUID.randomUUID().toString();
+        }
 
 
      public static class Builder {
@@ -529,7 +549,6 @@ public class Session implements Closeable {
 
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
-            AuthConf authConf = session.conf.getAuth();
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.getBlob();
@@ -562,7 +581,14 @@ public class Session implements Closeable {
 
             session.connect();
             session.authenticate(loginCredentials, session.conf.getDeviceId());
-            return session;
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    session.close();
+                } catch (IOException ignored) {
+                }
+            }));
+    
+	return session;
         }
     }
 
@@ -635,6 +661,12 @@ public class Session implements Closeable {
 
                 switch (cmd) {
                     case Ping:
+                        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
+                        scheduledReconnect = scheduler.schedule(() -> {
+                            LOGGER.warn("Socket timed out. Reconnecting...");
+                            reconnect();
+                        }, 2 * 60 + 5, TimeUnit.SECONDS);
+
                         try {
                             long serverTime = new BigInteger(packet.payload).longValue();
                             TimeProvider.init((int) (serverTime - System.currentTimeMillis() / 1000));

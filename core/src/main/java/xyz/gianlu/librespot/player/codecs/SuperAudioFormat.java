@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.codecs;
 
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 /**
  * @author Gianlu

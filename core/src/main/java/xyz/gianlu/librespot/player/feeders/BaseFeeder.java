@@ -1,21 +1,18 @@
 package xyz.gianlu.librespot.player.feeders;
 
+import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Spirc;
-import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.*;
-import xyz.gianlu.librespot.common.enums.AudioQuality;
+import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.AudioQualityPreference;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 
@@ -35,12 +32,12 @@ public abstract class BaseFeeder {
     }
 
     @NotNull
-    public static BaseFeeder feederFor(@NotNull Session session, @NotNull PlayableId id, @NotNull PlayerConf conf) {
+    public static BaseFeeder feederFor(@NotNull Session session, @NotNull PlayableId id, @NotNull Player.Configuration conf) {
         if (id instanceof TrackId) {
-            if (conf.getUseCdnForTracks()) return new CdnFeeder(session, id);
+            if (conf.useCdnForTracks()) return new CdnFeeder(session, id);
             else return new StorageFeeder(session, id);
         } else if (id instanceof EpisodeId) {
-            if (conf.getUseCdnForEpisodes()) return new CdnFeeder(session, id);
+            if (conf.useCdnForEpisodes()) return new CdnFeeder(session, id);
             else return new StorageFeeder(session, id);
         } else {
             throw new IllegalArgumentException("Unknown PlayableId: " + id);
@@ -71,7 +68,7 @@ public abstract class BaseFeeder {
     }
 
     public final @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
-        Metadata.Track original = session.mercury().sendSync(MercuryRequests.getTrack(id)).proto();
+        Metadata.Track original = session.api().getMedata4Track(id);
         Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
             String country = session.countryCode();
@@ -96,15 +93,10 @@ public abstract class BaseFeeder {
     }
 
     @NotNull
-    public final LoadedStream loadTrack(@NotNull Spirc.TrackRef ref, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        return loadTrack(TrackId.fromTrackRef(ref), audioQualityPreference, haltListener);
-    }
-
-    @NotNull
     public abstract LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException;
 
     public final @NotNull LoadedStream loadEpisode(@NotNull EpisodeId id, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
-        Metadata.Episode episode = session.mercury().sendSync(MercuryRequests.getEpisode(id)).proto();
+        Metadata.Episode episode = session.api().getMedata4Episode(id);
 
         Metadata.AudioFile file = null;
         for (Metadata.AudioFile f : episode.getAudioList()) {

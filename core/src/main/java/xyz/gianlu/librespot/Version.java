@@ -6,7 +6,15 @@ import org.jetbrains.annotations.NotNull;
  * @author Gianlu
  */
 public class Version {
-    public static final String VERSION = "0.5.1";
+    private static final String VERSION;
+
+    static {
+        Package pkg = Package.getPackage("xyz.gianlu.librespot");
+        String version = pkg.getImplementationVersion();
+        if (version == null) version = pkg.getSpecificationVersion();
+        if (version != null) VERSION = version;
+        else VERSION = "?.?.?";
+    }
 
     @NotNull
     public static String versionString() {

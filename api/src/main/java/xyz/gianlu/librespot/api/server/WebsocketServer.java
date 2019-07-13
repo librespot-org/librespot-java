@@ -155,7 +155,7 @@ public class WebsocketServer implements Closeable, BroadcastSender {
                     Frame frame = readMessage();
                     switch (frame.opcode) {
                         case 0x0:
-                            LOGGER.warn("Received continuation frame out of sync.");
+                            LOGGER.warn("Received continuation command out of sync.");
                             break;
                         case 0x1:
                             executorService.execute(() -> receiver.onReceivedText(this, new String(frame.payload)));

@@ -1,12 +1,8 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Spirc;
-import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.providers.ContentProvider;
-import xyz.gianlu.librespot.player.remote.Remote3Frame;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -15,13 +11,12 @@ import java.net.URLDecoder;
  * @author Gianlu
  */
 public abstract class AbsSpotifyContext<P extends PlayableId> {
+    public final RestrictionsManager restrictions;
     protected final String context;
-    private boolean canRepeatContext = false;
-    private boolean canShuffle = false;
-    private boolean canRepeatTrack = false;
 
-    public AbsSpotifyContext(@NotNull String context) {
+    AbsSpotifyContext(@NotNull String context) {
         this.context = context;
+        this.restrictions = new RestrictionsManager(this);
     }
 
     @NotNull
@@ -102,36 +97,14 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
         }
     }
 
-    @NotNull
-    public abstract P createId(@NotNull Spirc.TrackRef ref);
+    @Override
+    public String toString() {
+        return "AbsSpotifyContext{context='" + context + "\'}";
+    }
 
     public abstract P createId(@NotNull String uri);
 
     public abstract boolean isFinite();
-
-    public final boolean canRepeatContext() {
-        return canRepeatContext;
-    }
-
-    public final boolean canRepeatTrack() {
-        return canRepeatTrack;
-    }
-
-    public final boolean canShuffle() {
-        return canShuffle;
-    }
-
-    public final void updateRestrictions(@NotNull Remote3Frame.Context.Restrictions restrictions) {
-        canRepeatContext = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_CONTEXT);
-        canRepeatTrack = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_REPEAT_TRACK);
-        canShuffle = restrictions.allowed(Remote3Frame.Context.Restrictions.Type.TOGGLING_SHUFFLE);
-    }
-
-    @Nullable
-    public ContentProvider initProvider(@NotNull Session session) {
-        if (isFinite()) return null;
-        else throw new UnsupportedOperationException(context);
-    }
 
     public final @NotNull String uri() {
         return context;

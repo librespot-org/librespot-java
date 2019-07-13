@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
@@ -49,7 +49,7 @@ public class Main {
     private final CommandsHandler commands;
     private TerminalPosition lastLogPosition = new TerminalPosition(0, 0);
 
-    public Main(@NotNull Terminal terminal, @NotNull Session.Builder session) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+    public Main(@NotNull Terminal terminal, @NotNull Session.Builder session) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         terminal.addResizeListener((t, newSize) -> {
             try {
                 drawCommandInputLine(terminal);
@@ -72,7 +72,7 @@ public class Main {
         }).start();
     }
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         File customCommands = null;
         for (String arg : args) {
             if (arg.startsWith("--custom-commands=")) {
