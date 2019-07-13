@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 
 import javax.sound.sampled.*;
 import java.util.*;
@@ -59,11 +60,11 @@ public class LinesHolder {
     }
 
     @NotNull
-    public LineWrapper getLineFor(@NotNull Player.Configuration conf, @NotNull AudioFormat format) throws MixerException {
+    public LineWrapper getLineFor(@NotNull PlayerConf conf, @NotNull AudioFormat format) throws MixerException {
         DataLine.Info info = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
         List<Mixer> mixers = findSupportingMixersFor(info);
-        if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
-        Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords());
+        if (conf.getLogAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
+        Mixer mixer = findMixer(mixers, conf.getMixerSearchKeywords());
         return getLine(mixer, info);
     }
 

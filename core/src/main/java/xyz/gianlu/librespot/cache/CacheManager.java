@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.CacheConf;
 import xyz.gianlu.librespot.player.GeneralWritableStream;
 import xyz.gianlu.librespot.player.StreamId;
 
@@ -29,21 +30,19 @@ public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
     private static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
-    private final boolean enabled;
     private final File parent;
     private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
     private final Map<String, Handler> episodeHandlers = new ConcurrentHashMap<>();
     private final Connection table;
 
-    public CacheManager(@NotNull Configuration conf) throws IOException {
-        this.enabled = conf.cacheEnabled();
-        if (!enabled) {
+    public CacheManager(CacheConf conf) throws IOException {
+        if (!conf.isEnabled()) {
             parent = null;
             table = null;
             return;
         }
 
-        this.parent = conf.cacheDir();
+        this.parent = new File(conf.getCacheDir());
 
         if (!parent.exists() && !parent.mkdir())
             throw new IOException("Couldn't create cache directory!");
@@ -54,7 +53,7 @@ public class CacheManager implements Closeable {
             createTablesIfNeeded();
 
             deleteCorruptedEntries();
-            if (conf.doCleanUp()) doCleanUp();
+            if (conf.isDoCleanUp()) doCleanUp();
         } catch (SQLException ex) {
             throw new IOException(ex);
         }
@@ -81,7 +80,6 @@ public class CacheManager implements Closeable {
     }
 
     private void deleteCorruptedEntries() throws SQLException, IOException {
-        if (!enabled) return;
 
         List<String> toRemove = new ArrayList<>();
         try (PreparedStatement statement = table.prepareStatement("SELECT DISTINCT streamId FROM Headers")) {
@@ -98,7 +96,7 @@ public class CacheManager implements Closeable {
     }
 
     private void doCleanUp() throws SQLException, IOException {
-        if (!enabled) return;
+
 
         try (PreparedStatement statement = table.prepareStatement("SELECT streamId, value FROM Headers WHERE id=?")) {
             statement.setString(1, Utils.byteToHex(HEADER_TIMESTAMP));
@@ -113,7 +111,7 @@ public class CacheManager implements Closeable {
     }
 
     private void remove(@NotNull String streamId) throws SQLException, IOException {
-        if (!enabled) return;
+
 
         try (PreparedStatement statement = table.prepareStatement("DELETE FROM Headers WHERE streamId=?")) {
             statement.setString(1, streamId);
@@ -133,7 +131,7 @@ public class CacheManager implements Closeable {
     }
 
     private void createTablesIfNeeded() throws SQLException {
-        if (!enabled) return;
+
 
         try (Statement statement = table.createStatement()) {
             statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `streamId` VARCHAR NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`streamId`,`chunkIndex`) )");
@@ -152,7 +150,6 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forWhatever(@NotNull StreamId id) throws IOException {
-        if (!enabled) return null;
 
         if (id.isEpisode()) return forEpisode(id.getEpisodeGid());
         else return forFileId(id.getFileId());
@@ -160,7 +157,6 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forFileId(@NotNull String fileId) throws IOException {
-        if (!enabled) return null;
 
         Handler handler = fileHandlers.get(fileId);
         if (handler == null) {
@@ -173,7 +169,6 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forEpisode(@NotNull String gid) throws IOException {
-        if (!enabled) return null;
 
         Handler handler = episodeHandlers.get(gid);
         if (handler == null) {
@@ -182,14 +177,6 @@ public class CacheManager implements Closeable {
         }
 
         return handler;
-    }
-
-    public interface Configuration {
-        boolean cacheEnabled();
-
-        @NotNull File cacheDir();
-
-        boolean doCleanUp();
     }
 
     public static class Header {

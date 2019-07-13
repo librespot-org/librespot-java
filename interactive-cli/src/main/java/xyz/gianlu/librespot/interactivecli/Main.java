@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.interactivecli;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -17,9 +19,8 @@ import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggingEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.AbsConfiguration;
-import xyz.gianlu.librespot.FileConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,8 +81,7 @@ public class Main {
             }
         }
 
-        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
-        Session.Builder s = new Session.Builder(conf);
+        Session.Builder s = new Session.Builder(getConfig());
 
         DefaultTerminalFactory factory = new DefaultTerminalFactory();
         factory.setTerminalEmulatorTitle(Version.versionString());
@@ -276,5 +277,13 @@ public class Main {
                 return true;
             }
         });
+    }
+
+    private static Configuration getConfig() throws IOException {
+        File configFile = Optional.ofNullable(System.getProperty("config.file")).map(File::new).orElseGet(() -> {
+            LOGGER.info("No external application.yml file found. Please check if env property 'config.file' is set");
+            return new File(ClassLoader.getSystemResource("application.yml").getFile());
+        });
+        return new ObjectMapper(new YAMLFactory()).readValue(configFile, Configuration.class);
     }
 }

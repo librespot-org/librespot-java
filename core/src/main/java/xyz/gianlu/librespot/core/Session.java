@@ -4,17 +4,19 @@ import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
+import xyz.gianlu.librespot.crypto.BlobUtils;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.AuthConf;
+import xyz.gianlu.librespot.common.config.Configuration;
+import xyz.gianlu.librespot.common.enums.DeviceType;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
-import xyz.gianlu.librespot.crypto.PBKDF2;
 import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
@@ -22,20 +24,26 @@ import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
-import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
-import java.security.*;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +80,6 @@ public class Session implements Closeable {
             (byte) 0x19, (byte) 0xe6, (byte) 0x55, (byte) 0xbd
     };
     private final DiffieHellman keys;
-    private final Inner inner;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private ConnectionHolder conn;
@@ -89,25 +96,17 @@ public class Session implements Closeable {
     private CacheManager cacheManager;
     private String countryCode = null;
     private volatile boolean closed = false;
+    private Configuration conf;
+    private SecureRandom random;
 
-    private Session(Inner inner, Socket socket) throws IOException {
-        this.inner = inner;
-        this.keys = new DiffieHellman(inner.random);
+
+    protected Session(Configuration conf) throws IOException {
+        Socket socket = ApResolver.getSocketFromRandomAccessPoint();
+        this.random = new SecureRandom();
+        this.keys = new DiffieHellman(new SecureRandom());
         this.conn = new ConnectionHolder(socket);
-
-        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s} ", inner.deviceId, socket.getInetAddress()));
-    }
-
-    private static int readBlobInt(ByteBuffer buffer) {
-        int lo = buffer.get();
-        if ((lo & 0x80) == 0) return lo;
-        int hi = buffer.get();
-        return lo & 0x7f | hi << 7;
-    }
-
-    @NotNull
-    static Session from(@NotNull Inner inner) throws IOException {
-        return new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
+        this.conf = conf;
+        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s} ", conf.getDeviceId(), socket.getInetAddress()));
     }
 
     void connect() throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
@@ -116,7 +115,7 @@ public class Session implements Closeable {
         // Send ClientHello
 
         byte[] nonce = new byte[0x10];
-        inner.random.nextBytes(nonce);
+        random.nextBytes(nonce);
 
         Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
@@ -242,23 +241,23 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
-        authenticatePartial(credentials);
+    void authenticate(@NotNull Authentication.LoginCredentials credentials, String deviceId) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        authenticatePartial(credentials,deviceId);
 
         mercuryClient = new MercuryClient(this);
         tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
         cdnManager = new CdnManager(this);
-        cacheManager = new CacheManager(inner.configuration);
-        spirc = new SpotifyIrc(this);
+        if(this.conf.getCache().isEnabled()) cacheManager = new CacheManager(conf.getCache());
+        spirc = new SpotifyIrc(this, this.conf.getPlayer());
         spirc.sayHello();
-        player = new Player(inner.configuration, this);
+        player = new Player(this.conf.getPlayer(), this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
 
-    private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+    private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials, String deviceId) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
@@ -267,7 +266,7 @@ public class Session implements Closeable {
                         .setOs(Authentication.Os.OS_UNKNOWN)
                         .setCpuFamily(Authentication.CpuFamily.CPU_UNKNOWN)
                         .setSystemInformationString(Version.systemInfoString())
-                        .setDeviceId(inner.deviceId)
+                        .setDeviceId(deviceId)
                         .build())
                 .setVersionString(Version.versionString())
                 .build();
@@ -341,7 +340,7 @@ public class Session implements Closeable {
         cipherPair = null;
         closed = true;
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
+        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", this.conf.getDeviceId(), conn.socket.getInetAddress()));
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -437,12 +436,12 @@ public class Session implements Closeable {
 
     @NotNull
     public String deviceId() {
-        return inner.deviceId;
+        return this.conf.getDeviceId();
     }
 
     @NotNull
     public DeviceType deviceType() {
-        return inner.deviceType;
+        return this.conf.getDeviceType();
     }
 
     @NotNull
@@ -452,12 +451,12 @@ public class Session implements Closeable {
 
     @NotNull
     public String deviceName() {
-        return inner.deviceName;
+        return this.conf.getDeviceName();
     }
 
     @NotNull
     public Random random() {
-        return inner.random;
+        return random;
     }
 
     private void reconnect() {
@@ -473,7 +472,7 @@ public class Session implements Closeable {
                     .setUsername(apWelcome.getCanonicalUsername())
                     .setTyp(apWelcome.getReusableAuthCredentialsType())
                     .setAuthData(apWelcome.getReusableAuthCredentials())
-                    .build());
+                    .build(), this.conf.getDeviceId());
 
             spirc.sayHello();
 
@@ -481,123 +480,25 @@ public class Session implements Closeable {
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             throw new RuntimeException("Failed reconnecting!", ex);
         }
+
+
     }
 
-    @NotNull
-    public AbsConfiguration conf() {
-        return inner.configuration;
-    }
+
+
 
     @Nullable
     public String countryCode() {
         return countryCode;
     }
 
-    public enum DeviceType {
-        Unknown(0, "unknown"),
-        Computer(1, "computer"),
-        Tablet(2, "tablet"),
-        Smartphone(3, "smartphone"),
-        Speaker(4, "speaker"),
-        TV(5, "tv"),
-        AVR(6, "avr"),
-        STB(7, "stb"),
-        AudioDongle(8, "audiodongle");
 
-        public final int val;
-        public final String name;
-
-        DeviceType(int val, String name) {
-            this.val = val;
-            this.name = name;
-        }
-    }
-
-    static class Inner {
-        final DeviceType deviceType;
-        final String deviceName;
-        final SecureRandom random;
-        final String deviceId;
-        final AbsConfiguration configuration;
-
-        private Inner(DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
-            this.deviceType = deviceType;
-            this.deviceName = deviceName;
-            this.configuration = configuration;
-            this.random = new SecureRandom();
-            this.deviceId = UUID.randomUUID().toString();
-        }
-
-        @NotNull
-        static Inner from(@NotNull AbsConfiguration configuration) {
-            String deviceName = configuration.deviceName();
-            if (deviceName == null || deviceName.isEmpty())
-                throw new IllegalArgumentException("Device name required: " + deviceName);
-
-            DeviceType deviceType = configuration.deviceType();
-            if (deviceType == null)
-                throw new IllegalArgumentException("Device type required!");
-
-            return new Inner(deviceType, deviceName, configuration);
-        }
-
-        @NotNull Authentication.LoginCredentials decryptBlob(String username, byte[] encryptedBlob) throws GeneralSecurityException, IOException {
-            encryptedBlob = Base64.getDecoder().decode(encryptedBlob);
-
-            byte[] secret = MessageDigest.getInstance("SHA-1").digest(deviceId.getBytes());
-            byte[] baseKey = PBKDF2.HmacSHA1(secret, username.getBytes(), 0x100, 20);
-
-            byte[] key = ByteBuffer.allocate(24)
-                    .put(MessageDigest.getInstance("SHA-1").digest(baseKey))
-                    .putInt(20)
-                    .array();
-
-            Cipher aes = Cipher.getInstance("AES/ECB/NoPadding");
-            aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"));
-            byte[] decryptedBlob = aes.doFinal(encryptedBlob);
-
-            int l = decryptedBlob.length;
-            for (int i = 0; i < l - 0x10; i++)
-                decryptedBlob[l - i - 1] ^= decryptedBlob[l - i - 0x11];
-
-            ByteBuffer blob = ByteBuffer.wrap(decryptedBlob);
-            blob.get();
-            int len = readBlobInt(blob);
-            blob.get(new byte[len]);
-            blob.get();
-
-            int typeInt = readBlobInt(blob);
-            Authentication.AuthenticationType type = Authentication.AuthenticationType.forNumber(typeInt);
-            if (type == null)
-                throw new IOException(new IllegalArgumentException("Unknown AuthenticationType: " + typeInt));
-
-            blob.get();
-
-            len = readBlobInt(blob);
-            byte[] authData = new byte[len];
-            blob.get(authData);
-
-            return Authentication.LoginCredentials.newBuilder()
-                    .setUsername(username)
-                    .setTyp(type)
-                    .setAuthData(ByteString.copyFrom(authData))
-                    .build();
-        }
-    }
-
-    public static class Builder {
-        private final Inner inner;
+     public static class Builder {
         private Authentication.LoginCredentials loginCredentials = null;
-        private AuthConfiguration authConf;
+        private Session session;
 
-        public Builder(@NotNull DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
-            this.inner = new Inner(deviceType, deviceName, configuration);
-            this.authConf = configuration;
-        }
-
-        public Builder(@NotNull AbsConfiguration configuration) {
-            this.inner = Inner.from(configuration);
-            this.authConf = configuration;
+        public Builder(Configuration conf) throws IOException {
+            this.session = new Session(conf);
         }
 
         @NotNull
@@ -612,7 +513,7 @@ public class Session implements Closeable {
 
         @NotNull
         public Builder blob(String username, byte[] blob) throws GeneralSecurityException, IOException {
-            loginCredentials = inner.decryptBlob(username, blob);
+            loginCredentials = BlobUtils.decryptBlob(username, blob, session.conf.getDeviceId());
             return this;
         }
 
@@ -628,13 +529,14 @@ public class Session implements Closeable {
 
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
+            AuthConf authConf = session.conf.getAuth();
             if (loginCredentials == null) {
                 if (authConf != null) {
-                    String blob = authConf.authBlob();
-                    String username = authConf.authUsername();
-                    String password = authConf.authPassword();
+                    String blob = authConf.getBlob();
+                    String username = authConf.getUsername();
+                    String password = authConf.getPassword();
 
-                    switch (authConf.authStrategy()) {
+                    switch (authConf.getStrategy()) {
                         case FACEBOOK:
                             facebook();
                             break;
@@ -651,16 +553,15 @@ public class Session implements Closeable {
                         case ZEROCONF:
                             throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
                         default:
-                            throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
+                            throw new IllegalStateException("Unknown auth authStrategy: " + authConf.getStrategy());
                     }
                 } else {
                     throw new IllegalStateException("Missing credentials!");
                 }
             }
 
-            Session session = Session.from(inner);
             session.connect();
-            session.authenticate(loginCredentials);
+            session.authenticate(loginCredentials, session.conf.getDeviceId());
             return session;
         }
     }

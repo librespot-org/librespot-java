@@ -293,9 +293,9 @@ public class StateWrapper {
     }
 
     @NotNull
-    synchronized StateWrapper.NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+    synchronized StateWrapper.NextPlayable nextPlayable(@NotNull Boolean autoplayEnabled) {
         if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
-        return tracksKeeper.nextPlayable(conf);
+        return tracksKeeper.nextPlayable(autoplayEnabled);
     }
 
     @Nullable
@@ -579,14 +579,14 @@ public class StateWrapper {
         }
 
         @NotNull
-        synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+        synchronized NextPlayable nextPlayable(Boolean autoplayEnabled) {
             boolean play = true;
             PlayableId next = nextPlayableDoNotSet();
             if (next == null) {
                 if (state.getRepeat()) {
                     playingIndex = 0;
                 } else {
-                    if (conf.autoplayEnabled()) {
+                    if (autoplayEnabled) {
                         return NextPlayable.AUTOPLAY;
                     } else {
                         playingIndex = 0;

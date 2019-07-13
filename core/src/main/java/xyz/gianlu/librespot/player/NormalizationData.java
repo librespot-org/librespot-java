@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -45,8 +46,8 @@ public class NormalizationData {
         return new NormalizationData(buffer.getFloat(), buffer.getFloat(), buffer.getFloat(), buffer.getFloat());
     }
 
-    public float getFactor(@NotNull Player.Configuration config) {
-        float normalisationFactor = (float) Math.pow(10, (track_gain_db + config.normalisationPregain()) / 20);
+    public float getFactor(@NotNull PlayerConf config) {
+        float normalisationFactor = (float) Math.pow(10, (track_gain_db + config.getNormalisationPregain()) / 20);
         if (normalisationFactor * track_peak > 1) {
             LOGGER.warn("Reducing normalisation factor to prevent clipping. Please add negative pregain to avoid.");
             normalisationFactor = 1 / track_peak;

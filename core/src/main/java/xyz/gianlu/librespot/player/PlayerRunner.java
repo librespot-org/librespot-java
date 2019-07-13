@@ -3,6 +3,8 @@ package xyz.gianlu.librespot.player;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.config.PlayerConf;
+import xyz.gianlu.librespot.common.config.ZeroConf;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
@@ -15,13 +17,12 @@ import java.io.IOException;
  */
 public class PlayerRunner implements Runnable {
     public static final int VOLUME_STEPS = 64;
-    public static final int VOLUME_MAX = 65536;
     private static final int VOLUME_STEP = 65536 / VOLUME_STEPS;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private final Codec codec;
 
     PlayerRunner(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull LinesHolder lines,
-                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, Codec.CodecException, LinesHolder.MixerException {
+                 PlayerConf conf, @NotNull Listener listener, int duration) throws IOException, Codec.CodecException, LinesHolder.MixerException {
         switch (audioFile.codec()) {
             case VORBIS:
                 codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration);
@@ -86,10 +87,10 @@ public class PlayerRunner implements Runnable {
         }
 
         private double calcLogarithmic(int val) {
-            return Math.log10((double) val / VOLUME_MAX) * 20f;
+            return Math.log10((double) val / PlayerConf.VOLUME_MAX) * 20f;
         }
 
-        public void setVolume(int val) {
+        void setVolume(int val) {
             this.volume = val;
 
             if (masterGain != null)

@@ -10,6 +10,7 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.player.*;
 
 import javax.sound.sampled.AudioFormat;
@@ -39,7 +40,7 @@ public class VorbisCodec extends Codec {
     private int[] pcmIndex;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
+    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, PlayerConf conf,
                        PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
@@ -108,7 +109,7 @@ public class VorbisCodec extends Codec {
     }
 
     @NotNull
-    private AudioFormat initializeSound(Player.Configuration conf) throws CodecException, LinesHolder.MixerException {
+    private AudioFormat initializeSound(PlayerConf conf) throws CodecException, LinesHolder.MixerException {
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
         jorbisDspState.synthesis_init(jorbisInfo);

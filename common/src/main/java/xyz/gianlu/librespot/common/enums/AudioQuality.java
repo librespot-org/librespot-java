@@ -1,11 +1,13 @@
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.common.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.proto.Metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @author Gianlu
@@ -48,6 +50,15 @@ public enum AudioQuality {
         for (Metadata.AudioFile file : episode.getAudioList()) list.add(file.getFormat());
         return list;
     }
+
+    @JsonCreator
+    public static AudioQuality fromString(String string) {
+        return Optional
+                .of(AudioQuality.valueOf(string))
+                .orElse(VORBIS_160);
+
+    }
+
 
     @Nullable
     public Metadata.AudioFile getFile(@NotNull Metadata.Track track) {

@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.player.codecs;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.player.*;
 import xyz.gianlu.librespot.player.codecs.mp3.Mp3Sound;
 
@@ -17,7 +18,7 @@ public class Mp3Codec extends Codec {
     private final byte[] buffer = new byte[BUFFER_SIZE];
     private final Mp3Sound sound;
 
-    public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
+    public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, PlayerConf conf,
                     PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 

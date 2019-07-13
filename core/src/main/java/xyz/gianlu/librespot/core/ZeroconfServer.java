@@ -3,11 +3,12 @@ package xyz.gianlu.librespot.core;
 import com.google.gson.JsonObject;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.AbsConfiguration;
+import xyz.gianlu.librespot.crypto.BlobUtils;
+import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
+import xyz.gianlu.librespot.common.config.ZeroConf;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.spirc.SpotifyIrc;
 
@@ -21,10 +22,23 @@ import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.URLDecoder;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
-import java.util.*;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -32,8 +46,7 @@ import java.util.concurrent.Executors;
  * @author Gianlu
  */
 public class ZeroconfServer implements Closeable {
-    public final static int MAX_PORT = 65536;
-    public final static int MIN_PORT = 1024;
+
     private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
     private static final JsonObject DEFAULT_GET_INFO_FIELDS = new JsonObject();
@@ -77,26 +90,28 @@ public class ZeroconfServer implements Closeable {
     }
 
     private final HttpRunner runner;
-    private final Session.Inner inner;
     private final DiffieHellman keys;
     private final JmDNS[] instances;
     private volatile Session session;
+    private Configuration conf;
 
-    private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
-        this.inner = inner;
-        this.keys = new DiffieHellman(inner.random);
+    public ZeroconfServer(Configuration conf) throws IOException {
+        this.conf = conf;
+        ZeroConf zeroConf = conf.getZeroconf();
+        SecureRandom secureRandom = new SecureRandom();
+        this.keys = new DiffieHellman(secureRandom);
 
-        int port = conf.zeroconfListenPort();
+        int port = zeroConf.getListenPort();
         if (port == -1)
-            port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
+            port = secureRandom.nextInt((ZeroConf.MAX_PORT - ZeroConf.MIN_PORT) + 1) + ZeroConf.MIN_PORT;
 
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
         InetAddress[] bound;
-        if (conf.zeroconfListenAll()) {
+        if (zeroConf.getListenAll()) {
             bound = getAllInterfacesAddresses();
         } else {
-            String[] interfaces = conf.zeroconfInterfaces();
+            String[] interfaces = zeroConf.getInterfaces();
             if (interfaces == null || interfaces.length == 0) {
                 bound = new InetAddress[]{InetAddress.getLoopbackAddress()};
             } else {
@@ -127,11 +142,6 @@ public class ZeroconfServer implements Closeable {
 
         if (atLeastOne) LOGGER.info("SpotifyConnect service registered successfully!");
         else throw new IllegalStateException("Could not register the service anywhere!");
-    }
-
-    @NotNull
-    public static ZeroconfServer create(@NotNull AbsConfiguration conf) throws IOException {
-        return new ZeroconfServer(Session.Inner.from(conf), conf);
     }
 
     private static void addAddressForInterfaceName(List<InetAddress> list, @NotNull String name) throws SocketException {
@@ -203,10 +213,10 @@ public class ZeroconfServer implements Closeable {
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
         info.addProperty("activeUser", hasValidSession() ? session.apWelcome().getCanonicalUsername() : "");
-        info.addProperty("deviceID", inner.deviceId);
-        info.addProperty("remoteName", inner.deviceName);
+        info.addProperty("deviceID", conf.getDeviceId());
+        info.addProperty("remoteName", conf.getDeviceName());
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
-        info.addProperty("deviceType", inner.deviceType.name.toUpperCase());
+        info.addProperty("deviceType", conf.getDeviceType().name.toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -292,30 +302,20 @@ public class ZeroconfServer implements Closeable {
 
 
         try {
-            Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
+            Authentication.LoginCredentials credentials = BlobUtils.decryptBlob(username, decrypted, conf.getDeviceId());
             if (hasValidSession()) {
                 session.close();
-                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
+                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", conf.getDeviceId()));
             }
 
-            session = Session.from(inner);
-            LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
-
+            LOGGER.info(String.format("Accepted new user. {deviceId: %s}", conf.getDeviceId()));
+            session = new Session(conf);
             session.connect();
-            session.authenticate(credentials);
+            session.authenticate(credentials,conf.getDeviceId());
         } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }
-    }
-
-    public interface Configuration {
-        boolean zeroconfListenAll();
-
-        int zeroconfListenPort();
-
-        @Nullable
-        String[] zeroconfInterfaces();
     }
 
     private class HttpRunner implements Runnable, Closeable {

@@ -6,12 +6,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.SubListener;
-import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.Closeable;
@@ -32,10 +32,10 @@ public class SpotifyIrc implements Closeable {
     private final Spirc.DeviceState.Builder deviceState;
     private SpircListener internalListener;
 
-    public SpotifyIrc(@NotNull Session session) {
+    public SpotifyIrc(@NotNull Session session, PlayerConf conf) {
         this.session = session;
         this.uri = String.format("%s/%s/", REMOTE_PREFIX, session.apWelcome().getCanonicalUsername());
-        this.deviceState = initializeDeviceState(session.conf());
+        this.deviceState = initializeDeviceState(conf);
 
         session.mercury().interestedIn(REMOTE_PREFIX, internalListener = new SpircListener());
     }
@@ -45,11 +45,11 @@ public class SpotifyIrc implements Closeable {
     }
 
     @NotNull
-    private Spirc.DeviceState.Builder initializeDeviceState(@NotNull Player.Configuration conf) {
+    private Spirc.DeviceState.Builder initializeDeviceState(@NotNull PlayerConf conf) {
         return Spirc.DeviceState.newBuilder()
                 .setCanPlay(true)
                 .setIsActive(false)
-                .setVolume(conf.initialVolume())
+                .setVolume(conf.getInitialVolume())
                 .setName(session.deviceName())
                 .setSwVersion(Version.versionString())
                 .addCapabilities(Spirc.Capability.newBuilder()

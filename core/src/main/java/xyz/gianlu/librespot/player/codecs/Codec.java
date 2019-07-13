@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player.codecs;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.player.*;
 
 import javax.sound.sampled.LineUnavailableException;
@@ -29,14 +30,14 @@ public abstract class Codec implements Runnable {
     protected PlayerRunner.Controller controller;
     private volatile boolean calledPreload = false;
 
-    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf,
+    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConf conf,
           @NotNull PlayerRunner.Listener listener, @NotNull LinesHolder lines, int duration) {
         this.audioIn = audioFile.stream();
         this.listener = listener;
         this.lines = lines;
         this.duration = duration;
         this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
-        this.preloadEnabled = conf.preloadEnabled();
+        this.preloadEnabled = conf.getPreloadEnabled();
     }
 
     public final void play() {

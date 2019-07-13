@@ -7,6 +7,7 @@ import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -14,7 +15,7 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.*;
-import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.common.enums.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.AudioQualityPreference;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 
@@ -34,12 +35,12 @@ public abstract class BaseFeeder {
     }
 
     @NotNull
-    public static BaseFeeder feederFor(@NotNull Session session, @NotNull PlayableId id, @NotNull Player.Configuration conf) {
+    public static BaseFeeder feederFor(@NotNull Session session, @NotNull PlayableId id, @NotNull PlayerConf conf) {
         if (id instanceof TrackId) {
-            if (conf.useCdnForTracks()) return new CdnFeeder(session, id);
+            if (conf.getUseCdnForTracks()) return new CdnFeeder(session, id);
             else return new StorageFeeder(session, id);
         } else if (id instanceof EpisodeId) {
-            if (conf.useCdnForEpisodes()) return new CdnFeeder(session, id);
+            if (conf.getUseCdnForEpisodes()) return new CdnFeeder(session, id);
             else return new StorageFeeder(session, id);
         } else {
             throw new IllegalArgumentException("Unknown PlayableId: " + id);

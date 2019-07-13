@@ -8,12 +8,12 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Metadata;
 import xyz.gianlu.librespot.common.proto.Spirc;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.remote.Remote3Frame;
 import xyz.gianlu.librespot.spirc.FrameListener;
@@ -32,12 +32,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private final Session session;
     private final SpotifyIrc spirc;
     private final StateWrapper state;
-    private final Configuration conf;
+    private final PlayerConf conf;
     private final LinesHolder lines;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
 
-    public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
+    public Player(PlayerConf conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.spirc = session.spirc();
@@ -240,7 +240,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            if (conf.enableLoadingState()) {
+            if (conf.getEnableLoadingState()) {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
                 state.updated();
             }
@@ -327,7 +327,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (handler == trackHandler) {
             LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
 
-            if (conf.enableLoadingState()) {
+            if (conf.getEnableLoadingState()) {
                 state.setStatus(Spirc.PlayStatus.kPlayStatusLoading);
                 state.updated();
             }
@@ -433,7 +433,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private void handleNext() {
         if (!state.hasTracks()) return;
 
-        StateWrapper.NextPlayable next = state.nextPlayable(conf);
+        StateWrapper.NextPlayable next = state.nextPlayable(conf.getAutoplayEnabled());
         if (next == StateWrapper.NextPlayable.AUTOPLAY) {
             loadAutoplay();
             return;
@@ -537,27 +537,4 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         return state.hasTracks() ? state.getCurrentTrack() : null;
     }
 
-    public interface Configuration {
-        @NotNull
-        AudioQuality preferredQuality();
-
-        boolean preloadEnabled();
-
-        float normalisationPregain();
-
-        @Nullable
-        String[] mixerSearchKeywords();
-
-        boolean logAvailableMixers();
-
-        int initialVolume();
-
-        boolean autoplayEnabled();
-
-        boolean useCdnForTracks();
-
-        boolean useCdnForEpisodes();
-
-        boolean enableLoadingState();
-    }
 }
