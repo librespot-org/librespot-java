@@ -6,7 +6,7 @@ import org.apache.log4j.Logger;
 import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.common.config.Configuration;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,7 +20,7 @@ public class Main {
 
     private static final Logger LOGGER = Logger.getLogger(xyz.gianlu.librespot.Main.class);
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, SpotifyIrc.IrcException, Session.SpotifyAuthenticationException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         Session session = new Session.Builder(getConfig()).create();
 
         ApiServer server = new ApiServer(24879);

@@ -4,18 +4,16 @@ import com.google.protobuf.ByteString;
 import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
-import xyz.gianlu.librespot.crypto.BlobUtils;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.config.AuthConf;
 import xyz.gianlu.librespot.common.config.Configuration;
-import xyz.gianlu.librespot.common.enums.DeviceType;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.common.proto.Keyexchange;
+import xyz.gianlu.librespot.crypto.BlobUtils;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.Packet;
@@ -46,9 +44,10 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -101,12 +100,13 @@ public class Session implements Closeable {
     private ApiClient api;
     private String countryCode = null;
     private volatile boolean closed = false;
+    private Configuration conf;
+    private SecureRandom random;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
 
 
     protected Session(Configuration conf) throws IOException {
         Socket socket = ApResolver.getSocketFromRandomAccessPoint();
-        this.random = new SecureRandom();
         this.keys = new DiffieHellman(new SecureRandom());
         this.conn = new ConnectionHolder(socket);
         this.conf = conf;
@@ -119,7 +119,7 @@ public class Session implements Closeable {
         // Send ClientHello
 
         byte[] nonce = new byte[0x10];
-        random.nextBytes(nonce);
+        new SecureRandom().nextBytes(nonce);
 
         Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
@@ -245,7 +245,7 @@ public class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
-    void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
+    void authenticate(@NotNull Authentication.LoginCredentials credentials, String deviceId) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
         authenticatePartial(credentials, deviceId);
 
         mercuryClient = new MercuryClient(this);
@@ -256,7 +256,7 @@ public class Session implements Closeable {
         cdnManager = new CdnManager(this);
         if(this.conf.getCache().isEnabled()) cacheManager = new CacheManager(conf.getCache());
         dealer = new DealerClient(this);
-        player = new Player(this);
+        player = new Player(conf.getPlayer(), this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
@@ -405,6 +405,10 @@ public class Session implements Closeable {
         return channelManager;
     }
 
+    public String getCountryCode() {
+        return countryCode;
+    }
+
     @NotNull
     public TokenProvider tokens() {
         waitAuthLock();
@@ -451,7 +455,7 @@ public class Session implements Closeable {
     }
 
     @NotNull
-    public DeviceType deviceType() {
+    public Connect.DeviceType deviceType() {
         return this.conf.getDeviceType();
     }
 
@@ -495,29 +499,13 @@ public class Session implements Closeable {
     }
 
 
-
-
-    static class Inner {
-        final DeviceType deviceType;
-        final String deviceName;
-        final SecureRandom random;
-        final String deviceId;
-        final AbsConfiguration configuration;
-
-        private Inner(DeviceType deviceType, String deviceName, AbsConfiguration configuration) {
-            this.deviceType = deviceType;
-            this.deviceName = deviceName;
-            this.configuration = configuration;
-            this.random = new SecureRandom();
-            this.deviceId = UUID.randomUUID().toString();
-        }
-
-
      public static class Builder {
         private Authentication.LoginCredentials loginCredentials = null;
         private Session session;
+        private Configuration conf;
 
         public Builder(Configuration conf) throws IOException {
+            this.conf = conf;
             this.session = new Session(conf);
         }
 
@@ -548,7 +536,8 @@ public class Session implements Closeable {
         }
 
         @NotNull
-        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, SpotifyIrc.IrcException {
+        public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
+            AuthConf authConf= this.conf.getAuth();
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.getBlob();
@@ -713,5 +702,9 @@ public class Session implements Closeable {
                 }
             }
         }
+    }
+
+    public Configuration getConf() {
+        return conf;
     }
 }

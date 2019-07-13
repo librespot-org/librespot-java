@@ -217,7 +217,7 @@ public class ZeroconfServer implements Closeable {
         info.addProperty("deviceID", conf.getDeviceId());
         info.addProperty("remoteName", conf.getDeviceName());
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
-        info.addProperty("deviceType", conf.getDeviceType().name.toUpperCase());
+        info.addProperty("deviceType", conf.getDeviceType().name().toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());

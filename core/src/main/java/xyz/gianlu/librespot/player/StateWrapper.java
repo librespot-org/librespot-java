@@ -16,6 +16,7 @@ import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
 import xyz.gianlu.librespot.connectstate.RestrictionsManager;
@@ -411,7 +412,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     @NotNull
-    NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+    NextPlayable nextPlayable(@NotNull PlayerConf conf) {
         if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
 
         try {
@@ -732,7 +733,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         @NotNull
-        synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+        synchronized NextPlayable nextPlayable(@NotNull PlayerConf conf) throws IOException, MercuryClient.MercuryException {
             if (!queue.isEmpty()) {
                 isPlayingQueue = true;
                 updateState();
@@ -753,7 +754,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 if (isRepeatingContext()) {
                     setCurrentTrackIndex(0);
                 } else {
-                    if (conf.autoplayEnabled()) {
+                    if (conf.getAutoplayEnabled()) {
                         return NextPlayable.AUTOPLAY;
                     } else {
                         setCurrentTrackIndex(0);

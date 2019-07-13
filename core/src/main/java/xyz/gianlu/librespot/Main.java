@@ -20,7 +20,7 @@ import java.util.Optional;
 public class Main {
 
     private static final Logger LOGGER = Logger.getLogger(Main.class);
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, SpotifyIrc.IrcException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         Configuration conf = getConfig();
         if (conf.getAuth().getStrategy() == Strategy.ZEROCONF) {
             new ZeroconfServer(conf);

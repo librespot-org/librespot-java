@@ -8,11 +8,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.UnsupportedId;
@@ -177,7 +177,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            state.setState(true, false, conf.enableLoadingState());
+            state.setState(true, false, conf.getEnableLoadingState());
             state.updated();
         }
     }
@@ -269,7 +269,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (handler == trackHandler) {
             LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
 
-            if (conf.enableLoadingState()) {
+            if (conf.getEnableLoadingState()) {
                 state.setState(true, false, true);
                 state.updated();
             }
@@ -307,7 +307,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.close();
 
-        boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
+        boolean buffering = preloadTrackHandler == null && conf.getEnableLoadingState();
         PlayableId id = state.getCurrentPlayable();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
@@ -370,7 +370,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             return;
         }
 
-        StateWrapper.NextPlayable next = state.nextPlayable(conf.getAutoplayEnabled());
+        StateWrapper.NextPlayable next = state.nextPlayable(conf);
         if (next == StateWrapper.NextPlayable.AUTOPLAY) {
             loadAutoplay();
             return;

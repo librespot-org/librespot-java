@@ -13,6 +13,8 @@ import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.ProtoUtils;
+import xyz.gianlu.librespot.common.config.Configuration;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
@@ -47,12 +49,13 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
 
     @NotNull
     private static Connect.DeviceInfo.Builder initializeDeviceInfo(@NotNull Session session) {
+        Configuration conf = session.getConf();
         return Connect.DeviceInfo.newBuilder()
                 .setCanPlay(true)
-                .setVolume(session.conf().initialVolume())
-                .setName(session.deviceName())
+                .setVolume(conf.getPlayer().getInitialVolume())
+                .setName(conf.getDeviceName())
                 .setDeviceId(session.deviceId())
-                .setDeviceType(session.deviceType())
+                .setDeviceType(conf.getDeviceType())
                 .setDeviceSoftwareVersion(Version.versionString())
                 .setSpircVersion("3.2.6")
                 .setCapabilities(Connect.Capabilities.newBuilder()
@@ -113,7 +116,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
             deviceInfo.setVolume(cmd.getVolume());
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
+            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerConf.VOLUME_MAX));
             if (cmd.hasCommandOptions()) {
                 putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
                         .clearLastCommandSentByDeviceId();

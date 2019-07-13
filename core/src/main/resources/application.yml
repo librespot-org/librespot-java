@@ -1,7 +1,7 @@
 
 ### General ###
 deviceName: librespot-java
-deviceType: Computer ### Device type (Computer, Tablet, Smartphone, Speaker, TV, AVR, STB, AudioDongle, Unknown) ###
+deviceType: COMPUTER ### Device type (COMPUTER, TABLET, SMARTPHONE, SPEAKER, TV, AVR, STB, AUDIO_DONGLE, GAME_CONSOLE, AUTOMOBILE, UNKNOWN) ###
 
 ### Authentication ###
 auth:

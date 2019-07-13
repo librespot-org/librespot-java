@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.common.config.PlayerConf;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
@@ -31,7 +32,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Session session;
     private final LinesHolder lines;
-    private final Player.Configuration conf;
+    private final PlayerConf conf;
     private final Listener listener;
     private BaseFeeder feeder;
     private Metadata.Track track;
@@ -40,7 +41,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
     private volatile boolean stopped = false;
     private long haltedAt = -1;
 
-    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener) {
+    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull PlayerConf conf, @NotNull Listener listener) {
         this.session = session;
         this.lines = lines;
         this.conf = conf;
@@ -62,11 +63,11 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
 
         BaseFeeder.LoadedStream stream;
         try {
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.getPreferredAudioQuality()), this);
         } catch (CdnFeeder.CanNotAvailable ex) {
             LOGGER.warn(String.format("Cdn not available for %s, using storage", Utils.bytesToHex(id.getGid())));
             feeder = new StorageFeeder(session, id);
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
+            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.getPreferredAudioQuality()), this);
         }
 
         track = stream.track;

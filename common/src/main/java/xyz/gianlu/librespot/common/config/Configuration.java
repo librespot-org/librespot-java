@@ -2,7 +2,7 @@ package xyz.gianlu.librespot.common.config;
 
 
 
-import xyz.gianlu.librespot.common.enums.DeviceType;
+import com.spotify.connectstate.model.Connect;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -16,7 +16,7 @@ public class Configuration {
     private AuthConf auth;
 
     private String deviceName = "NONAME-Spotify";
-    private DeviceType deviceType = DeviceType.Unknown;
+    private Connect.DeviceType deviceType = Connect.DeviceType.UNKNOWN;
 
     public CacheConf getCache() {
         return cache;
@@ -42,14 +42,14 @@ public class Configuration {
         this.deviceName = deviceName;
     }
 
-    public DeviceType getDeviceType() {
+    public Connect.DeviceType getDeviceType() {
         return deviceType;
     }
 
     public void setDeviceType(String deviceTypeString) {
         this.deviceType = Optional
-                .of(DeviceType.valueOf(deviceTypeString))
-                .orElse(DeviceType.Unknown);
+                .of(Connect.DeviceType.valueOf(deviceTypeString))
+                .orElse(Connect.DeviceType.UNKNOWN);
     }
 
     public ZeroConf getZeroconf() {
@@ -60,7 +60,7 @@ public class Configuration {
         this.zeroconf = zeroconf;
     }
 
-    public void setDeviceType(DeviceType deviceType) {
+    public void setDeviceType(Connect.DeviceType deviceType) {
         this.deviceType = deviceType;
     }
 
