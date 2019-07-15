@@ -18,7 +18,6 @@ import java.util.Objects;
  *
  * @author delthas
  * @author devgianlu
- *
  * @see Mp3Sound#Mp3Sound(InputStream)
  * @see Mp3Sound#decodeFullyInto(OutputStream)
  */

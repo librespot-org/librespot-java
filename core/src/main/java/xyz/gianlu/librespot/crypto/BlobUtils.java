@@ -2,7 +2,6 @@ package xyz.gianlu.librespot.crypto;
 
 import com.google.protobuf.ByteString;
 import xyz.gianlu.librespot.common.proto.Authentication;
-import xyz.gianlu.librespot.crypto.PBKDF2;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;

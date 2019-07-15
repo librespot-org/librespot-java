@@ -15,7 +15,6 @@
     <name>librespot-java core</name>
 
 
-
     <build>
         <finalName>librespot-core</finalName>
         <plugins>
@@ -79,12 +78,6 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
             <version>4.0.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.brotli</groupId>
-            <artifactId>dec</artifactId>
-            <version>0.1.2</version>
         </dependency>
     </dependencies>
 </project>

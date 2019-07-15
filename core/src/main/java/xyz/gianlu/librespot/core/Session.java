@@ -26,29 +26,17 @@ import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
-import java.security.GeneralSecurityException;
-import java.security.KeyFactory;
-import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.Signature;
+import java.security.*;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -254,7 +242,7 @@ public class Session implements Closeable {
         channelManager = new ChannelManager(this);
         api = new ApiClient(this);
         cdnManager = new CdnManager(this);
-        if(this.conf.getCache().isEnabled()) cacheManager = new CacheManager(conf.getCache());
+        if (this.conf.getCache().isEnabled()) cacheManager = new CacheManager(conf.getCache());
         dealer = new DealerClient(this);
         player = new Player(conf.getPlayer(), this);
 
@@ -498,8 +486,11 @@ public class Session implements Closeable {
 
     }
 
+    public Configuration getConf() {
+        return conf;
+    }
 
-     public static class Builder {
+    public static class Builder {
         private Authentication.LoginCredentials loginCredentials = null;
         private Session session;
         private Configuration conf;
@@ -537,7 +528,7 @@ public class Session implements Closeable {
 
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
-            AuthConf authConf= this.conf.getAuth();
+            AuthConf authConf = this.conf.getAuth();
             if (loginCredentials == null) {
                 if (authConf != null) {
                     String blob = authConf.getBlob();
@@ -570,14 +561,14 @@ public class Session implements Closeable {
 
             session.connect();
             session.authenticate(loginCredentials, session.conf.getDeviceId());
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     session.close();
                 } catch (IOException ignored) {
                 }
             }));
-    
-	return session;
+
+            return session;
         }
     }
 
@@ -702,9 +693,5 @@ public class Session implements Closeable {
                 }
             }
         }
-    }
-
-    public Configuration getConf() {
-        return conf;
     }
 }

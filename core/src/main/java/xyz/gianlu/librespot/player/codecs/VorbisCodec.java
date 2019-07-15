@@ -11,7 +11,10 @@ import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.config.PlayerConf;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.LinesHolder;
+import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.PlayerRunner;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.LineUnavailableException;

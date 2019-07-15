@@ -28,6 +28,7 @@ public class Main {
         server.registerHandler(new MetadataHandler(session));
         server.registerHandler(new MercuryHandler(session));
     }
+
     private static Configuration getConfig() throws IOException {
         File configFile = Optional.ofNullable(System.getProperty("config.file")).map(File::new).orElseGet(() -> {
             LOGGER.info("No external application.yml file found. Please check if env property 'config.file' is set");

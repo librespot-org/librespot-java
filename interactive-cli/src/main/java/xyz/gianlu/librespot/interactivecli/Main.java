@@ -111,6 +111,14 @@ public class Main {
         }
     }
 
+    private static Configuration getConfig() throws IOException {
+        File configFile = Optional.ofNullable(System.getProperty("config.file")).map(File::new).orElseGet(() -> {
+            LOGGER.info("No external application.yml file found. Please check if env property 'config.file' is set");
+            return new File(ClassLoader.getSystemResource("application.yml").getFile());
+        });
+        return new ObjectMapper(new YAMLFactory()).readValue(configFile, Configuration.class);
+    }
+
     private void loadCustomCommands(@NotNull File file) throws FileNotFoundException {
         JsonObject obj = new JsonParser().parse(new FileReader(file)).getAsJsonObject();
         if (!obj.has("commands")) return;
@@ -277,13 +285,5 @@ public class Main {
                 return true;
             }
         });
-    }
-
-    private static Configuration getConfig() throws IOException {
-        File configFile = Optional.ofNullable(System.getProperty("config.file")).map(File::new).orElseGet(() -> {
-            LOGGER.info("No external application.yml file found. Please check if env property 'config.file' is set");
-            return new File(ClassLoader.getSystemResource("application.yml").getFile());
-        });
-        return new ObjectMapper(new YAMLFactory()).readValue(configFile, Configuration.class);
     }
 }
