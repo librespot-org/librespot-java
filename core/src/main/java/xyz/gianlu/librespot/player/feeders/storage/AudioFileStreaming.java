@@ -42,9 +42,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
         this.session = session;
         this.haltListener = haltListener;
-        this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
         this.file = file;
         this.key = key;
+
+        CacheManager cache = session.cache();
+        this.cacheHandler = cache == null ? null : cache.forFileId(Utils.bytesToHex(file.getFileId()));
     }
 
     @Override

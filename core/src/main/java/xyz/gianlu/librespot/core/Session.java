@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.cdn.CdnManager;
@@ -372,10 +373,8 @@ public class Session implements Closeable {
         return audioKeyManager;
     }
 
-    @NotNull
+    @Nullable
     public CacheManager cache() {
-        waitAuthLock();
-        if (cacheManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return cacheManager;
     }
 
