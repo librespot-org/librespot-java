@@ -49,18 +49,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Data -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>
-
         <!-- Audio -->
         <dependency>
             <groupId>org.jcraft</groupId>
@@ -87,6 +75,13 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
             <version>3.14.1</version>
+        </dependency>
+
+        <!-- TOML configuration -->
+        <dependency>
+            <groupId>com.electronwill.night-config</groupId>
+            <artifactId>toml</artifactId>
+            <version>3.6.0</version>
         </dependency>
     </dependencies>
 </project>
