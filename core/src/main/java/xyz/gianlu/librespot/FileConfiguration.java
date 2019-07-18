@@ -1,7 +1,13 @@
 package xyz.gianlu.librespot;
 
+import com.electronwill.nightconfig.core.Config;
+import com.electronwill.nightconfig.core.ConfigFormat;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import com.electronwill.nightconfig.core.file.FileConfig;
 import com.electronwill.nightconfig.core.file.FileNotFoundAction;
+import com.electronwill.nightconfig.core.file.FormatDetector;
+import com.electronwill.nightconfig.core.io.ConfigParser;
+import com.electronwill.nightconfig.core.io.ConfigWriter;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -12,16 +18,26 @@ import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.Properties;
+import java.util.function.Supplier;
 
 /**
  * @author Gianlu
  */
 public final class FileConfiguration extends AbsConfiguration {
     private static final Logger LOGGER = Logger.getLogger(FileConfiguration.class);
+
+    static {
+        FormatDetector.registerExtension("properties", new PropertiesFormat());
+    }
+
     private final CommentedFileConfig config;
 
-    public FileConfiguration(@Nullable String[] override) {
+    public FileConfiguration(@Nullable String[] override) throws IOException {
         File confFile = null;
         if (override != null) {
             for (String arg : override) {
@@ -32,11 +48,26 @@ public final class FileConfiguration extends AbsConfiguration {
 
         if (confFile == null) confFile = new File("config.toml");
 
+        if (!confFile.exists()) {
+            File oldConf = new File("conf.properties");
+            if (oldConf.exists()) confFile = oldConf;
+        }
+
+        boolean migrating = FormatDetector.detect(confFile) instanceof PropertiesFormat;
+
         InputStream defaultConfig = FileConfiguration.class.getClassLoader().getResourceAsStream("default.toml");
         if (defaultConfig == null) throw new IllegalStateException();
 
-        config = CommentedFileConfig.builder(confFile).onFileNotFound(FileNotFoundAction.copyData(defaultConfig)).build();
+        config = CommentedFileConfig.builder(migrating ? new File("config.toml") : confFile).onFileNotFound(FileNotFoundAction.copyData(defaultConfig)).build();
         config.load();
+
+        if (migrating) {
+            migrateOldConfig(confFile, config);
+            config.save();
+            confFile.delete();
+
+            LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
+        }
 
         if (override != null && override.length > 0) {
             for (String str : override) {
@@ -52,6 +83,27 @@ public final class FileConfiguration extends AbsConfiguration {
                     config.set(split[0].substring(2), split[1]);
                 } else {
                     LOGGER.warn("Invalid command line argument: " + str);
+                }
+            }
+        }
+    }
+
+    private static void migrateOldConfig(@NotNull File confFile, @NotNull FileConfig config) throws IOException {
+        Properties old = new Properties();
+        try (FileReader fr = new FileReader(confFile)) {
+            old.load(fr);
+        }
+
+        for (Object key : old.keySet()) {
+            String val = old.getProperty((String) key);
+            if ("true".equals(val) || "false".equals(val)) {
+                config.set((String) key, Boolean.parseBoolean(val));
+            } else {
+                try {
+                    int i = Integer.parseInt(val);
+                    config.set((String) key, i);
+                } catch (NumberFormatException ex) {
+                    config.set((String) key, val);
                 }
             }
         }
@@ -190,5 +242,27 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public String[] zeroconfInterfaces() {
         return getStringArray("zeroconf.interfaces");
+    }
+
+    private final static class PropertiesFormat implements ConfigFormat<Config> {
+        @Override
+        public ConfigWriter createWriter() {
+            return null;
+        }
+
+        @Override
+        public ConfigParser<Config> createParser() {
+            return null;
+        }
+
+        @Override
+        public Config createConfig(Supplier<Map<String, Object>> mapCreator) {
+            return null;
+        }
+
+        @Override
+        public boolean supportsComments() {
+            return false;
+        }
     }
 }
