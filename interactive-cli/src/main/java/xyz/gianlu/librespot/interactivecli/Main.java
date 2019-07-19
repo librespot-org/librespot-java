@@ -79,7 +79,7 @@ public class Main {
             }
         }
 
-        AbsConfiguration conf = new FileConfiguration(new File("conf.properties"), args);
+        AbsConfiguration conf = new FileConfiguration(args);
         Session.Builder s = new Session.Builder(conf);
 
         DefaultTerminalFactory factory = new DefaultTerminalFactory();

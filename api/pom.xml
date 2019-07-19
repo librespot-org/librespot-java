@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>0.5.2</version>
+        <version>0.6.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -45,11 +45,6 @@
         <dependency>
             <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>xyz.gianlu.librespot</groupId>
-            <artifactId>librespot-common</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

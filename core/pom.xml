@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>0.5.2</version>
+        <version>0.6.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -49,18 +49,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Data -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>
-
         <!-- Audio -->
         <dependency>
             <groupId>org.jcraft</groupId>
@@ -86,7 +74,14 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>3.14.1</version>
+            <version>4.0.1</version>
+        </dependency>
+
+        <!-- TOML configuration -->
+        <dependency>
+            <groupId>com.electronwill.night-config</groupId>
+            <artifactId>toml</artifactId>
+            <version>3.6.0</version>
         </dependency>
     </dependencies>
 </project>

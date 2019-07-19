@@ -47,11 +47,6 @@
             <artifactId>librespot-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>xyz.gianlu.librespot</groupId>
-            <artifactId>librespot-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <!-- GUI -->
         <dependency>
