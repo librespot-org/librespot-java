@@ -148,7 +148,14 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public float normalisationPregain() {
-        return config.get("player.normalisationPregain");
+        float result;
+        Object raw = config.get("player.normalisationPregain");
+
+        if(raw instanceof Double)  result = ((Double) raw).floatValue();
+        else if(raw instanceof Integer) result = ((Integer) raw).floatValue();
+        else throw new IllegalArgumentException(" normalisationPregain is not a valid number: " + raw.toString());
+
+        return result;
     }
 
     @NotNull
