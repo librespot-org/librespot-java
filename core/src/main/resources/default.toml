@@ -23,7 +23,7 @@ enabled = true # Preload enabled
 [player] ### Player ###
 autoplayEnabled = true # Autoplay similar songs when your music ends
 preferredAudioQuality = "VORBIS_160" # Preferred audio quality (VORBIS_96, VORBIS_160, VORBIS_320)
-normalisationPregain = 0 # Normalisation pregain
+normalisationPregain = 0.0 # Normalisation pregain
 initialVolume = 65536 # Initial volume (0-65536)
 logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords

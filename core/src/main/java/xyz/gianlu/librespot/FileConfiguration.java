@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Supplier;
 
@@ -96,7 +97,9 @@ public final class FileConfiguration extends AbsConfiguration {
 
         for (Object key : old.keySet()) {
             String val = old.getProperty((String) key);
-            if ("true".equals(val) || "false".equals(val)) {
+            if (Objects.equals(key, "player.normalisationPregain")) {
+                config.set((String) key, Float.parseFloat(val));
+            } else if ("true".equals(val) || "false".equals(val)) {
                 config.set((String) key, Boolean.parseBoolean(val));
             } else {
                 try {
