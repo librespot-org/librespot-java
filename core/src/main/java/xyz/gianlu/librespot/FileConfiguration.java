@@ -81,10 +81,26 @@ public final class FileConfiguration extends AbsConfiguration {
                         continue;
                     }
 
-                    config.set(split[0].substring(2), split[1]);
+                    String key = split[0].substring(2);
+                    config.set(key, convertFromString(key, split[1]));
                 } else {
                     LOGGER.warn("Invalid command line argument: " + str);
                 }
+            }
+        }
+    }
+
+    @NotNull
+    private static Object convertFromString(@NotNull String key, @NotNull String value) {
+        if (Objects.equals(key, "player.normalisationPregain")) {
+            return Float.parseFloat(value);
+        } else if ("true".equals(value) || "false".equals(value)) {
+            return Boolean.parseBoolean(value);
+        } else {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException ex) {
+                return value;
             }
         }
     }
@@ -97,18 +113,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
         for (Object key : old.keySet()) {
             String val = old.getProperty((String) key);
-            if (Objects.equals(key, "player.normalisationPregain")) {
-                config.set((String) key, Float.parseFloat(val));
-            } else if ("true".equals(val) || "false".equals(val)) {
-                config.set((String) key, Boolean.parseBoolean(val));
-            } else {
-                try {
-                    int i = Integer.parseInt(val);
-                    config.set((String) key, i);
-                } catch (NumberFormatException ex) {
-                    config.set((String) key, val);
-                }
-            }
+            config.set((String) key, convertFromString((String) key, val));
         }
     }
 
