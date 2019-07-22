@@ -1,8 +1,15 @@
 package xyz.gianlu.librespot;
 
+import com.electronwill.nightconfig.core.Config;
+import com.electronwill.nightconfig.core.ConfigFormat;
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import com.electronwill.nightconfig.core.file.FileConfig;
+import com.electronwill.nightconfig.core.file.FileNotFoundAction;
+import com.electronwill.nightconfig.core.file.FormatDetector;
+import com.electronwill.nightconfig.core.io.ConfigParser;
+import com.electronwill.nightconfig.core.io.ConfigWriter;
 import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -13,19 +20,55 @@ import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 /**
  * @author Gianlu
  */
 public final class FileConfiguration extends AbsConfiguration {
     private static final Logger LOGGER = Logger.getLogger(FileConfiguration.class);
-    private final Properties properties;
-    private final DefaultConfiguration defaults = new DefaultConfiguration();
 
-    public FileConfiguration(@NotNull File file, @Nullable String[] override) throws IOException {
-        this.properties = new Properties();
-        this.properties.load(new FileReader(file));
+    static {
+        FormatDetector.registerExtension("properties", new PropertiesFormat());
+    }
+
+    private final CommentedFileConfig config;
+
+    public FileConfiguration(@Nullable String[] override) throws IOException {
+        File confFile = null;
+        if (override != null) {
+            for (String arg : override) {
+                if (arg != null && arg.startsWith("--conf-file="))
+                    confFile = new File(arg.substring(13));
+            }
+        }
+
+        if (confFile == null) confFile = new File("config.toml");
+
+        if (!confFile.exists()) {
+            File oldConf = new File("conf.properties");
+            if (oldConf.exists()) confFile = oldConf;
+        }
+
+        boolean migrating = FormatDetector.detect(confFile) instanceof PropertiesFormat;
+
+        InputStream defaultConfig = FileConfiguration.class.getClassLoader().getResourceAsStream("default.toml");
+        if (defaultConfig == null) throw new IllegalStateException();
+
+        config = CommentedFileConfig.builder(migrating ? new File("config.toml") : confFile).onFileNotFound(FileNotFoundAction.copyData(defaultConfig)).build();
+        config.load();
+
+        if (migrating) {
+            migrateOldConfig(confFile, config);
+            config.save();
+            confFile.delete();
+
+            LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
+        }
 
         if (override != null && override.length > 0) {
             for (String str : override) {
@@ -38,7 +81,7 @@ public final class FileConfiguration extends AbsConfiguration {
                         continue;
                     }
 
-                    properties.setProperty(split[0].substring(2), split[1]);
+                    config.set(split[0].substring(2), split[1]);
                 } else {
                     LOGGER.warn("Invalid command line argument: " + str);
                 }
@@ -46,163 +89,155 @@ public final class FileConfiguration extends AbsConfiguration {
         }
     }
 
-    private boolean getBoolean(@NotNull String key, boolean fallback) {
-        return Boolean.parseBoolean(properties.getProperty(key, String.valueOf(fallback)));
-    }
-
-    @NotNull
-    private File getFile(@NotNull String key, @NotNull File fallback) {
-        return new File(properties.getProperty(key, fallback.getAbsolutePath()));
-    }
-
-    private float getFloat(@NotNull String key, float fallback) {
-        try {
-            return Float.parseFloat(properties.getProperty(key, String.valueOf(fallback)));
-        } catch (NumberFormatException ex) {
-            return fallback;
+    private static void migrateOldConfig(@NotNull File confFile, @NotNull FileConfig config) throws IOException {
+        Properties old = new Properties();
+        try (FileReader fr = new FileReader(confFile)) {
+            old.load(fr);
         }
-    }
 
-    private int getInt(@NotNull String key, int fallback) {
-        try {
-            return Integer.parseInt(properties.getProperty(key, String.valueOf(fallback)));
-        } catch (NumberFormatException ex) {
-            return fallback;
-        }
-    }
-
-    @Contract("_, _, !null -> !null")
-    private <E extends Enum<E>> E getEnum(@NotNull Class<E> clazz, @NotNull String key, @Nullable E fallback) {
-        String val = properties.getProperty(key, null);
-        if (val == null) return fallback;
-
-        try {
-            return Enum.valueOf(clazz, val.toUpperCase());
-        } catch (RuntimeException ex) {
-            return fallback;
+        for (Object key : old.keySet()) {
+            String val = old.getProperty((String) key);
+            if (Objects.equals(key, "player.normalisationPregain")) {
+                config.set((String) key, Float.parseFloat(val));
+            } else if ("true".equals(val) || "false".equals(val)) {
+                config.set((String) key, Boolean.parseBoolean(val));
+            } else {
+                try {
+                    int i = Integer.parseInt(val);
+                    config.set((String) key, i);
+                } catch (NumberFormatException ex) {
+                    config.set((String) key, val);
+                }
+            }
         }
     }
 
     @NotNull
-    private String[] getStringArray(@NotNull String key, @NotNull String[] fallback) {
-        String str = properties.getProperty(key, null);
-        if (str == null) return fallback;
-        else if ((str = str.trim()).isEmpty()) return new String[0];
+    private String[] getStringArray(@NotNull String key) {
+        String str = config.get(key);
+        if ((str = str.trim()).isEmpty()) return new String[0];
         else return Utils.split(str, ',');
+    }
+
+    @NotNull
+    private File getFile(@NotNull String path) {
+        return new File((String) config.get(path));
     }
 
     @Override
     public boolean cacheEnabled() {
-        return getBoolean("cache.enabled", defaults.cacheEnabled());
+        return config.get("cache.enabled");
     }
 
     @Override
     public @NotNull File cacheDir() {
-        return getFile("cache.dir", defaults.cacheDir());
+        return getFile("cache.dir");
     }
 
     @Override
     public boolean doCleanUp() {
-        return getBoolean("cache.doCleanUp", defaults.doCleanUp());
+        return config.get("cache.doCleanUp");
     }
 
     @Override
     public @NotNull AudioQuality preferredQuality() {
-        return AudioQuality.valueOf(properties.getProperty("player.preferredAudioQuality", defaults.preferredQuality().name()));
+        return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
     }
 
     @Override
     public boolean preloadEnabled() {
-        return getBoolean("preload.enabled", defaults.preloadEnabled());
+        return config.get("preload.enabled");
     }
 
     @Override
     public float normalisationPregain() {
-        return getFloat("player.normalisationPregain", defaults.normalisationPregain());
+        Object raw = config.get("player.normalisationPregain");
+
+        if (raw instanceof Double) return ((Double) raw).floatValue();
+        else if (raw instanceof Integer) return ((Integer) raw).floatValue();
+        else throw new IllegalArgumentException(" normalisationPregain is not a valid number: " + raw.toString());
     }
 
     @NotNull
     @Override
     public String[] mixerSearchKeywords() {
-        return getStringArray("player.mixerSearchKeywords", defaults.mixerSearchKeywords());
+        return getStringArray("player.mixerSearchKeywords");
     }
 
     @Override
     public boolean logAvailableMixers() {
-        return getBoolean("player.logAvailableMixers", defaults.logAvailableMixers());
+        return config.get("player.logAvailableMixers");
     }
 
     @Override
     public int initialVolume() {
-        int vol = getInt("player.initialVolume", defaults.initialVolume());
-        if (vol < 0 || vol > PlayerRunner.VOLUME_MAX) {
-            LOGGER.warn("Invalid volume: " + vol);
-            return defaults.initialVolume();
-        } else {
-            return vol;
-        }
+        int vol = config.get("player.initialVolume");
+        if (vol < 0 || vol > PlayerRunner.VOLUME_MAX)
+            throw new IllegalArgumentException("Invalid volume: " + vol);
+
+        return vol;
     }
 
     @Override
     public boolean autoplayEnabled() {
-        return getBoolean("player.autoplayEnabled", defaults.autoplayEnabled());
+        return config.get("player.autoplayEnabled");
     }
 
 
     @Override
     public boolean useCdnForTracks() {
-        return getBoolean("player.tracks.useCdn", defaults.useCdnForTracks());
+        return config.get("player.tracks.useCdn");
     }
 
     @Override
     public boolean useCdnForEpisodes() {
-        return getBoolean("player.episodes.useCdn", defaults.useCdnForTracks());
+        return config.get("player.episodes.useCdn");
     }
 
     @Override
     public boolean enableLoadingState() {
-        return getBoolean("player.enableLoadingState", defaults.enableLoadingState());
+        return config.get("player.enableLoadingState");
     }
 
     @Override
     public @Nullable String deviceName() {
-        return properties.getProperty("deviceName", null);
+        return config.get("deviceName");
     }
 
     @Override
     public @Nullable Connect.DeviceType deviceType() {
-        return getEnum(Connect.DeviceType.class, "deviceType", null);
+        return config.getEnum("deviceType", Connect.DeviceType.class);
     }
 
     @Override
     public @Nullable String authUsername() {
-        return properties.getProperty("auth.username", null);
+        return config.get("auth.username");
     }
 
     @Override
     public @Nullable String authPassword() {
-        return properties.getProperty("auth.password", null);
+        return config.get("auth.password");
     }
 
     @Override
     public @Nullable String authBlob() {
-        return properties.getProperty("auth.blob", null);
+        return config.get("auth.blob");
     }
 
     @NotNull
     @Override
     public Strategy authStrategy() {
-        return getEnum(Strategy.class, "auth.strategy", defaults.authStrategy());
+        return config.getEnum("auth.strategy", Strategy.class);
     }
 
     @Override
     public boolean zeroconfListenAll() {
-        return getBoolean("zeroconf.listenAll", defaults.zeroconfListenAll());
+        return config.get("zeroconf.listenAll");
     }
 
     @Override
     public int zeroconfListenPort() {
-        int val = getInt("zeroconf.listenPort", defaults.zeroconfListenPort());
+        int val = config.get("zeroconf.listenPort");
         if (val == -1) return val;
 
         if (val < ZeroconfServer.MIN_PORT || val > ZeroconfServer.MAX_PORT)
@@ -214,6 +249,28 @@ public final class FileConfiguration extends AbsConfiguration {
     @NotNull
     @Override
     public String[] zeroconfInterfaces() {
-        return getStringArray("zeroconf.interfaces", defaults.zeroconfInterfaces());
+        return getStringArray("zeroconf.interfaces");
+    }
+
+    private final static class PropertiesFormat implements ConfigFormat<Config> {
+        @Override
+        public ConfigWriter createWriter() {
+            return null;
+        }
+
+        @Override
+        public ConfigParser<Config> createParser() {
+            return null;
+        }
+
+        @Override
+        public Config createConfig(Supplier<Map<String, Object>> mapCreator) {
+            return null;
+        }
+
+        @Override
+        public boolean supportsComments() {
+            return false;
+        }
     }
 }

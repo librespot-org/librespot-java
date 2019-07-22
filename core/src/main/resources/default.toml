@@ -1,0 +1,36 @@
+deviceName = "librespot-java" ### Device name ###
+deviceType = "Computer" ### Device type (Computer, Tablet, Smartphone, Speaker, TV, AVR, STB, AudioDongle, Unknown) ###
+
+[auth] ### Authentication ###
+strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK)
+username = "" # Spotify username (BLOB, USER_PASS only)
+password = "" # Spotify password (USER_PASS only)
+blob = "" # Spotify authentication blob (BLOB only)
+
+[zeroconf] ### Zeroconf ###
+listenPort = -1 # Listen on this port (`-1` for random)
+listenAll = true # Listen on all interfaces (overrides `zeroconf.interfaces`)
+interfaces = "" # Listen on these interfaces (comma separated list of names)
+
+[cache] ### Cache ###
+enabled = true # Cache enabled
+dir = "./cache/"
+doCleanUp = true
+
+[preload] ### Preload ###
+enabled = true # Preload enabled
+
+[player] ### Player ###
+autoplayEnabled = true # Autoplay similar songs when your music ends
+preferredAudioQuality = "VORBIS_160" # Preferred audio quality (VORBIS_96, VORBIS_160, VORBIS_320)
+normalisationPregain = 0.0 # Normalisation pregain
+initialVolume = 65536 # Initial volume (0-65536)
+logAvailableMixers = true # Log available mixers
+mixerSearchKeywords = "" # Mixer/backend search keywords
+enableLoadingState = true # Enable loading state (useful for slow connections)
+
+[player.tracks]
+useCdn = true # Use CDN to download tracks
+
+[player.episodes]
+useCdn = true # Use CDN to download episodes

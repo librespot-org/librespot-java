@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.com/librespot-org/librespot-java)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
 
-`librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
+`librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust, which as evolved into the most up-to-date open-source Spotify client. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
 
 ## Features
 This client is pretty much capable of playing anything that's available on Spotify. 
@@ -14,7 +14,7 @@ Its main features are:
 - Gapless playback
 
 ## Get started
-All the configuration you need is inside the `conf.properties` file, there you can decide to authenticate with:
+All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
 - Username and password
 - Zeroconf
 - Facebook
@@ -36,6 +36,6 @@ This is more advanced and should only be used if you saved an authentication blo
 You can download the latest release from [here](https://github.com/librespot-org/librespot-java/releases) and then run `java -jar ./librespot-core-jar-with-dependencies.jar` from the command line.
 
 ## Build it
-This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`. Remember that you need to clone the project with its submodules (`git clone --recursive https://github.com/librespot-org/librespot-java`).
+This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.

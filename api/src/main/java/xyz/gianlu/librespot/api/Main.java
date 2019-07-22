@@ -5,7 +5,6 @@ import xyz.gianlu.librespot.api.server.ApiServer;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
-import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
@@ -15,7 +14,7 @@ import java.security.GeneralSecurityException;
 public class Main {
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
-        Session session = new Session.Builder(new FileConfiguration(new File("conf.properties"), args)).create();
+        Session session = new Session.Builder(new FileConfiguration(args)).create();
 
         ApiServer server = new ApiServer(24879);
         server.registerHandler(new PlayerHandler(session));
