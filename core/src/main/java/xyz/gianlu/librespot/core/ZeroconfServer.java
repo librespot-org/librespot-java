@@ -127,6 +127,14 @@ public class ZeroconfServer implements Closeable {
 
         if (atLeastOne) LOGGER.info("SpotifyConnect service registered successfully!");
         else throw new IllegalStateException("Could not register the service anywhere!");
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                System.out.println(this);
+                close();
+            } catch (IOException ignored) {
+            }
+        }));
     }
 
     @NotNull
@@ -187,8 +195,9 @@ public class ZeroconfServer implements Closeable {
 
     @Override
     public void close() throws IOException {
-        for (JmDNS instance : instances)
-            instance.unregisterAllServices();
+        for (JmDNS instance : instances) {
+            if (instance != null) instance.unregisterAllServices();
+        }
 
         LOGGER.trace("SpotifyConnect service unregistered successfully.");
         runner.close();
