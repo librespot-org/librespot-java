@@ -157,10 +157,15 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public float normalisationPregain() {
         Object raw = config.get("player.normalisationPregain");
-
-        if (raw instanceof Double) return ((Double) raw).floatValue();
-        else if (raw instanceof Integer) return ((Integer) raw).floatValue();
-        else throw new IllegalArgumentException(" normalisationPregain is not a valid number: " + raw.toString());
+        if (raw instanceof String) {
+            return Float.parseFloat((String) raw);
+        } else if (raw instanceof Double) {
+            return ((Double) raw).floatValue();
+        } else if (raw instanceof Integer) {
+            return ((Integer) raw).floatValue();
+        } else {
+            throw new IllegalArgumentException(String.format("normalisationPregain is not a valid float: %s (%s) ", raw.toString(), raw.getClass()));
+        }
     }
 
     @NotNull

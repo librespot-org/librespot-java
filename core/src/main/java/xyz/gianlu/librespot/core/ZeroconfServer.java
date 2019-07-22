@@ -307,7 +307,7 @@ public class ZeroconfServer implements Closeable {
                 session.close();
                 LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
             }
-            ApResolver.fillPool();
+
             session = Session.from(inner);
             LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
 
