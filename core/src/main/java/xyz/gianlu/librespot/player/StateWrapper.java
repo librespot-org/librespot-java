@@ -405,9 +405,16 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
     }
 
-    @NotNull
+    @Nullable
     PlayableId getCurrentPlayable() {
-        return PlayableId.from(tracksKeeper.getCurrentTrack());
+        return tracksKeeper == null ? null : PlayableId.from(tracksKeeper.getCurrentTrack());
+    }
+
+    @NotNull
+    PlayableId getCurrentPlayableOrThrow() {
+        PlayableId id = getCurrentPlayable();
+        if (id == null) throw new IllegalStateException();
+        return id;
     }
 
     @NotNull
@@ -565,7 +572,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
 
         synchronized void updateContext(@NotNull List<ContextPage> updatedPages) throws IOException, MercuryClient.MercuryException {
-            String current = getCurrentPlayable().toSpotifyUri();
+            String current = getCurrentPlayableOrThrow().toSpotifyUri();
 
             tracks.clear();
             pages = PagesLoader.from(session, context.uri());
@@ -737,7 +744,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 isPlayingQueue = true;
                 updateState();
 
-                if (getCurrentPlayable() instanceof UnsupportedId)
+                if (getCurrentPlayableOrThrow() instanceof UnsupportedId)
                     return nextPlayable(conf);
 
                 return NextPlayable.OK_PLAY;
@@ -764,7 +771,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 setCurrentTrackIndex(getCurrentTrackIndex() + 1);
             }
 
-            if (getCurrentPlayable() instanceof UnsupportedId)
+            if (getCurrentPlayableOrThrow() instanceof UnsupportedId)
                 return nextPlayable(conf);
 
             if (play) return NextPlayable.OK_PLAY;
@@ -786,7 +793,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 setCurrentTrackIndex(index - 1);
             }
 
-            if (getCurrentPlayable() instanceof UnsupportedId)
+            if (getCurrentPlayableOrThrow() instanceof UnsupportedId)
                 return previousPlayable();
 
             return PreviousPlayable.OK;
@@ -861,7 +868,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                     }
                 }
 
-                PlayableId currentlyPlaying = getCurrentPlayable();
+                PlayableId currentlyPlaying = getCurrentPlayableOrThrow();
                 shuffle.shuffle(tracks, true);
                 shuffleKeepIndex = ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri());
                 Collections.swap(tracks, 0, shuffleKeepIndex);
@@ -870,7 +877,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 LOGGER.trace(String.format("Shuffled context! {keepIndex: %d}", shuffleKeepIndex));
             } else {
                 if (shuffle.canUnshuffle(tracks.size())) {
-                    PlayableId currentlyPlaying = getCurrentPlayable();
+                    PlayableId currentlyPlaying = getCurrentPlayableOrThrow();
                     if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
 
                     shuffle.unshuffle(tracks);
@@ -878,7 +885,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
                     LOGGER.trace("Unshuffled using Fisher-Yates.");
                 } else {
-                    PlayableId id = getCurrentPlayable();
+                    PlayableId id = getCurrentPlayableOrThrow();
 
                     tracks.clear();
                     pages = PagesLoader.from(session, context.uri());

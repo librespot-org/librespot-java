@@ -308,7 +308,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (trackHandler != null) trackHandler.close();
 
         boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
-        PlayableId id = state.getCurrentPlayable();
+        PlayableId id = state.getCurrentPlayableOrThrow();
         if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
             trackHandler = preloadTrackHandler;
             preloadTrackHandler = null;
