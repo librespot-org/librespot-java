@@ -524,12 +524,12 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
     @Nullable
     public Metadata.Track currentTrack() {
-        return trackHandler.track();
+        return trackHandler == null ? null : trackHandler.track();
     }
 
     @Nullable
     public Metadata.Episode currentEpisode() {
-        return trackHandler.episode();
+        return trackHandler == null ? null : trackHandler.episode();
     }
 
     @Nullable
