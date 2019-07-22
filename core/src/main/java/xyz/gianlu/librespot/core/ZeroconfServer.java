@@ -58,6 +58,7 @@ public class ZeroconfServer implements Closeable {
             new byte[]{(byte) 0x00, (byte) 0x03, (byte) 0xFF}, // Microsoft Virtual PC
             new byte[]{(byte) 0x00, (byte) 0x16, (byte) 0x3E}, // Red Hat Xen, Oracle VM, Xen Source, Novell Xen
             new byte[]{(byte) 0x08, (byte) 0x00, (byte) 0x27}, // VirtualBox
+            new byte[]{(byte) 0x00, (byte) 0x15, (byte) 0x5D}, // Hyper-V
     };
 
     static {
@@ -131,7 +132,6 @@ public class ZeroconfServer implements Closeable {
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                System.out.println(this);
                 close();
             } catch (IOException ignored) {
             }
@@ -140,6 +140,7 @@ public class ZeroconfServer implements Closeable {
 
     @NotNull
     public static ZeroconfServer create(@NotNull AbsConfiguration conf) throws IOException {
+        ApResolver.fillPool();
         return new ZeroconfServer(Session.Inner.from(conf), conf);
     }
 
@@ -180,7 +181,7 @@ public class ZeroconfServer implements Closeable {
                 LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
         }
 
-        LOGGER.trace(String.format("Adding addresses of %s (displayName: %s)", nif.getName(), nif.getDisplayName()));
+        LOGGER.trace(String.format("Adding addresses of %s {displayName: %s, mac: %s}", nif.getName(), nif.getDisplayName(), Utils.bytesToHex(nif.getHardwareAddress())));
         Enumeration<InetAddress> ias = nif.getInetAddresses();
         while (ias.hasMoreElements())
             list.add(ias.nextElement());
