@@ -27,7 +27,9 @@ public class ApResolver {
     private static volatile boolean poolReady = false;
 
     public static void fillPool() throws IOException {
-        request("accesspoint", "dealer", "spclient");
+        if (pool.isEmpty()) {
+            request("accesspoint", "dealer", "spclient");
+        }
     }
 
     @NotNull
