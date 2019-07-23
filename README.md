@@ -39,3 +39,9 @@ You can download the latest release from [here](https://github.com/librespot-org
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
+
+# Special thanks
+
+- All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
+- All the contributors of this project for testing and fixing stuff
+- <a href="https://www.yourkit.com/"><img src="https://www.yourkit.com/images/yklogo.png" height="20"></a> that provided a free license for their [Java Profiler](https://www.yourkit.com/java/profiler/)
