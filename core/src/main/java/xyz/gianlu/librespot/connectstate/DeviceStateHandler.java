@@ -130,7 +130,9 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             notifyVolumeChange();
         } else if (uri.equals("hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
-            if (!Objects.equals(update.getCluster().getActiveDeviceId(), session.deviceId()) && putState.getIsActive())
+            LOGGER.debug("Received cluster update: " + TextFormat.shortDebugString(update));
+
+            if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && TimeProvider.currentTimeMillis() > startedPlayingAt())
                 notifyNotActive();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
@@ -152,6 +154,14 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed updating state!", ex);
         }
+    }
+
+    private synchronized long startedPlayingAt() {
+        return putState.getStartedPlayingAt();
+    }
+
+    private synchronized boolean isActive() {
+        return putState.getIsActive();
     }
 
     public synchronized void setIsActive(boolean active) {
