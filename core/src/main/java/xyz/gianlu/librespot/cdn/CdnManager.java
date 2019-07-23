@@ -38,21 +38,14 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
 public class CdnManager {
     private static final Logger LOGGER = Logger.getLogger(CdnManager.class);
     private final Session session;
-    private final OkHttpClient client;
 
     public CdnManager(@NotNull Session session) {
         this.session = session;
-        this.client = new OkHttpClient();
-    }
-
-    @NotNull
-    public OkHttpClient client() {
-        return client;
     }
 
     @NotNull
     private InputStream getHead(@NotNull ByteString fileId) throws IOException {
-        Response resp = client.newCall(new Request.Builder()
+        Response resp = session.client().newCall(new Request.Builder()
                 .get().url("https://heads-fa.spotify.com/head/" + Utils.bytesToHex(fileId).toLowerCase())
                 .build()).execute();
 
@@ -318,7 +311,7 @@ public class CdnManager {
 
         @NotNull
         public synchronized InternalResponse request(int rangeStart, int rangeEnd) throws IOException, CdnException {
-            try (Response resp = client.newCall(new Request.Builder().get().url(cdnUrl.url())
+            try (Response resp = session.client().newCall(new Request.Builder().get().url(cdnUrl.url())
                     .header("Range", "bytes=" + rangeStart + "-" + rangeEnd)
                     .build()).execute()) {
 

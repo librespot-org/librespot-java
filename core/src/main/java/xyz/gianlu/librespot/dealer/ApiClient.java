@@ -20,12 +20,10 @@ import java.io.IOException;
  */
 public class ApiClient {
     private final Session session;
-    private final OkHttpClient client;
     private final String baseUrl;
 
     public ApiClient(@NotNull Session session) {
         this.session = session;
-        this.client = new OkHttpClient();
         this.baseUrl = "https://" + ApResolver.getRandomSpclient();
     }
 
@@ -57,7 +55,7 @@ public class ApiClient {
         request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         request.url(baseUrl + suffix);
 
-        return client.newCall(request.build()).execute();
+        return session.client().newCall(request.build()).execute();
     }
 
     @NotNull

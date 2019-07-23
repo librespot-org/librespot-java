@@ -3,7 +3,10 @@ package xyz.gianlu.librespot.dealer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import okhttp3.*;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -45,7 +48,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private void connect() throws IOException, MercuryClient.MercuryException {
         if (ws != null) ws.cancel();
 
-        this.ws = new OkHttpClient().newWebSocket(new Request.Builder()
+        this.ws = session.client().newWebSocket(new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
                 .build(), this);
     }

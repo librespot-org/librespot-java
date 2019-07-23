@@ -240,10 +240,9 @@ public class ZeroconfServer implements Closeable {
             return;
         }
 
-        String blobStr = params.get("authBlob");
-        if (blobStr == null) blobStr = params.get("blob");
+        String blobStr = params.get("blob");
         if (blobStr == null) {
-            LOGGER.fatal("Missing authBlob!");
+            LOGGER.fatal("Missing blob!");
             return;
         }
 
@@ -310,7 +309,7 @@ public class ZeroconfServer implements Closeable {
             }
 
             session = Session.from(inner);
-            LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
+            LOGGER.info(String.format("Accepted new user from %s. {deviceId: %s}", params.get("deviceName"), session.deviceId()));
 
             session.connect();
             session.authenticate(credentials);
@@ -353,7 +352,7 @@ public class ZeroconfServer implements Closeable {
                         }
                     });
                 } catch (IOException ex) {
-                    LOGGER.fatal("Failed handling connection!", ex);
+                    if (!shouldStop) LOGGER.fatal("Failed handling connection!", ex);
                 }
             }
         }

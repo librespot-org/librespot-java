@@ -44,7 +44,7 @@ public class CdnFeeder extends BaseFeeder {
         if (!episode.hasExternalUrl())
             throw new CanNotAvailable("Missing external_url!");
 
-        Response resp = session.cdn().client().newCall(new Request.Builder().head()
+        Response resp = session.client().newCall(new Request.Builder().head()
                 .url(episode.getExternalUrl()).build()).execute();
 
         if (resp.code() != 200)

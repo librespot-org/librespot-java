@@ -29,15 +29,14 @@ public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
     private static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
-    private final boolean enabled;
     private final File parent;
     private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
     private final Map<String, Handler> episodeHandlers = new ConcurrentHashMap<>();
-    private final Connection table;
+    private final Object tableLock = new Object();
+    private Connection table;
 
     public CacheManager(@NotNull Configuration conf) throws IOException {
-        this.enabled = conf.cacheEnabled();
-        if (!enabled) {
+        if (!conf.cacheEnabled()) {
             parent = null;
             table = null;
             return;
@@ -48,16 +47,7 @@ public class CacheManager implements Closeable {
         if (!parent.exists() && !parent.mkdir())
             throw new IOException("Couldn't create cache directory!");
 
-        try {
-            File tableFile = new File(parent, "table");
-            this.table = DriverManager.getConnection("jdbc:h2:" + tableFile.getAbsolutePath());
-            createTablesIfNeeded();
-
-            deleteCorruptedEntries();
-            if (conf.doCleanUp()) doCleanUp();
-        } catch (SQLException ex) {
-            throw new IOException(ex);
-        }
+        initTableAsync(conf.doCleanUp());
     }
 
     @NotNull
@@ -80,8 +70,40 @@ public class CacheManager implements Closeable {
         return new File(parent, hex).exists();
     }
 
+    @Nullable
+    private Connection tableOrNull() {
+        if (parent == null && table == null) return null; // Disabled
+
+        if (table == null) {
+            synchronized (tableLock) {
+                try {
+                    tableLock.wait();
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+
+        return table;
+    }
+
+    private void initTableAsync(boolean cleanup) {
+        new Thread(() -> {
+            try {
+                File tableFile = new File(parent, "table");
+                this.table = DriverManager.getConnection("jdbc:h2:" + tableFile.getAbsolutePath());
+                createTablesIfNeeded();
+
+                deleteCorruptedEntries();
+                if (cleanup) doCleanUp();
+            } catch (SQLException | IOException ex) {
+                LOGGER.error("Failed initializing cache database!", ex);
+            }
+        }, "cache-init").start();
+    }
+
     private void deleteCorruptedEntries() throws SQLException, IOException {
-        if (!enabled) return;
+        if (tableOrNull() == null) return;
 
         List<String> toRemove = new ArrayList<>();
         try (PreparedStatement statement = table.prepareStatement("SELECT DISTINCT streamId FROM Headers")) {
@@ -98,7 +120,7 @@ public class CacheManager implements Closeable {
     }
 
     private void doCleanUp() throws SQLException, IOException {
-        if (!enabled) return;
+        if (tableOrNull() == null) return;
 
         try (PreparedStatement statement = table.prepareStatement("SELECT streamId, value FROM Headers WHERE id=?")) {
             statement.setString(1, Utils.byteToHex(HEADER_TIMESTAMP));
@@ -113,7 +135,7 @@ public class CacheManager implements Closeable {
     }
 
     private void remove(@NotNull String streamId) throws SQLException, IOException {
-        if (!enabled) return;
+        if (tableOrNull() == null) return;
 
         try (PreparedStatement statement = table.prepareStatement("DELETE FROM Headers WHERE streamId=?")) {
             statement.setString(1, streamId);
@@ -133,7 +155,7 @@ public class CacheManager implements Closeable {
     }
 
     private void createTablesIfNeeded() throws SQLException {
-        if (!enabled) return;
+        if (tableOrNull() == null) return;
 
         try (Statement statement = table.createStatement()) {
             statement.execute("CREATE TABLE IF NOT EXISTS Chunks ( `streamId` VARCHAR NOT NULL, `chunkIndex` INTEGER NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`streamId`,`chunkIndex`) )");
@@ -152,7 +174,7 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forWhatever(@NotNull StreamId id) throws IOException {
-        if (!enabled) return null;
+        if (tableOrNull() == null) return null;
 
         if (id.isEpisode()) return forEpisode(id.getEpisodeGid());
         else return forFileId(id.getFileId());
@@ -160,7 +182,7 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forFileId(@NotNull String fileId) throws IOException {
-        if (!enabled) return null;
+        if (tableOrNull() == null) return null;
 
         Handler handler = fileHandlers.get(fileId);
         if (handler == null) {
@@ -173,7 +195,7 @@ public class CacheManager implements Closeable {
 
     @Nullable
     public Handler forEpisode(@NotNull String gid) throws IOException {
-        if (!enabled) return null;
+        if (tableOrNull() == null) return null;
 
         Handler handler = episodeHandlers.get(gid);
         if (handler == null) {
