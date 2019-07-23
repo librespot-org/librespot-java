@@ -14,10 +14,7 @@ import spotify.player.proto.ContextPlayerOptionsOuterClass;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.PlayOriginOuterClass;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 import static spotify.player.proto.ContextOuterClass.Context;
 
@@ -148,10 +145,12 @@ public final class ProtoUtils {
         return builder.build();
     }
 
-    public static void moveOverMetadata(@NotNull Context from, @NotNull Player.PlayerState.Builder to, @NotNull String... keys) {
-        for (String key : keys)
-            if (from.containsMetadata(key))
-                to.putContextMetadata(key, from.getMetadataOrThrow(key));
+    public static void copyOverMetadata(@NotNull Context from, @NotNull Player.PlayerState.Builder to) {
+        to.putAllContextMetadata(from.getMetadataMap());
+    }
+
+    public static void copyOverMetadata(@NotNull JsonObject obj, @NotNull Player.PlayerState.Builder to) {
+        for (String key : obj.keySet()) to.putContextMetadata(key, obj.get(key).getAsString());
     }
 
     public static int indexOfTrackByUid(@NotNull List<ContextTrack> tracks, @NotNull String uid) {
@@ -227,5 +226,20 @@ public final class ProtoUtils {
         int total = 0;
         for (Metadata.Disc disc : album.getDiscList()) total += disc.getTrackCount();
         return total;
+    }
+
+    @NotNull
+    public static List<ContextTrack> join(@NotNull List<ContextPage> pages) {
+        if (pages.isEmpty()) return Collections.emptyList();
+
+        List<ContextTrack> tracks = new ArrayList<>();
+        for (ContextPage page : pages)
+            tracks.addAll(page.getTracksList());
+
+        return tracks;
+    }
+
+    public static void copyOverMetadata(@NotNull ContextTrack from, @NotNull ContextTrack.Builder to) {
+        to.putAllMetadata(from.getMetadataMap());
     }
 }

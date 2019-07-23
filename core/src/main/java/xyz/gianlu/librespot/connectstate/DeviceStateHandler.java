@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player;
 import org.apache.log4j.Logger;
@@ -112,7 +113,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+    public synchronized void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
@@ -322,6 +323,11 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         public static JsonArray getPages(@NotNull JsonObject obj) {
             JsonObject context = getContext(obj);
             return context.getAsJsonArray("pages");
+        }
+
+        @NotNull
+        public static JsonObject getMetadata(@NotNull JsonObject obj) {
+            return getContext(obj).getAsJsonObject("metadata");
         }
     }
 

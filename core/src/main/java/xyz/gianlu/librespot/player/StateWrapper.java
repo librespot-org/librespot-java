@@ -155,7 +155,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         else this.state.clearContextUrl();
 
         state.clearContextMetadata();
-        ProtoUtils.moveOverMetadata(ctx, state, "context_description", "track_count", "context_owner", "image_url");
+        ProtoUtils.copyOverMetadata(ctx, state);
 
         this.pages = PagesLoader.from(session, ctx);
         this.tracksKeeper = new TracksKeeper();
@@ -390,17 +390,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     synchronized void updateContext(@NotNull JsonObject obj) {
         String uri = PlayCommandWrapper.getContextUri(obj);
         if (!context.uri().equals(uri)) {
-            LOGGER.warn(String.format("Received update of the wrong context! {context: %s, newUri: %s}", context, uri));
+            LOGGER.warn(String.format("Received update for the wrong context! {context: %s, newUri: %s}", context, uri));
             return;
         }
 
-        if (isShufflingContext()) LOGGER.warn("Updating shuffled context, that's bad!");
-
-        try {
-            tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(PlayCommandWrapper.getPages(obj)));
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.error("Failed updating context!", ex);
-        }
+        ProtoUtils.copyOverMetadata(PlayCommandWrapper.getMetadata(obj), state);
+        tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(PlayCommandWrapper.getPages(obj)));
     }
 
     void skipTo(@NotNull ContextTrack track) {
@@ -584,35 +579,16 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             updatePrevNextTracks();
         }
 
-        synchronized void updateContext(@NotNull List<ContextPage> updatedPages) throws IOException, MercuryClient.MercuryException {
-            String current = getCurrentPlayableOrThrow().toSpotifyUri();
+        synchronized void updateContext(@NotNull List<ContextPage> updatedPages) {
+            List<ContextTrack> updatedTracks = ProtoUtils.join(updatedPages);
+            for (ContextTrack track : updatedTracks) {
+                int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
+                if (index == -1) continue;
 
-            tracks.clear();
-            pages = PagesLoader.from(session, context.uri());
-            pages.putFirstPages(updatedPages);
-
-            while (true) {
-                if (pages.nextPage()) {
-                    List<ContextTrack> newTracks = pages.currentPage();
-                    int index = ProtoUtils.indexOfTrackByUri(newTracks, current);
-                    if (index == -1) {
-                        tracks.addAll(newTracks);
-                        continue;
-                    }
-
-                    index += tracks.size();
-                    tracks.addAll(newTracks);
-
-                    setCurrentTrackIndex(index);
-                    break;
-                } else {
-                    cannotLoadMore = true;
-                    updateTrackCount();
-                    throw new IllegalStateException("Couldn't find current track!");
-                }
+                ContextTrack.Builder builder = tracks.get(index).toBuilder();
+                ProtoUtils.copyOverMetadata(track, builder);
+                tracks.set(index, builder.build());
             }
-
-            checkComplete();
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
