@@ -265,6 +265,8 @@ public class Session implements Closeable {
         dealer = new DealerClient(this);
         player = new Player(inner.configuration, this);
 
+        TimeProvider.update(this);
+
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
 
@@ -745,8 +747,6 @@ public class Session implements Closeable {
                         }, 2 * 60 + 5, TimeUnit.SECONDS);
 
                         try {
-                            long serverTime = new BigInteger(packet.payload).longValue();
-                            TimeProvider.init((int) (serverTime - System.currentTimeMillis() / 1000));
                             send(Packet.Type.Pong, packet.payload);
                             LOGGER.trace(String.format("Handled Ping {payload: %s}", Utils.bytesToHex(packet.payload)));
                         } catch (IOException ex) {
