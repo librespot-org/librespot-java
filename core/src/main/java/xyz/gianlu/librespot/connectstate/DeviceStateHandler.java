@@ -104,12 +104,19 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
+    private void notifyNotActive() {
+        synchronized (listeners) {
+            for (Listener listener : listeners)
+                listener.notActive();
+        }
+    }
+
     @Override
     public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
-        } else if (uri.startsWith("hm://connect-state/v1/connect/volume")) {
+        } else if (uri.equals("hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
             deviceInfo.setVolume(cmd.getVolume());
 
@@ -120,6 +127,10 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             }
 
             notifyVolumeChange();
+        } else if (uri.equals("hm://connect-state/v1/cluster")) {
+            Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
+            if (!Objects.equals(update.getCluster().getActiveDeviceId(), session.deviceId()) && putState.getIsActive())
+                notifyNotActive();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
         }
@@ -192,6 +203,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         void command(@NotNull Endpoint endpoint, @NotNull CommandBody data) throws InvalidProtocolBufferException;
 
         void volumeChanged();
+
+        void notActive();
     }
 
     public static final class PlayCommandWrapper {

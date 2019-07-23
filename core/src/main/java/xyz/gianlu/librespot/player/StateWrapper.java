@@ -45,15 +45,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     StateWrapper(@NotNull Session session) {
         this.session = session;
         this.device = new DeviceStateHandler(session);
-        this.state = initState();
+        this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
     }
 
     @NotNull
-    private static PlayerState.Builder initState() {
-        return PlayerState.newBuilder()
-                .setPlaybackSpeed(1.0)
+    private static PlayerState.Builder initState(@NotNull PlayerState.Builder builder) {
+        return builder.setPlaybackSpeed(1.0)
                 .setSuppressions(Suppressions.newBuilder().build())
                 .setContextRestrictions(Restrictions.newBuilder().build())
                 .setOptions(ContextPlayerOptions.newBuilder()
@@ -165,6 +164,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private void updateRestrictions() {
+        if (context == null) return;
+
         if (isPaused())
             context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
         else
@@ -212,6 +213,16 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     @Override
     public void volumeChanged() {
         device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
+    }
+
+    @Override
+    public void notActive() {
+        state.clear();
+        initState(state);
+
+        device.setIsActive(false);
+        device.updateState(Connect.PutStateReason.BECAME_INACTIVE, state.build());
+        LOGGER.info("Notified inactivity!");
     }
 
     synchronized int getVolume() {
@@ -310,6 +321,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private void updatePosition() {
+        if (state.getTimestamp() == 0 || state.getPositionAsOfTimestamp() == 0) return;
+
         setPosition(getPosition());
     }
 

@@ -169,6 +169,11 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
+    @Override
+    public void notActive() {
+        if (trackHandler != null) trackHandler.sendStop();
+    }
+
     private void handlePlayPause() {
         if (state.isActuallyPlaying()) handlePause();
         else handleResume();
