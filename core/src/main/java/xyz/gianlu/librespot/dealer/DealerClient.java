@@ -13,6 +13,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.SocketException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +69,8 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     private void wentAway() {
+        if (reconnecting) return;
+
         ws.cancel();
         lastScheduledPing.cancel(true);
         lastScheduledPing = null;
@@ -92,12 +95,17 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     @Override
     public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
-        LOGGER.error("Unexpected failure when handling message!", t);
-
         if (reconnecting) {
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...");
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
         }
+
+        if (t instanceof SocketException) {
+            wentAway();
+            return;
+        }
+
+        LOGGER.error("Unexpected failure when handling message!", t);
     }
 
     @Override
