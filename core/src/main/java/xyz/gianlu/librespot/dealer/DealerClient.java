@@ -39,6 +39,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private WebSocket ws;
     private volatile boolean receivedPong = false;
     private volatile boolean reconnecting = false;
+    private volatile boolean closed = false;
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
         this.session = session;
@@ -72,7 +73,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     private void wentAway() {
-        if (reconnecting) return;
+        if (reconnecting || closed) return;
 
         ws.cancel();
         lastScheduledPing.cancel(true);
@@ -98,9 +99,12 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     @Override
     public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
+        if (closed) return;
+
         if (reconnecting) {
-            LOGGER.error("Failed reconnecting, retrying in 10 seconds...");
+            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", t);
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            return;
         }
 
         if (t instanceof SocketException) {
@@ -232,7 +236,10 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     @Override
     public void close() {
+        closed = true;
         ws.close(1000, null);
+
+        listeners.clear();
     }
 
     public interface MessageListener {
