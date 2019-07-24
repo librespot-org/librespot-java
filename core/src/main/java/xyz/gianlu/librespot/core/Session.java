@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
-import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
@@ -23,6 +22,8 @@ import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
+import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
 import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
 
 import javax.crypto.Cipher;
@@ -44,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author Gianlu
  */
-public class Session implements Closeable {
+public final class Session implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
     private static final String PREFERRED_LOCALE = "en";
     private static final byte[] serverKey = new byte[]{
@@ -90,6 +91,7 @@ public class Session implements Closeable {
     private CacheManager cacheManager;
     private DealerClient dealer;
     private ApiClient api;
+    private PlayableContentFeeder contentFeeder;
     private String countryCode = null;
     private volatile boolean closed = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
@@ -261,6 +263,7 @@ public class Session implements Closeable {
         channelManager = new ChannelManager(this);
         api = new ApiClient(this);
         cdnManager = new CdnManager(this);
+        contentFeeder = new PlayableContentFeeder(this);
         cacheManager = new CacheManager(inner.configuration);
         dealer = new DealerClient(this);
         player = new Player(inner.configuration, this);
@@ -433,6 +436,13 @@ public class Session implements Closeable {
         waitAuthLock();
         if (api == null) throw new IllegalStateException("Session isn't authenticated!");
         return api;
+    }
+
+    @NotNull
+    public PlayableContentFeeder contentFeeder() {
+        waitAuthLock();
+        if (contentFeeder == null) throw new IllegalStateException("Session isn't authenticated!");
+        return contentFeeder;
     }
 
     @NotNull

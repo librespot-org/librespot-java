@@ -193,17 +193,6 @@ public final class FileConfiguration extends AbsConfiguration {
         return config.get("player.autoplayEnabled");
     }
 
-
-    @Override
-    public boolean useCdnForTracks() {
-        return config.get("player.tracks.useCdn");
-    }
-
-    @Override
-    public boolean useCdnForEpisodes() {
-        return config.get("player.episodes.useCdn");
-    }
-
     @Override
     public boolean enableLoadingState() {
         return config.get("player.enableLoadingState");

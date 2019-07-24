@@ -4,7 +4,6 @@ import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -13,9 +12,8 @@ import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
-import xyz.gianlu.librespot.player.feeders.BaseFeeder;
-import xyz.gianlu.librespot.player.feeders.CdnFeeder;
-import xyz.gianlu.librespot.player.feeders.StorageFeeder;
+import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
+import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,7 +31,6 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
     private final LinesHolder lines;
     private final Player.Configuration conf;
     private final Listener listener;
-    private BaseFeeder feeder;
     private Metadata.Track track;
     private Metadata.Episode episode;
     private PlayerRunner playerRunner;
@@ -51,24 +48,14 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
     }
 
     @NotNull
-    private PlayerRunner createRunner(@NotNull BaseFeeder.LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
+    private PlayerRunner createRunner(@NotNull PlayableContentFeeder.LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
         return new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track == null ? episode.getDuration() : track.getDuration());
     }
 
     private void load(@NotNull PlayableId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        if (feeder == null) feeder = BaseFeeder.feederFor(session, id, conf);
-
         listener.startedLoading(this);
 
-        BaseFeeder.LoadedStream stream;
-        try {
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
-        } catch (CdnFeeder.CdnNotAvailable ex) {
-            LOGGER.warn(String.format("Cdn not available for %s, using storage", Utils.bytesToHex(id.getGid())));
-            feeder = new StorageFeeder(session, id);
-            stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
-        }
-
+        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
         track = stream.track;
         episode = stream.episode;
 
@@ -82,7 +69,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
         loadRunner(id, stream, play, pos);
     }
 
-    private void loadRunner(@NotNull PlayableId id, @NotNull BaseFeeder.LoadedStream stream, boolean play, int pos) throws IOException {
+    private void loadRunner(@NotNull PlayableId id, @NotNull PlayableContentFeeder.LoadedStream stream, boolean play, int pos) throws IOException {
         try {
             if (playerRunner != null) playerRunner.stop();
             playerRunner = createRunner(stream);

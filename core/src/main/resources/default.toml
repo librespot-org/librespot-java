@@ -28,9 +28,3 @@ initialVolume = 65536 # Initial volume (0-65536)
 logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
 enableLoadingState = true # Enable loading state (useful for slow connections)
-
-[player.tracks]
-useCdn = true # Use CDN to download tracks
-
-[player.episodes]
-useCdn = true # Use CDN to download episodes

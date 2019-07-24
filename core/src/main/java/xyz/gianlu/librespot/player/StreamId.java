@@ -8,7 +8,7 @@ import xyz.gianlu.librespot.common.Utils;
 /**
  * @author Gianlu
  */
-public class StreamId {
+public final class StreamId {
     private final ByteString fileId;
     private final ByteString episodeGid;
 

@@ -491,10 +491,6 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
         boolean autoplayEnabled();
 
-        boolean useCdnForTracks();
-
-        boolean useCdnForEpisodes();
-
         boolean enableLoadingState();
     }
 }
