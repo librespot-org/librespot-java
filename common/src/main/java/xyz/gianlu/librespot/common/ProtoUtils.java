@@ -103,8 +103,8 @@ public final class ProtoUtils {
 
 
     @NotNull
-    public static ContextPlayerOptions jsonToPlayerOptions(@NotNull JsonObject obj) {
-        ContextPlayerOptions.Builder builder = ContextPlayerOptions.newBuilder();
+    public static ContextPlayerOptions jsonToPlayerOptions(@NotNull JsonObject obj, @Nullable ContextPlayerOptions old) {
+        ContextPlayerOptions.Builder builder = old == null ? ContextPlayerOptions.newBuilder() : old.toBuilder();
 
         Optional.ofNullable(obj.get("repeating_context")).ifPresent(elm -> builder.setRepeatingContext(elm.getAsBoolean()));
         Optional.ofNullable(obj.get("repeating_track")).ifPresent(elm -> builder.setRepeatingTrack(elm.getAsBoolean()));

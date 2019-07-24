@@ -368,7 +368,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
         state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandWrapper.getPlayOrigin(obj)));
-        state.setOptions(ProtoUtils.jsonToPlayerOptions((PlayCommandWrapper.getPlayerOptionsOverride(obj))));
+        state.setOptions(ProtoUtils.jsonToPlayerOptions(PlayCommandWrapper.getPlayerOptionsOverride(obj), state.getOptions()));
         setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
 
         String trackUid = PlayCommandWrapper.getSkipToUid(obj);

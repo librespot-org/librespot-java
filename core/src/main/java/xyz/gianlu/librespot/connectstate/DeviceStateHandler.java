@@ -132,7 +132,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
             LOGGER.debug("Received cluster update: " + TextFormat.shortDebugString(update));
 
-            if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && TimeProvider.currentTimeMillis() > startedPlayingAt())
+            long ts = update.getCluster().getTimestamp();
+            if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && TimeProvider.currentTimeMillis() > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
