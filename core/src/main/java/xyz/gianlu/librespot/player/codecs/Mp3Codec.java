@@ -27,7 +27,7 @@ public class Mp3Codec extends Codec {
         skipMp3Tags(audioIn);
 
         this.in = new Mp3InputStream(audioIn, normalizationFactor);
-        this.format = new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, in.isBigEndian());
+        this.format = new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false);
 
         try {
             outputLine = lines.getLineFor(conf, format);

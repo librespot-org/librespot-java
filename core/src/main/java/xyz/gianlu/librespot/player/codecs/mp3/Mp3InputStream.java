@@ -15,7 +15,6 @@ public class Mp3InputStream extends InputStream {
     private final static int MAX_READ_SIZE = 96 * 1024;
     private final static int MP3_BUFFER_SIZE = 128 * 1024;
     private final InputStream in;
-    private final boolean bigEndian;
     private final Bitstream bitstream;
     private final ByteBuffer buffer;
     private final MP3Decoder decoder;
@@ -25,29 +24,30 @@ public class Mp3InputStream extends InputStream {
     private boolean eos;
     private int bufferIndex;
 
+    /**
+     * Initializes the stream, reads the first header, retrieves important stream information and unreads the header
+     *
+     * @param in                   The MP3 stream
+     * @param normalisationPregain The normalisation pregain applied to the raw PCM
+     */
     public Mp3InputStream(@NotNull InputStream in, float normalisationPregain) throws BitstreamException {
         this.in = in;
 
-        bigEndian = ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN);
         eos = false;
         bufferIndex = 0;
         bitstream = new Bitstream(in);
-        buffer = ByteBuffer.allocateDirect(MP3_BUFFER_SIZE).order(ByteOrder.nativeOrder());
+        buffer = ByteBuffer.allocateDirect(MP3_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
         buffer.limit(0);
         decoder = new MP3Decoder();
 
         Header header = bitstream.readFrame();
         channels = header.mode() == Header.SINGLE_CHANNEL ? 1 : 2;
-        outputBuffer = new OutputBuffer(channels, bigEndian);
+        outputBuffer = new OutputBuffer(channels, false);
         decoder.setOutputBuffer(outputBuffer);
         sampleRate = header.getSampleRate();
         bitstream.unreadFrame();
 
         outputBuffer.setReplayGainScale(normalisationPregain);
-    }
-
-    public boolean isBigEndian() {
-        return bigEndian;
     }
 
     private void readMP3() throws IOException {

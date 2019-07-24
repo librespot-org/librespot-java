@@ -114,10 +114,7 @@ public class VorbisCodec extends Codec {
         jorbisDspState.synthesis_init(jorbisInfo);
         jorbisBlock.init(jorbisDspState);
 
-        int channels = jorbisInfo.channels;
-        int rate = jorbisInfo.rate;
-
-        AudioFormat format = new AudioFormat((float) rate, 16, channels, true, false);
+        AudioFormat format = new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false);
 
         try {
             outputLine = lines.getLineFor(conf, format);
