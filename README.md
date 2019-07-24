@@ -35,6 +35,15 @@ This is more advanced and should only be used if you saved an authentication blo
 ## Run
 You can download the latest release from [here](https://github.com/librespot-org/librespot-java/releases) and then run `java -jar ./librespot-core-jar-with-dependencies.jar` from the command line.
 
+### Audio output configuration
+On some system, many mixers could be installed making librespot-java playback on the wrong one, therefore you won't hear anything and likely see an exception in the logs. If that's the case, follow the guide below:
+
+1) In your configuration file (`config.toml` by default), under the `player` section, make sure `logAvailableMixers` is set to `true` and restart the application
+2) Connect to the client and start playing something
+3) Along with the previous exception there'll be a log message saying "Available mixers: ..."
+4) Pick the right mixer and copy it's name inside the `mixerSearchKeywords` option. If you need to specify more search keyqords, you can separate them with a semicolon
+5) Restart and enjoy
+
 ## Build it
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 
