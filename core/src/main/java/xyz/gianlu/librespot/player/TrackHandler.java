@@ -63,7 +63,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
         BaseFeeder.LoadedStream stream;
         try {
             stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
-        } catch (CdnFeeder.CanNotAvailable ex) {
+        } catch (CdnFeeder.CdnNotAvailable ex) {
             LOGGER.warn(String.format("Cdn not available for %s, using storage", Utils.bytesToHex(id.getGid())));
             feeder = new StorageFeeder(session, id);
             stream = feeder.load(id, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);

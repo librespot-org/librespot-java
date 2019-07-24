@@ -1,12 +1,14 @@
 package xyz.gianlu.librespot.player.feeders;
 
 import com.spotify.metadata.proto.Metadata;
+import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cdn.CdnManager;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
@@ -42,7 +44,7 @@ public class CdnFeeder extends BaseFeeder {
     @Override
     public @NotNull LoadedStream loadEpisode(Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnManager.CdnException {
         if (!episode.hasExternalUrl())
-            throw new CanNotAvailable("Missing external_url!");
+            throw new CdnNotAvailable("Missing external_url!");
 
         Response resp = session.client().newCall(new Request.Builder().head()
                 .url(episode.getExternalUrl()).build()).execute();
@@ -50,12 +52,15 @@ public class CdnFeeder extends BaseFeeder {
         if (resp.code() != 200)
             LOGGER.warn("Couldn't resolve redirect!");
 
-        CdnManager.Streamer streamer = session.cdn().streamEpisode(episode, resp.request().url(), haltListener);
+        HttpUrl url = resp.request().url();
+        LOGGER.debug(String.format("Fetched external url for %s: %s", Utils.bytesToHex(episode.getGid()), url));
+
+        CdnManager.Streamer streamer = session.cdn().streamEpisode(episode, url, haltListener);
         return new LoadedStream(episode, streamer, null);
     }
 
-    public static class CanNotAvailable extends FeederException {
-        CanNotAvailable(String message) {
+    public static class CdnNotAvailable extends FeederException {
+        CdnNotAvailable(String message) {
             super(message);
         }
     }
