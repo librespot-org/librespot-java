@@ -35,7 +35,22 @@ This is more advanced and should only be used if you saved an authentication blo
 ## Run
 You can download the latest release from [here](https://github.com/librespot-org/librespot-java/releases) and then run `java -jar ./librespot-core-jar-with-dependencies.jar` from the command line.
 
+### Audio output configuration
+On some system, many mixers could be installed making librespot-java playback on the wrong one, therefore you won't hear anything and likely see an exception in the logs. If that's the case, follow the guide below:
+
+1) In your configuration file (`config.toml` by default), under the `player` section, make sure `logAvailableMixers` is set to `true` and restart the application
+2) Connect to the client and start playing something
+3) Along with the previous exception there'll be a log message saying "Available mixers: ..."
+4) Pick the right mixer and copy it's name inside the `mixerSearchKeywords` option. If you need to specify more search keyqords, you can separate them with a semicolon
+5) Restart and enjoy
+
 ## Build it
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
+
+# Special thanks
+
+- All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
+- All the contributors of this project for testing and fixing stuff
+- <a href="https://www.yourkit.com/"><img src="https://www.yourkit.com/images/yklogo.png" height="20"></a> that provided a free license for their [Java Profiler](https://www.yourkit.com/java/profiler/)
