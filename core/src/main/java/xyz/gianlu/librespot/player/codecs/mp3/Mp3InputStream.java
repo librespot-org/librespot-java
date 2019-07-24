@@ -23,15 +23,13 @@ public class Mp3InputStream extends InputStream {
     private final int sampleRate;
     private final OutputBuffer outputBuffer;
     private boolean eos;
-    private int frameCount;
     private int bufferIndex;
 
-    public Mp3InputStream(@NotNull InputStream in) throws BitstreamException {
+    public Mp3InputStream(@NotNull InputStream in, float normalisationPregain) throws BitstreamException {
         this.in = in;
 
         bigEndian = ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN);
         eos = false;
-        frameCount = 0;
         bufferIndex = 0;
         bitstream = new Bitstream(in);
         buffer = ByteBuffer.allocateDirect(MP3_BUFFER_SIZE).order(ByteOrder.nativeOrder());
@@ -44,6 +42,8 @@ public class Mp3InputStream extends InputStream {
         decoder.setOutputBuffer(outputBuffer);
         sampleRate = header.getSampleRate();
         bitstream.unreadFrame();
+
+        outputBuffer.setReplayGainScale(normalisationPregain);
     }
 
     public boolean isBigEndian() {
@@ -66,8 +66,6 @@ public class Mp3InputStream extends InputStream {
                 eos = true;
                 break;
             }
-
-            frameCount++;
 
             try {
                 decoder.decodeFrame(header, bitstream);
