@@ -1,10 +1,12 @@
 package xyz.gianlu.librespot.player.codecs;
 
+import javazoom.jl.decoder.BitstreamException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.*;
-import xyz.gianlu.librespot.player.codecs.mp3.Mp3Sound;
+import xyz.gianlu.librespot.player.codecs.mp3.Mp3InputStream;
 
+import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.LineUnavailableException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,17 +17,20 @@ import java.io.InputStream;
 public class Mp3Codec extends Codec {
     private final LinesHolder.LineWrapper outputLine;
     private final byte[] buffer = new byte[BUFFER_SIZE];
-    private final Mp3Sound sound;
+    private final Mp3InputStream in;
+    private final AudioFormat format;
 
     public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                    PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException {
+                    PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException, BitstreamException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
         skipMp3Tags(audioIn);
-        sound = new Mp3Sound(audioIn);
+
+        this.in = new Mp3InputStream(audioIn);
+        this.format = new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, in.isBigEndian());
 
         try {
-            outputLine = lines.getLineFor(conf, sound.getAudioFormat());
+            outputLine = lines.getLineFor(conf, format);
         } catch (IllegalStateException | SecurityException ex) {
             throw new CodecException(ex);
         }
@@ -58,14 +63,14 @@ public class Mp3Codec extends Codec {
 
     @Override
     protected void readBody() throws LineUnavailableException, IOException, InterruptedException {
-        outputLine.open(sound.getAudioFormat());
+        outputLine.open(format);
         this.controller = new PlayerRunner.Controller(outputLine, listener.getVolume());
 
         while (!stopped) {
             if (playing) {
                 outputLine.start();
 
-                int count = sound.read(buffer);
+                int count = in.read(buffer);
                 if (count == -1) break;
 
                 outputLine.write(buffer, 0, count);

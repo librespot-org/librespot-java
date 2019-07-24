@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player;
 
+import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +28,11 @@ public class PlayerRunner implements Runnable {
                 codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration);
                 break;
             case MP3:
-                codec = new Mp3Codec(audioFile, normalizationData, conf, listener, lines, duration);
+                try {
+                    codec = new Mp3Codec(audioFile, normalizationData, conf, listener, lines, duration);
+                } catch (BitstreamException ex) {
+                    throw new IOException(ex);
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unknown codec: " + audioFile.codec());
