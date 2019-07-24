@@ -41,7 +41,7 @@ On some system, many mixers could be installed making librespot-java playback on
 1) In your configuration file (`config.toml` by default), under the `player` section, make sure `logAvailableMixers` is set to `true` and restart the application
 2) Connect to the client and start playing something
 3) Along with the previous exception there'll be a log message saying "Available mixers: ..."
-4) Pick the right mixer and copy it's name inside the `mixerSearchKeywords` option. If you need to specify more search keyqords, you can separate them with a semicolon
+4) Pick the right mixer and copy it's name inside the `mixerSearchKeywords` option. If you need to specify more search keywords, you can separate them with a semicolon
 5) Restart and enjoy
 
 ## Build it
