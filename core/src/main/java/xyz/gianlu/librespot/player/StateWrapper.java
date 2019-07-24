@@ -64,26 +64,25 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     void setState(boolean playing, boolean paused, boolean buffering) {
+        if (paused && !playing) throw new IllegalStateException();
+        else if (buffering && !playing) throw new IllegalStateException();
+
         state.setIsPlaying(playing).setIsPaused(paused).setIsBuffering(buffering);
     }
 
-    boolean isPlaying() {
-        return state.getIsPlaying();
+    private boolean isPlaying() {
+        return state.getIsPlaying() && !state.getIsPaused();
     }
 
     boolean isPaused() {
-        return state.getIsPaused();
+        return state.getIsPlaying() && state.getIsPaused();
     }
 
     boolean isActuallyPlaying() {
         return state.getIsPlaying() && !state.getIsPaused() && !state.getIsBuffering();
     }
 
-    boolean isLoading() {
-        return state.getIsBuffering();
-    }
-
-    boolean isShufflingContext() {
+    private boolean isShufflingContext() {
         return state.getOptions().getShufflingContext();
     }
 
@@ -96,7 +95,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (old != isShufflingContext()) tracksKeeper.toggleShuffle(isShufflingContext());
     }
 
-    boolean isRepeatingContext() {
+    private boolean isRepeatingContext() {
         return state.getOptions().getRepeatingContext();
     }
 
@@ -167,7 +166,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (context == null) return;
 
         if (isPaused())
-            context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "not_playing");
+            context.restrictions.disallow(RestrictionsManager.Action.PAUSE, "already_paused");
         else
             context.restrictions.allow(RestrictionsManager.Action.PAUSE);
 

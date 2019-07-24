@@ -199,7 +199,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
         if (handler == trackHandler) {
             if (play) state.setState(true, false, false);
-            else state.setState(false, true, false);
+            else state.setState(true, true, false);
 
             updateStateWithHandler();
 
@@ -328,7 +328,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
 
         if (play) state.setState(true, false, buffering);
-        else state.setState(false, true, buffering);
+        else state.setState(true, true, buffering);
         state.updated();
     }
 
@@ -343,7 +343,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     private void handlePause() {
         if (state.isActuallyPlaying()) {
             if (trackHandler != null) trackHandler.sendPause();
-            state.setState(false, true, false);
+            state.setState(true, true, false);
             state.updated();
         }
     }
