@@ -13,7 +13,7 @@ import java.security.GeneralSecurityException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException,  MercuryClient.MercuryException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         AbsConfiguration conf = new FileConfiguration(args);
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
             ZeroconfServer.create(conf);

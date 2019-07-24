@@ -127,6 +127,17 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return state.getContextUri();
     }
 
+    private void loadTransforming() {
+        String url = state.getContextMetadataOrDefault("transforming.url", null);
+        if (url == null) return;
+
+        boolean shuffle = false;
+        if (state.containsContextMetadata("transforming.shuffle"))
+            shuffle = Boolean.parseBoolean(state.getContextMetadataOrThrow("transforming.shuffle"));
+
+        LOGGER.info(String.format("Context has transforming! {url: %s, shuffle: %b}", url, shuffle));
+    }
+
     private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
@@ -340,6 +351,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         pages.putFirstPage(tracks);
         tracksKeeper.initializeStart();
         setPosition(0);
+
+        loadTransforming();
     }
 
     void loadContext(@NotNull String uri) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
@@ -349,6 +362,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setContext(uri);
         tracksKeeper.initializeStart();
         setPosition(0);
+
+        loadTransforming();
     }
 
     void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
@@ -361,9 +376,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Playback pb = cmd.getPlayback();
         tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue(), false);
 
-
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
+
+        loadTransforming();
     }
 
     void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
@@ -391,6 +407,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
         if (seekTo != null) setPosition(seekTo);
         else setPosition(0);
+
+        loadTransforming();
     }
 
     synchronized void updateContext(@NotNull JsonObject obj) {
