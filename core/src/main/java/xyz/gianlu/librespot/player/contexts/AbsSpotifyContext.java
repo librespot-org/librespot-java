@@ -102,8 +102,6 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
         return "AbsSpotifyContext{context='" + context + "\'}";
     }
 
-    public abstract P createId(@NotNull String uri);
-
     public abstract boolean isFinite();
 
     public final @NotNull String uri() {
@@ -116,8 +114,8 @@ public abstract class AbsSpotifyContext<P extends PlayableId> {
         }
 
         @NotNull
-        public static UnsupportedContextException noSupported() {
-            return new UnsupportedContextException("There are no supported tracks in this context!");
+        public static UnsupportedContextException cannotPlayAnything() {
+            return new UnsupportedContextException("Nothing from this context can or should be played!");
         }
     }
 }

@@ -23,9 +23,9 @@ public interface PlayableId {
         }
     }
 
-    static boolean hasAtLeastOneSupportedId(@NotNull List<ContextTrack> tracks) {
+    static boolean canPlaySomething(@NotNull List<ContextTrack> tracks) {
         for (ContextTrack track : tracks)
-            if (PlayableId.isSupported(track.getUri()))
+            if (PlayableId.isSupported(track.getUri()) && shouldPlay(track))
                 return true;
 
         return false;
@@ -40,18 +40,14 @@ public interface PlayableId {
         return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
     }
 
+    static boolean shouldPlay(@NotNull ContextTrack track) {
+        String forceRemoveReasons = track.getMetadataOrDefault("force_remove_reasons", null);
+        return forceRemoveReasons == null || forceRemoveReasons.isEmpty();
+    }
+
     @NotNull
     static PlayableId from(@NotNull ContextTrack track) {
         return fromUri(track.getUri());
-    }
-
-    static boolean isSupported(@NotNull ContextTrack track) {
-        return isSupported(track.getUri());
-    }
-
-    @NotNull
-    default Player.ProvidedTrack toProvidedTrack() {
-        return Player.ProvidedTrack.newBuilder().setUri(toSpotifyUri()).build();
     }
 
     @NotNull byte[] getGid();

@@ -1,11 +1,12 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 
 /**
  * @author Gianlu
  */
-public final class AlbumContext extends AbsTrackContext {
+public final class AlbumContext extends AbsSpotifyContext<TrackId> {
     public AlbumContext(@NotNull String context) {
         super(context);
     }
