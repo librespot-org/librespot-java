@@ -113,10 +113,10 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @NotNull
-    private String[] getStringArray(@NotNull String key) {
+    private String[] getStringArray(@NotNull String key, char separator) {
         String str = config.get(key);
         if ((str = str.trim()).isEmpty()) return new String[0];
-        else return Utils.split(str, ',');
+        else return Utils.split(str, separator);
     }
 
     @NotNull
@@ -161,7 +161,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @NotNull
     @Override
     public String[] mixerSearchKeywords() {
-        return getStringArray("player.mixerSearchKeywords");
+        return getStringArray("player.mixerSearchKeywords", ';');
     }
 
     @Override
@@ -248,7 +248,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @NotNull
     @Override
     public String[] zeroconfInterfaces() {
-        return getStringArray("zeroconf.interfaces");
+        return getStringArray("zeroconf.interfaces", ',');
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {

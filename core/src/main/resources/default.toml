@@ -26,7 +26,7 @@ preferredAudioQuality = "VORBIS_160" # Preferred audio quality (VORBIS_96, VORBI
 normalisationPregain = 0.0 # Normalisation pregain
 initialVolume = 65536 # Initial volume (0-65536)
 logAvailableMixers = true # Log available mixers
-mixerSearchKeywords = "" # Mixer/backend search keywords
+mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
 enableLoadingState = true # Enable loading state (useful for slow connections)
 
 [player.tracks]
