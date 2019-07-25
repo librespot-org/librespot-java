@@ -15,6 +15,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.UnsupportedId;
+import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
@@ -27,12 +28,12 @@ import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 /**
  * @author Gianlu
  */
-public class Player implements TrackHandler.Listener, Closeable, DeviceStateHandler.Listener {
+public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRunner.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
     private final StateWrapper state;
     private final Configuration conf;
-    private final LinesHolder lines;
+    private final PlayerRunner runner;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
 
@@ -40,7 +41,9 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         this.conf = conf;
         this.session = session;
         this.state = new StateWrapper(session);
-        this.lines = new LinesHolder();
+
+        LinesHolder lines = new LinesHolder();
+        this.runner = new PlayerRunner(session, lines, conf, this);
 
         state.addListener(this);
     }
@@ -163,15 +166,13 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     @Override
     public void volumeChanged() {
-        if (trackHandler != null) {
-            PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.setVolume(state.getVolume());
-        }
+        PlayerRunner.Controller controller = runner.controller();
+        if (controller != null) controller.setVolume(state.getVolume());
     }
 
     @Override
     public void notActive() {
-        if (trackHandler != null) trackHandler.sendStop();
+        runner.stopAll();
     }
 
     private void handlePlayPause() {
@@ -247,8 +248,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null && !(next instanceof UnsupportedId)) {
-                preloadTrackHandler = new TrackHandler(session, lines, conf, this);
-                preloadTrackHandler.sendLoad(next, false, 0);
+                preloadTrackHandler = runner.load(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
         }
@@ -294,7 +294,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void handleSeek(int pos) {
         state.setPosition(pos);
-        if (trackHandler != null) trackHandler.sendSeek(pos);
+        if (trackHandler != null) trackHandler.seek(pos);
         state.updated();
     }
 
@@ -304,7 +304,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     }
 
     private void panicState() {
-        if (trackHandler != null) trackHandler.sendStop();
+        runner.stopAll();
         state.setState(false, false, false);
         state.updated();
     }
@@ -320,11 +320,10 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
             updateStateWithHandler();
 
-            trackHandler.sendSeek(state.getPosition());
-            if (play) trackHandler.sendPlay();
+            trackHandler.seek(state.getPosition());
+            if (play) trackHandler.play();
         } else {
-            trackHandler = new TrackHandler(session, lines, conf, this);
-            trackHandler.sendLoad(id, play, state.getPosition());
+            trackHandler = runner.load(id, play, state.getPosition());
         }
 
         if (play) state.setState(true, false, buffering);
@@ -335,14 +334,14 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     private void handleResume() {
         if (state.isPaused()) {
             state.setState(true, false, false);
-            if (trackHandler != null) trackHandler.sendPlay();
+            if (trackHandler != null) trackHandler.play();
             state.updated();
         }
     }
 
     private void handlePause() {
         if (state.isActuallyPlaying()) {
-            if (trackHandler != null) trackHandler.sendPause();
+            if (trackHandler != null) trackHandler.pause();
             state.setState(true, true, false);
             state.updated();
         }
@@ -439,7 +438,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             }
         } else {
             state.setPosition(0);
-            if (trackHandler != null) trackHandler.sendSeek(0);
+            if (trackHandler != null) trackHandler.seek(0);
             state.updated();
         }
     }

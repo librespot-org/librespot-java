@@ -59,7 +59,7 @@ public class LinesHolder {
     }
 
     @NotNull
-    public LineWrapper getLine(@NotNull DataLine.Info info) {
+    private LineWrapper getLine(@NotNull DataLine.Info info) {
         return new LineWrapper(info);
     }
 
@@ -120,9 +120,13 @@ public class LinesHolder {
             this.info = info;
         }
 
-        public void write(byte[] buffer, int from, int to) {
+        public void write(byte[] buffer, int off, int len) {
             if (line == null) throw new IllegalStateException();
-            line.line.write(buffer, from, to);
+            line.line.write(buffer, off, len);
+        }
+
+        public boolean isCompatible(@NotNull AudioFormat format) {
+            return line.line.getFormat().matches(format);
         }
 
         public void open(@NotNull AudioFormat format) throws LineUnavailableException, InterruptedException {

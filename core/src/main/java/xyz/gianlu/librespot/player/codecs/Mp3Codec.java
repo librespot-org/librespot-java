@@ -3,11 +3,12 @@ package xyz.gianlu.librespot.player.codecs;
 import javazoom.jl.decoder.BitstreamException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.mp3.Mp3InputStream;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.LineUnavailableException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -15,27 +16,18 @@ import java.io.InputStream;
  * @author Gianlu
  */
 public class Mp3Codec extends Codec {
-    private final LinesHolder.LineWrapper outputLine;
-    private final byte[] buffer = new byte[BUFFER_SIZE];
+    private final byte[] buffer = new byte[2 * BUFFER_SIZE];
     private final Mp3InputStream in;
-    private final AudioFormat format;
 
-    public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                    PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws CodecException, IOException, LinesHolder.MixerException, BitstreamException {
-        super(audioFile, normalizationData, conf, listener, lines, duration);
+    public Mp3Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, BitstreamException {
+        super(audioFile, normalizationData, conf, duration);
 
         skipMp3Tags(audioIn);
-
         this.in = new Mp3InputStream(audioIn, normalizationFactor);
-        this.format = new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false);
-
-        try {
-            outputLine = lines.getLineFor(conf, format);
-        } catch (IllegalStateException | SecurityException ex) {
-            throw new CodecException(ex);
-        }
 
         audioIn.mark(-1);
+
+        setAudioFormat(new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false));
     }
 
     private static void skipMp3Tags(@NotNull InputStream in) throws IOException {
@@ -62,32 +54,10 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    protected void readBody() throws LineUnavailableException, IOException, InterruptedException {
-        outputLine.open(format);
-        this.controller = new PlayerRunner.Controller(outputLine, listener.getVolume());
-
-        while (!stopped) {
-            if (playing) {
-                outputLine.start();
-
-                int count = in.read(buffer);
-                if (count == -1) break;
-
-                outputLine.write(buffer, 0, count);
-            } else {
-                outputLine.stop();
-
-                try {
-                    synchronized (pauseLock) {
-                        pauseLock.wait();
-                    }
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        }
-
-        outputLine.drain();
+    protected int readSome(@NotNull WritableThing thing) throws IOException {
+        int count = in.read(buffer);
+        if (count == -1) return -1;
+        return thing.write(buffer, 0, count);
     }
 
     @Override
@@ -96,8 +66,8 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    public void cleanup() {
-        outputLine.close();
+    public void cleanup() throws IOException {
+        in.close();
         super.cleanup();
     }
 }
