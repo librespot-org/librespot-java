@@ -43,7 +43,7 @@ public final class FileConfiguration extends AbsConfiguration {
         if (override != null) {
             for (String arg : override) {
                 if (arg != null && arg.startsWith("--conf-file="))
-                    confFile = new File(arg.substring(13));
+                    confFile = new File(arg.substring(12));
             }
         }
 

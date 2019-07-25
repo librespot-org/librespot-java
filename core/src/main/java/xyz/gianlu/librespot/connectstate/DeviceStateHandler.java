@@ -134,7 +134,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             long now = TimeProvider.currentTimeMillis();
             LOGGER.debug(String.format("Received cluster update at %d: %s", now, TextFormat.shortDebugString(update)));
 
-            long ts = update.getCluster().getTimestamp();
+            long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
