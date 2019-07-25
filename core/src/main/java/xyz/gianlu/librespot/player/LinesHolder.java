@@ -6,7 +6,9 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
 import javax.sound.sampled.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -14,7 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class LinesHolder {
     private static final Logger LOGGER = Logger.getLogger(LinesHolder.class);
-    private final Map<Mixer, LineWithState> openLines = new HashMap<>();
+    private Mixer mixer;
+    private LineWithState line;
 
     LinesHolder() {
     }
@@ -35,7 +38,9 @@ public class LinesHolder {
     }
 
     @NotNull
-    private static Mixer findMixer(@NotNull List<Mixer> mixers, @Nullable String[] keywords) throws MixerException {
+    private Mixer findMixer(@NotNull List<Mixer> mixers, @Nullable String[] keywords) throws MixerException {
+        if (mixer != null) return mixer;
+
         if (keywords == null || keywords.length == 0) return mixers.get(0);
 
         List<Mixer> list = new ArrayList<>(mixers);
@@ -54,8 +59,8 @@ public class LinesHolder {
     }
 
     @NotNull
-    public LineWrapper getLine(@NotNull Mixer mixer, @NotNull DataLine.Info info) {
-        return new LineWrapper(mixer, info);
+    public LineWrapper getLine(@NotNull DataLine.Info info) {
+        return new LineWrapper(info);
     }
 
     @NotNull
@@ -63,8 +68,8 @@ public class LinesHolder {
         DataLine.Info info = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
         List<Mixer> mixers = findSupportingMixersFor(info);
         if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
-        Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords());
-        return getLine(mixer, info);
+        mixer = findMixer(mixers, conf.mixerSearchKeywords());
+        return getLine(info);
     }
 
     public static class MixerException extends Exception {
@@ -109,24 +114,19 @@ public class LinesHolder {
     }
 
     public class LineWrapper {
-        private Mixer mixer;
-        private DataLine.Info info;
-        private LineWithState openLine;
+        private final DataLine.Info info;
 
-        private LineWrapper(@NotNull Mixer mixer, @NotNull DataLine.Info info) {
-            this.mixer = mixer;
+        private LineWrapper(@NotNull DataLine.Info info) {
             this.info = info;
         }
 
         public void write(byte[] buffer, int from, int to) {
-            if (openLine == null) throw new IllegalStateException();
-            openLine.line.write(buffer, from, to);
+            if (line == null) throw new IllegalStateException();
+            line.line.write(buffer, from, to);
         }
 
         public void open(@NotNull AudioFormat format) throws LineUnavailableException, InterruptedException {
-            LineWithState line = openLines.get(mixer);
             if (line != null && line.isCompatible(info)) {
-                openLine = line;
                 line.waitFreed();
 
                 LOGGER.trace(String.format("Reused line for mixer '%s'.", mixer.getMixerInfo().getName()));
@@ -136,43 +136,42 @@ public class LinesHolder {
                     line.line.close();
                 }
 
-                openLine = new LineWithState((SourceDataLine) mixer.getLine(info));
-                openLines.put(mixer, openLine);
-                openLine.line.open(format);
+                line = new LineWithState((SourceDataLine) mixer.getLine(info));
+                line.line.open(format);
                 LOGGER.trace(String.format("New line opened for mixer '%s'.", mixer.getMixerInfo().getName()));
             }
 
-            openLine.busy();
+            line.busy();
         }
 
         public void close() {
-            if (openLine != null) openLine.free();
+            if (line != null) line.free();
         }
 
         public void stop() {
-            if (openLine == null) throw new IllegalStateException();
-            openLine.line.stop();
+            if (line == null) throw new IllegalStateException();
+            line.line.stop();
         }
 
         public void start() {
-            if (openLine == null) throw new IllegalStateException();
-            openLine.line.start();
+            if (line == null) throw new IllegalStateException();
+            line.line.start();
         }
 
         public boolean isControlSupported(@NotNull Control.Type type) {
-            if (openLine == null) throw new IllegalStateException();
-            return openLine.line.isControlSupported(type);
+            if (line == null) throw new IllegalStateException();
+            return line.line.isControlSupported(type);
         }
 
         @NotNull
         public Control getControl(@NotNull Control.Type type) {
-            if (openLine == null) throw new IllegalStateException();
-            return openLine.line.getControl(type);
+            if (line == null) throw new IllegalStateException();
+            return line.line.getControl(type);
         }
 
         public void drain() {
-            if (openLine == null) throw new IllegalStateException();
-            openLine.line.drain();
+            if (line == null) throw new IllegalStateException();
+            line.line.drain();
         }
     }
 }
