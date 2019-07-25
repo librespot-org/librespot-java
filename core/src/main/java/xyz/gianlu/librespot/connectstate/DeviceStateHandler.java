@@ -130,10 +130,12 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             notifyVolumeChange();
         } else if (uri.equals("hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
-            LOGGER.debug("Received cluster update: " + TextFormat.shortDebugString(update));
+
+            long now = TimeProvider.currentTimeMillis();
+            LOGGER.debug(String.format("Received cluster update at %d: %s", now, TextFormat.shortDebugString(update)));
 
             long ts = update.getCluster().getTimestamp();
-            if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && TimeProvider.currentTimeMillis() > startedPlayingAt() && ts > startedPlayingAt())
+            if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
@@ -167,8 +169,11 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
 
     public synchronized void setIsActive(boolean active) {
         if (active) {
-            if (!putState.getIsActive())
-                putState.setIsActive(true).setStartedPlayingAt(TimeProvider.currentTimeMillis());
+            if (!putState.getIsActive()) {
+                long now = TimeProvider.currentTimeMillis();
+                putState.setIsActive(true).setStartedPlayingAt(now);
+                LOGGER.debug(String.format("Device is now active. {ts: %d}", now));
+            }
         } else {
             putState.setIsActive(false).clearStartedPlayingAt();
         }
