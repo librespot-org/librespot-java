@@ -70,6 +70,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
     }
 
+    void setBuffering(boolean buffering) {
+        if (buffering && !isPlaying()) throw new IllegalStateException();
+        state.setIsBuffering(buffering);
+    }
+
     void setState(boolean playing, boolean paused, boolean buffering) {
         if (paused && !playing) throw new IllegalStateException();
         else if (buffering && !playing) throw new IllegalStateException();
@@ -77,16 +82,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         state.setIsPlaying(playing).setIsPaused(paused).setIsBuffering(buffering);
     }
 
-    private boolean isPlaying() {
+    boolean isPlaying() {
         return state.getIsPlaying() && !state.getIsPaused();
     }
 
     boolean isPaused() {
         return state.getIsPlaying() && state.getIsPaused();
-    }
-
-    boolean isActuallyPlaying() {
-        return state.getIsPlaying() && !state.getIsPaused() && !state.getIsBuffering();
     }
 
     private boolean isShufflingContext() {

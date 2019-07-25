@@ -8,7 +8,7 @@ import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -29,9 +29,17 @@ public abstract class Codec {
         this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
     }
 
-    protected abstract int readSome(@NotNull WritableThing thing) throws IOException, LineUnavailableException, CodecException, InterruptedException;
+    public abstract int readSome(@NotNull SourceDataLine line) throws IOException, CodecException;
 
+    /**
+     * @return Time in millis
+     * @throws CannotGetTimeException If the codec can't determine the time
+     */
     public abstract int time() throws CannotGetTimeException;
+
+    public final int remaining() throws CannotGetTimeException {
+        return duration - time();
+    }
 
     public void cleanup() throws IOException {
         audioIn.close();
@@ -65,22 +73,13 @@ public abstract class Codec {
         this.format = format;
     }
 
-    public interface WritableThing {
-        int write(byte[] b, int off, int len);
-    }
-
     public static class CannotGetTimeException extends Exception {
-        protected CannotGetTimeException() {
+        CannotGetTimeException() {
         }
     }
 
     public static class CodecException extends Exception {
-
         CodecException() {
-        }
-
-        CodecException(@NotNull Throwable ex) {
-            super(ex);
         }
     }
 }

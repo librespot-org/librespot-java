@@ -42,8 +42,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         this.session = session;
         this.state = new StateWrapper(session);
 
-        LinesHolder lines = new LinesHolder();
-        this.runner = new PlayerRunner(session, lines, conf, this);
+        new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
 
         state.addListener(this);
     }
@@ -167,16 +166,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void volumeChanged() {
         PlayerRunner.Controller controller = runner.controller();
-        if (controller != null) controller.setVolume(state.getVolume());
+        controller.setVolume(state.getVolume());
     }
 
     @Override
     public void notActive() {
-        runner.stopAll();
+        runner.stopMixer();
     }
 
     private void handlePlayPause() {
-        if (state.isActuallyPlaying()) handlePause();
+        if (state.isPlaying()) handlePause();
         else handleResume();
     }
 
@@ -197,10 +196,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
+    public void finishedLoading(@NotNull TrackHandler handler, int pos) {
         if (handler == trackHandler) {
-            if (play) state.setState(true, false, false);
-            else state.setState(true, true, false);
+            state.setBuffering(false);
 
             updateStateWithHandler();
 
@@ -248,7 +246,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null && !(next instanceof UnsupportedId)) {
-                preloadTrackHandler = runner.load(next, false, 0);
+                preloadTrackHandler = runner.load(next, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
         }
@@ -298,19 +296,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.updated();
     }
 
-    @Override
-    public int getVolume() {
-        return state.getVolume();
-    }
-
     private void panicState() {
-        runner.stopAll();
+        runner.stopMixer();
         state.setState(false, false, false);
         state.updated();
     }
 
     private void loadTrack(boolean play) {
-        if (trackHandler != null) trackHandler.close();
+        if (trackHandler != null) trackHandler.stop();
 
         boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
         PlayableId id = state.getCurrentPlayableOrThrow();
@@ -321,9 +314,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             updateStateWithHandler();
 
             trackHandler.seek(state.getPosition());
-            if (play) trackHandler.play();
         } else {
-            trackHandler = runner.load(id, play, state.getPosition());
+            trackHandler = runner.load(id, state.getPosition());
+        }
+
+        if (play) {
+            trackHandler.setPlaying();
+            runner.playMixer();
         }
 
         if (play) state.setState(true, false, buffering);
@@ -333,15 +330,15 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void handleResume() {
         if (state.isPaused()) {
+            runner.playMixer();
             state.setState(true, false, false);
-            if (trackHandler != null) trackHandler.play();
             state.updated();
         }
     }
 
     private void handlePause() {
-        if (state.isActuallyPlaying()) {
-            if (trackHandler != null) trackHandler.pause();
+        if (state.isPlaying()) {
+            runner.pauseMixer();
             state.setState(true, true, false);
             state.updated();
         }
@@ -444,7 +441,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;

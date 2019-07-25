@@ -17,15 +17,19 @@ import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
+import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -34,26 +38,36 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PlayerRunner implements Runnable, Closeable {
     public static final int VOLUME_STEPS = 64;
     public static final int VOLUME_MAX = 65536;
-    private static final int VOLUME_STEP = 65536 / VOLUME_STEPS;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);
     private final Session session;
-    private final LinesHolder lines;
     private final Player.Configuration conf;
     private final Listener listener;
     private final Map<Integer, TrackHandler> loadedTracks = new HashMap<>(3);
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
-    private LinesHolder.LineWrapper output;
-    private Controller controller;
+    private final Object pauseLock = new Object();
+    private final SourceDataLine output;
+    private final Controller controller;
+    private volatile boolean closed = false;
+    private volatile boolean paused = true;
+    private TrackHandler playingHandler = null;
 
-    PlayerRunner(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener) {
+    PlayerRunner(@NotNull Session session, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
-        this.lines = lines;
         this.conf = conf;
         this.listener = listener;
 
+        try {
+            AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
+            this.output = LineHelper.getLineFor(conf, format);
+            this.output.open(format);
+            this.controller = new Controller(output, conf.initialVolume());
+        } catch (LineUnavailableException ex) {
+            throw new RuntimeException(ex);
+        }
+
         Looper looper;
-        new Thread(looper = new Looper(), "player-runner-" + looper.hashCode()).start();
+        new Thread(looper = new Looper(), "player-runner-looper-" + looper.hashCode()).start();
     }
 
     private void sendCommand(@NotNull Command command, int id, Object... args) {
@@ -61,47 +75,100 @@ public class PlayerRunner implements Runnable, Closeable {
     }
 
     @NotNull
-    public TrackHandler load(@NotNull PlayableId playable, boolean play, int pos) {
+    TrackHandler load(@NotNull PlayableId playable, int pos) {
         int id = IDS.getAndIncrement();
-
         TrackHandler handler = new TrackHandler(id, playable);
-        sendCommand(Command.Load, id, handler, play, pos);
+        sendCommand(Command.Load, id, handler, pos);
         return handler;
     }
 
     @Override
     public void run() {
-        // TODO
-    }
+        while (!closed) {
+            if (paused) {
+                output.stop();
 
-    @Nullable
-    Controller controller() {
-        if (controller == null) {
-            if (output == null) return null;
-            else controller = new Controller(output, conf.initialVolume());
+                synchronized (pauseLock) {
+                    try {
+                        pauseLock.wait();
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+            } else {
+                output.start();
+
+                if (playingHandler == null) {
+                    paused = true;
+                    continue;
+                }
+
+                playingHandler.shouldPreload();
+
+                TrackHandler handler = playingHandler;
+                try {
+                    if (playingHandler.codec.readSome(output) == -1) {
+                        playingHandler = null;
+                        paused = true;
+
+                        handler.stop();
+                        listener.endOfTrack(handler);
+                    }
+                } catch (IOException | Codec.CodecException | NullPointerException ex) {
+                    if (closed) break;
+                    if (handler != null && handler.closed) continue;
+
+                    listener.playbackError(handler, ex);
+                    paused = true;
+                }
+            }
         }
 
+        output.drain();
+        output.close();
+    }
+
+    @NotNull
+    Controller controller() {
         return controller;
     }
 
     @Override
     public void close() throws IOException {
-        commands.add(new CommandBundle(Command.Terminate, -1));
-        // TODO: Close this
+        commands.add(new CommandBundle(Command.TerminateMixer, -1));
+
+        closed = true;
+        synchronized (pauseLock) {
+            pauseLock.notifyAll();
+        }
+
+        for (TrackHandler handler : loadedTracks.values())
+            handler.close();
+
+        loadedTracks.clear();
     }
 
-    public void stopAll() {
-        sendCommand(Command.StopAll, -1);
+    void pauseMixer() {
+        sendCommand(Command.PauseMixer, -1);
+    }
+
+    void playMixer() {
+        sendCommand(Command.PlayMixer, -1);
+    }
+
+    void stopMixer() {
+        sendCommand(Command.StopMixer, -1);
     }
 
     public enum Command {
-        Load, Play, Pause, Stop, StopAll, Seek, Terminate
+        PlayMixer, PauseMixer, StopMixer, TerminateMixer,
+        Load, SetPlaying, Stop, Seek
     }
 
     public interface Listener {
         void startedLoading(@NotNull TrackHandler handler);
 
-        void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play);
+        void finishedLoading(@NotNull TrackHandler handler, int pos);
 
         void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId track, @NotNull Exception ex);
 
@@ -114,15 +181,12 @@ public class PlayerRunner implements Runnable, Closeable {
         void playbackHalted(@NotNull TrackHandler handler, int chunk);
 
         void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
-
-        int getVolume();
     }
 
-    public static class Controller {
+    static class Controller {
         private final FloatControl masterGain;
-        private int volume = 0;
 
-        private Controller(@NotNull LinesHolder.LineWrapper line, int initialVolume) {
+        private Controller(@NotNull SourceDataLine line, int initialVolume) {
             if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
                 masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
             else
@@ -135,21 +199,8 @@ public class PlayerRunner implements Runnable, Closeable {
             return Math.log10((double) val / VOLUME_MAX) * 20f;
         }
 
-        public void setVolume(int val) {
-            this.volume = val;
-
-            if (masterGain != null)
-                masterGain.setValue((float) calcLogarithmic(val));
-        }
-
-        int volumeDown() {
-            setVolume(volume - VOLUME_STEP);
-            return volume;
-        }
-
-        int volumeUp() {
-            setVolume(volume + VOLUME_STEP);
-            return volume;
+        void setVolume(int val) {
+            if (masterGain != null) masterGain.setValue((float) calcLogarithmic(val));
         }
     }
 
@@ -159,13 +210,16 @@ public class PlayerRunner implements Runnable, Closeable {
         public Metadata.Track track;
         public Metadata.Episode episode;
         private long playbackHaltedAt = 0;
+        private volatile boolean calledPreload = false;
+        private Codec codec;
+        private volatile boolean closed = false;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
             this.playable = playable;
         }
 
-        private void load(boolean play, int pos) throws Codec.CodecException, IOException, LinesHolder.MixerException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+        private void load(int pos) throws Codec.CodecException, IOException, LineHelper.MixerException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
             listener.startedLoading(this);
 
             PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(conf.preferredQuality()), this);
@@ -173,17 +227,16 @@ public class PlayerRunner implements Runnable, Closeable {
             episode = stream.episode;
 
             int duration;
-            if (playable instanceof EpisodeId) {
+            if (playable instanceof EpisodeId && stream.episode != null) {
                 duration = stream.episode.getDuration();
                 LOGGER.info(String.format("Loaded episode, name: '%s', gid: %s", stream.episode.getName(), Utils.bytesToHex(playable.getGid())));
-            } else if (playable instanceof TrackId) {
+            } else if (playable instanceof TrackId && stream.track != null) {
                 duration = stream.track.getDuration();
                 LOGGER.info(String.format("Loaded track, name: '%s', artists: '%s', gid: %s", stream.track.getName(), Utils.artistsToString(stream.track.getArtistList()), Utils.bytesToHex(playable.getGid())));
             } else {
                 throw new IllegalArgumentException();
             }
 
-            Codec codec;
             switch (stream.in.codec()) {
                 case VORBIS:
                     codec = new VorbisCodec(stream.in, stream.normalizationData, conf, duration);
@@ -199,21 +252,14 @@ public class PlayerRunner implements Runnable, Closeable {
                     throw new IllegalArgumentException("Unknown codec: " + stream.in.codec());
             }
 
-            LOGGER.trace(String.format("Player ready for playback, codec: %s, fileId: %s", stream.in.codec(), stream.in.describe()));
+            if (!output.getFormat().matches(codec.getAudioFormat()))
+                throw new UnsupportedOperationException(codec.getAudioFormat().toString()); // FIXME
 
-            AudioFormat format = codec.getAudioFormat();
-            if (output == null) {
-                output = lines.getLineFor(conf, format);
-            } else {
-                if (!output.isCompatible(format))
-                    throw new UnsupportedOperationException("Current line doesn't support this format!"); // FIXME
-            }
+            LOGGER.trace(String.format("Loaded codec (%s), fileId: %s, format: %s", stream.in.codec(), stream.in.describe(), codec.getAudioFormat()));
 
-            // TODO: Seek to position
+            codec.seek(pos);
 
-            listener.finishedLoading(this, pos, play);
-
-            // TODO: Play if needed
+            listener.finishedLoading(this, pos);
         }
 
         @Override
@@ -238,8 +284,17 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         @Override
-        public void close() {
+        public void close() throws IOException {
+            closed = true;
+            codec.cleanup();
+        }
 
+        private void silentClose() {
+            try {
+                close();
+            } catch (IOException ex) {
+                LOGGER.debug("An exception occurred while closing the handler!", ex);
+            }
         }
 
         boolean isTrack(@NotNull PlayableId id) {
@@ -250,12 +305,30 @@ public class PlayerRunner implements Runnable, Closeable {
             sendCommand(Command.Seek, id, pos);
         }
 
-        void pause() {
-            sendCommand(Command.Pause, id);
+        void setPlaying() {
+            sendCommand(Command.SetPlaying, id);
         }
 
-        void play() {
-            sendCommand(Command.Play, id);
+        private void shouldPreload() {
+            if (calledPreload) return;
+
+            if (!conf.preloadEnabled()) {
+                calledPreload = true;
+                return;
+            }
+
+            try {
+                if (codec.remaining() < TimeUnit.SECONDS.toMillis(15)) {
+                    listener.preloadNextTrack(this);
+                    calledPreload = true;
+                }
+            } catch (Codec.CannotGetTimeException ex) {
+                calledPreload = true;
+            }
+        }
+
+        void stop() {
+            sendCommand(Command.Stop, id);
         }
     }
 
@@ -269,27 +342,45 @@ public class PlayerRunner implements Runnable, Closeable {
                     switch (cmd.cmd) {
                         case Load:
                             TrackHandler handler = (TrackHandler) cmd.args[0];
-                            boolean play = (boolean) cmd.args[1];
-                            int pos = (int) cmd.args[2];
-
                             loadedTracks.put(cmd.id, handler);
 
                             try {
-                                handler.load(play, pos);
-                            } catch (IOException | LinesHolder.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                                handler.load((int) cmd.args[1]);
+                            } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                                 listener.loadingError(handler, handler.playable, ex);
                             }
-                        case Play: // TODO
                             break;
-                        case Pause: // TODO
+                        case SetPlaying:
+                            playingHandler = loadedTracks.get(cmd.id);
+                            if (playingHandler == null) throw new IllegalArgumentException();
                             break;
-                        case Stop: // TODO
+                        case Stop:
+                            TrackHandler hh = loadedTracks.remove(cmd.id);
+                            if (hh != null) {
+                                hh.silentClose();
+                                if (playingHandler == hh) playingHandler = null;
+                            }
                             break;
-                        case Seek: // TODO
+                        case Seek:
+                            loadedTracks.get(cmd.id).codec.seek((Integer) cmd.args[0]);
                             break;
-                        case StopAll: // TODO
+                        case PlayMixer:
+                            paused = false;
+                            synchronized (pauseLock) {
+                                pauseLock.notifyAll();
+                            }
                             break;
-                        case Terminate:
+                        case PauseMixer:
+                            paused = true;
+                            break;
+                        case StopMixer:
+                            paused = true;
+                            for (TrackHandler h : loadedTracks.values())
+                                h.silentClose();
+
+                            loadedTracks.clear();
+                            break;
+                        case TerminateMixer:
                             return;
                     }
                 }

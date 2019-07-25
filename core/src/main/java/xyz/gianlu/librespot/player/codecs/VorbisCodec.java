@@ -11,11 +11,12 @@ import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.LinesHolder;
 import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 
 /**
@@ -39,7 +40,7 @@ public class VorbisCodec extends Codec {
     private int[] pcmIndex;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LinesHolder.MixerException {
+    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
         super(audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();
@@ -122,7 +123,7 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    protected int readSome(@NotNull WritableThing thing) throws IOException, CodecException {
+    public int readSome(@NotNull SourceDataLine line) throws IOException, CodecException {
         int written = 0;
         int result = joggSyncState.pageout(joggPage);
         if (result == -1 || result == 0) {
@@ -139,7 +140,7 @@ public class VorbisCodec extends Codec {
                 if (result == -1 || result == 0) {
                     break;
                 } else if (result == 1) {
-                    written += decodeCurrentPacket(thing);
+                    written += decodeCurrentPacket(line);
                 }
             }
 
@@ -158,7 +159,7 @@ public class VorbisCodec extends Codec {
         return written;
     }
 
-    private int decodeCurrentPacket(@NotNull WritableThing thing) {
+    private int decodeCurrentPacket(@NotNull SourceDataLine line) {
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -186,7 +187,7 @@ public class VorbisCodec extends Codec {
                 }
             }
 
-            written += thing.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
+            written += line.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
             jorbisDspState.synthesis_read(range);
 
             long granulepos = joggPacket.granulepos;
