@@ -199,6 +199,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public int crossfadeDuration() {
+        return config.get("player.crossfadeDuration");
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }

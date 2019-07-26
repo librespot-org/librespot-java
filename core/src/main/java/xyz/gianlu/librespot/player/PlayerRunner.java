@@ -178,6 +178,8 @@ public class PlayerRunner implements Runnable, Closeable {
         void playbackHalted(@NotNull TrackHandler handler, int chunk);
 
         void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
+
+        void crossfadeNextTrack(@NotNull TrackHandler handler);
     }
 
     static class Controller {
@@ -205,6 +207,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private final int id;
         private final PlayableId playable;
         private final Object writeLock = new Object();
+        private final int crossfadeDuration;
         public Metadata.Track track;
         public Metadata.Episode episode;
         private long playbackHaltedAt = 0;
@@ -212,10 +215,12 @@ public class PlayerRunner implements Runnable, Closeable {
         private Codec codec;
         private volatile boolean closed = false;
         private OutputStream out;
+        private volatile boolean calledCrossfade = false;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
             this.playable = playable;
+            this.crossfadeDuration = conf.crossfadeDuration();
         }
 
         private void setOut(@NotNull OutputStream out) {
@@ -227,6 +232,8 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         private void clearOut() {
+            if (out == null) return;
+
             if (out == mixing.firstOut()) {
                 mixing.first(false);
             } else if (out == mixing.secondOut()) {
@@ -320,21 +327,38 @@ public class PlayerRunner implements Runnable, Closeable {
             sendCommand(Command.PushToMixer, id);
         }
 
+        int time() throws Codec.CannotGetTimeException {
+            return codec.time();
+        }
+
         private void shouldPreload() {
             if (calledPreload) return;
 
-            if (!conf.preloadEnabled()) {
+            if (!conf.preloadEnabled() && crossfadeDuration == 0) { // Force preload if crossfade is enabled
                 calledPreload = true;
                 return;
             }
 
             try {
-                if (codec.remaining() < TimeUnit.SECONDS.toMillis(15)) {
+                if (codec.remaining() <= TimeUnit.SECONDS.toMillis(15) + crossfadeDuration) {
                     listener.preloadNextTrack(this);
                     calledPreload = true;
                 }
             } catch (Codec.CannotGetTimeException ex) {
                 calledPreload = true;
+            }
+        }
+
+        private void shouldCrossfade() {
+            if (calledCrossfade || crossfadeDuration == 0) return;
+
+            try {
+                if (codec.remaining() <= crossfadeDuration) {
+                    listener.crossfadeNextTrack(this);
+                    calledCrossfade = true;
+                }
+            } catch (Codec.CannotGetTimeException ex) {
+                calledCrossfade = true;
             }
         }
 
@@ -360,6 +384,7 @@ public class PlayerRunner implements Runnable, Closeable {
                 if (out == null) throw new IllegalStateException();
 
                 shouldPreload();
+                shouldCrossfade();
 
                 try {
                     if (codec.readSome(out) == -1) {

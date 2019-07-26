@@ -11,22 +11,16 @@ import java.io.*;
  */
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
-    private final PipedInputStream fin;
-    private final PipedInputStream sin;
-    private final PipedOutputStream fout;
-    private final PipedOutputStream sout;
-    private boolean fe = false;
-    private boolean se = false;
+    private PipedInputStream fin;
+    private PipedInputStream sin;
+    private PipedOutputStream fout;
+    private PipedOutputStream sout;
+    private volatile boolean fe = false;
+    private volatile boolean se = false;
 
     public MixingLine() {
-        try {
-            fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-            fin.connect(fout = new PipedOutputStream());
-            sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-            sin.connect(sout = new PipedOutputStream());
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+        firstOut();
+        secondOut();
     }
 
     @Override
@@ -35,12 +29,12 @@ public class MixingLine extends InputStream {
     }
 
     @Override
-    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public int read(@NotNull byte[] b, int off, int len) throws IOException {
         if (len % 2 != 0) throw new IllegalArgumentException();
 
-        if (fe && se) {
-            int dest = off;
-            for (int i = 0; i < len; i += 2, dest += 2) {
+        int dest = off;
+        for (int i = 0; i < len; i += 2, dest += 2) {
+            if (fe && se) {
                 int first = (byte) fin.read();
                 first |= (fin.read() << 8);
 
@@ -54,51 +48,79 @@ public class MixingLine extends InputStream {
 
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
+            } else if (fe) {
+                b[dest] = (byte) fin.read();
+                b[dest + 1] = (byte) fin.read();
+            } else if (se) {
+                b[dest] = (byte) sin.read();
+                b[dest + 1] = (byte) sin.read();
+            } else {
+                break;
             }
-
-            return len;
-        } else if (fe) {
-            return fin.read(b, off, len);
-        } else if (se) {
-            return sin.read(b, off, len);
-        } else {
-            return 0;
         }
+
+        return dest - off;
     }
 
-    public synchronized void first(boolean enabled) {
+    public void first(boolean enabled) {
+        if (enabled && fout == null) throw new IllegalArgumentException();
+
         fe = enabled;
         LOGGER.trace("Toggle first channel: " + enabled);
     }
 
-    public synchronized void second(boolean enabled) {
+    public void second(boolean enabled) {
+        if (enabled && sout == null) throw new IllegalArgumentException();
+
         se = enabled;
         LOGGER.trace("Toggle second channel: " + enabled);
     }
 
     @NotNull
     public OutputStream firstOut() {
+        if (fout == null) {
+            try {
+                fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
+                fin.connect(fout = new PipedOutputStream());
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
         return fout;
     }
 
     @NotNull
     public OutputStream secondOut() {
+        if (sout == null) {
+            try {
+                sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
+                sin.connect(sout = new PipedOutputStream());
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
         return sout;
     }
 
-    public synchronized void clearFirst() {
+    public void clearFirst() {
         try {
             fout.flush();
             fin.skip(fin.available());
+            fin = null;
+            fout = null;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
     }
 
-    public synchronized void clearSecond() {
+    public void clearSecond() {
         try {
             sout.flush();
             sin.skip(sin.available());
+            sin = null;
+            sout = null;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }

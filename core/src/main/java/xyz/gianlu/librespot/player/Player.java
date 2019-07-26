@@ -14,9 +14,9 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.UnsupportedId;
 import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
@@ -35,6 +35,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private final Configuration conf;
     private final PlayerRunner runner;
     private TrackHandler trackHandler;
+    private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
@@ -251,10 +252,28 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
-            if (next != null && !(next instanceof UnsupportedId)) {
+            if (next != null) {
                 preloadTrackHandler = runner.load(next, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
+        }
+    }
+
+    @Override
+    public void crossfadeNextTrack(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            PlayableId next = state.nextPlayableDoNotSet();
+            if (next == null) return;
+
+            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(next)) {
+                crossfadeHandler = preloadTrackHandler;
+            } else {
+                LOGGER.warn("Did not preload crossfade track. That's bad.");
+                crossfadeHandler = runner.load(next, 0);
+            }
+
+            LOGGER.info("Crossfading to next track.");
+            crossfadeHandler.pushToMixer();
         }
     }
 
@@ -313,20 +332,35 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
         PlayableId id = state.getCurrentPlayableOrThrow();
-        if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
-            trackHandler = preloadTrackHandler;
-            preloadTrackHandler = null;
+        if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
+            trackHandler = crossfadeHandler;
+            if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
+            crossfadeHandler = null;
 
             updateStateWithHandler();
 
-            trackHandler.seek(state.getPosition());
-        } else {
-            trackHandler = runner.load(id, state.getPosition());
-        }
+            try {
+                state.setPosition(trackHandler.time());
+            } catch (Codec.CannotGetTimeException ignored) {
+            }
 
-        if (play) {
-            trackHandler.pushToMixer();
-            runner.playMixer();
+            if (!play) runner.pauseMixer();
+        } else {
+            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
+                trackHandler = preloadTrackHandler;
+                preloadTrackHandler = null;
+
+                updateStateWithHandler();
+
+                trackHandler.seek(state.getPosition());
+            } else {
+                trackHandler = runner.load(id, state.getPosition());
+            }
+
+            if (play) {
+                trackHandler.pushToMixer();
+                runner.playMixer();
+            }
         }
 
         if (play) state.setState(true, false, buffering);
@@ -494,5 +528,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         boolean autoplayEnabled();
 
         boolean enableLoadingState();
+
+        int crossfadeDuration();
     }
 }

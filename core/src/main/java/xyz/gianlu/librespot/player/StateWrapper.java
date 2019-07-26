@@ -744,7 +744,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
         /**
          * Figures out what the next {@link PlayableId} should be. This is called directly by the preload function and therefore can return {@code null} as it doesn't account for repeating contexts.
-         * This will also return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
+         * This will NOT return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
          *
          * @return The next {@link PlayableId} or {@code null}
          */
