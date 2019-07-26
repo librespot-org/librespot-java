@@ -8,15 +8,15 @@ import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
  */
 public abstract class Codec {
-    protected static final int BUFFER_SIZE = 2048;
+    public static final int BUFFER_SIZE = 2048;
     private static final Logger LOGGER = Logger.getLogger(Codec.class);
     protected final InputStream audioIn;
     protected final float normalizationFactor;
@@ -29,7 +29,7 @@ public abstract class Codec {
         this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
     }
 
-    public abstract int readSome(@NotNull SourceDataLine line) throws IOException, CodecException;
+    public abstract int readSome(@NotNull OutputStream out) throws IOException, CodecException;
 
     /**
      * @return Time in millis

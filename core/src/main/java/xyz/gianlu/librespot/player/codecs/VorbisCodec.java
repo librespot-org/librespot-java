@@ -16,8 +16,8 @@ import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
@@ -123,7 +123,7 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    public int readSome(@NotNull SourceDataLine line) throws IOException, CodecException {
+    public int readSome(@NotNull OutputStream out) throws IOException, CodecException {
         int written = 0;
         int result = joggSyncState.pageout(joggPage);
         if (result == -1 || result == 0) {
@@ -140,7 +140,7 @@ public class VorbisCodec extends Codec {
                 if (result == -1 || result == 0) {
                     break;
                 } else if (result == 1) {
-                    written += decodeCurrentPacket(line);
+                    written += decodeCurrentPacket(out);
                 }
             }
 
@@ -159,7 +159,7 @@ public class VorbisCodec extends Codec {
         return written;
     }
 
-    private int decodeCurrentPacket(@NotNull SourceDataLine line) {
+    private int decodeCurrentPacket(@NotNull OutputStream out) throws IOException {
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
@@ -187,7 +187,9 @@ public class VorbisCodec extends Codec {
                 }
             }
 
-            written += line.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
+            int c = 2 * jorbisInfo.channels * range;
+            out.write(convertedBuffer, 0, c);
+            written += c;
             jorbisDspState.synthesis_read(range);
 
             long granulepos = joggPacket.granulepos;

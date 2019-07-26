@@ -9,9 +9,9 @@ import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.mp3.Mp3InputStream;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.SourceDataLine;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
@@ -55,10 +55,11 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    public int readSome(@NotNull SourceDataLine line) throws IOException {
+    public int readSome(@NotNull OutputStream out) throws IOException {
         int count = in.read(buffer);
         if (count == -1) return -1;
-        return line.write(buffer, 0, count);
+        out.write(buffer, 0, count);
+        return count;
     }
 
     @Override

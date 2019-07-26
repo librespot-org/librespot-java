@@ -210,6 +210,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
+    public void mixerError(@NotNull Exception ex) {
+        LOGGER.fatal("Mixer error!", ex);
+        panicState();
+    }
+
+    @Override
     public void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId id, @NotNull Exception ex) {
         if (handler == trackHandler) {
             if (ex instanceof ContentRestrictedException) {
@@ -319,7 +325,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         if (play) {
-            trackHandler.setPlaying();
+            trackHandler.pushToMixer();
             runner.playMixer();
         }
 
