@@ -447,7 +447,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;

@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.player.mixing;
 
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
@@ -9,10 +10,13 @@ import java.io.*;
  * @author Gianlu
  */
 public class MixingLine extends InputStream {
+    private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final PipedInputStream fin;
     private final PipedInputStream sin;
     private final PipedOutputStream fout;
     private final PipedOutputStream sout;
+    private boolean fe = false;
+    private boolean se = false;
 
     public MixingLine() {
         try {
@@ -25,23 +29,51 @@ public class MixingLine extends InputStream {
         }
     }
 
-    private static byte[] mix(byte[] first, byte[] second, int len) {
-        byte[] result = new byte[len];
+    @Override
+    public int read() {
+        throw new UnsupportedOperationException();
+    }
 
-        for (int i = 0; i < len; i += 2) {
-            int first16 = first[i] | (first[i + 1] << 8);
-            int second16 = second[i] | (second[i + 1] << 8);
+    @Override
+    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
+        if (len % 2 != 0) throw new IllegalArgumentException();
 
-            int value = first16 + second16;
-            if (value > 32767) value = 32767;
-            else if (value < -32768) value = -32768;
-            else if (value < 0) value = value | 32768;
+        if (fe && se) {
+            int dest = off;
+            for (int i = 0; i < len; i += 2, dest += 2) {
+                int first = (byte) fin.read();
+                first |= (fin.read() << 8);
 
-            result[i] = (byte) value;
-            result[i + 1] = (byte) (value >>> 8);
+                int second = (byte) sin.read();
+                second |= (sin.read() << 8);
+
+                int result = first + second;
+                if (result > 32767) result = 32767;
+                else if (result < -32768) result = -32768;
+                else if (result < 0) result = result | 32768;
+
+                b[dest] = (byte) result;
+                b[dest + 1] = (byte) (result >>> 8);
+            }
+
+            return len;
+        } else if (fe) {
+            return fin.read(b, off, len);
+        } else if (se) {
+            return sin.read(b, off, len);
+        } else {
+            return 0;
         }
+    }
 
-        return result;
+    public synchronized void first(boolean enabled) {
+        fe = enabled;
+        LOGGER.trace("Toggle first channel: " + enabled);
+    }
+
+    public synchronized void second(boolean enabled) {
+        se = enabled;
+        LOGGER.trace("Toggle second channel: " + enabled);
     }
 
     @NotNull
@@ -54,17 +86,7 @@ public class MixingLine extends InputStream {
         return sout;
     }
 
-    @Override
-    public int read() throws IOException {
-        return fin.read(); // TODO
-    }
-
-    @Override
-    public int read(@NotNull byte[] b, int off, int len) throws IOException {
-        return fin.read(b, off, len); // TODO
-    }
-
-    public void clearFirst() {
+    public synchronized void clearFirst() {
         try {
             fout.flush();
             fin.skip(fin.available());
@@ -73,7 +95,7 @@ public class MixingLine extends InputStream {
         }
     }
 
-    public void clearSecond() {
+    public synchronized void clearSecond() {
         try {
             sout.flush();
             sin.skip(sin.available());

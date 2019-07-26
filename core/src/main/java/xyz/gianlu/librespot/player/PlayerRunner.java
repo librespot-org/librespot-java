@@ -226,6 +226,16 @@ public class PlayerRunner implements Runnable, Closeable {
             }
         }
 
+        private void clearOut() {
+            if (out == mixing.firstOut()) {
+                mixing.first(false);
+            } else if (out == mixing.secondOut()) {
+                mixing.second(false);
+            }
+
+            out = null;
+        }
+
         private void load(int pos) throws Codec.CodecException, IOException, LineHelper.MixerException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
             listener.startedLoading(this);
 
@@ -353,7 +363,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 try {
                     if (codec.readSome(out) == -1) {
-                        out = null;
+                        clearOut();
 
                         stop();
                         listener.endOfTrack(this);
@@ -367,6 +377,7 @@ public class PlayerRunner implements Runnable, Closeable {
             }
 
             try {
+                clearOut();
                 codec.cleanup();
             } catch (IOException ignored) {
             }
@@ -399,10 +410,12 @@ public class PlayerRunner implements Runnable, Closeable {
                                 firstHandler = hhh;
                                 mixing.clearFirst();
                                 firstHandler.setOut(mixing.firstOut());
+                                mixing.first(true);
                             } else if (secondHandler == null) {
                                 secondHandler = hhh;
                                 mixing.clearSecond();
                                 secondHandler.setOut(mixing.secondOut());
+                                mixing.second(true);
                             } else {
                                 throw new IllegalStateException();
                             }
