@@ -188,7 +188,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
     }
 
-    private void updateStateWithHandler() {
+    private void updateStateWithHandler() { // FIXME: Check that we are updating the correct track
         Metadata.Episode episode;
         Metadata.Track track;
         if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);

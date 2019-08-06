@@ -203,6 +203,95 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
+    private static class CommandBundle {
+        private final Command cmd;
+        private final int id;
+        private final Object[] args;
+
+        private CommandBundle(@NotNull Command cmd, int id, Object... args) {
+            this.cmd = cmd;
+            this.id = id;
+            this.args = args;
+        }
+    }
+
+    private class Looper implements Runnable {
+
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    CommandBundle cmd = commands.take();
+                    switch (cmd.cmd) {
+                        case Load:
+                            TrackHandler handler = (TrackHandler) cmd.args[0];
+                            loadedTracks.put(cmd.id, handler);
+
+                            try {
+                                handler.load((int) cmd.args[1]);
+                            } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                                listener.loadingError(handler, handler.playable, ex);
+                            }
+                            break;
+                        case PushToMixer:
+                            TrackHandler hhh = loadedTracks.get(cmd.id);
+                            if (hhh == null) throw new IllegalArgumentException();
+
+                            if (firstHandler == null) {
+                                firstHandler = hhh;
+                                mixing.clearFirst();
+                                firstHandler.setOut(mixing.firstOut());
+                                mixing.first(true);
+                            } else if (secondHandler == null) {
+                                secondHandler = hhh;
+                                mixing.clearSecond();
+                                secondHandler.setOut(mixing.secondOut());
+                                mixing.second(true);
+                            } else {
+                                throw new IllegalStateException();
+                            }
+
+                            executorService.execute(hhh);
+                            break;
+                        case Stop:
+                            TrackHandler hh = loadedTracks.remove(cmd.id);
+                            if (hh != null) {
+                                hh.close();
+                                if (firstHandler == hh) firstHandler = null;
+                                else if (secondHandler == hh) secondHandler = null;
+                            }
+                            break;
+                        case Seek:
+                            loadedTracks.get(cmd.id).codec.seek((Integer) cmd.args[0]);
+                            break;
+                        case PlayMixer:
+                            paused = false;
+                            synchronized (pauseLock) {
+                                pauseLock.notifyAll();
+                            }
+                            break;
+                        case PauseMixer:
+                            paused = true;
+                            break;
+                        case StopMixer:
+                            paused = true;
+                            for (TrackHandler h : loadedTracks.values())
+                                h.close();
+
+                            firstHandler = null;
+                            secondHandler = null;
+                            loadedTracks.clear();
+                            break;
+                        case TerminateMixer:
+                            return;
+                    }
+                }
+            } catch (InterruptedException ex) {
+                LOGGER.fatal("Failed handling command!", ex);
+            }
+        }
+    }
+
     public class TrackHandler implements AbsChunckedInputStream.HaltListener, Closeable, Runnable {
         private final int id;
         private final PlayableId playable;
@@ -332,7 +421,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         private void shouldPreload() {
-            if (calledPreload) return;
+            if (calledPreload || codec == null) return;
 
             if (!conf.preloadEnabled() && crossfadeDuration == 0) { // Force preload if crossfade is enabled
                 calledPreload = true;
@@ -406,95 +495,6 @@ public class PlayerRunner implements Runnable, Closeable {
                 codec.cleanup();
             } catch (IOException ignored) {
             }
-        }
-    }
-
-    private class Looper implements Runnable {
-
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    CommandBundle cmd = commands.take();
-                    switch (cmd.cmd) {
-                        case Load:
-                            TrackHandler handler = (TrackHandler) cmd.args[0];
-                            loadedTracks.put(cmd.id, handler);
-
-                            try {
-                                handler.load((int) cmd.args[1]);
-                            } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
-                                listener.loadingError(handler, handler.playable, ex);
-                            }
-                            break;
-                        case PushToMixer:
-                            TrackHandler hhh = loadedTracks.get(cmd.id);
-                            if (hhh == null) throw new IllegalArgumentException();
-
-                            if (firstHandler == null) {
-                                firstHandler = hhh;
-                                mixing.clearFirst();
-                                firstHandler.setOut(mixing.firstOut());
-                                mixing.first(true);
-                            } else if (secondHandler == null) {
-                                secondHandler = hhh;
-                                mixing.clearSecond();
-                                secondHandler.setOut(mixing.secondOut());
-                                mixing.second(true);
-                            } else {
-                                throw new IllegalStateException();
-                            }
-
-                            executorService.execute(hhh);
-                            break;
-                        case Stop:
-                            TrackHandler hh = loadedTracks.remove(cmd.id);
-                            if (hh != null) {
-                                hh.close();
-                                if (firstHandler == hh) firstHandler = null;
-                                else if (secondHandler == hh) secondHandler = null;
-                            }
-                            break;
-                        case Seek:
-                            loadedTracks.get(cmd.id).codec.seek((Integer) cmd.args[0]);
-                            break;
-                        case PlayMixer:
-                            paused = false;
-                            synchronized (pauseLock) {
-                                pauseLock.notifyAll();
-                            }
-                            break;
-                        case PauseMixer:
-                            paused = true;
-                            break;
-                        case StopMixer:
-                            paused = true;
-                            for (TrackHandler h : loadedTracks.values())
-                                h.close();
-
-                            firstHandler = null;
-                            secondHandler = null;
-                            loadedTracks.clear();
-                            break;
-                        case TerminateMixer:
-                            return;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                LOGGER.fatal("Failed handling command!", ex);
-            }
-        }
-    }
-
-    private class CommandBundle {
-        private final Command cmd;
-        private final int id;
-        private final Object[] args;
-
-        private CommandBundle(@NotNull Command cmd, int id, Object... args) {
-            this.cmd = cmd;
-            this.id = id;
-            this.args = args;
         }
     }
 }

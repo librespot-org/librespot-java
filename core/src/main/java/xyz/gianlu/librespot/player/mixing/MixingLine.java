@@ -35,16 +35,13 @@ public class MixingLine extends InputStream {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && se) {
-                int first = (byte) fin.read();
-                first |= (fin.read() << 8);
-
-                int second = (byte) sin.read();
-                second |= (sin.read() << 8);
+                short first = (short) ((fin.read() & 0xFF) | ((fin.read() & 0xFF) << 8));
+                short second = (short) ((sin.read() & 0xFF) | ((sin.read() & 0xFF) << 8));
 
                 int result = first + second;
                 if (result > 32767) result = 32767;
                 else if (result < -32768) result = -32768;
-                else if (result < 0) result = result | 32768;
+                else if (result < 0) result |= 32768;
 
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
