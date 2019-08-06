@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot;
 
+import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.Config;
 import com.electronwill.nightconfig.core.ConfigFormat;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
@@ -8,6 +9,7 @@ import com.electronwill.nightconfig.core.file.FileNotFoundAction;
 import com.electronwill.nightconfig.core.file.FormatDetector;
 import com.electronwill.nightconfig.core.io.ConfigParser;
 import com.electronwill.nightconfig.core.io.ConfigWriter;
+import com.electronwill.nightconfig.toml.TomlParser;
 import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -68,6 +70,8 @@ public final class FileConfiguration extends AbsConfiguration {
             confFile.delete();
 
             LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
+        } else {
+            checkMissingKeys(new TomlParser().parse(defaultConfig));
         }
 
         if (override != null && override.length > 0) {
@@ -87,6 +91,34 @@ public final class FileConfiguration extends AbsConfiguration {
                     LOGGER.warn("Invalid command line argument: " + str);
                 }
             }
+        }
+    }
+
+    private static boolean checkMissingKeys(@NotNull Config defaultConfig, @NotNull FileConfig config, @NotNull String prefix) {
+        boolean save = false;
+
+        for (Config.Entry entry : defaultConfig.entrySet()) {
+            String key = prefix + entry.getKey();
+            if (entry.getValue() instanceof Config) {
+                if (checkMissingKeys(entry.getValue(), config, key + "."))
+                    save = true;
+            } else {
+                if (!config.contains(key)) {
+                    LOGGER.trace("Added new entry to configuration file: " + key);
+                    config.set(key, entry.getValue());
+                    save = true;
+                }
+            }
+        }
+
+        return save;
+    }
+
+    private void checkMissingKeys(@NotNull CommentedConfig defaultConfig) {
+        if (checkMissingKeys(defaultConfig, config, "")) {
+            config.clearComments();
+            config.putAllComments(defaultConfig.getComments());
+            config.save();
         }
     }
 

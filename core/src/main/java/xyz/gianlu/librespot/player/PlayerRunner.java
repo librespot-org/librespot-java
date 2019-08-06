@@ -141,6 +141,9 @@ public class PlayerRunner implements Runnable, Closeable {
 
         firstHandler = null;
         secondHandler = null;
+
+        output.close();
+        executorService.shutdown();
     }
 
     void pauseMixer() {
