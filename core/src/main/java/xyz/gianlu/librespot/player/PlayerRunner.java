@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.spotify.metadata.proto.Metadata;
 import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -25,9 +26,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -48,8 +47,7 @@ public class PlayerRunner implements Runnable, Closeable {
     private final Map<Integer, TrackHandler> loadedTracks = new HashMap<>(3);
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Object pauseLock = new Object();
-    private final SourceDataLine output;
-    private final Controller controller;
+    private final Output output;
     private final MixingLine mixing = new MixingLine();
     private volatile boolean closed = false;
     private volatile boolean paused = true;
@@ -61,13 +59,26 @@ public class PlayerRunner implements Runnable, Closeable {
         this.conf = conf;
         this.listener = listener;
 
-        try {
-            AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
-            this.output = LineHelper.getLineFor(conf, format);
-            this.output.open(format);
-            this.controller = new Controller(output, conf.initialVolume());
-        } catch (LineUnavailableException ex) {
-            throw new RuntimeException(ex);
+        switch (conf.output()) {
+            case MIXER:
+                try {
+                    SourceDataLine line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
+                    line.open(Output.OUTPUT_FORMAT);
+
+                    output = new Output(line, null, conf);
+                } catch (LineUnavailableException ex) {
+                    throw new RuntimeException("Failed opening line!", ex);
+                }
+                break;
+            case PIPE:
+                File pipe = conf.outputPipe();
+                if (pipe == null || !pipe.exists() || !pipe.canWrite())
+                    throw new IllegalArgumentException("Invalid pipe file: " + pipe);
+
+                output = new Output(null, pipe, conf);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown output: " + conf.output());
         }
 
         Looper looper;
@@ -116,17 +127,20 @@ public class PlayerRunner implements Runnable, Closeable {
             }
         }
 
-        output.drain();
-        output.close();
+        try {
+            output.drain();
+            output.close();
+        } catch (IOException ignored) {
+        }
     }
 
-    @NotNull
+    @Nullable
     Controller controller() {
-        return controller;
+        return output.controller();
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         commands.add(new CommandBundle(Command.TerminateMixer, -1));
 
         closed = true;
@@ -183,6 +197,63 @@ public class PlayerRunner implements Runnable, Closeable {
         void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
 
         void crossfadeNextTrack(@NotNull TrackHandler handler);
+    }
+
+    private static class Output implements Closeable {
+        private static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
+        private final SourceDataLine line;
+        private final File pipe;
+        private final Controller controller;
+        private FileOutputStream pipeOut;
+
+        @Contract("null, null, _ -> fail")
+        Output(@Nullable SourceDataLine line, @Nullable File pipe, @NotNull Player.Configuration conf) {
+            if ((line == null && pipe == null) || (line != null && pipe != null)) throw new IllegalArgumentException();
+
+            this.line = line;
+            this.pipe = pipe;
+
+            if (line != null) controller = new Controller(line, conf.initialVolume());
+            else controller = null;
+        }
+
+        @Nullable
+        private Controller controller() {
+            return controller;
+        }
+
+        void stop() {
+            if (line != null) line.stop();
+        }
+
+        void start() {
+            if (line != null) line.start();
+        }
+
+        void write(byte[] buffer, int off, int len) throws IOException {
+            if (line != null) {
+                line.write(buffer, off, len);
+            } else {
+                if (pipeOut == null) pipeOut = new FileOutputStream(pipe, true);
+                pipeOut.write(buffer, off, len);
+            }
+        }
+
+        void drain() {
+            if (line != null) line.drain();
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (line != null) line.close();
+            if (pipeOut != null) pipeOut.close();
+        }
+
+        @NotNull
+        public AudioFormat getFormat() {
+            if (line != null) return line.getFormat();
+            else return OUTPUT_FORMAT;
+        }
     }
 
     static class Controller {

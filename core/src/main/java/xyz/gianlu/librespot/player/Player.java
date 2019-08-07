@@ -20,6 +20,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -167,7 +168,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void volumeChanged() {
         PlayerRunner.Controller controller = runner.controller();
-        controller.setVolume(state.getVolume());
+        if (controller != null) controller.setVolume(state.getVolume());
     }
 
     @Override
@@ -513,6 +514,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public interface Configuration {
         @NotNull
         AudioQuality preferredQuality();
+
+        @NotNull
+        AudioOutput output();
+
+        @Nullable
+        File outputPipe();
 
         boolean preloadEnabled();
 

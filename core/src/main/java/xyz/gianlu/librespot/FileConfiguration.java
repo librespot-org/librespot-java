@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.ZeroconfServer;
+import xyz.gianlu.librespot.player.AudioOutput;
 import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
@@ -156,11 +157,6 @@ public final class FileConfiguration extends AbsConfiguration {
         else return Utils.split(str, separator);
     }
 
-    @NotNull
-    private File getFile(@NotNull String path) {
-        return new File((String) config.get(path));
-    }
-
     @Override
     public boolean cacheEnabled() {
         return config.get("cache.enabled");
@@ -168,7 +164,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public @NotNull File cacheDir() {
-        return getFile("cache.dir");
+        return new File((String) config.get("cache.dir"));
     }
 
     @Override
@@ -179,6 +175,18 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public @NotNull AudioQuality preferredQuality() {
         return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+    }
+
+    @Override
+    public @NotNull AudioOutput output() {
+        return config.getEnum("player.output", AudioOutput.class);
+    }
+
+    @Override
+    public @Nullable File outputPipe() {
+        String path = config.get("player.pipe");
+        if (path == null || path.isEmpty()) return null;
+        return new File(path);
     }
 
     @Override
