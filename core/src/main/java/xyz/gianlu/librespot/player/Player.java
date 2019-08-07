@@ -69,6 +69,22 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         handlePrev();
     }
 
+    public void load(@NotNull String uri, boolean play) {
+        try {
+            state.loadContext(uri);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState();
+            return;
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState();
+            return;
+        }
+
+        loadTrack(play);
+    }
+
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
         LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
 
