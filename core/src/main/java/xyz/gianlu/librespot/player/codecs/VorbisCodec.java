@@ -189,6 +189,7 @@ public class VorbisCodec extends Codec {
 
             int c = 2 * jorbisInfo.channels * range;
             out.write(convertedBuffer, 0, c);
+            out.flush();
             written += c;
             jorbisDspState.synthesis_read(range);
 

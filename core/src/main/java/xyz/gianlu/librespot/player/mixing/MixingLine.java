@@ -11,6 +11,7 @@ import java.io.*;
  */
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
+    private final byte[] mb = new byte[2];
     private PipedInputStream fin;
     private PipedInputStream sin;
     private FirstOutputStream fout;
@@ -35,11 +36,21 @@ public class MixingLine extends InputStream {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && se) {
-                float first = (short) ((fin.read() & 0xFF) | ((fin.read() & 0xFF) << 8));
-                first = (short) (first * fg);
+                float first;
+                if (fin.read(mb) != 2) {
+                    first = 0;
+                } else {
+                    first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                    first = (short) (first * fg);
+                }
 
-                float second = (short) ((sin.read() & 0xFF) | ((sin.read() & 0xFF) << 8));
-                second = (short) (second * sg);
+                float second;
+                if (sin.read(mb) != 2) {
+                    second = 0;
+                } else {
+                    second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                    second = (short) (second * sg);
+                }
 
                 int result = (int) (first + second);
                 if (result > 32767) result = 32767;
@@ -66,7 +77,7 @@ public class MixingLine extends InputStream {
     public MixingOutput firstOut() {
         if (fout == null) {
             try {
-                fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
+                fin = new PipedInputStream(Codec.BUFFER_SIZE * 16);
                 fin.connect(fout = new FirstOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -80,7 +91,7 @@ public class MixingLine extends InputStream {
     public MixingOutput secondOut() {
         if (sout == null) {
             try {
-                sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
+                sin = new PipedInputStream(Codec.BUFFER_SIZE * 16);
                 sin.connect(sout = new SecondOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -143,12 +154,15 @@ public class MixingLine extends InputStream {
 
         @NotNull
         OutputStream stream();
+
+        void flush() throws IOException;
     }
 
     public class FirstOutputStream extends PipedOutputStream implements MixingOutput {
 
         @Override
         public void toggle(boolean enabled) {
+            if (enabled == fe) return;
             if (enabled && fout != this) throw new IllegalArgumentException();
             fe = enabled;
             LOGGER.trace("Toggle first channel: " + enabled);
@@ -171,6 +185,7 @@ public class MixingLine extends InputStream {
 
         @Override
         public void toggle(boolean enabled) {
+            if (enabled == se) return;
             if (enabled && sout != this) throw new IllegalArgumentException();
             se = enabled;
             LOGGER.trace("Toggle second channel: " + enabled);

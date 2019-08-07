@@ -399,11 +399,7 @@ public class PlayerRunner implements Runnable, Closeable {
                             break;
                         case Stop:
                             TrackHandler hh = loadedTracks.remove(cmd.id);
-                            if (hh != null) {
-                                hh.close();
-                                if (firstHandler == hh) firstHandler = null;
-                                else if (secondHandler == hh) secondHandler = null;
-                            }
+                            if (hh != null) hh.close();
                             break;
                         case Seek:
                             loadedTracks.get(cmd.id).codec.seek((Integer) cmd.args[0]);
@@ -474,9 +470,10 @@ public class PlayerRunner implements Runnable, Closeable {
             out.gain(gain);
         }
 
-        private void clearOut() {
+        private void clearOut() throws IOException {
             if (out == null) return;
             out.toggle(false);
+            out.flush();
             out = null;
         }
 
@@ -544,11 +541,28 @@ public class PlayerRunner implements Runnable, Closeable {
             return episode;
         }
 
+        void stop() {
+            sendCommand(Command.Stop, id);
+        }
+
         @Override
         public void close() {
+            if (closed) return;
+
+            loadedTracks.remove(id);
+            if (firstHandler == this) firstHandler = null;
+            else if (secondHandler == this) secondHandler = null;
+
             closed = true;
+
             synchronized (writeLock) {
                 writeLock.notifyAll();
+            }
+
+            try {
+                clearOut();
+                codec.cleanup();
+            } catch (IOException ignored) {
             }
         }
 
@@ -604,10 +618,6 @@ public class PlayerRunner implements Runnable, Closeable {
             endInterpolator = new LinearDecreasingInterpolator();
         }
 
-        void stop() {
-            sendCommand(Command.Stop, id);
-        }
-
         private void updateGain() {
             int pos;
             try {
@@ -637,9 +647,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     }
                 }
 
-                if (closed) break;
-
-                if (out == null) throw new IllegalStateException();
+                if (closed || out == null) break;
 
                 shouldPreload();
                 shouldCrossfade();
@@ -647,10 +655,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 try {
                     if (codec.readSome(out.stream()) == -1) {
-                        clearOut();
-
-                        stop();
                         listener.endOfTrack(this);
+                        break;
                     }
                 } catch (IOException | Codec.CodecException ex) {
                     if (closed) break;
@@ -660,11 +666,7 @@ public class PlayerRunner implements Runnable, Closeable {
                 }
             }
 
-            try {
-                clearOut();
-                codec.cleanup();
-            } catch (IOException ignored) {
-            }
+            close();
         }
     }
 }

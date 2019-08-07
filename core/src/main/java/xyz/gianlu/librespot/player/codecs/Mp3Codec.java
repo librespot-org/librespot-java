@@ -59,6 +59,7 @@ public class Mp3Codec extends Codec {
         int count = in.read(buffer);
         if (count == -1) return -1;
         out.write(buffer, 0, count);
+        out.flush();
         return count;
     }
 
