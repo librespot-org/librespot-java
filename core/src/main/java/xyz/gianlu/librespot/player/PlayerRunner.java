@@ -385,11 +385,9 @@ public class PlayerRunner implements Runnable, Closeable {
 
                             if (firstHandler == null) {
                                 firstHandler = hhh;
-                                mixing.clearFirst();
                                 firstHandler.setOut(mixing.firstOut());
                             } else if (secondHandler == null) {
                                 secondHandler = hhh;
-                                mixing.clearSecond();
                                 secondHandler.setOut(mixing.secondOut());
                             } else {
                                 throw new IllegalStateException();
@@ -473,7 +471,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private void clearOut() throws IOException {
             if (out == null) return;
             out.toggle(false);
-            out.flush();
+            out.clear();
             out = null;
         }
 

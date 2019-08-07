@@ -101,50 +101,6 @@ public class MixingLine extends InputStream {
         return sout;
     }
 
-    @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
-    public void clearFirst() {
-        fg = 1;
-        fe = false;
-
-        try {
-            if (fout != null) {
-                fout.flush();
-                fout.close();
-                fout = null;
-            }
-
-            if (fin != null) {
-                fin.skip(fin.available());
-                fin.close();
-                fin = null;
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
-    @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
-    public void clearSecond() {
-        sg = 1;
-        se = false;
-
-        try {
-            if (sout != null) {
-                sout.flush();
-                sout.close();
-                sout = null;
-            }
-
-            if (sin != null) {
-                sin.skip(sin.available());
-                sin.close();
-                sin = null;
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
     public interface MixingOutput {
         void toggle(boolean enabled);
 
@@ -152,10 +108,10 @@ public class MixingLine extends InputStream {
 
         void write(byte[] buffer, int off, int len) throws IOException;
 
+        void clear() throws IOException;
+
         @NotNull
         OutputStream stream();
-
-        void flush() throws IOException;
     }
 
     public class FirstOutputStream extends PipedOutputStream implements MixingOutput {
@@ -172,6 +128,23 @@ public class MixingLine extends InputStream {
         public void gain(float gain) {
             if (fout != this) throw new IllegalArgumentException();
             fg = gain;
+        }
+
+        @Override
+        @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
+        public void clear() throws IOException {
+            if (fout != this) throw new IllegalArgumentException();
+
+            fg = 1;
+            fe = false;
+
+            fout.flush();
+            fout.close();
+            fout = null;
+
+            fin.skip(fin.available());
+            fin.close();
+            fin = null;
         }
 
         @Override
@@ -195,6 +168,23 @@ public class MixingLine extends InputStream {
         public void gain(float gain) {
             if (sout != this) throw new IllegalArgumentException();
             sg = gain;
+        }
+
+        @Override
+        @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
+        public void clear() throws IOException {
+            if (sout != this) throw new IllegalArgumentException();
+
+            sg = 1;
+            se = false;
+
+            sout.flush();
+            sout.close();
+            sout = null;
+
+            sin.skip(sin.available());
+            sin.close();
+            sin = null;
         }
 
         @Override
