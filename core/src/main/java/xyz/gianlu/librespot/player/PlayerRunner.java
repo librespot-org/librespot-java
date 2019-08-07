@@ -28,7 +28,10 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -384,12 +387,10 @@ public class PlayerRunner implements Runnable, Closeable {
                                 firstHandler = hhh;
                                 mixing.clearFirst();
                                 firstHandler.setOut(mixing.firstOut());
-                                mixing.first(true);
                             } else if (secondHandler == null) {
                                 secondHandler = hhh;
                                 mixing.clearSecond();
                                 secondHandler.setOut(mixing.secondOut());
-                                mixing.second(true);
                             } else {
                                 throw new IllegalStateException();
                             }
@@ -446,7 +447,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private volatile boolean calledPreload = false;
         private Codec codec;
         private volatile boolean closed = false;
-        private OutputStream out;
+        private MixingLine.MixingOutput out;
         private volatile boolean calledCrossfade = false;
         private GainInterpolator startInterpolator = null;
         private GainInterpolator endInterpolator = null;
@@ -459,8 +460,9 @@ public class PlayerRunner implements Runnable, Closeable {
             setupInterpolators();
         }
 
-        private void setOut(@NotNull OutputStream out) {
+        private void setOut(@NotNull MixingLine.MixingOutput out) {
             this.out = out;
+            out.toggle(true);
 
             synchronized (writeLock) {
                 writeLock.notifyAll();
@@ -469,23 +471,12 @@ public class PlayerRunner implements Runnable, Closeable {
 
         private void setGain(float gain) {
             if (out == null) return;
-
-            if (out == mixing.firstOut()) {
-                mixing.firstGain(gain);
-            } else if (out == mixing.secondOut()) {
-                mixing.secondGain(gain);
-            }
+            out.gain(gain);
         }
 
         private void clearOut() {
             if (out == null) return;
-
-            if (out == mixing.firstOut()) {
-                mixing.first(false);
-            } else if (out == mixing.secondOut()) {
-                mixing.second(false);
-            }
-
+            out.toggle(false);
             out = null;
         }
 
@@ -655,7 +646,7 @@ public class PlayerRunner implements Runnable, Closeable {
                 updateGain();
 
                 try {
-                    if (codec.readSome(out) == -1) {
+                    if (codec.readSome(out.stream()) == -1) {
                         clearOut();
 
                         stop();

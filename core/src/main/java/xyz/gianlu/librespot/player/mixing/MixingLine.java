@@ -13,16 +13,14 @@ public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private PipedInputStream fin;
     private PipedInputStream sin;
-    private PipedOutputStream fout;
-    private PipedOutputStream sout;
+    private FirstOutputStream fout;
+    private SecondOutputStream sout;
     private volatile boolean fe = false;
     private volatile boolean se = false;
     private volatile float fg = 1;
     private volatile float sg = 1;
 
     public MixingLine() {
-        firstOut();
-        secondOut();
     }
 
     @Override
@@ -64,34 +62,12 @@ public class MixingLine extends InputStream {
         return dest - off;
     }
 
-    public void firstGain(float fg) {
-        this.fg = fg;
-    }
-
-    public void secondGain(float sg) {
-        this.sg = sg;
-    }
-
-    public void first(boolean enabled) {
-        if (enabled && fout == null) throw new IllegalArgumentException();
-
-        fe = enabled;
-        LOGGER.trace("Toggle first channel: " + enabled);
-    }
-
-    public void second(boolean enabled) {
-        if (enabled && sout == null) throw new IllegalArgumentException();
-
-        se = enabled;
-        LOGGER.trace("Toggle second channel: " + enabled);
-    }
-
     @NotNull
-    public OutputStream firstOut() {
+    public MixingOutput firstOut() {
         if (fout == null) {
             try {
                 fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-                fin.connect(fout = new PipedOutputStream());
+                fin.connect(fout = new FirstOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
@@ -101,11 +77,11 @@ public class MixingLine extends InputStream {
     }
 
     @NotNull
-    public OutputStream secondOut() {
+    public MixingOutput secondOut() {
         if (sout == null) {
             try {
                 sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-                sin.connect(sout = new PipedOutputStream());
+                sin.connect(sout = new SecondOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
@@ -114,27 +90,102 @@ public class MixingLine extends InputStream {
         return sout;
     }
 
+    @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
     public void clearFirst() {
+        fg = 1;
+        fe = false;
+
         try {
-            fout.flush();
-            fin.skip(fin.available());
-            fg = 1;
-            fin = null;
-            fout = null;
+            if (fout != null) {
+                fout.flush();
+                fout.close();
+                fout = null;
+            }
+
+            if (fin != null) {
+                fin.skip(fin.available());
+                fin.close();
+                fin = null;
+            }
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
     }
 
+    @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
     public void clearSecond() {
+        sg = 1;
+        se = false;
+
         try {
-            sout.flush();
-            sin.skip(sin.available());
-            sg = 1;
-            sin = null;
-            sout = null;
+            if (sout != null) {
+                sout.flush();
+                sout.close();
+                sout = null;
+            }
+
+            if (sin != null) {
+                sin.skip(sin.available());
+                sin.close();
+                sin = null;
+            }
         } catch (IOException ex) {
             throw new RuntimeException(ex);
+        }
+    }
+
+    public interface MixingOutput {
+        void toggle(boolean enabled);
+
+        void gain(float gain);
+
+        void write(byte[] buffer, int off, int len) throws IOException;
+
+        @NotNull
+        OutputStream stream();
+    }
+
+    public class FirstOutputStream extends PipedOutputStream implements MixingOutput {
+
+        @Override
+        public void toggle(boolean enabled) {
+            if (enabled && fout != this) throw new IllegalArgumentException();
+            fe = enabled;
+            LOGGER.trace("Toggle first channel: " + enabled);
+        }
+
+        @Override
+        public void gain(float gain) {
+            if (fout != this) throw new IllegalArgumentException();
+            fg = gain;
+        }
+
+        @Override
+        public @NotNull OutputStream stream() {
+            if (fout != this) throw new IllegalArgumentException();
+            return this;
+        }
+    }
+
+    public class SecondOutputStream extends PipedOutputStream implements MixingOutput {
+
+        @Override
+        public void toggle(boolean enabled) {
+            if (enabled && sout != this) throw new IllegalArgumentException();
+            se = enabled;
+            LOGGER.trace("Toggle second channel: " + enabled);
+        }
+
+        @Override
+        public void gain(float gain) {
+            if (sout != this) throw new IllegalArgumentException();
+            sg = gain;
+        }
+
+        @Override
+        public @NotNull OutputStream stream() {
+            if (sout != this) throw new IllegalArgumentException();
+            return this;
         }
     }
 }
