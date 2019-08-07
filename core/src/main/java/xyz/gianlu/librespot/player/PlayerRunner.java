@@ -199,6 +199,24 @@ public class PlayerRunner implements Runnable, Closeable {
         void crossfadeNextTrack(@NotNull TrackHandler handler);
     }
 
+    public interface GainInterpolator {
+        float interpolate(float x);
+    }
+
+    private static class LinearIncreasingInterpolator implements GainInterpolator {
+        @Override
+        public float interpolate(float x) {
+            return x;
+        }
+    }
+
+    private static class LinearDecreasingInterpolator implements GainInterpolator {
+        @Override
+        public float interpolate(float x) {
+            return 1 - x;
+        }
+    }
+
     private static class Output implements Closeable {
         private static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
         private final SourceDataLine line;
@@ -206,7 +224,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private final Controller controller;
         private FileOutputStream pipeOut;
 
-        @Contract("null, null, _ -> fail")
+        @Contract("null, null, _ -> fail; !null, !null, _ -> fail")
         Output(@Nullable SourceDataLine line, @Nullable File pipe, @NotNull Player.Configuration conf) {
             if ((line == null && pipe == null) || (line != null && pipe != null)) throw new IllegalArgumentException();
 
@@ -370,7 +388,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private final int id;
         private final PlayableId playable;
         private final Object writeLock = new Object();
-        private final int crossfadeDuration;
+        private final int crossfadeDuration; // Represent both start and end crossfade duration
         public Metadata.Track track;
         public Metadata.Episode episode;
         private long playbackHaltedAt = 0;
@@ -379,11 +397,15 @@ public class PlayerRunner implements Runnable, Closeable {
         private volatile boolean closed = false;
         private OutputStream out;
         private volatile boolean calledCrossfade = false;
+        private GainInterpolator startInterpolator = null;
+        private GainInterpolator endInterpolator = null;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
             this.playable = playable;
             this.crossfadeDuration = conf.crossfadeDuration();
+
+            setupInterpolators();
         }
 
         private void setOut(@NotNull OutputStream out) {
@@ -391,6 +413,16 @@ public class PlayerRunner implements Runnable, Closeable {
 
             synchronized (writeLock) {
                 writeLock.notifyAll();
+            }
+        }
+
+        private void setGain(float gain) {
+            if (out == null) return;
+
+            if (out == mixing.firstOut()) {
+                mixing.firstGain(gain);
+            } else if (out == mixing.secondOut()) {
+                mixing.secondGain(gain);
             }
         }
 
@@ -525,8 +557,29 @@ public class PlayerRunner implements Runnable, Closeable {
             }
         }
 
+        private void setupInterpolators() {
+            startInterpolator = new LinearIncreasingInterpolator();
+            endInterpolator = new LinearDecreasingInterpolator();
+        }
+
         void stop() {
             sendCommand(Command.Stop, id);
+        }
+
+        private void updateGain() {
+            int pos;
+            try {
+                pos = codec.time();
+            } catch (Codec.CannotGetTimeException ex) {
+                return;
+            }
+
+            if (pos <= crossfadeDuration) {
+                setGain(startInterpolator.interpolate(((float) pos) / crossfadeDuration));
+            } else if (codec.duration() - pos <= crossfadeDuration) {
+                int crossfadePos = crossfadeDuration - (codec.duration() - pos);
+                setGain(endInterpolator.interpolate(((float) crossfadePos) / crossfadeDuration));
+            }
         }
 
         @Override
@@ -548,6 +601,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 shouldPreload();
                 shouldCrossfade();
+                updateGain();
 
                 try {
                     if (codec.readSome(out) == -1) {

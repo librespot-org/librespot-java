@@ -17,6 +17,8 @@ public class MixingLine extends InputStream {
     private PipedOutputStream sout;
     private volatile boolean fe = false;
     private volatile boolean se = false;
+    private volatile float fg = 1;
+    private volatile float sg = 1;
 
     public MixingLine() {
         firstOut();
@@ -35,10 +37,13 @@ public class MixingLine extends InputStream {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && se) {
-                short first = (short) ((fin.read() & 0xFF) | ((fin.read() & 0xFF) << 8));
-                short second = (short) ((sin.read() & 0xFF) | ((sin.read() & 0xFF) << 8));
+                float first = (short) ((fin.read() & 0xFF) | ((fin.read() & 0xFF) << 8));
+                first = (short) (first * fg);
 
-                int result = first + second;
+                float second = (short) ((sin.read() & 0xFF) | ((sin.read() & 0xFF) << 8));
+                second = (short) (second * sg);
+
+                int result = (int) (first + second);
                 if (result > 32767) result = 32767;
                 else if (result < -32768) result = -32768;
                 else if (result < 0) result |= 32768;
@@ -57,6 +62,14 @@ public class MixingLine extends InputStream {
         }
 
         return dest - off;
+    }
+
+    public void firstGain(float fg) {
+        this.fg = fg;
+    }
+
+    public void secondGain(float sg) {
+        this.sg = sg;
     }
 
     public void first(boolean enabled) {
@@ -105,6 +118,7 @@ public class MixingLine extends InputStream {
         try {
             fout.flush();
             fin.skip(fin.available());
+            fg = 1;
             fin = null;
             fout = null;
         } catch (IOException ex) {
@@ -116,6 +130,7 @@ public class MixingLine extends InputStream {
         try {
             sout.flush();
             sin.skip(sin.available());
+            sg = 1;
             sin = null;
             sout = null;
         } catch (IOException ex) {

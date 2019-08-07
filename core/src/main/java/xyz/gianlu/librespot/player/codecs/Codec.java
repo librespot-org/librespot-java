@@ -33,7 +33,7 @@ public abstract class Codec {
 
     /**
      * @return Time in millis
-     * @throws CannotGetTimeException If the codec can't determine the time
+     * @throws CannotGetTimeException If the codec can't determine the time. This condition is permanent for the entire playback.
      */
     public abstract int time() throws CannotGetTimeException;
 
@@ -71,6 +71,10 @@ public abstract class Codec {
 
     protected final void setAudioFormat(@NotNull AudioFormat format) {
         this.format = format;
+    }
+
+    public final int duration() {
+        return duration;
     }
 
     public static class CannotGetTimeException extends Exception {
