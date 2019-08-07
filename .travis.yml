@@ -8,14 +8,14 @@ before_install:
     fi
 
 install:
-  - mvn install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
+  - mvn clean install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
 
 script:
   - |
     if [[ -z "${TRAVIS_TAG}" ]]; then
-      mvn clean deploy -Dmaven.deploy.skip=true -B -U -Pdebug
+      mvn deploy -Dmaven.deploy.skip=true -B -U -Pdebug
     else
-      mvn clean deploy --settings .maven.xml -B -U -Prelease
+      mvn deploy --settings .maven.xml -B -U -Prelease
     fi
 
 before_deploy:
