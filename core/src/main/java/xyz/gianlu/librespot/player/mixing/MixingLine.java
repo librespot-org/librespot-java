@@ -77,7 +77,7 @@ public class MixingLine extends InputStream {
     public MixingOutput firstOut() {
         if (fout == null) {
             try {
-                fin = new PipedInputStream(Codec.BUFFER_SIZE * 16);
+                fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
                 fin.connect(fout = new FirstOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -91,7 +91,7 @@ public class MixingLine extends InputStream {
     public MixingOutput secondOut() {
         if (sout == null) {
             try {
-                sin = new PipedInputStream(Codec.BUFFER_SIZE * 16);
+                sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
                 sin.connect(sout = new SecondOutputStream());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
