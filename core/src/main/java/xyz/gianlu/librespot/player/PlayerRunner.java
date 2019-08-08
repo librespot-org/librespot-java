@@ -81,6 +81,7 @@ public class PlayerRunner implements Runnable, Closeable {
                 break;
             case STDOUT:
                 output = new Output(null, null, System.out, conf);
+                break;
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output());
         }
