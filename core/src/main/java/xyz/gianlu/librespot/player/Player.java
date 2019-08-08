@@ -210,7 +210,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         Metadata.Track track;
         if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
         else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
-        else LOGGER.warn("Couldn't update track duration!");
+        else LOGGER.warn("Couldn't update metadata!");
     }
 
     @Override
@@ -354,6 +354,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
             crossfadeHandler = null;
 
+            trackHandler.waitReady();
             updateStateWithHandler();
 
             try {
@@ -367,11 +368,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 trackHandler = preloadTrackHandler;
                 preloadTrackHandler = null;
 
+                trackHandler.waitReady();
                 updateStateWithHandler();
 
                 trackHandler.seek(state.getPosition());
             } else {
                 trackHandler = runner.load(id, state.getPosition());
+                trackHandler.waitReady();
             }
 
             if (play) {

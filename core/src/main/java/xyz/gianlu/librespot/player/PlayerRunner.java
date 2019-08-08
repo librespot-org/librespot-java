@@ -435,6 +435,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private final PlayableId playable;
         private final Object writeLock = new Object();
         private final int crossfadeDuration; // Represent both start and end crossfade duration
+        private final Object readyLock = new Object();
         public Metadata.Track track;
         public Metadata.Episode episode;
         private long playbackHaltedAt = 0;
@@ -473,6 +474,18 @@ public class PlayerRunner implements Runnable, Closeable {
             out.toggle(false);
             out.clear();
             out = null;
+        }
+
+        void waitReady() {
+            synchronized (readyLock) {
+                if (codec == null) {
+                    try {
+                        readyLock.wait();
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+            }
         }
 
         private void load(int pos) throws Codec.CodecException, IOException, LineHelper.MixerException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
@@ -514,6 +527,10 @@ public class PlayerRunner implements Runnable, Closeable {
             LOGGER.trace(String.format("Loaded codec (%s), fileId: %s, format: %s", stream.in.codec(), stream.in.describe(), codec.getAudioFormat()));
 
             codec.seek(pos);
+
+            synchronized (readyLock) {
+                readyLock.notifyAll();
+            }
 
             listener.finishedLoading(this, pos);
         }
@@ -645,7 +662,8 @@ public class PlayerRunner implements Runnable, Closeable {
                     }
                 }
 
-                if (closed || out == null) break;
+                if (closed) return;
+                if (out == null) break;
 
                 shouldPreload();
                 shouldCrossfade();
@@ -657,7 +675,7 @@ public class PlayerRunner implements Runnable, Closeable {
                         break;
                     }
                 } catch (IOException | Codec.CodecException ex) {
-                    if (closed) break;
+                    if (closed) return;
 
                     listener.playbackError(this, ex);
                     break;
