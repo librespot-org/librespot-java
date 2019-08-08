@@ -12,6 +12,7 @@ import java.io.*;
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final byte[] mb = new byte[2];
+    private final Object readLock = new Object();
     private PipedInputStream fin;
     private PipedInputStream sin;
     private FirstOutputStream fout;
@@ -30,26 +31,31 @@ public class MixingLine extends InputStream {
     }
 
     @Override
+    @SuppressWarnings("DuplicatedCode")
     public int read(@NotNull byte[] b, int off, int len) throws IOException {
         if (len % 2 != 0) throw new IllegalArgumentException();
 
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
-            if (fe && se) {
+            if (fe && fin != null && se && sin != null) {
                 float first;
-                if (fin.read(mb) != 2) {
-                    first = 0;
-                } else {
-                    first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                    first = (short) (first * fg);
+                synchronized (readLock) {
+                    if (fin.read(mb) != 2) {
+                        first = 0;
+                    } else {
+                        first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                        first = (short) (first * fg);
+                    }
                 }
 
                 float second;
-                if (sin.read(mb) != 2) {
-                    second = 0;
-                } else {
-                    second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                    second = (short) (second * sg);
+                synchronized (readLock) {
+                    if (sin.read(mb) != 2) {
+                        second = 0;
+                    } else {
+                        second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                        second = (short) (second * sg);
+                    }
                 }
 
                 int result = (int) (first + second);
@@ -59,12 +65,16 @@ public class MixingLine extends InputStream {
 
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
-            } else if (fe) {
-                b[dest] = (byte) fin.read();
-                b[dest + 1] = (byte) fin.read();
-            } else if (se) {
-                b[dest] = (byte) sin.read();
-                b[dest + 1] = (byte) sin.read();
+            } else if (fe && fin != null) {
+                synchronized (readLock) {
+                    b[dest] = (byte) fin.read();
+                    b[dest + 1] = (byte) fin.read();
+                }
+            } else if (se && sin != null) {
+                synchronized (readLock) {
+                    b[dest] = (byte) sin.read();
+                    b[dest + 1] = (byte) sin.read();
+                }
             } else {
                 break;
             }
@@ -140,11 +150,14 @@ public class MixingLine extends InputStream {
 
             fout.flush();
             fout.close();
-            fout = null;
 
             fin.skip(fin.available());
             fin.close();
-            fin = null;
+
+            synchronized (readLock) {
+                fout = null;
+                fin = null;
+            }
         }
 
         @Override
@@ -180,11 +193,14 @@ public class MixingLine extends InputStream {
 
             sout.flush();
             sout.close();
-            sout = null;
 
             sin.skip(sin.available());
             sin.close();
-            sin = null;
+
+            synchronized (readLock) {
+                sout = null;
+                sin = null;
+            }
         }
 
         @Override
