@@ -77,7 +77,7 @@ public final class Session implements Closeable {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(true).build();
     private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;

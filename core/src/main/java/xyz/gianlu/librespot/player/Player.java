@@ -289,6 +289,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 crossfadeHandler = runner.load(next, 0);
             }
 
+            crossfadeHandler.waitReady();
             LOGGER.info("Crossfading to next track.");
             crossfadeHandler.pushToMixer();
         }
@@ -355,7 +356,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             crossfadeHandler = null;
 
             trackHandler.waitReady();
-            updateStateWithHandler();
 
             try {
                 state.setPosition(trackHandler.time());
@@ -369,13 +369,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 preloadTrackHandler = null;
 
                 trackHandler.waitReady();
-                updateStateWithHandler();
-
                 trackHandler.seek(state.getPosition());
             } else {
                 trackHandler = runner.load(id, state.getPosition());
                 trackHandler.waitReady();
             }
+
+            updateStateWithHandler();
 
             if (play) {
                 trackHandler.pushToMixer();

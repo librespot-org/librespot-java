@@ -67,13 +67,23 @@ public class MixingLine extends InputStream {
                 b[dest + 1] = (byte) (result >>> 8);
             } else if (fe && fin != null) {
                 synchronized (readLock) {
-                    b[dest] = (byte) fin.read();
-                    b[dest + 1] = (byte) fin.read();
+                    if (fin.read(mb) != 2) {
+                        b[dest] = 0;
+                        b[dest + 1] = 0;
+                    } else {
+                        b[dest] = mb[0];
+                        b[dest + 1] = mb[1];
+                    }
                 }
             } else if (se && sin != null) {
                 synchronized (readLock) {
-                    b[dest] = (byte) sin.read();
-                    b[dest + 1] = (byte) sin.read();
+                    if (sin.read(mb) != 2) {
+                        b[dest] = 0;
+                        b[dest + 1] = 0;
+                    } else {
+                        b[dest] = mb[0];
+                        b[dest + 1] = mb[1];
+                    }
                 }
             } else {
                 break;
@@ -141,7 +151,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
+        @SuppressWarnings("DuplicatedCode")
         public void clear() throws IOException {
             if (fout != this) throw new IllegalArgumentException();
 
@@ -151,13 +161,13 @@ public class MixingLine extends InputStream {
             fout.flush();
             fout.close();
 
-            fin.skip(fin.available());
-            fin.close();
-
+            PipedInputStream tmp = fin;
             synchronized (readLock) {
                 fout = null;
                 fin = null;
             }
+
+            tmp.close();
         }
 
         @Override
@@ -184,7 +194,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        @SuppressWarnings({"DuplicatedCode", "ResultOfMethodCallIgnored"})
+        @SuppressWarnings("DuplicatedCode")
         public void clear() throws IOException {
             if (sout != this) throw new IllegalArgumentException();
 
@@ -194,13 +204,13 @@ public class MixingLine extends InputStream {
             sout.flush();
             sout.close();
 
-            sin.skip(sin.available());
-            sin.close();
-
+            PipedInputStream tmp = sin;
             synchronized (readLock) {
                 sout = null;
                 sin = null;
             }
+
+            tmp.close();
         }
 
         @Override
