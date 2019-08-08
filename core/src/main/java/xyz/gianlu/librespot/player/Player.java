@@ -392,7 +392,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (state.isPaused()) {
             runner.playMixer();
             state.setState(true, false, false);
-            state.updated();
+
+            try {
+                state.setPosition(trackHandler.time());
+                state.updated(true);
+            } catch (Codec.CannotGetTimeException ex) {
+                state.updated(false);
+            }
         }
     }
 
@@ -400,7 +406,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (state.isPlaying()) {
             runner.pauseMixer();
             state.setState(true, true, false);
-            state.updated();
+            state.updated(false);
         }
     }
 

@@ -207,8 +207,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         state.setRestrictions(context.restrictions.toProto());
     }
 
-    synchronized void updated() {
-        updatePosition();
+    void updated() {
+        updated(true);
+    }
+
+    synchronized void updated(boolean updateTime) {
+        if (updateTime) updatePosition();
         updateRestrictions();
 
         device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
