@@ -28,10 +28,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -70,7 +67,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     SourceDataLine line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
                     line.open(Output.OUTPUT_FORMAT);
 
-                    output = new Output(line, null, conf);
+                    output = new Output(line, null, null, conf);
                 } catch (LineUnavailableException ex) {
                     throw new RuntimeException("Failed opening line!", ex);
                 }
@@ -80,8 +77,10 @@ public class PlayerRunner implements Runnable, Closeable {
                 if (pipe == null || !pipe.exists() || !pipe.canWrite())
                     throw new IllegalArgumentException("Invalid pipe file: " + pipe);
 
-                output = new Output(null, pipe, conf);
+                output = new Output(null, pipe, null, conf);
                 break;
+            case STDOUT:
+                output = new Output(null, null, System.out, conf);
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output());
         }
@@ -276,11 +275,11 @@ public class PlayerRunner implements Runnable, Closeable {
         private final SourceDataLine line;
         private final File pipe;
         private final Controller controller;
-        private FileOutputStream pipeOut;
+        private OutputStream out;
 
-        @Contract("null, null, _ -> fail; !null, !null, _ -> fail")
-        Output(@Nullable SourceDataLine line, @Nullable File pipe, @NotNull Player.Configuration conf) {
-            if ((line == null && pipe == null) || (line != null && pipe != null)) throw new IllegalArgumentException();
+        @Contract("null, null, null, _ -> fail")
+        Output(@Nullable SourceDataLine line, @Nullable File pipe, @Nullable OutputStream out, @NotNull Player.Configuration conf) {
+            if (line == null && pipe == null && out == null) throw new IllegalArgumentException();
 
             this.line = line;
             this.pipe = pipe;
@@ -306,8 +305,12 @@ public class PlayerRunner implements Runnable, Closeable {
             if (line != null) {
                 line.write(buffer, off, len);
             } else {
-                if (pipeOut == null) pipeOut = new FileOutputStream(pipe, true);
-                pipeOut.write(buffer, off, len);
+                if (out == null) {
+                    if (pipe == null) throw new IllegalStateException();
+                    out = new FileOutputStream(pipe, true);
+                }
+
+                out.write(buffer, off, len);
             }
         }
 
@@ -318,7 +321,7 @@ public class PlayerRunner implements Runnable, Closeable {
         @Override
         public void close() throws IOException {
             if (line != null) line.close();
-            if (pipeOut != null) pipeOut.close();
+            if (out != null) out.close();
         }
 
         @NotNull

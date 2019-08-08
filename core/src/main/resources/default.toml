@@ -29,5 +29,5 @@ logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
 enableLoadingState = true # Enable loading state (useful for slow connections)
 crossfadeDuration = 0 # Crossfade overlap time (in milliseconds)
-output = "MIXER" # Audio output device (MIXER, PIPE)
+output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)
