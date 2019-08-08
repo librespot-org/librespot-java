@@ -284,6 +284,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
             this.line = line;
             this.pipe = pipe;
+            this.out = out;
 
             if (line != null) controller = new Controller(line, conf.initialVolume());
             else controller = null;
