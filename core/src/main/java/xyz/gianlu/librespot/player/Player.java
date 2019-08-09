@@ -518,6 +518,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             preloadTrackHandler = null;
         }
 
+        runner.close();
+
         state.removeListener(this);
     }
 
