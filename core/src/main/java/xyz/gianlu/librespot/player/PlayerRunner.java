@@ -581,7 +581,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
             try {
                 clearOut();
-                codec.cleanup();
+                codec.close();
             } catch (IOException ignored) {
             }
         }

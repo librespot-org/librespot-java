@@ -56,6 +56,8 @@ public class Mp3Codec extends Codec {
 
     @Override
     public int readSome(@NotNull OutputStream out) throws IOException {
+        if (closed) return -1;
+
         int count = in.read(buffer);
         if (count == -1) return -1;
         out.write(buffer, 0, count);
@@ -69,8 +71,8 @@ public class Mp3Codec extends Codec {
     }
 
     @Override
-    public void cleanup() throws IOException {
+    public void close() throws IOException {
         in.close();
-        super.cleanup();
+        super.close();
     }
 }

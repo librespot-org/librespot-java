@@ -8,6 +8,7 @@ import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
 
 import javax.sound.sampled.AudioFormat;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,13 +16,14 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public abstract class Codec {
+public abstract class Codec implements Closeable {
     public static final int BUFFER_SIZE = 2048;
     private static final Logger LOGGER = Logger.getLogger(Codec.class);
     protected final InputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
     protected AudioFormat format;
+    protected volatile boolean closed = false;
 
     Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
         this.audioIn = audioFile.stream();
@@ -41,7 +43,9 @@ public abstract class Codec {
         return duration - time();
     }
 
-    public void cleanup() throws IOException {
+    @Override
+    public void close() throws IOException {
+        closed = true;
         audioIn.close();
     }
 

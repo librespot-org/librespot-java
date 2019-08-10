@@ -63,6 +63,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                         .setShufflingContext(false)
                         .setRepeatingTrack(false))
                 .setPositionAsOfTimestamp(0)
+                .setPosition(0)
                 .setIsPlaying(false);
     }
 
@@ -335,16 +336,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     synchronized void setPosition(long pos) {
         int sub = (int) Math.min(pos, 1000);
         long now = TimeProvider.currentTimeMillis();
-        now -= sub;
-        pos -= sub;
 
-        state.setTimestamp(now);
-        state.setPositionAsOfTimestamp(pos);
+        state.setTimestamp(now - sub);
+        state.setPositionAsOfTimestamp(pos - sub);
+
+        state.setPosition(pos);
     }
 
     private void updatePosition() {
         if (state.getTimestamp() == 0 || state.getPositionAsOfTimestamp() == 0) return;
-
         setPosition(getPosition());
     }
 

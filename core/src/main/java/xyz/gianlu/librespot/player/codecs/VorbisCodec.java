@@ -32,6 +32,7 @@ public class VorbisCodec extends Codec {
     private final Packet joggPacket = new Packet();
     private final Page joggPage = new Page();
     private final SyncState joggSyncState = new SyncState();
+    private final Object readLock = new Object();
     private byte[] buffer;
     private int count;
     private int index;
@@ -124,6 +125,8 @@ public class VorbisCodec extends Codec {
      */
     @Override
     public int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+        if (closed) return -1;
+
         int written = 0;
         int result = joggSyncState.pageout(joggPage);
         if (result == -1 || result == 0) {
@@ -136,11 +139,15 @@ public class VorbisCodec extends Codec {
                 return -1;
 
             while (true) {
-                result = joggStreamState.packetout(joggPacket);
-                if (result == -1 || result == 0) {
-                    break;
-                } else if (result == 1) {
-                    written += decodeCurrentPacket(out);
+                if (closed) return written;
+
+                synchronized (readLock) {
+                    result = joggStreamState.packetout(joggPacket);
+                    if (result == -1 || result == 0) {
+                        break;
+                    } else if (result == 1) {
+                        written += decodeCurrentPacket(out);
+                    }
                 }
             }
 
@@ -204,13 +211,16 @@ public class VorbisCodec extends Codec {
     }
 
     @Override
-    public void cleanup() throws IOException {
-        joggStreamState.clear();
-        jorbisBlock.clear();
-        jorbisDspState.clear();
-        jorbisInfo.clear();
-        joggSyncState.clear();
-        super.cleanup();
+    public void close() throws IOException {
+        synchronized (readLock) {
+            joggStreamState.clear();
+            jorbisBlock.clear();
+            jorbisDspState.clear();
+            jorbisInfo.clear();
+            joggSyncState.clear();
+
+            super.close();
+        }
     }
 
     private static class NotVorbisException extends CodecException {
