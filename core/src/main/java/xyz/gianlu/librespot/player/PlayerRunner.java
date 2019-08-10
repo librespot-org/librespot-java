@@ -689,5 +689,9 @@ public class PlayerRunner implements Runnable, Closeable {
 
             close();
         }
+
+        boolean isInMixer() {
+            return firstHandler == this || secondHandler == this;
+        }
     }
 }
