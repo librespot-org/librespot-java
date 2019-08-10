@@ -10,11 +10,14 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.LineUnavailableException;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
@@ -29,28 +32,34 @@ public class VorbisCodec extends Codec {
     private final Packet joggPacket = new Packet();
     private final Page joggPage = new Page();
     private final SyncState joggSyncState = new SyncState();
-    private final AudioFormat audioFormat;
     private byte[] buffer;
     private int count;
     private int index;
     private byte[] convertedBuffer;
-    private LinesHolder.LineWrapper outputLine;
     private float[][][] pcmInfo;
     private int[] pcmIndex;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                       PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, LinesHolder.MixerException {
-        super(audioFile, normalizationData, conf, listener, lines, duration);
+    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
+        super(audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
         this.buffer = joggSyncState.data;
 
         readHeader();
-        this.audioFormat = initializeSound(conf);
 
         audioIn.mark(-1);
+
+        convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
+
+        jorbisDspState.synthesis_init(jorbisInfo);
+        jorbisBlock.init(jorbisDspState);
+
+        pcmInfo = new float[1][][];
+        pcmIndex = new int[jorbisInfo.channels];
+
+        setAudioFormat(new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false));
     }
 
     @Override
@@ -107,27 +116,6 @@ public class VorbisCodec extends Codec {
         }
     }
 
-    @NotNull
-    private AudioFormat initializeSound(Player.Configuration conf) throws CodecException, LinesHolder.MixerException {
-        convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
-
-        jorbisDspState.synthesis_init(jorbisInfo);
-        jorbisBlock.init(jorbisDspState);
-
-        AudioFormat format = new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false);
-
-        try {
-            outputLine = lines.getLineFor(conf, format);
-        } catch (IllegalStateException | SecurityException ex) {
-            throw new CodecException(ex);
-        }
-
-        pcmInfo = new float[1][][];
-        pcmIndex = new int[jorbisInfo.channels];
-
-        return format;
-    }
-
     /**
      * Reads the body. All "holes" (-1) are skipped, and the playback continues
      *
@@ -135,66 +123,47 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    protected void readBody() throws IOException, LineUnavailableException, CodecException, InterruptedException {
-        outputLine.open(audioFormat);
-        this.controller = new PlayerRunner.Controller(outputLine, listener.getVolume());
+    public int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+        int written = 0;
+        int result = joggSyncState.pageout(joggPage);
+        if (result == -1 || result == 0) {
+            // Read more
+        } else if (result == 1) {
+            if (joggStreamState.pagein(joggPage) == -1)
+                throw new CodecException();
 
-        while (!stopped) {
-            if (playing) {
-                outputLine.start();
+            if (joggPage.granulepos() == 0)
+                return -1;
 
-                int result = joggSyncState.pageout(joggPage);
+            while (true) {
+                result = joggStreamState.packetout(joggPacket);
                 if (result == -1 || result == 0) {
-                    // Read more
+                    break;
                 } else if (result == 1) {
-                    if (joggStreamState.pagein(joggPage) == -1)
-                        throw new CodecException();
-
-                    if (joggPage.granulepos() == 0)
-                        break;
-
-                    while (true) {
-                        result = joggStreamState.packetout(joggPacket);
-                        if (result == -1 || result == 0) {
-                            break;
-                        } else if (result == 1) {
-                            decodeCurrentPacket();
-                        }
-                    }
-
-                    if (joggPage.eos() != 0)
-                        break;
-                }
-
-                index = joggSyncState.buffer(BUFFER_SIZE);
-                buffer = joggSyncState.data;
-                if (index == -1)
-                    break;
-
-                count = audioIn.read(buffer, index, BUFFER_SIZE);
-                joggSyncState.wrote(count);
-                if (count == 0)
-                    break;
-            } else {
-                outputLine.stop();
-
-                try {
-                    synchronized (pauseLock) {
-                        pauseLock.wait();
-                    }
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
+                    written += decodeCurrentPacket(out);
                 }
             }
+
+            if (joggPage.eos() != 0)
+                return -1;
         }
 
-        outputLine.drain();
+        index = joggSyncState.buffer(BUFFER_SIZE);
+        buffer = joggSyncState.data;
+        if (index == -1) return -1;
+
+        count = audioIn.read(buffer, index, BUFFER_SIZE);
+        joggSyncState.wrote(count);
+        if (count == 0) return -1;
+
+        return written;
     }
 
-    private void decodeCurrentPacket() {
+    private int decodeCurrentPacket(@NotNull OutputStream out) throws IOException {
         if (jorbisBlock.synthesis(joggPacket) == 0)
             jorbisDspState.synthesis_blockin(jorbisBlock);
 
+        int written = 0;
         int range;
         int samples;
         while ((samples = jorbisDspState.synthesis_pcmout(pcmInfo, pcmIndex)) > 0) {
@@ -218,26 +187,29 @@ public class VorbisCodec extends Codec {
                 }
             }
 
-            outputLine.write(convertedBuffer, 0, 2 * jorbisInfo.channels * range);
+            int c = 2 * jorbisInfo.channels * range;
+            out.write(convertedBuffer, 0, c);
+            out.flush();
+            written += c;
             jorbisDspState.synthesis_read(range);
 
             long granulepos = joggPacket.granulepos;
             if (granulepos != -1 && joggPacket.e_o_s == 0) {
                 granulepos -= samples;
                 pcm_offset = granulepos;
-                checkPreload();
             }
         }
+
+        return written;
     }
 
     @Override
-    public void cleanup() {
+    public void cleanup() throws IOException {
         joggStreamState.clear();
         jorbisBlock.clear();
         jorbisDspState.clear();
         jorbisInfo.clear();
         joggSyncState.clear();
-        outputLine.close();
         super.cleanup();
     }
 

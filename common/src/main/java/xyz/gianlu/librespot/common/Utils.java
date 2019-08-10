@@ -201,6 +201,11 @@ public final class Utils {
     }
 
     @NotNull
+    public static String bytesToHex(byte[] bytes, int off, int len) {
+        return bytesToHex(bytes, off, len, false, -1);
+    }
+
+    @NotNull
     public static String bytesToHex(byte[] bytes, int offset, int length, boolean trim, int minLength) {
         if (bytes == null) return "";
 

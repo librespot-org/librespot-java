@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot;
 
+import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.Config;
 import com.electronwill.nightconfig.core.ConfigFormat;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
@@ -8,12 +9,14 @@ import com.electronwill.nightconfig.core.file.FileNotFoundAction;
 import com.electronwill.nightconfig.core.file.FormatDetector;
 import com.electronwill.nightconfig.core.io.ConfigParser;
 import com.electronwill.nightconfig.core.io.ConfigWriter;
+import com.electronwill.nightconfig.toml.TomlParser;
 import com.spotify.connectstate.model.Connect;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.ZeroconfServer;
+import xyz.gianlu.librespot.player.AudioOutput;
 import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
@@ -68,6 +71,8 @@ public final class FileConfiguration extends AbsConfiguration {
             confFile.delete();
 
             LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
+        } else {
+            checkMissingKeys(new TomlParser().parse(defaultConfig));
         }
 
         if (override != null && override.length > 0) {
@@ -87,6 +92,34 @@ public final class FileConfiguration extends AbsConfiguration {
                     LOGGER.warn("Invalid command line argument: " + str);
                 }
             }
+        }
+    }
+
+    private static boolean checkMissingKeys(@NotNull Config defaultConfig, @NotNull FileConfig config, @NotNull String prefix) {
+        boolean save = false;
+
+        for (Config.Entry entry : defaultConfig.entrySet()) {
+            String key = prefix + entry.getKey();
+            if (entry.getValue() instanceof Config) {
+                if (checkMissingKeys(entry.getValue(), config, key + "."))
+                    save = true;
+            } else {
+                if (!config.contains(key)) {
+                    LOGGER.trace("Added new entry to configuration file: " + key);
+                    config.set(key, entry.getValue());
+                    save = true;
+                }
+            }
+        }
+
+        return save;
+    }
+
+    private void checkMissingKeys(@NotNull CommentedConfig defaultConfig) {
+        if (checkMissingKeys(defaultConfig, config, "")) {
+            config.clearComments();
+            config.putAllComments(defaultConfig.getComments());
+            config.save();
         }
     }
 
@@ -124,11 +157,6 @@ public final class FileConfiguration extends AbsConfiguration {
         else return Utils.split(str, separator);
     }
 
-    @NotNull
-    private File getFile(@NotNull String path) {
-        return new File((String) config.get(path));
-    }
-
     @Override
     public boolean cacheEnabled() {
         return config.get("cache.enabled");
@@ -136,7 +164,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public @NotNull File cacheDir() {
-        return getFile("cache.dir");
+        return new File((String) config.get("cache.dir"));
     }
 
     @Override
@@ -147,6 +175,18 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public @NotNull AudioQuality preferredQuality() {
         return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+    }
+
+    @Override
+    public @NotNull AudioOutput output() {
+        return config.getEnum("player.output", AudioOutput.class);
+    }
+
+    @Override
+    public @Nullable File outputPipe() {
+        String path = config.get("player.pipe");
+        if (path == null || path.isEmpty()) return null;
+        return new File(path);
     }
 
     @Override
@@ -196,6 +236,11 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public boolean enableLoadingState() {
         return config.get("player.enableLoadingState");
+    }
+
+    @Override
+    public int crossfadeDuration() {
+        return config.get("player.crossfadeDuration");
     }
 
     @Override

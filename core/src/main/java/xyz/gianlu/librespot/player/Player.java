@@ -14,11 +14,13 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.UnsupportedId;
+import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -27,20 +29,22 @@ import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 /**
  * @author Gianlu
  */
-public class Player implements TrackHandler.Listener, Closeable, DeviceStateHandler.Listener {
+public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRunner.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
     private final StateWrapper state;
     private final Configuration conf;
-    private final LinesHolder lines;
+    private final PlayerRunner runner;
     private TrackHandler trackHandler;
+    private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.state = new StateWrapper(session);
-        this.lines = new LinesHolder();
+
+        new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
 
         state.addListener(this);
     }
@@ -179,19 +183,17 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     @Override
     public void volumeChanged() {
-        if (trackHandler != null) {
-            PlayerRunner.Controller controller = trackHandler.controller();
-            if (controller != null) controller.setVolume(state.getVolume());
-        }
+        PlayerRunner.Controller controller = runner.controller();
+        if (controller != null) controller.setVolume(state.getVolume());
     }
 
     @Override
     public void notActive() {
-        if (trackHandler != null) trackHandler.sendStop();
+        runner.stopMixer();
     }
 
     private void handlePlayPause() {
-        if (state.isActuallyPlaying()) handlePause();
+        if (state.isPlaying()) handlePause();
         else handleResume();
     }
 
@@ -203,19 +205,18 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         }
     }
 
-    private void updateStateWithHandler() {
+    private void updateStateWithHandler() { // FIXME: Check that we are updating the correct track
         Metadata.Episode episode;
         Metadata.Track track;
         if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
         else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
-        else LOGGER.warn("Couldn't update track duration!");
+        else LOGGER.warn("Couldn't update metadata!");
     }
 
     @Override
-    public void finishedLoading(@NotNull TrackHandler handler, int pos, boolean play) {
+    public void finishedLoading(@NotNull TrackHandler handler, int pos) {
         if (handler == trackHandler) {
-            if (play) state.setState(true, false, false);
-            else state.setState(true, true, false);
+            state.setBuffering(false);
 
             updateStateWithHandler();
 
@@ -224,6 +225,12 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         } else if (handler == preloadTrackHandler) {
             LOGGER.trace("Preloaded track is ready.");
         }
+    }
+
+    @Override
+    public void mixerError(@NotNull Exception ex) {
+        LOGGER.fatal("Mixer error!", ex);
+        panicState();
     }
 
     @Override
@@ -262,11 +269,29 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
     public void preloadNextTrack(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
-            if (next != null && !(next instanceof UnsupportedId)) {
-                preloadTrackHandler = new TrackHandler(session, lines, conf, this);
-                preloadTrackHandler.sendLoad(next, false, 0);
+            if (next != null) {
+                preloadTrackHandler = runner.load(next, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
+        }
+    }
+
+    @Override
+    public void crossfadeNextTrack(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            PlayableId next = state.nextPlayableDoNotSet();
+            if (next == null) return;
+
+            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(next)) {
+                crossfadeHandler = preloadTrackHandler;
+            } else {
+                LOGGER.warn("Did not preload crossfade track. That's bad.");
+                crossfadeHandler = runner.load(next, 0);
+            }
+
+            crossfadeHandler.waitReady();
+            LOGGER.info("Crossfading to next track.");
+            crossfadeHandler.pushToMixer();
         }
     }
 
@@ -310,37 +335,52 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void handleSeek(int pos) {
         state.setPosition(pos);
-        if (trackHandler != null) trackHandler.sendSeek(pos);
+        if (trackHandler != null) trackHandler.seek(pos);
         state.updated();
     }
 
-    @Override
-    public int getVolume() {
-        return state.getVolume();
-    }
-
     private void panicState() {
-        if (trackHandler != null) trackHandler.sendStop();
+        runner.stopMixer();
         state.setState(false, false, false);
         state.updated();
     }
 
     private void loadTrack(boolean play) {
-        if (trackHandler != null) trackHandler.close();
+        if (trackHandler != null) trackHandler.stop();
 
         boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
         PlayableId id = state.getCurrentPlayableOrThrow();
-        if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
-            trackHandler = preloadTrackHandler;
-            preloadTrackHandler = null;
+        if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
+            trackHandler = crossfadeHandler;
+            if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
+            crossfadeHandler = null;
+
+            trackHandler.waitReady();
+
+            try {
+                state.setPosition(trackHandler.time());
+            } catch (Codec.CannotGetTimeException ignored) {
+            }
+
+            if (!play) runner.pauseMixer();
+        } else {
+            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
+                trackHandler = preloadTrackHandler;
+                preloadTrackHandler = null;
+
+                trackHandler.waitReady();
+                trackHandler.seek(state.getPosition());
+            } else {
+                trackHandler = runner.load(id, state.getPosition());
+                trackHandler.waitReady();
+            }
 
             updateStateWithHandler();
 
-            trackHandler.sendSeek(state.getPosition());
-            if (play) trackHandler.sendPlay();
-        } else {
-            trackHandler = new TrackHandler(session, lines, conf, this);
-            trackHandler.sendLoad(id, play, state.getPosition());
+            if (play) {
+                trackHandler.pushToMixer();
+                runner.playMixer();
+            }
         }
 
         if (play) state.setState(true, false, buffering);
@@ -350,17 +390,23 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
 
     private void handleResume() {
         if (state.isPaused()) {
+            runner.playMixer();
             state.setState(true, false, false);
-            if (trackHandler != null) trackHandler.sendPlay();
-            state.updated();
+
+            try {
+                state.setPosition(trackHandler.time());
+                state.updated(true);
+            } catch (Codec.CannotGetTimeException ex) {
+                state.updated(false);
+            }
         }
     }
 
     private void handlePause() {
-        if (state.isActuallyPlaying()) {
-            if (trackHandler != null) trackHandler.sendPause();
+        if (state.isPlaying()) {
+            runner.pauseMixer();
             state.setState(true, true, false);
-            state.updated();
+            state.updated(false);
         }
     }
 
@@ -455,13 +501,13 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             }
         } else {
             state.setPosition(0);
-            if (trackHandler != null) trackHandler.sendSeek(0);
+            if (trackHandler != null) trackHandler.seek(0);
             state.updated();
         }
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;
@@ -472,6 +518,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
             preloadTrackHandler = null;
         }
 
+        runner.close();
         state.removeListener(this);
     }
 
@@ -494,6 +541,12 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         @NotNull
         AudioQuality preferredQuality();
 
+        @NotNull
+        AudioOutput output();
+
+        @Nullable
+        File outputPipe();
+
         boolean preloadEnabled();
 
         float normalisationPregain();
@@ -508,5 +561,7 @@ public class Player implements TrackHandler.Listener, Closeable, DeviceStateHand
         boolean autoplayEnabled();
 
         boolean enableLoadingState();
+
+        int crossfadeDuration();
     }
 }
