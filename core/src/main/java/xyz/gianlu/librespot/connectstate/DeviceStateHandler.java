@@ -153,7 +153,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
         try {
             putState(reason, state);
-            LOGGER.info(String.format("Updated state. {reason: %s}", reason));
+            LOGGER.info(String.format("Updated state. {ts: %d, reason: %s, state: %s}", TimeProvider.currentTimeMillis(), reason, TextFormat.shortDebugString(state)));
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed updating state!", ex);
         }

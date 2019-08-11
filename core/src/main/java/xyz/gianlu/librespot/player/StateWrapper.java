@@ -71,12 +71,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
     }
 
-    void setBuffering(boolean buffering) {
+    synchronized void setBuffering(boolean buffering) {
         if (buffering && !isPlaying()) throw new IllegalStateException();
         state.setIsBuffering(buffering);
     }
 
-    void setState(boolean playing, boolean paused, boolean buffering) {
+    synchronized void setState(boolean playing, boolean paused, boolean buffering) {
         if (paused && !playing) throw new IllegalStateException();
         else if (buffering && !playing) throw new IllegalStateException();
 
@@ -208,14 +208,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         state.setRestrictions(context.restrictions.toProto());
     }
 
-    void updated() {
-        updated(true);
-    }
-
-    synchronized void updated(boolean updateTime) {
-        if (updateTime) updatePosition();
+    synchronized void updated() {
         updateRestrictions();
-
         device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
     }
 
@@ -340,18 +334,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     synchronized void setPosition(long pos) {
-        int sub = (int) Math.min(pos, 1000);
         long now = TimeProvider.currentTimeMillis();
-
+        int sub = (int) Math.min(pos, 1000);
         state.setTimestamp(now - sub);
         state.setPositionAsOfTimestamp(pos - sub);
-
-        state.setPosition(pos);
-    }
-
-    private void updatePosition() {
-        if (state.getTimestamp() == 0 || state.getPositionAsOfTimestamp() == 0) return;
-        setPosition(getPosition());
+        state.clearPosition();
     }
 
     void loadContextWithTracks(@NotNull String uri, @NotNull List<ContextTrack> tracks) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {

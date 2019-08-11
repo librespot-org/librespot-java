@@ -174,8 +174,7 @@ public class VorbisCodec extends Codec {
         int range;
         int samples;
         while ((samples = jorbisDspState.synthesis_pcmout(pcmInfo, pcmIndex)) > 0) {
-            if (samples < CONVERTED_BUFFER_SIZE) range = samples;
-            else range = CONVERTED_BUFFER_SIZE;
+            range = Math.min(samples, CONVERTED_BUFFER_SIZE);
 
             for (int i = 0; i < jorbisInfo.channels; i++) {
                 int sampleIndex = i * 2;

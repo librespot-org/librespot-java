@@ -235,11 +235,6 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public boolean enableLoadingState() {
-        return config.get("player.enableLoadingState");
-    }
-
-    @Override
     public int crossfadeDuration() {
         return config.get("player.crossfadeDuration");
     }

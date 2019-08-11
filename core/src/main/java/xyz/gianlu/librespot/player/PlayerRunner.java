@@ -483,6 +483,10 @@ public class PlayerRunner implements Runnable, Closeable {
             out = null;
         }
 
+        boolean isReady() {
+            return codec != null;
+        }
+
         void waitReady() {
             synchronized (readyLock) {
                 if (codec == null) {

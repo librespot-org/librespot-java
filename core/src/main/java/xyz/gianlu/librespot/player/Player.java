@@ -200,7 +200,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            state.setState(true, false, conf.enableLoadingState());
+            state.setState(true, false, true);
             state.updated();
         }
     }
@@ -315,10 +315,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (handler == trackHandler) {
             LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
 
-            if (conf.enableLoadingState()) {
-                state.setState(true, false, true);
-                state.updated();
-            }
+            state.setState(true, false, true);
+            state.updated();
         }
     }
 
@@ -348,18 +346,23 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private void loadTrack(boolean play) {
         if (trackHandler != null) trackHandler.stop();
 
-        boolean buffering = preloadTrackHandler == null && conf.enableLoadingState();
         PlayableId id = state.getCurrentPlayableOrThrow();
         if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
             trackHandler = crossfadeHandler;
             if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
             crossfadeHandler = null;
 
-            trackHandler.waitReady();
+            if (trackHandler.isReady()) {
+                try {
+                    state.setPosition(trackHandler.time());
+                } catch (Codec.CannotGetTimeException ignored) {
+                }
 
-            try {
-                state.setPosition(trackHandler.time());
-            } catch (Codec.CannotGetTimeException ignored) {
+                state.setState(true, !play, false);
+                state.updated();
+            } else {
+                state.setState(true, !play, true);
+                state.updated();
             }
 
             if (!play) runner.pauseMixer();
@@ -368,24 +371,27 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 trackHandler = preloadTrackHandler;
                 preloadTrackHandler = null;
 
-                trackHandler.waitReady();
-                trackHandler.seek(state.getPosition());
+                if (trackHandler.isReady()) {
+                    updateStateWithHandler();
+
+                    trackHandler.seek(state.getPosition());
+                    state.setState(true, !play, false);
+                    state.updated();
+                } else {
+                    state.setState(true, !play, true);
+                    state.updated();
+                }
             } else {
                 trackHandler = runner.load(id, state.getPosition());
-                trackHandler.waitReady();
+                state.setState(true, !play, true);
+                state.updated();
             }
-
-            updateStateWithHandler();
 
             if (play) {
                 trackHandler.pushToMixer();
                 runner.playMixer();
             }
         }
-
-        if (play) state.setState(true, false, buffering);
-        else state.setState(true, true, buffering);
-        state.updated();
     }
 
     private void handleResume() {
@@ -396,10 +402,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             try {
                 state.setPosition(trackHandler.time());
-                state.updated(true);
-            } catch (Codec.CannotGetTimeException ex) {
-                state.updated(false);
+            } catch (Codec.CannotGetTimeException ignored) {
             }
+
+            state.updated();
         }
     }
 
@@ -407,7 +413,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (state.isPlaying()) {
             runner.pauseMixer();
             state.setState(true, true, false);
-            state.updated(false);
+
+            try {
+                state.setPosition(trackHandler.time());
+            } catch (Codec.CannotGetTimeException ignored) {
+            }
+
+            state.updated();
         }
     }
 
@@ -565,8 +577,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         int initialVolume();
 
         boolean autoplayEnabled();
-
-        boolean enableLoadingState();
 
         int crossfadeDuration();
     }
