@@ -139,9 +139,9 @@ public class VorbisCodec extends Codec {
                 return -1;
 
             while (true) {
-                if (closed) return written;
-
                 synchronized (readLock) {
+                    if (closed) return written;
+
                     result = joggStreamState.packetout(joggPacket);
                     if (result == -1 || result == 0) {
                         break;
