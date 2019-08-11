@@ -50,7 +50,7 @@ public class PlayerRunner implements Runnable, Closeable {
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Object pauseLock = new Object();
     private final Output output;
-    private final MixingLine mixing = new MixingLine();
+    private final MixingLine mixing = new MixingLine(Output.OUTPUT_FORMAT);
     private volatile boolean closed = false;
     private volatile boolean paused = true;
     private TrackHandler firstHandler = null;

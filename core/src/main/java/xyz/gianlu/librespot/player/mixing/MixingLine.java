@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
+import javax.sound.sampled.AudioFormat;
 import java.io.*;
 
 /**
@@ -13,6 +14,7 @@ public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final byte[] mb = new byte[2];
     private final Object readLock = new Object();
+    private final AudioFormat format;
     private PipedInputStream fin;
     private PipedInputStream sin;
     private FirstOutputStream fout;
@@ -22,7 +24,8 @@ public class MixingLine extends InputStream {
     private volatile float fg = 1;
     private volatile float sg = 1;
 
-    public MixingLine() {
+    public MixingLine(@NotNull AudioFormat format) {
+        this.format = format;
     }
 
     @Override
@@ -33,7 +36,8 @@ public class MixingLine extends InputStream {
     @Override
     @SuppressWarnings("DuplicatedCode")
     public int read(@NotNull byte[] b, int off, int len) throws IOException {
-        if (len % 2 != 0) throw new IllegalArgumentException();
+        if (len % format.getFrameSize() != 0)
+            throw new IllegalArgumentException("Request a non-integral number of bytes!");
 
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
@@ -86,6 +90,8 @@ public class MixingLine extends InputStream {
                     }
                 }
             } else {
+                int r = (dest - off) % format.getFrameSize();
+                dest -= r;
                 break;
             }
         }
