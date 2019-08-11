@@ -253,6 +253,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
+        if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri()))
+            throw new IllegalArgumentException("Not same track as current!");
+
         if (track.hasDuration()) state.setDuration(track.getDuration());
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();
@@ -305,6 +308,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
+        if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri()))
+            throw new IllegalArgumentException("Not same episode as current!");
+
         if (episode.hasDuration()) state.setDuration(episode.getDuration());
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();

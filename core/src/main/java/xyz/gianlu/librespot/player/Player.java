@@ -2,7 +2,6 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.TextFormat;
 import com.spotify.metadata.proto.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -88,8 +87,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
         LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
-
-        System.out.println(TextFormat.shortDebugString(cmd));
 
         try {
             state.transfer(cmd);
@@ -208,7 +205,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
     }
 
-    private void updateStateWithHandler() { // FIXME: Check that we are updating the correct track
+    private void updateStateWithHandler() {
         Metadata.Episode episode;
         Metadata.Track track;
         if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
@@ -515,6 +512,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;
+        }
+
+        if (crossfadeHandler != null) {
+            crossfadeHandler.close();
+            crossfadeHandler = null;
         }
 
         if (preloadTrackHandler != null) {

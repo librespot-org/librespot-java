@@ -90,6 +90,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            reconnecting = false;
         }
     }
 
@@ -98,12 +99,14 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     @Override
-    public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
+    public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, Response response) {
         if (closed) return;
 
         if (reconnecting) {
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", t);
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            ws.cancel();
+            reconnecting = false;
             return;
         }
 

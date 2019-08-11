@@ -28,6 +28,10 @@ public class MixingLine extends InputStream {
         this.format = format;
     }
 
+    public final int getFrameSize() {
+        return format.getFrameSize();
+    }
+
     @Override
     public int read() {
         throw new UnsupportedOperationException();
@@ -36,9 +40,6 @@ public class MixingLine extends InputStream {
     @Override
     @SuppressWarnings("DuplicatedCode")
     public int read(@NotNull byte[] b, int off, int len) throws IOException {
-        if (len % format.getFrameSize() != 0)
-            throw new IllegalArgumentException("Request a non-integral number of bytes!");
-
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && fin != null && se && sin != null) {
@@ -90,8 +91,7 @@ public class MixingLine extends InputStream {
                     }
                 }
             } else {
-                int r = (dest - off) % format.getFrameSize();
-                dest -= r;
+                dest -= (dest - off) % format.getFrameSize(); // Drops at MAX 3 frames
                 break;
             }
         }

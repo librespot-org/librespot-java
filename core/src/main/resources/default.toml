@@ -20,6 +20,10 @@ doCleanUp = true
 [preload] ### Preload ###
 enabled = true # Preload enabled
 
+[time] ### Time correction ###
+synchronizationMethod = "" # Time synchronization method (NTP, PING, MELODY, MANUAL)
+manualCorrection = 0 # Manual time correction in millis
+
 [player] ### Player ###
 autoplayEnabled = true # Autoplay similar songs when your music ends
 preferredAudioQuality = "VORBIS_160" # Preferred audio quality (VORBIS_96, VORBIS_160, VORBIS_320)

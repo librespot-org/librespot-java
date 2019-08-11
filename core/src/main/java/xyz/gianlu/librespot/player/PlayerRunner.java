@@ -122,6 +122,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 try {
                     int count = mixing.read(buffer);
+                    int r = count % mixing.getFrameSize();
+                    if (r != 0) count += mixing.read(buffer, count, mixing.getFrameSize() - r);
                     output.write(buffer, 0, count);
                 } catch (IOException ex) {
                     if (closed) break;
