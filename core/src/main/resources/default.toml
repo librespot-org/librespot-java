@@ -21,7 +21,7 @@ doCleanUp = true
 enabled = true # Preload enabled
 
 [time] ### Time correction ###
-synchronizationMethod = "" # Time synchronization method (NTP, PING, MELODY, MANUAL)
+synchronizationMethod = "NTP" # Time synchronization method (NTP, PING, MELODY, MANUAL)
 manualCorrection = 0 # Manual time correction in millis
 
 [player] ### Player ###

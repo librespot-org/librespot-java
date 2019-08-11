@@ -114,6 +114,7 @@ public final class Session implements Closeable {
     @NotNull
     static Session from(@NotNull Inner inner) throws IOException {
         ApResolver.fillPool();
+        TimeProvider.init(inner.configuration);
         return new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
     }
 
@@ -268,7 +269,7 @@ public final class Session implements Closeable {
         dealer = new DealerClient(this);
         player = new Player(inner.configuration, this);
 
-        TimeProvider.update(this);
+        TimeProvider.init(this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
@@ -705,7 +706,7 @@ public final class Session implements Closeable {
         }
     }
 
-    private class ConnectionHolder {
+    private static class ConnectionHolder {
         final Socket socket;
         final DataInputStream in;
         final DataOutputStream out;
@@ -755,6 +756,8 @@ public final class Session implements Closeable {
                             LOGGER.warn("Socket timed out. Reconnecting...");
                             reconnect();
                         }, 2 * 60 + 5, TimeUnit.SECONDS);
+
+                        TimeProvider.updateWithPing(packet.payload);
 
                         try {
                             send(Packet.Type.Pong, packet.payload);

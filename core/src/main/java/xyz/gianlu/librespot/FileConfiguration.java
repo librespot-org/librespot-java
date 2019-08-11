@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.AudioOutput;
 import xyz.gianlu.librespot.player.PlayerRunner;
@@ -115,14 +116,6 @@ public final class FileConfiguration extends AbsConfiguration {
         return save;
     }
 
-    private void checkMissingKeys(@NotNull CommentedConfig defaultConfig) {
-        if (checkMissingKeys(defaultConfig, config, "")) {
-            config.clearComments();
-            config.putAllComments(defaultConfig.getComments());
-            config.save();
-        }
-    }
-
     @NotNull
     private static Object convertFromString(@NotNull String key, @NotNull String value) {
         if (Objects.equals(key, "player.normalisationPregain")) {
@@ -147,6 +140,14 @@ public final class FileConfiguration extends AbsConfiguration {
         for (Object key : old.keySet()) {
             String val = old.getProperty((String) key);
             config.set((String) key, convertFromString((String) key, val));
+        }
+    }
+
+    private void checkMissingKeys(@NotNull CommentedConfig defaultConfig) {
+        if (checkMissingKeys(defaultConfig, config, "")) {
+            config.clearComments();
+            config.putAllComments(defaultConfig.getComments());
+            config.save();
         }
     }
 
@@ -294,6 +295,16 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public String[] zeroconfInterfaces() {
         return getStringArray("zeroconf.interfaces", ',');
+    }
+
+    @Override
+    public TimeProvider.@NotNull Method timeSynchronizationMethod() {
+        return config.getEnum("time.synchronizationMethod", TimeProvider.Method.class);
+    }
+
+    @Override
+    public int timeManualCorrection() {
+        return config.get("time.manualCorrection");
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {
