@@ -461,8 +461,10 @@ public final class Session implements Closeable {
     }
 
     public boolean valid() {
+        if (closed) return false;
+
         waitAuthLock();
-        return apWelcome != null && conn != null && !conn.socket.isClosed() && !closed;
+        return apWelcome != null && conn != null && !conn.socket.isClosed();
     }
 
     @NotNull
