@@ -335,11 +335,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
     synchronized void setPosition(long pos) {
         if (pos == 0) pos = 1; // This is the best thing I've ever discovered
-
-        long now = TimeProvider.currentTimeMillis();
-        int sub = (int) Math.min(pos, 1000);
-        state.setTimestamp(now - sub);
-        state.setPositionAsOfTimestamp(pos - sub);
+        state.setTimestamp(TimeProvider.currentTimeMillis());
+        state.setPositionAsOfTimestamp(pos);
         state.clearPosition();
     }
 
