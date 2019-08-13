@@ -519,11 +519,11 @@ public class PlayerRunner implements Runnable, Closeable {
 
             switch (stream.in.codec()) {
                 case VORBIS:
-                    codec = new VorbisCodec(stream.in, stream.normalizationData, conf, duration);
+                    codec = new VorbisCodec(output.getFormat(), stream.in, stream.normalizationData, conf, duration);
                     break;
                 case MP3:
                     try {
-                        codec = new Mp3Codec(stream.in, stream.normalizationData, conf, duration);
+                        codec = new Mp3Codec(output.getFormat(), stream.in, stream.normalizationData, conf, duration);
                     } catch (BitstreamException ex) {
                         throw new IOException(ex);
                     }
@@ -531,9 +531,6 @@ public class PlayerRunner implements Runnable, Closeable {
                 default:
                     throw new IllegalArgumentException("Unknown codec: " + stream.in.codec());
             }
-
-            if (!output.getFormat().matches(codec.getAudioFormat()))
-                throw new UnsupportedOperationException(codec.getAudioFormat().toString()); // FIXME: Support light conversion
 
             LOGGER.trace(String.format("Loaded codec (%s), fileId: %s, format: %s", stream.in.codec(), stream.in.describe(), codec.getAudioFormat()));
 

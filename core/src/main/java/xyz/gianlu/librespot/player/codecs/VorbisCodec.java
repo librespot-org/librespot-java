@@ -41,8 +41,8 @@ public class VorbisCodec extends Codec {
     private int[] pcmIndex;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
-        super(audioFile, normalizationData, conf, duration);
+    public VorbisCodec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
+        super(dstFormat, audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
@@ -124,7 +124,7 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    public int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+    public int readInternal(@NotNull OutputStream out) throws IOException, CodecException {
         if (closed) return -1;
 
         int written = 0;

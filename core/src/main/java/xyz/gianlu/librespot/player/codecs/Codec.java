@@ -22,16 +22,29 @@ public abstract class Codec implements Closeable {
     protected final InputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
+    private final AudioFormat dstFormat;
     protected AudioFormat format;
     protected volatile boolean closed = false;
+    private StreamConverter converter = null;
 
-    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
+    Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
+        this.dstFormat = dstFormat;
         this.audioIn = audioFile.stream();
         this.duration = duration;
         this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
     }
 
-    public abstract int readSome(@NotNull OutputStream out) throws IOException, CodecException;
+    public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+        if (converter == null) return readInternal(out);
+
+        int written = readInternal(converter);
+        if (written == -1) return -1;
+
+        converter.checkWritten(written);
+        return converter.convertInto(out);
+    }
+
+    protected abstract int readInternal(@NotNull OutputStream out) throws IOException, CodecException;
 
     /**
      * @return Time in millis
@@ -75,6 +88,9 @@ public abstract class Codec implements Closeable {
 
     protected final void setAudioFormat(@NotNull AudioFormat format) {
         this.format = format;
+
+        if (format.matches(dstFormat)) converter = null;
+        else converter = StreamConverter.converter(format, dstFormat);
     }
 
     public final int duration() {
