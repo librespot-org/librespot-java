@@ -67,7 +67,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     SourceDataLine line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
                     line.open(Output.OUTPUT_FORMAT);
 
-                    output = new Output(line, null, null, conf);
+                    output = new Output(mixing, line, null, null);
                 } catch (LineUnavailableException ex) {
                     throw new RuntimeException("Failed opening line!", ex);
                 }
@@ -77,14 +77,16 @@ public class PlayerRunner implements Runnable, Closeable {
                 if (pipe == null || !pipe.exists() || !pipe.canWrite())
                     throw new IllegalArgumentException("Invalid pipe file: " + pipe);
 
-                output = new Output(null, pipe, null, conf);
+                output = new Output(mixing, null, pipe, null);
                 break;
             case STDOUT:
-                output = new Output(null, null, System.out, conf);
+                output = new Output(mixing, null, null, System.out);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output());
         }
+
+        output.setVolume(conf.initialVolume());
 
         Looper looper;
         new Thread(looper = new Looper(), "player-runner-looper-" + looper.hashCode()).start();
@@ -141,11 +143,6 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
-    @Nullable
-    Controller controller() {
-        return output.controller();
-    }
-
     @Override
     public void close() throws IOException {
         commands.add(new CommandBundle(Command.TerminateMixer, -1));
@@ -177,6 +174,10 @@ public class PlayerRunner implements Runnable, Closeable {
 
     void stopMixer() {
         sendCommand(Command.StopMixer, -1);
+    }
+
+    void setVolume(int volume) {
+        output.setVolume(volume);
     }
 
     public enum Command {
@@ -277,24 +278,21 @@ public class PlayerRunner implements Runnable, Closeable {
         private static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
         private final SourceDataLine line;
         private final File pipe;
-        private final Controller controller;
+        private final MixingLine mixing;
         private OutputStream out;
 
-        @Contract("null, null, null, _ -> fail")
-        Output(@Nullable SourceDataLine line, @Nullable File pipe, @Nullable OutputStream out, @NotNull Player.Configuration conf) {
+        @Contract("_, null, null, null -> fail")
+        Output(@NotNull MixingLine mixing, @Nullable SourceDataLine line, @Nullable File pipe, @Nullable OutputStream out) {
             if (line == null && pipe == null && out == null) throw new IllegalArgumentException();
 
+            this.mixing = mixing;
             this.line = line;
             this.pipe = pipe;
             this.out = out;
-
-            if (line != null) controller = new Controller(line, conf.initialVolume());
-            else controller = null;
         }
 
-        @Nullable
-        private Controller controller() {
-            return controller;
+        private static float calcLogarithmic(int val) {
+            return (float) (Math.log10((double) val / VOLUME_MAX) * 20f);
         }
 
         void stop() {
@@ -333,26 +331,19 @@ public class PlayerRunner implements Runnable, Closeable {
             if (line != null) return line.getFormat();
             else return OUTPUT_FORMAT;
         }
-    }
 
-    static class Controller {
-        private final FloatControl masterGain;
+        void setVolume(int volume) {
+            if (line != null) {
+                FloatControl ctrl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
+                if (ctrl != null) {
+                    mixing.setGlobalGain(1);
+                    ctrl.setValue(calcLogarithmic(volume));
+                    return;
+                }
+            }
 
-        private Controller(@NotNull SourceDataLine line, int initialVolume) {
-            if (line.isControlSupported(FloatControl.Type.MASTER_GAIN))
-                masterGain = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-            else
-                masterGain = null;
-
-            setVolume(initialVolume);
-        }
-
-        private double calcLogarithmic(int val) {
-            return Math.log10((double) val / VOLUME_MAX) * 20f;
-        }
-
-        void setVolume(int val) {
-            if (masterGain != null) masterGain.setValue((float) calcLogarithmic(val));
+            // Cannot set volume through line
+            mixing.setGlobalGain(((float) volume) / VOLUME_MAX);
         }
     }
 

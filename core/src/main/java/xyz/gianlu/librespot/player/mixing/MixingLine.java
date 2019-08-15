@@ -23,9 +23,28 @@ public class MixingLine extends InputStream {
     private volatile boolean se = false;
     private volatile float fg = 1;
     private volatile float sg = 1;
+    private float gg = 1;
 
     public MixingLine(@NotNull AudioFormat format) {
         this.format = format;
+
+        if (format.getSampleSizeInBits() != 16)
+            throw new IllegalArgumentException();
+    }
+
+    private static void applyGain(float gg, byte[] mb, byte[] b, int dest) {
+        if (gg != 1) {
+            short val = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+            val *= gg;
+
+            if (val < 0) val |= 32768;
+
+            b[dest] = (byte) val;
+            b[dest + 1] = (byte) (val >>> 8);
+        } else {
+            b[dest] = mb[0];
+            b[dest + 1] = mb[1];
+        }
     }
 
     public final int getFrameSize() {
@@ -64,6 +83,8 @@ public class MixingLine extends InputStream {
                 }
 
                 int result = (int) (first + second);
+                result *= gg;
+
                 if (result > 32767) result = 32767;
                 else if (result < -32768) result = -32768;
                 else if (result < 0) result |= 32768;
@@ -76,8 +97,7 @@ public class MixingLine extends InputStream {
                         b[dest] = 0;
                         b[dest + 1] = 0;
                     } else {
-                        b[dest] = mb[0];
-                        b[dest + 1] = mb[1];
+                        applyGain(gg, mb, b, dest);
                     }
                 }
             } else if (se && sin != null) {
@@ -86,12 +106,11 @@ public class MixingLine extends InputStream {
                         b[dest] = 0;
                         b[dest + 1] = 0;
                     } else {
-                        b[dest] = mb[0];
-                        b[dest + 1] = mb[1];
+                        applyGain(gg, mb, b, dest);
                     }
                 }
             } else {
-                dest -= (dest - off) % format.getFrameSize(); // Drops at MAX 3 frames
+                dest -= (dest - off) % format.getFrameSize();
                 break;
             }
         }
@@ -125,6 +144,10 @@ public class MixingLine extends InputStream {
         }
 
         return sout;
+    }
+
+    public void setGlobalGain(float gain) {
+        gg = gain;
     }
 
     public interface MixingOutput {

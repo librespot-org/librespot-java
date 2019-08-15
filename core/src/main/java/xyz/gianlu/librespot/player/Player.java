@@ -183,8 +183,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Override
     public void volumeChanged() {
-        PlayerRunner.Controller controller = runner.controller();
-        if (controller != null) controller.setVolume(state.getVolume());
+        runner.setVolume(state.getVolume());
     }
 
     @Override
