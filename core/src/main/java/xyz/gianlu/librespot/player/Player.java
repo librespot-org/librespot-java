@@ -172,7 +172,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 setQueue(data.obj());
                 break;
             case UpdateContext:
-                state.updateContext(data.obj());
+                state.updateContext(PlayCommandWrapper.getContext(data.obj()));
                 state.updated();
                 break;
             default:

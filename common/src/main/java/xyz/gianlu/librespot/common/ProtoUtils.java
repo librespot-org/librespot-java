@@ -26,6 +26,67 @@ public final class ProtoUtils {
     }
 
     @NotNull
+    private static JsonObject mapToJson(@NotNull Map<String, String> map) {
+        JsonObject obj = new JsonObject();
+        for (String key : map.keySet()) obj.addProperty(key, map.get(key));
+        return obj;
+    }
+
+    @NotNull
+    private static JsonObject trackToJson(@NotNull Player.ProvidedTrack track) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("uri", track.getUri());
+        obj.addProperty("uid", track.getUid());
+        obj.add("metadata", mapToJson(track.getMetadataMap()));
+        return obj;
+    }
+
+    @NotNull
+    private static JsonObject trackToJson(@NotNull ContextTrack track) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("uri", track.getUri());
+        obj.addProperty("uid", track.getUid());
+        obj.add("metadata", mapToJson(track.getMetadataMap()));
+        return obj;
+    }
+
+    @NotNull
+    public static JsonObject craftContextStateCombo(@NotNull Player.PlayerStateOrBuilder ps, @NotNull List<ContextTrack> tracks) {
+        JsonObject context = new JsonObject();
+        context.addProperty("uri", ps.getContextUri());
+        context.addProperty("url", ps.getContextUrl());
+        context.add("metadata", mapToJson(ps.getContextMetadataMap()));
+
+        JsonArray pages = new JsonArray(1);
+        context.add("pages", pages);
+
+        JsonObject page = new JsonObject();
+        page.addProperty("page_url", "");
+        page.addProperty("next_page_url", "");
+        JsonArray tracksJson = new JsonArray(tracks.size());
+        for (ContextTrack t : tracks) tracksJson.add(trackToJson(t));
+        page.add("tracks", tracksJson);
+        page.add("metadata", mapToJson(ps.getPageMetadataMap()));
+        pages.add(page);
+
+
+        JsonObject state = new JsonObject();
+
+        JsonObject options = new JsonObject();
+        options.addProperty("shuffling_context", ps.getOptions().getShufflingContext());
+        options.addProperty("repeating_context", ps.getOptions().getRepeatingContext());
+        options.addProperty("repeating_track", ps.getOptions().getRepeatingTrack());
+        state.add("options", options);
+        state.add("skip_to", new JsonObject());
+        state.add("track", trackToJson(ps.getTrack()));
+
+        JsonObject result = new JsonObject();
+        result.add("context", context);
+        result.add("state", state);
+        return result;
+    }
+
+    @NotNull
     public static ContextTrack jsonToContextTrack(@NotNull JsonObject obj) {
         ContextTrack.Builder builder = ContextTrack.newBuilder();
         Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(builder::setUri);
@@ -240,6 +301,10 @@ public final class ProtoUtils {
     }
 
     public static void copyOverMetadata(@NotNull ContextTrack from, @NotNull ContextTrack.Builder to) {
+        to.putAllMetadata(from.getMetadataMap());
+    }
+
+    public static void copyOverMetadata(@NotNull ContextTrack from, @NotNull Player.ProvidedTrack.Builder to) {
         to.putAllMetadata(from.getMetadataMap());
     }
 }

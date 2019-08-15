@@ -1,9 +1,11 @@
 package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player.*;
 import com.spotify.metadata.proto.Metadata;
+import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +40,7 @@ import static spotify.player.proto.ContextOuterClass.Context;
  */
 public class StateWrapper implements DeviceStateHandler.Listener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
+    private static final JsonParser PARSER = new JsonParser();
     private final PlayerState.Builder state;
     private final Session session;
     private final DeviceStateHandler device;
@@ -130,6 +133,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     private void loadTransforming() {
+        if (tracksKeeper == null) throw new IllegalStateException();
+
         String url = state.getContextMetadataOrDefault("transforming.url", null);
         if (url == null) return;
 
@@ -137,7 +142,25 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (state.containsContextMetadata("transforming.shuffle"))
             shuffle = Boolean.parseBoolean(state.getContextMetadataOrThrow("transforming.shuffle"));
 
-        LOGGER.info(String.format("Context has transforming! {url: %s, shuffle: %b}", url, shuffle));
+        boolean willRequest = !tracksKeeper.getCurrentTrack().getMetadata().containsKey("audio.fwdbtn.fade_overlap"); // I don't see another way to do this
+        LOGGER.info(String.format("Context has transforming! {url: %s, shuffle: %b, willRequest: %b}", url, shuffle, willRequest));
+
+        if (!willRequest) return;
+        JsonObject obj = ProtoUtils.craftContextStateCombo(state, tracksKeeper.tracks);
+        try (Response resp = session.api().send("POST", HttpUrl.get(url).encodedPath(), null, RequestBody.create(obj.toString(), MediaType.get("application/json")))) {
+            ResponseBody body = resp.body();
+            if (resp.code() != 200) {
+                LOGGER.warn(String.format("Failed loading cuepoints! {code: %d, msg: %s, body: %s}", resp.code(), resp.message(), body == null ? null : body.string()));
+                return;
+            }
+
+            if (body != null) updateContext(PARSER.parse(body.string()).getAsJsonObject());
+            else throw new IllegalArgumentException();
+
+            LOGGER.debug("Updated context with transforming information!");
+        } catch (MercuryClient.MercuryException | IOException ex) {
+            LOGGER.warn("Failed loading cuepoints!", ex);
+        }
     }
 
     private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
@@ -409,14 +432,14 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     synchronized void updateContext(@NotNull JsonObject obj) {
-        String uri = PlayCommandWrapper.getContextUri(obj);
+        String uri = obj.get("uri").getAsString();
         if (!context.uri().equals(uri)) {
             LOGGER.warn(String.format("Received update for the wrong context! {context: %s, newUri: %s}", context, uri));
             return;
         }
 
-        ProtoUtils.copyOverMetadata(PlayCommandWrapper.getMetadata(obj), state);
-        tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(PlayCommandWrapper.getPages(obj)));
+        ProtoUtils.copyOverMetadata(obj.getAsJsonObject("metadata"), state);
+        tracksKeeper.updateContext(ProtoUtils.jsonToContextPages(obj.getAsJsonArray("pages")));
     }
 
     void skipTo(@NotNull ContextTrack track) {
@@ -523,7 +546,8 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         private void updateTrackCount() {
             if (context.isFinite())
                 state.putContextMetadata("track_count", String.valueOf(tracks.size() + queue.size()));
-            else state.removeContextMetadata("track_count");
+            else
+                state.removeContextMetadata("track_count");
         }
 
         private void checkComplete() {
@@ -635,6 +659,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 ContextTrack.Builder builder = tracks.get(index).toBuilder();
                 ProtoUtils.copyOverMetadata(track, builder);
                 tracks.set(index, builder.build());
+
+                if (index == getCurrentTrackIndex())
+                    ProtoUtils.copyOverMetadata(track, state.getTrackBuilder());
             }
         }
 
