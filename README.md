@@ -12,6 +12,7 @@ Its main features are:
 - Local content caching
 - Zeroconf (Spotify Connect)
 - Gapless playback
+- Mixed playlists (cuepoints and transitions)
 
 ## Get started
 All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
@@ -52,5 +53,5 @@ To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-
 # Special thanks
 
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
-- All the contributors of this project for testing and fixing stuff
+- All the contributors of this project for testing and fixing stuff, especially [@loeffelpan](https://github.com/loeffelpan), [@crsmoro](https://github.com/crsmoro) and [@Schluggi](https://github.com/Schluggi) for the feedback provided
 - <a href="https://www.yourkit.com/"><img src="https://www.yourkit.com/images/yklogo.png" height="20"></a> that provided a free license for their [Java Profiler](https://www.yourkit.com/java/profiler/)
