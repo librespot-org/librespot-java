@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -73,7 +74,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
             LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
         } else {
-            checkMissingKeys(new TomlParser().parse(defaultConfig));
+            updateConfigFile(new TomlParser().parse(defaultConfig));
         }
 
         if (override != null && override.length > 0) {
@@ -94,6 +95,26 @@ public final class FileConfiguration extends AbsConfiguration {
                 }
             }
         }
+    }
+
+    private static boolean removeDeprecatedKeys(@NotNull Config defaultConfig, @NotNull Config config, @NotNull FileConfig base, @NotNull String prefix) {
+        boolean save = false;
+
+        for (Config.Entry entry : new ArrayList<>(config.entrySet())) {
+            String key = prefix + entry.getKey();
+            if (entry.getValue() instanceof Config) {
+                if (removeDeprecatedKeys(defaultConfig, entry.getValue(), base, key + "."))
+                    save = true;
+            } else {
+                if (!defaultConfig.contains(key)) {
+                    LOGGER.trace("Removed entry from configuration file: " + key);
+                    base.remove(key);
+                    save = true;
+                }
+            }
+        }
+
+        return save;
     }
 
     private static boolean checkMissingKeys(@NotNull Config defaultConfig, @NotNull FileConfig config, @NotNull String prefix) {
@@ -143,8 +164,8 @@ public final class FileConfiguration extends AbsConfiguration {
         }
     }
 
-    private void checkMissingKeys(@NotNull CommentedConfig defaultConfig) {
-        if (checkMissingKeys(defaultConfig, config, "")) {
+    private void updateConfigFile(@NotNull CommentedConfig defaultConfig) {
+        if (removeDeprecatedKeys(defaultConfig, config, config, "") || checkMissingKeys(defaultConfig, config, "")) {
             config.clearComments();
             config.putAllComments(defaultConfig.getComments());
             config.save();
