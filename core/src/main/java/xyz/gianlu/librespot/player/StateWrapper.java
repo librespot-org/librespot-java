@@ -500,6 +500,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         tracksKeeper.setQueue(prevTracks, nextTracks);
     }
 
+    @NotNull
+    Map<String, String> metadataFor(@NotNull PlayableId id) {
+        if (tracksKeeper == null) throw new IllegalStateException();
+
+        int index = ProtoUtils.indexOfTrackByUri(tracksKeeper.tracks, id.toSpotifyUri());
+        if (index == -1) throw new IllegalArgumentException();
+        return tracksKeeper.tracks.get(index).getMetadataMap();
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 

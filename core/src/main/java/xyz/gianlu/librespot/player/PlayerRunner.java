@@ -1,7 +1,5 @@
 package xyz.gianlu.librespot.player;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.spotify.metadata.proto.Metadata;
 import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
@@ -19,6 +17,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
+import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
@@ -55,6 +54,7 @@ public class PlayerRunner implements Runnable, Closeable {
     private volatile boolean paused = true;
     private TrackHandler firstHandler = null;
     private TrackHandler secondHandler = null;
+    private volatile boolean calledCrossfade = false;
 
     PlayerRunner(@NotNull Session session, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
@@ -185,6 +185,10 @@ public class PlayerRunner implements Runnable, Closeable {
         Load, PushToMixer, Stop, Seek
     }
 
+    public enum PushToMixerReason {
+        None, Next, Prev, Fade
+    }
+
     public interface Listener {
         void startedLoading(@NotNull TrackHandler handler);
 
@@ -194,7 +198,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
         void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId track, @NotNull Exception ex);
 
-        void endOfTrack(@NotNull TrackHandler handler);
+        void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri);
 
         void preloadNextTrack(@NotNull TrackHandler handler);
 
@@ -204,74 +208,10 @@ public class PlayerRunner implements Runnable, Closeable {
 
         void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff);
 
-        void crossfadeNextTrack(@NotNull TrackHandler handler);
-    }
+        void crossfadeNextTrack(@NotNull TrackHandler handler, @Nullable String uri);
 
-    public interface GainInterpolator {
-        float interpolate(float x);
-    }
-
-    /**
-     * Lookup interpolator based on <a href="https://www.embeddedrelated.com/showcode/345.php>this snippet</a>.
-     */
-    private static class LookupInterpolator implements GainInterpolator {
-        private final float[] tx;
-        private final float[] ty;
-
-        public LookupInterpolator(float[] x, float[] y) {
-            this.tx = x;
-            this.ty = y;
-        }
-
-        /**
-         * Used to parse the 'fade_curve' JSON array
-         */
         @NotNull
-        public static LookupInterpolator fromJson(@NotNull JsonArray curve) {
-            float[] x = new float[curve.size()];
-            float[] y = new float[curve.size()];
-            for (int i = 0; i < curve.size(); i++) {
-                JsonObject obj = curve.get(i).getAsJsonObject();
-                x[i] = obj.get("x").getAsFloat();
-                y[i] = obj.get("y").getAsFloat();
-            }
-
-            return new LookupInterpolator(x, y);
-        }
-
-        @Override
-        public float interpolate(float ix) {
-            if (ix > tx[tx.length - 1]) return tx[tx.length - 1];
-            else if (ix < tx[0]) return tx[0];
-
-            for (int i = 0; i < tx.length - 1; i++) {
-                if (ix >= tx[i] && ix <= tx[i + 1]) {
-                    float o_low = ty[i]; // Output (table) low value
-                    float i_low = tx[i]; // Input (X-axis) low value
-                    float i_delta = tx[i + 1] - tx[i]; // Spread between the two adjacent input values
-                    float o_delta = ty[i + 1] - ty[i]; // Spread between the two adjacent table output values
-
-                    if (o_delta == 0) return o_low;
-                    else return o_low + ((ix - i_low) * (long) o_delta) / i_delta;
-                }
-            }
-
-            throw new IllegalArgumentException();
-        }
-    }
-
-    private static class LinearIncreasingInterpolator implements GainInterpolator {
-        @Override
-        public float interpolate(float x) {
-            return x;
-        }
-    }
-
-    private static class LinearDecreasingInterpolator implements GainInterpolator {
-        @Override
-        public float interpolate(float x) {
-            return 1 - x;
-        }
+        Map<String, String> metadataFor(@NotNull PlayableId id);
     }
 
     private static class Output implements Closeable {
@@ -432,25 +372,20 @@ public class PlayerRunner implements Runnable, Closeable {
         private final int id;
         private final PlayableId playable;
         private final Object writeLock = new Object();
-        private final int crossfadeDuration; // Represent both start and end crossfade duration
         private final Object readyLock = new Object();
         public Metadata.Track track;
         public Metadata.Episode episode;
+        private CrossfadeController crossfade;
         private long playbackHaltedAt = 0;
         private volatile boolean calledPreload = false;
         private Codec codec;
         private volatile boolean closed = false;
         private MixingLine.MixingOutput out;
-        private volatile boolean calledCrossfade = false;
-        private GainInterpolator startInterpolator = null;
-        private GainInterpolator endInterpolator = null;
+        private PushToMixerReason pushReason = PushToMixerReason.None;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
             this.playable = playable;
-            this.crossfadeDuration = conf.crossfadeDuration();
-
-            setupInterpolators();
         }
 
         private void setOut(@NotNull MixingLine.MixingOutput out) {
@@ -508,6 +443,8 @@ public class PlayerRunner implements Runnable, Closeable {
                 throw new IllegalArgumentException();
             }
 
+            crossfade = new CrossfadeController(duration, listener.metadataFor(playable), conf);
+
             switch (stream.in.codec()) {
                 case VORBIS:
                     codec = new VorbisCodec(output.getFormat(), stream.in, stream.normalizationData, conf, duration);
@@ -525,6 +462,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
             LOGGER.trace(String.format("Loaded codec (%s), fileId: %s, format: %s", stream.in.codec(), stream.in.describe(), codec.getAudioFormat()));
 
+            if (pos == 0 && crossfade.fadeInEnabled()) pos = crossfade.fadeInStartTime();
             codec.seek(pos);
 
             synchronized (readyLock) {
@@ -588,7 +526,8 @@ public class PlayerRunner implements Runnable, Closeable {
             sendCommand(Command.Seek, id, pos);
         }
 
-        void pushToMixer() {
+        void pushToMixer(@NotNull PushToMixerReason reason) {
+            pushReason = reason;
             sendCommand(Command.PushToMixer, id);
         }
 
@@ -599,13 +538,13 @@ public class PlayerRunner implements Runnable, Closeable {
         private void shouldPreload() {
             if (calledPreload || codec == null) return;
 
-            if (!conf.preloadEnabled() && crossfadeDuration == 0) { // Force preload if crossfade is enabled
+            if (!conf.preloadEnabled() && !crossfade.fadeOutEnabled()) { // Force preload if crossfade is enabled
                 calledPreload = true;
                 return;
             }
 
             try {
-                if (codec.remaining() <= TimeUnit.SECONDS.toMillis(15) + crossfadeDuration) {
+                if (codec.time() + TimeUnit.SECONDS.toMillis(15) >= crossfade.fadeOutStartTime()) {
                     listener.preloadNextTrack(this);
                     calledPreload = true;
                 }
@@ -614,42 +553,42 @@ public class PlayerRunner implements Runnable, Closeable {
             }
         }
 
-        private void shouldCrossfade() {
-            if (calledCrossfade || crossfadeDuration == 0) return;
-
-            try {
-                if (codec.remaining() <= crossfadeDuration) {
-                    listener.crossfadeNextTrack(this);
-                    calledCrossfade = true;
-                }
-            } catch (Codec.CannotGetTimeException ex) {
-                calledCrossfade = true;
-            }
-        }
-
-        private void setupInterpolators() {
-            startInterpolator = new LinearIncreasingInterpolator();
-            endInterpolator = new LinearDecreasingInterpolator();
-        }
-
-        private void updateGain() {
+        private boolean updateCrossfade() {
             int pos;
             try {
                 pos = codec.time();
             } catch (Codec.CannotGetTimeException ex) {
-                return;
+                calledCrossfade = true;
+                return false;
             }
 
-            if (pos <= crossfadeDuration) {
-                setGain(startInterpolator.interpolate(((float) pos) / crossfadeDuration));
-            } else if (codec.duration() - pos <= crossfadeDuration) {
-                int crossfadePos = crossfadeDuration - (codec.duration() - pos);
-                setGain(endInterpolator.interpolate(((float) crossfadePos) / crossfadeDuration));
+            if (!calledCrossfade && crossfade.shouldStartNextTrack(pos)) {
+                listener.crossfadeNextTrack(this, crossfade.fadeOutUri());
+                calledCrossfade = true;
+            } else if (crossfade.shouldStop(pos)) {
+                return true;
+            } else {
+                setGain(crossfade.getGain(pos));
             }
+
+            return false;
         }
 
         @Override
         public void run() {
+            waitReady();
+
+            int seekTo = -1;
+            if (pushReason == PushToMixerReason.Fade) {
+                seekTo = crossfade.fadeInStartTime();
+            } else if (pushReason == PushToMixerReason.Next) {
+                // TODO
+            } else if (pushReason == PushToMixerReason.Prev) {
+                // TODO
+            }
+
+            if (seekTo != -1) codec.seek(seekTo);
+
             while (!closed) {
                 if (out == null) {
                     synchronized (writeLock) {
@@ -665,12 +604,14 @@ public class PlayerRunner implements Runnable, Closeable {
                 if (out == null) break;
 
                 shouldPreload();
-                shouldCrossfade();
-                updateGain();
+                if (updateCrossfade()) {
+                    listener.endOfTrack(this, crossfade.fadeOutUri());
+                    break;
+                }
 
                 try {
                     if (codec.readSome(out.stream()) == -1) {
-                        listener.endOfTrack(this);
+                        listener.endOfTrack(this, null);
                         break;
                     }
                 } catch (IOException | Codec.CodecException ex) {

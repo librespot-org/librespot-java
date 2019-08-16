@@ -14,6 +14,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.player.PlayerRunner.PushToMixerReason;
 import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
@@ -23,6 +24,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
@@ -82,7 +84,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        loadTrack(play);
+        loadTrack(play, PushToMixerReason.None);
     }
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
@@ -100,7 +102,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        loadTrack(!cmd.getPlayback().getIsPaused());
+        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
@@ -120,7 +122,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         Boolean play = PlayCommandWrapper.isInitiallyPaused(obj);
         if (play == null) play = true;
-        loadTrack(play);
+        loadTrack(play, PushToMixerReason.None);
     }
 
     @Override
@@ -250,17 +252,21 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void endOfTrack(@NotNull TrackHandler handler) {
+    public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri) {
         if (handler == trackHandler) {
             if (state.isRepeatingTrack()) {
                 state.setPosition(0);
 
                 LOGGER.trace("End of track. Repeating.");
-                loadTrack(true);
+                loadTrack(true, PushToMixerReason.None);
             } else {
                 LOGGER.trace("End of track. Proceeding with next.");
                 handleNext(null);
             }
+
+            PlayableId curr;
+            if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
+                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
         }
     }
 
@@ -276,10 +282,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void crossfadeNextTrack(@NotNull TrackHandler handler) {
+    public void crossfadeNextTrack(@NotNull TrackHandler handler, @Nullable String uri) {
         if (handler == trackHandler) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next == null) return;
+
+            if (uri != null && !next.toSpotifyUri().equals(uri))
+                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", next, uri));
 
             if (preloadTrackHandler != null && preloadTrackHandler.isTrack(next)) {
                 crossfadeHandler = preloadTrackHandler;
@@ -290,8 +299,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             crossfadeHandler.waitReady();
             LOGGER.info("Crossfading to next track.");
-            crossfadeHandler.pushToMixer();
+            crossfadeHandler.pushToMixer(PushToMixerReason.Fade);
         }
+    }
+
+    @Override
+    public @NotNull Map<String, String> metadataFor(@NotNull PlayableId id) {
+        return state.metadataFor(id);
     }
 
     @Override
@@ -342,7 +356,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.updated();
     }
 
-    private void loadTrack(boolean play) {
+    private void loadTrack(boolean play, @NotNull PushToMixerReason reason) {
         if (trackHandler != null) trackHandler.stop();
 
         PlayableId id = state.getCurrentPlayableOrThrow();
@@ -387,7 +401,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             if (play) {
-                trackHandler.pushToMixer();
+                trackHandler.pushToMixer(reason);
                 runner.playMixer();
             }
         }
@@ -395,7 +409,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void handleResume() {
         if (state.isPaused()) {
-            if (!trackHandler.isInMixer()) trackHandler.pushToMixer();
+            if (!trackHandler.isInMixer()) trackHandler.pushToMixer(PushToMixerReason.None);
             runner.playMixer();
             state.setState(true, false, false);
 
@@ -445,7 +459,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (track != null) {
             state.skipTo(track);
-            loadTrack(true);
+            loadTrack(true, PushToMixerReason.Next);
             return;
         }
 
@@ -457,7 +471,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (next.isOk()) {
             state.setPosition(0);
-            loadTrack(next == StateWrapper.NextPlayable.OK_PLAY);
+            loadTrack(next == StateWrapper.NextPlayable.OK_PLAY, PushToMixerReason.Next);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
             panicState();
@@ -478,14 +492,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 String newContext = resp.payload.readIntoString(0);
                 state.loadContext(newContext);
 
-                loadTrack(true);
+                loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 state.loadContextWithTracks(station.uri(), station.tracks());
 
-                loadTrack(true);
+                loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
@@ -506,7 +520,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
                 state.setPosition(0);
-                loadTrack(true);
+                loadTrack(true, PushToMixerReason.Prev);
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
                 panicState();
