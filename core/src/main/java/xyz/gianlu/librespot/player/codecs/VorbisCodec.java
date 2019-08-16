@@ -202,6 +202,7 @@ public class VorbisCodec extends Codec {
             long granulepos = joggPacket.granulepos;
             if (granulepos != -1 && joggPacket.e_o_s == 0) {
                 granulepos -= samples;
+                granulepos -= BUFFER_SIZE * 2; // Account for buffer between the decoder and the player
                 pcm_offset = granulepos;
             }
         }

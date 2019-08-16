@@ -252,21 +252,21 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
-    public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri) {
+    public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
             if (state.isRepeatingTrack()) {
                 state.setPosition(0);
 
-                LOGGER.trace("End of track. Repeating.");
+                LOGGER.trace(String.format("End of track. Repeating. {fadeOut: %b}", fadeOut));
                 loadTrack(true, PushToMixerReason.None);
             } else {
-                LOGGER.trace("End of track. Proceeding with next.");
+                LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
                 handleNext(null);
-            }
 
-            PlayableId curr;
-            if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
-                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
+                PlayableId curr;
+                if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
+                    LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
+            }
         }
     }
 

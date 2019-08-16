@@ -55,7 +55,7 @@ public class CrossfadeController {
         else
             endInterval = null;
 
-        LOGGER.debug(String.format("Loaded intervals. {start: %s, end %s}", startInterval, endInterval));
+        LOGGER.debug(String.format("Loaded intervals. {start: %s, end: %s}", startInterval, endInterval));
     }
 
     @NotNull

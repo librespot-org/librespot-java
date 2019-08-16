@@ -198,7 +198,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
         void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId track, @NotNull Exception ex);
 
-        void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri);
+        void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut);
 
         void preloadNextTrack(@NotNull TrackHandler handler);
 
@@ -605,13 +605,13 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 shouldPreload();
                 if (updateCrossfade()) {
-                    listener.endOfTrack(this, crossfade.fadeOutUri());
+                    listener.endOfTrack(this, crossfade.fadeOutUri(), true);
                     break;
                 }
 
                 try {
                     if (codec.readSome(out.stream()) == -1) {
-                        listener.endOfTrack(this, null);
+                        listener.endOfTrack(this, crossfade.fadeOutUri(), false);
                         break;
                     }
                 } catch (IOException | Codec.CodecException ex) {

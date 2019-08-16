@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
+
 /**
  * Lookup interpolator based on <a href="https://www.embeddedrelated.com/showcode/345.php>this snippet</a>.
  */
@@ -49,6 +51,6 @@ class LookupInterpolator implements GainInterpolator {
             }
         }
 
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException(String.format("Could not interpolate! {ix: %f, tx: %s, ty: %s}", ix, Arrays.toString(tx), Arrays.toString(ty)));
     }
 }
