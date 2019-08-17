@@ -165,7 +165,7 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     private void updateConfigFile(@NotNull CommentedConfig defaultConfig) {
-        if (removeDeprecatedKeys(defaultConfig, config, config, "") || checkMissingKeys(defaultConfig, config, "")) {
+        if (checkMissingKeys(defaultConfig, config, "") | removeDeprecatedKeys(defaultConfig, config, config, "")) {
             config.clearComments();
             config.putAllComments(defaultConfig.getComments());
             config.save();
