@@ -142,6 +142,8 @@ public final class FileConfiguration extends AbsConfiguration {
     private static Object convertFromString(@NotNull String key, @NotNull String value) {
         if (Objects.equals(key, "player.normalisationPregain")) {
             return Float.parseFloat(value);
+        } else if (Objects.equals(key, "deviceType")) {
+            return value.toUpperCase();
         } else if ("true".equals(value) || "false".equals(value)) {
             return Boolean.parseBoolean(value);
         } else {
