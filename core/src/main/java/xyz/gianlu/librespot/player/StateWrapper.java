@@ -44,7 +44,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     private final PlayerState.Builder state;
     private final Session session;
     private final DeviceStateHandler device;
-    private AbsSpotifyContext<?> context;
+    private AbsSpotifyContext context;
     private PagesLoader pages;
     private TracksKeeper tracksKeeper;
 

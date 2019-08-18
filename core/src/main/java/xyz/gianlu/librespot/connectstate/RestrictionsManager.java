@@ -10,7 +10,7 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 public final class RestrictionsManager {
     private final Player.Restrictions.Builder restrictions;
 
-    public RestrictionsManager(@NotNull AbsSpotifyContext<?> context) {
+    public RestrictionsManager(@NotNull AbsSpotifyContext context) {
         restrictions = Player.Restrictions.newBuilder();
 
         if (!context.isFinite()) {
