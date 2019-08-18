@@ -307,12 +307,15 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                         ArtistId.fromHex(Utils.bytesToHex(artist.getGid())).toSpotifyUri());
             }
 
-            if (track.hasDiscNumber() && album.getDiscCount() < track.getDiscNumber() - 1) {
-                Metadata.Disc disc = album.getDisc(track.getDiscNumber() - 1);
-                for (int i = 0; i < disc.getTrackCount(); i++) {
-                    if (disc.getTrack(i).getGid() == track.getGid()) {
-                        builder.putMetadata("album_track_number", String.valueOf(i + 1));
-                        break;
+            if (track.hasDiscNumber()) {
+                for (Metadata.Disc disc : album.getDiscList()) {
+                    if (disc.getNumber() != track.getDiscNumber()) continue;
+
+                    for (int i = 0; i < disc.getTrackCount(); i++) {
+                        if (disc.getTrack(i).getGid().equals(track.getGid())) {
+                            builder.putMetadata("album_track_number", String.valueOf(i + 1));
+                            break;
+                        }
                     }
                 }
             }
