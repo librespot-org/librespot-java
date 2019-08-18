@@ -3,6 +3,7 @@ package xyz.gianlu.librespot;
 import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.Config;
 import com.electronwill.nightconfig.core.ConfigFormat;
+import com.electronwill.nightconfig.core.UnmodifiableCommentedConfig;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import com.electronwill.nightconfig.core.file.FileConfig;
 import com.electronwill.nightconfig.core.file.FileNotFoundAction;
@@ -165,9 +166,21 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     private void updateConfigFile(@NotNull CommentedConfig defaultConfig) {
-        if (checkMissingKeys(defaultConfig, config, "") | removeDeprecatedKeys(defaultConfig, config, config, "")) {
+        boolean save = checkMissingKeys(defaultConfig, config, "");
+        if (removeDeprecatedKeys(defaultConfig, config, config, "")) save = true;
+
+        if (save) {
             config.clearComments();
-            config.putAllComments(defaultConfig.getComments());
+
+            for (Map.Entry<String, UnmodifiableCommentedConfig.CommentNode> entry : defaultConfig.getComments().entrySet()) {
+                UnmodifiableCommentedConfig.CommentNode node = entry.getValue();
+                if (config.contains(entry.getKey())) {
+                    config.setComment(entry.getKey(), node.getComment());
+                    Map<String, UnmodifiableCommentedConfig.CommentNode> children = node.getChildren();
+                    if (children != null) ((CommentedConfig) config.getRaw(entry.getKey())).putAllComments(children);
+                }
+            }
+
             config.save();
         }
     }
