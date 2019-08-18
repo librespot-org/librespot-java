@@ -250,6 +250,21 @@ public class PlayerRunner implements Runnable, Closeable {
             } else {
                 if (out == null) {
                     if (pipe == null) throw new IllegalStateException();
+
+                    if (!pipe.exists()) {
+                        try {
+                            Process p = new ProcessBuilder().command("mkfifo " + pipe.getAbsolutePath())
+                                    .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+                            p.waitFor();
+                            if (p.exitValue() != 0)
+                                LOGGER.warn(String.format("Failed creating pipe! {exit: %d}", p.exitValue()));
+                            else
+                                LOGGER.info("Created pipe: " + pipe);
+                        } catch (InterruptedException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+
                     out = new FileOutputStream(pipe, true);
                 }
 
