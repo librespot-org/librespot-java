@@ -143,7 +143,8 @@ public final class FileConfiguration extends AbsConfiguration {
         if (Objects.equals(key, "player.normalisationPregain")) {
             return Float.parseFloat(value);
         } else if (Objects.equals(key, "deviceType")) {
-            return value.toUpperCase();
+            if (value.equals("AudioDongle")) return "AUDIO_DONGLE";
+            else return value.toUpperCase();
         } else if ("true".equals(value) || "false".equals(value)) {
             return Boolean.parseBoolean(value);
         } else {
