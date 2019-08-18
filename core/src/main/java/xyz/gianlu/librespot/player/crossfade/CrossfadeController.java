@@ -68,7 +68,7 @@ public class CrossfadeController {
     }
 
     public boolean shouldStartNextTrack(int pos) {
-        return fadeOutEnabled() && pos >= fadeOutStartTime;
+        return fadeOutEnabled() && endInterval != null && pos >= endInterval.start;
     }
 
     public boolean shouldStop(int pos) {
@@ -98,11 +98,6 @@ public class CrossfadeController {
     public int fadeOutStartTime() {
         if (fadeOutStartTime != -1) return fadeOutStartTime;
         else return trackDuration - defaultFadeDuration;
-    }
-
-    public int fadeOutDuration() {
-        if (fadeOutDuration != -1) return fadeOutDuration;
-        else return defaultFadeDuration;
     }
 
     public boolean fadeInEnabled() {

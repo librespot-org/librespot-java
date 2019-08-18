@@ -186,7 +186,8 @@ public class PlayerRunner implements Runnable, Closeable {
     }
 
     public enum PushToMixerReason {
-        None, Next, Prev, Fade
+        None, Next,
+        Prev, Fade // Unused
     }
 
     public interface Listener {
@@ -581,10 +582,6 @@ public class PlayerRunner implements Runnable, Closeable {
             int seekTo = -1;
             if (pushReason == PushToMixerReason.Fade) {
                 seekTo = crossfade.fadeInStartTime();
-            } else if (pushReason == PushToMixerReason.Next) {
-                // TODO
-            } else if (pushReason == PushToMixerReason.Prev) {
-                // TODO
             }
 
             if (seekTo != -1) codec.seek(seekTo);
