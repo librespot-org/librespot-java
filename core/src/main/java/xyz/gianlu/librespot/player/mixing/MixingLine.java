@@ -13,7 +13,6 @@ import java.io.*;
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final byte[] mb = new byte[2];
-    private final Object readLock = new Object();
     private final AudioFormat format;
     private PipedInputStream fin;
     private PipedInputStream sin;
@@ -58,28 +57,24 @@ public class MixingLine extends InputStream {
 
     @Override
     @SuppressWarnings("DuplicatedCode")
-    public int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && fin != null && se && sin != null) {
                 float first;
-                synchronized (readLock) {
-                    if (fin.read(mb) != 2) {
-                        first = 0;
-                    } else {
-                        first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                        first = (short) (first * fg);
-                    }
+                if (fin.read(mb) != 2) {
+                    first = 0;
+                } else {
+                    first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                    first = (short) (first * fg);
                 }
 
                 float second;
-                synchronized (readLock) {
-                    if (sin.read(mb) != 2) {
-                        second = 0;
-                    } else {
-                        second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                        second = (short) (second * sg);
-                    }
+                if (sin.read(mb) != 2) {
+                    second = 0;
+                } else {
+                    second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
+                    second = (short) (second * sg);
                 }
 
                 int result = (int) (first + second);
@@ -92,22 +87,18 @@ public class MixingLine extends InputStream {
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
             } else if (fe && fin != null) {
-                synchronized (readLock) {
-                    if (fin.read(mb) != 2) {
-                        b[dest] = 0;
-                        b[dest + 1] = 0;
-                    } else {
-                        applyGain(gg, mb, b, dest);
-                    }
+                if (fin.read(mb) != 2) {
+                    b[dest] = 0;
+                    b[dest + 1] = 0;
+                } else {
+                    applyGain(gg, mb, b, dest);
                 }
             } else if (se && sin != null) {
-                synchronized (readLock) {
-                    if (sin.read(mb) != 2) {
-                        b[dest] = 0;
-                        b[dest + 1] = 0;
-                    } else {
-                        applyGain(gg, mb, b, dest);
-                    }
+                if (sin.read(mb) != 2) {
+                    b[dest] = 0;
+                    b[dest + 1] = 0;
+                } else {
+                    applyGain(gg, mb, b, dest);
                 }
             } else {
                 dest -= (dest - off) % format.getFrameSize();
@@ -191,7 +182,7 @@ public class MixingLine extends InputStream {
             fout.close();
 
             PipedInputStream tmp = fin;
-            synchronized (readLock) {
+            synchronized (MixingLine.this) {
                 fout = null;
                 fin = null;
             }
@@ -234,7 +225,7 @@ public class MixingLine extends InputStream {
             sout.close();
 
             PipedInputStream tmp = sin;
-            synchronized (readLock) {
+            synchronized (MixingLine.this) {
                 sout = null;
                 sin = null;
             }
