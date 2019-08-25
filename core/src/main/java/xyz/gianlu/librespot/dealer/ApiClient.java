@@ -48,14 +48,22 @@ public class ApiClient {
     }
 
     @NotNull
-    public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
+    private Request buildRequest(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
         Request.Builder request = new Request.Builder();
         request.method(method, body);
         if (headers != null) request.headers(headers);
         request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         request.url(baseUrl + suffix);
+        return request.build();
+    }
 
-        return session.client().newCall(request.build()).execute();
+    public void sendAsync(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body, @NotNull Callback callback) throws IOException, MercuryClient.MercuryException {
+        session.client().newCall(buildRequest(method, suffix, headers, body)).enqueue(callback);
+    }
+
+    @NotNull
+    public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
+        return session.client().newCall(buildRequest(method, suffix, headers, body)).execute();
     }
 
     @NotNull

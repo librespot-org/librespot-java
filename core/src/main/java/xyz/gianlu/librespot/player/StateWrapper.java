@@ -142,7 +142,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (state.containsContextMetadata("transforming.shuffle"))
             shuffle = Boolean.parseBoolean(state.getContextMetadataOrThrow("transforming.shuffle"));
 
-        boolean willRequest = !tracksKeeper.getCurrentTrack().getMetadata().containsKey("audio.fwdbtn.fade_overlap"); // I don't see another way to do this
+        boolean willRequest = !tracksKeeper.getCurrentTrack().getMetadataMap().containsKey("audio.fwdbtn.fade_overlap"); // I don't see another way to do this
         LOGGER.info(String.format("Context has transforming! {url: %s, shuffle: %b, willRequest: %b}", url, shuffle, willRequest));
 
         if (!willRequest) return;
@@ -163,7 +163,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         }
     }
 
-    private void setContext(@NotNull String uri) throws AbsSpotifyContext.UnsupportedContextException {
+    private void setContext(@NotNull String uri) {
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
 
@@ -183,7 +183,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         this.device.setIsActive(true);
     }
 
-    private void setContext(@NotNull Context ctx) throws AbsSpotifyContext.UnsupportedContextException {
+    private void setContext(@NotNull Context ctx) {
         String uri = ctx.getUri();
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
