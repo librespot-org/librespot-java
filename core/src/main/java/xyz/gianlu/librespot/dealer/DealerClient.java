@@ -38,8 +38,8 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private ScheduledFuture<?> lastScheduledPing;
     private WebSocket ws;
     private volatile boolean receivedPong = false;
-    private volatile boolean reconnecting = false;
-    private volatile boolean closed = false;
+    private volatile boolean closed = true;
+    private ScheduledFuture<?> scheduledReconnect;
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
         this.session = session;
@@ -47,8 +47,6 @@ public class DealerClient extends WebSocketListener implements Closeable {
     }
 
     private void connect() throws IOException, MercuryClient.MercuryException {
-        if (ws != null) ws.cancel();
-
         this.ws = session.client().newWebSocket(new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
                 .build(), this);
@@ -57,8 +55,9 @@ public class DealerClient extends WebSocketListener implements Closeable {
     @Override
     public void onOpen(@NotNull WebSocket webSocket, Response response) {
         LOGGER.debug(String.format("Dealer connected! {host: %s}", response.request().url().host()));
+        closed = false;
+        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
 
-        reconnecting = false;
         lastScheduledPing = scheduler.scheduleAtFixedRate(() -> {
             sendPing();
             receivedPong = false;
@@ -66,31 +65,35 @@ public class DealerClient extends WebSocketListener implements Closeable {
             scheduler.schedule(() -> {
                 if (lastScheduledPing == null || lastScheduledPing.isCancelled()) return;
 
-                if (!receivedPong) wentAway();
+                if (!receivedPong) {
+                    LOGGER.warn("Did not receive ping in 3 seconds. Reconnecting...");
+                    reconnect();
+                }
                 receivedPong = false;
             }, 3, TimeUnit.SECONDS);
         }, 0, 30, TimeUnit.SECONDS);
     }
 
-    private void wentAway() {
-        if (reconnecting || closed) return;
-
-        ws.cancel();
-        lastScheduledPing.cancel(true);
-        lastScheduledPing = null;
-
-        LOGGER.warn("Dealer went away! Trying to reconnect...");
-        reconnect();
+    private void scheduleReconnection() {
+        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
+        scheduledReconnect = scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
     }
 
     private void reconnect() {
+        if (closed) return;
+
+        closed = true;
+        if (ws != null) ws.cancel();
+        if (lastScheduledPing != null) {
+            lastScheduledPing.cancel(true);
+            lastScheduledPing = null;
+        }
+
         try {
-            reconnecting = true;
             connect();
         } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
-            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
-            reconnecting = false;
+            LOGGER.error("Failed reconnecting! Retrying in 10 seconds...", ex);
+            scheduleReconnection();
         }
     }
 
@@ -102,25 +105,13 @@ public class DealerClient extends WebSocketListener implements Closeable {
     public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, Response response) {
         if (closed) return;
 
-        if (reconnecting) {
-            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", t);
-            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
-            ws.cancel();
-            reconnecting = false;
-            return;
-        }
-
         if (t instanceof SocketException) {
-            wentAway();
+            LOGGER.warn("An exception occurred. Reconnecting...", t);
+            reconnect();
             return;
         }
 
         LOGGER.error("Unexpected failure when handling message!", t);
-    }
-
-    @Override
-    public void onClosing(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-        wentAway();
     }
 
     @Override
