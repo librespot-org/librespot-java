@@ -5,6 +5,7 @@ import org.jetbrains.annotations.TestOnly;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
  * @author Gianlu
@@ -51,7 +52,9 @@ public class CircularBuffer implements Closeable {
         }
     }
 
-    public void write(byte[] b, int off, int len) {
+    public void write(byte[] b, int off, int len) throws IOException {
+        if (closed) throw new IOException("Buffer is closed!");
+
         awaitSpace(len);
         if (closed) return;
 
@@ -64,7 +67,9 @@ public class CircularBuffer implements Closeable {
         checkNotifyData();
     }
 
-    public void write(byte value) {
+    public void write(byte value) throws IOException {
+        if (closed) throw new IOException("Buffer is closed!");
+
         awaitSpace(1);
         if (closed) return;
 
@@ -75,7 +80,9 @@ public class CircularBuffer implements Closeable {
         checkNotifyData();
     }
 
-    public short readShort() {
+    public short readShort() throws IOException {
+        if (closed) throw new IOException("Buffer is closed!");
+
         awaitData(2);
         if (closed) return -1;
 
@@ -97,7 +104,9 @@ public class CircularBuffer implements Closeable {
      *
      * @return a byte from the buffer.
      */
-    public int read() {
+    public int read() throws IOException {
+        if (closed) throw new IOException("Buffer is closed!");
+
         awaitData(1);
         if (closed) return -1;
 

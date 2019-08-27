@@ -4,6 +4,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import xyz.gianlu.librespot.player.mixing.CircularBuffer;
 
+import java.io.IOException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,16 +14,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CircularBufferTest {
 
-    private static void write(@NotNull CircularBuffer b, int count) {
+    private static void write(@NotNull CircularBuffer b, int count) throws IOException {
         for (int i = 0; i < count; i++) b.write((byte) i);
     }
 
-    private static void read(@NotNull CircularBuffer b, int count) {
+    private static void read(@NotNull CircularBuffer b, int count) throws IOException {
         for (int i = 0; i < count; i++) b.read();
     }
 
     @Test
-    void test() {
+    void test() throws IOException {
         CircularBuffer b = new CircularBuffer(32);
         assertEquals(0, b.available());
         assertEquals(32, b.free());

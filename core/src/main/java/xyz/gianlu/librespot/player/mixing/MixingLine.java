@@ -53,7 +53,7 @@ public class MixingLine extends InputStream {
 
     @Override
     @SuppressWarnings("DuplicatedCode")
-    public synchronized int read(@NotNull byte[] b, int off, int len) {
+    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && fcb != null && se && scb != null) {
@@ -135,7 +135,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        public final void write(@NotNull byte[] b, int off, int len) {
+        public final void write(@NotNull byte[] b, int off, int len) throws IOException {
             buffer.write(b, off, len);
         }
     }
