@@ -202,7 +202,7 @@ public class VorbisCodec extends Codec {
             long granulepos = joggPacket.granulepos;
             if (granulepos != -1 && joggPacket.e_o_s == 0) {
                 granulepos -= samples;
-                granulepos -= BUFFER_SIZE * 2; // Account for buffer between the decoder and the player
+                granulepos -= BUFFER_SIZE * 2; // FIXME: Account for buffer between the decoder and the player
                 pcm_offset = granulepos;
             }
         }
@@ -212,14 +212,14 @@ public class VorbisCodec extends Codec {
 
     @Override
     public void close() throws IOException {
+        super.close();
+
         synchronized (readLock) {
             joggStreamState.clear();
             jorbisBlock.clear();
             jorbisDspState.clear();
             jorbisInfo.clear();
             joggSyncState.clear();
-
-            super.close();
         }
     }
 

@@ -5,17 +5,18 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
  */
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
-    private final byte[] mb = new byte[2];
     private final AudioFormat format;
-    private PipedInputStream fin;
-    private PipedInputStream sin;
+    private CircularBuffer fcb;
+    private CircularBuffer scb;
     private FirstOutputStream fout;
     private SecondOutputStream sout;
     private volatile boolean fe = false;
@@ -31,19 +32,14 @@ public class MixingLine extends InputStream {
             throw new IllegalArgumentException();
     }
 
-    private static void applyGain(float gg, byte[] mb, byte[] b, int dest) {
+    private static void applyGain(float gg, short val, byte[] b, int dest) {
         if (gg != 1) {
-            short val = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
             val *= gg;
-
             if (val < 0) val |= 32768;
-
-            b[dest] = (byte) val;
-            b[dest + 1] = (byte) (val >>> 8);
-        } else {
-            b[dest] = mb[0];
-            b[dest + 1] = mb[1];
         }
+
+        b[dest] = (byte) val;
+        b[dest + 1] = (byte) (val >>> 8);
     }
 
     public final int getFrameSize() {
@@ -57,25 +53,15 @@ public class MixingLine extends InputStream {
 
     @Override
     @SuppressWarnings("DuplicatedCode")
-    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public synchronized int read(@NotNull byte[] b, int off, int len) {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
-            if (fe && fin != null && se && sin != null) {
-                float first;
-                if (fin.read(mb) != 2) {
-                    first = 0;
-                } else {
-                    first = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                    first = (short) (first * fg);
-                }
+            if (fe && fcb != null && se && scb != null) {
+                float first = fcb.readShort();
+                first *= fg;
 
-                float second;
-                if (sin.read(mb) != 2) {
-                    second = 0;
-                } else {
-                    second = (short) ((mb[0] & 0xFF) | ((mb[1] & 0xFF) << 8));
-                    second = (short) (second * sg);
-                }
+                float second = scb.readShort();
+                first *= sg;
 
                 int result = (int) (first + second);
                 result *= gg;
@@ -86,20 +72,10 @@ public class MixingLine extends InputStream {
 
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
-            } else if (fe && fin != null) {
-                if (fin.read(mb) != 2) {
-                    b[dest] = 0;
-                    b[dest + 1] = 0;
-                } else {
-                    applyGain(gg, mb, b, dest);
-                }
-            } else if (se && sin != null) {
-                if (sin.read(mb) != 2) {
-                    b[dest] = 0;
-                    b[dest + 1] = 0;
-                } else {
-                    applyGain(gg, mb, b, dest);
-                }
+            } else if (fe && fcb != null) {
+                applyGain(gg, fcb.readShort(), b, dest);
+            } else if (se && scb != null) {
+                applyGain(gg, scb.readShort(), b, dest);
             } else {
                 dest -= (dest - off) % format.getFrameSize();
                 break;
@@ -112,12 +88,8 @@ public class MixingLine extends InputStream {
     @NotNull
     public MixingOutput firstOut() {
         if (fout == null) {
-            try {
-                fin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-                fin.connect(fout = new FirstOutputStream());
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
+            fcb = new CircularBuffer(Codec.BUFFER_SIZE * 4);
+            fout = new FirstOutputStream(fcb);
         }
 
         return fout;
@@ -126,12 +98,8 @@ public class MixingLine extends InputStream {
     @NotNull
     public MixingOutput secondOut() {
         if (sout == null) {
-            try {
-                sin = new PipedInputStream(Codec.BUFFER_SIZE * 2);
-                sin.connect(sout = new SecondOutputStream());
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
+            scb = new CircularBuffer(Codec.BUFFER_SIZE * 4);
+            sout = new SecondOutputStream(scb);
         }
 
         return sout;
@@ -154,7 +122,28 @@ public class MixingLine extends InputStream {
         OutputStream stream();
     }
 
-    public class FirstOutputStream extends PipedOutputStream implements MixingOutput {
+    private static abstract class LowLevelStream extends OutputStream {
+        private final CircularBuffer buffer;
+
+        LowLevelStream(@NotNull CircularBuffer buffer) {
+            this.buffer = buffer;
+        }
+
+        @Override
+        public final void write(int b) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public final void write(@NotNull byte[] b, int off, int len) {
+            buffer.write(b, off, len);
+        }
+    }
+
+    public class FirstOutputStream extends LowLevelStream implements MixingOutput {
+        FirstOutputStream(@NotNull CircularBuffer buffer) {
+            super(buffer);
+        }
 
         @Override
         public void toggle(boolean enabled) {
@@ -172,22 +161,18 @@ public class MixingLine extends InputStream {
 
         @Override
         @SuppressWarnings("DuplicatedCode")
-        public void clear() throws IOException {
+        public void clear() {
             if (fout != this) throw new IllegalArgumentException();
 
             fg = 1;
             fe = false;
 
-            fout.flush();
-            fout.close();
+            fcb.close();
 
-            PipedInputStream tmp = fin;
             synchronized (MixingLine.this) {
                 fout = null;
-                fin = null;
+                fcb = null;
             }
-
-            tmp.close();
         }
 
         @Override
@@ -197,7 +182,11 @@ public class MixingLine extends InputStream {
         }
     }
 
-    public class SecondOutputStream extends PipedOutputStream implements MixingOutput {
+    public class SecondOutputStream extends LowLevelStream implements MixingOutput {
+
+        SecondOutputStream(@NotNull CircularBuffer scb) {
+            super(scb);
+        }
 
         @Override
         public void toggle(boolean enabled) {
@@ -215,22 +204,18 @@ public class MixingLine extends InputStream {
 
         @Override
         @SuppressWarnings("DuplicatedCode")
-        public void clear() throws IOException {
+        public void clear() {
             if (sout != this) throw new IllegalArgumentException();
 
             sg = 1;
             se = false;
 
-            sout.flush();
-            sout.close();
+            scb.close();
 
-            PipedInputStream tmp = sin;
             synchronized (MixingLine.this) {
                 sout = null;
-                sin = null;
+                scb = null;
             }
-
-            tmp.close();
         }
 
         @Override

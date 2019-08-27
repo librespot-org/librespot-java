@@ -23,8 +23,8 @@ public abstract class Codec implements Closeable {
     protected final float normalizationFactor;
     protected final int duration;
     private final AudioFormat dstFormat;
-    protected AudioFormat format;
     protected volatile boolean closed = false;
+    private AudioFormat format;
     private StreamConverter converter = null;
 
     Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
@@ -91,6 +91,10 @@ public abstract class Codec implements Closeable {
 
         if (format.matches(dstFormat)) converter = null;
         else converter = StreamConverter.converter(format, dstFormat);
+    }
+
+    protected final int sampleSizeBytes() {
+        return getAudioFormat().getSampleSizeInBits() / 8;
     }
 
     public final int duration() {
