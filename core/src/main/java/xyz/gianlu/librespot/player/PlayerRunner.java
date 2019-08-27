@@ -54,7 +54,6 @@ public class PlayerRunner implements Runnable, Closeable {
     private volatile boolean paused = true;
     private TrackHandler firstHandler = null;
     private TrackHandler secondHandler = null;
-    private volatile boolean calledCrossfade = false;
 
     PlayerRunner(@NotNull Session session, @NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.session = session;
@@ -398,6 +397,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private volatile boolean closed = false;
         private MixingLine.MixingOutput out;
         private PushToMixerReason pushReason = PushToMixerReason.None;
+        private volatile boolean calledCrossfade = false;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
