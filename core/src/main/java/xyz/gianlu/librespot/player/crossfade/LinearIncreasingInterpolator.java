@@ -5,4 +5,9 @@ class LinearIncreasingInterpolator implements GainInterpolator {
     public float interpolate(float x) {
         return x;
     }
+
+    @Override
+    public float last() {
+        return 1;
+    }
 }

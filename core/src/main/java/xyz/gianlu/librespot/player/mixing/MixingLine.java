@@ -32,9 +32,9 @@ public class MixingLine extends InputStream {
             throw new IllegalArgumentException();
     }
 
-    private static void applyGain(float gg, short val, byte[] b, int dest) {
-        if (gg != 1) {
-            val *= gg;
+    private static void applyGain(float gain, short val, byte[] b, int dest) {
+        if (gain != 1) {
+            val *= gain;
             if (val < 0) val |= 32768;
         }
 
@@ -57,13 +57,13 @@ public class MixingLine extends InputStream {
         int dest = off;
         for (int i = 0; i < len; i += 2, dest += 2) {
             if (fe && fcb != null && se && scb != null) {
-                float first = fcb.readShort();
+                short first = fcb.readShort();
                 first *= fg;
 
-                float second = scb.readShort();
-                first *= sg;
+                short second = scb.readShort();
+                second *= sg;
 
-                int result = (int) (first + second);
+                int result = first + second;
                 result *= gg;
 
                 if (result > 32767) result = 32767;
@@ -73,9 +73,9 @@ public class MixingLine extends InputStream {
                 b[dest] = (byte) result;
                 b[dest + 1] = (byte) (result >>> 8);
             } else if (fe && fcb != null) {
-                applyGain(gg, fcb.readShort(), b, dest);
+                applyGain(gg * fg, fcb.readShort(), b, dest);
             } else if (se && scb != null) {
-                applyGain(gg, scb.readShort(), b, dest);
+                applyGain(gg * sg, scb.readShort(), b, dest);
             } else {
                 dest -= (dest - off) % format.getFrameSize();
                 break;

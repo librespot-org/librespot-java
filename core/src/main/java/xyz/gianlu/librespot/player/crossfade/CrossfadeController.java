@@ -76,7 +76,10 @@ public class CrossfadeController {
     }
 
     public float getGain(int pos) {
-        if (activeInterval != null && activeInterval.end() <= pos) activeInterval = null;
+        if (activeInterval != null && activeInterval.end() <= pos) {
+            lastGain = activeInterval.interpolator.last();
+            activeInterval = null;
+        }
 
         if (activeInterval == null) {
             if (startInterval != null && pos >= startInterval.start && startInterval.end() >= pos)
@@ -129,8 +132,10 @@ public class CrossfadeController {
         }
 
         float interpolate(int trackPos) {
-            int fadePos = trackPos - start;
-            return interpolator.interpolate(((float) fadePos) / duration);
+            float pos = ((float) trackPos - start) / duration;
+            pos = Math.min(pos, 1);
+            pos = Math.max(pos, 0);
+            return interpolator.interpolate(pos);
         }
 
         @Override

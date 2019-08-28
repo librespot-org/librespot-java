@@ -36,8 +36,8 @@ class LookupInterpolator implements GainInterpolator {
 
     @Override
     public float interpolate(float ix) {
-        if (ix > tx[tx.length - 1]) return tx[tx.length - 1];
-        else if (ix < tx[0]) return tx[0];
+        if (ix > tx[tx.length - 1]) return ty[tx.length - 1];
+        else if (ix < tx[0]) return ty[0];
 
         for (int i = 0; i < tx.length - 1; i++) {
             if (ix >= tx[i] && ix <= tx[i + 1]) {
@@ -52,5 +52,10 @@ class LookupInterpolator implements GainInterpolator {
         }
 
         throw new IllegalArgumentException(String.format("Could not interpolate! {ix: %f, tx: %s, ty: %s}", ix, Arrays.toString(tx), Arrays.toString(ty)));
+    }
+
+    @Override
+    public float last() {
+        return ty[tx.length - 1];
     }
 }
