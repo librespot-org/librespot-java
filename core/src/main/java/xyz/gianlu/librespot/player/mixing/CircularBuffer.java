@@ -29,8 +29,9 @@ public class CircularBuffer implements Closeable {
     private void awaitSpace(int count) {
         if (free() >= count) return;
 
-        awaitFreeBytes = count;
         synchronized (awaitSpaceLock) {
+            awaitFreeBytes = count;
+
             try {
                 awaitSpaceLock.wait();
             } catch (InterruptedException ex) {
@@ -42,8 +43,9 @@ public class CircularBuffer implements Closeable {
     private void awaitData(int count) {
         if (available() >= count) return;
 
-        awaitDataBytes = count;
         synchronized (awaitDataLock) {
+            awaitDataBytes = count;
+
             try {
                 awaitDataLock.wait();
             } catch (InterruptedException ex) {
@@ -117,8 +119,8 @@ public class CircularBuffer implements Closeable {
 
     private void checkNotifyData() {
         if (awaitDataBytes != -1 && available() >= awaitDataBytes) {
-            awaitDataBytes = -1;
             synchronized (awaitDataLock) {
+                awaitDataBytes = -1;
                 awaitDataLock.notifyAll();
             }
         }
@@ -126,8 +128,8 @@ public class CircularBuffer implements Closeable {
 
     private void checkNotifySpace() {
         if (awaitFreeBytes != -1 && free() >= awaitFreeBytes) {
-            awaitFreeBytes = -1;
             synchronized (awaitSpaceLock) {
+                awaitFreeBytes = -1;
                 awaitSpaceLock.notifyAll();
             }
         }
