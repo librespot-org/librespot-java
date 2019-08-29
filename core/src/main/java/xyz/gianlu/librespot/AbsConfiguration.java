@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import com.spotify.connectstate.model.Connect;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.core.AuthConfiguration;
@@ -18,4 +19,7 @@ public abstract class AbsConfiguration implements TimeProvider.Configuration, Pl
 
     @Nullable
     public abstract Connect.DeviceType deviceType();
+
+    @NotNull
+    public abstract String preferredLocale();
 }

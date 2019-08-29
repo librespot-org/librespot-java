@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class Session implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
-    private static final String PREFERRED_LOCALE = "en";
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
             (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93, (byte) 0xa1,
@@ -91,6 +90,7 @@ public final class Session implements Closeable {
     private CacheManager cacheManager;
     private DealerClient dealer;
     private ApiClient api;
+    private SearchManager search;
     private PlayableContentFeeder contentFeeder;
     private String countryCode = null;
     private volatile boolean closed = false;
@@ -268,6 +268,7 @@ public final class Session implements Closeable {
         cacheManager = new CacheManager(inner.configuration);
         dealer = new DealerClient(this);
         player = new Player(inner.configuration, this);
+        search = new SearchManager(this);
 
         TimeProvider.init(this);
 
@@ -304,7 +305,7 @@ public final class Session implements Closeable {
             ByteBuffer preferredLocale = ByteBuffer.allocate(18 + 5);
             preferredLocale.put((byte) 0x0).put((byte) 0x0).put((byte) 0x10).put((byte) 0x0).put((byte) 0x02);
             preferredLocale.put("preferred-locale".getBytes());
-            preferredLocale.put(PREFERRED_LOCALE.getBytes());
+            preferredLocale.put(inner.configuration.preferredLocale().getBytes());
             sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
             synchronized (authLock) {
@@ -451,6 +452,13 @@ public final class Session implements Closeable {
         waitAuthLock();
         if (player == null) throw new IllegalStateException("Session isn't authenticated!");
         return player;
+    }
+
+    @NotNull
+    public SearchManager search() {
+        waitAuthLock();
+        if (search == null) throw new IllegalStateException("Session isn't authenticated!");
+        return search;
     }
 
     @NotNull

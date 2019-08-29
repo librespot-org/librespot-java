@@ -44,9 +44,9 @@ public final class FileConfiguration extends AbsConfiguration {
 
     private final CommentedFileConfig config;
 
-    public FileConfiguration(@Nullable String[] override) throws IOException {
+    public FileConfiguration(@Nullable String... override) throws IOException {
         File confFile = null;
-        if (override != null) {
+        if (override != null && override.length > 0) {
             for (String arg : override) {
                 if (arg != null && arg.startsWith("--conf-file="))
                     confFile = new File(arg.substring(12));
@@ -284,6 +284,11 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public @Nullable Connect.DeviceType deviceType() {
         return config.getEnum("deviceType", Connect.DeviceType.class);
+    }
+
+    @Override
+    public @NotNull String preferredLocale() {
+        return config.get("preferredLocale");
     }
 
     @Override
