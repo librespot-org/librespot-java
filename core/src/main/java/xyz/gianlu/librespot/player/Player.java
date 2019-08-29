@@ -366,6 +366,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             crossfadeHandler = null;
 
             if (trackHandler.isReady()) {
+                updateStateWithHandler();
+
                 try {
                     state.setPosition(trackHandler.time());
                 } catch (Codec.CannotGetTimeException ignored) {

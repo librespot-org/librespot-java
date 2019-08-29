@@ -273,7 +273,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri()))
             throw new IllegalArgumentException("Not same track as current!");
 
-        if (track.hasDuration()) state.setDuration(track.getDuration());
+        if (track.hasDuration()) tracksKeeper.updateTrackDuration(track.getDuration());
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();
         if (track.hasPopularity()) builder.putMetadata("popularity", String.valueOf(track.getPopularity()));
@@ -331,7 +331,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri()))
             throw new IllegalArgumentException("Not same episode as current!");
 
-        if (episode.hasDuration()) state.setDuration(episode.getDuration());
+        if (episode.hasDuration()) tracksKeeper.updateTrackDuration(episode.getDuration());
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();
         if (episode.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(episode.getExplicit()));
@@ -609,6 +609,16 @@ public class StateWrapper implements DeviceStateHandler.Listener {
 
             for (int i = index + 1; i < tracks.size(); i++)
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+        }
+
+        public void updateTrackDuration(int duration) {
+            state.setDuration(duration);
+            state.getTrackBuilder().putMetadata("duration", String.valueOf(duration));
+
+            int index = getCurrentTrackIndex();
+            ContextTrack.Builder builder = tracks.get(index).toBuilder();
+            builder.putMetadata("duration", String.valueOf(duration));
+            tracks.set(index, builder.build());
         }
 
         private void updateTrackDuration() {
