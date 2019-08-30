@@ -29,6 +29,8 @@ public class CircularBuffer implements Closeable {
     private void awaitSpace(int count) {
         if (free() >= count) return;
 
+        checkNotifyData();
+
         synchronized (awaitSpaceLock) {
             awaitFreeBytes = count;
 
@@ -42,6 +44,8 @@ public class CircularBuffer implements Closeable {
 
     private void awaitData(int count) {
         if (available() >= count) return;
+
+        checkNotifySpace();
 
         synchronized (awaitDataLock) {
             awaitDataBytes = count;
