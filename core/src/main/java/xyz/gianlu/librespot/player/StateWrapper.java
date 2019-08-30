@@ -397,7 +397,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         setContext(ps.getContext());
 
         Playback pb = cmd.getPlayback();
-        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue(), false);
+        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         state.setTimestamp(pb.getTimestamp());
@@ -414,15 +414,17 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         String trackUri = PlayCommandWrapper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
 
+        System.out.println(obj);
+
         if (trackUri != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null, true);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
         } else if (trackUid != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null, true);
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
         } else if (trackIndex != null) {
             tracksKeeper.initializeFrom(tracks -> {
                 if (trackIndex < tracks.size()) return trackIndex;
                 else return -1;
-            }, null, null, true);
+            }, null, null);
         } else {
             tracksKeeper.initializeStart();
         }
@@ -703,7 +705,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             setCurrentTrackIndex(0);
         }
 
-        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue, boolean shouldShuffle) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
+        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
             tracks.clear();
             queue.clear();
 
@@ -719,10 +721,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                     index += tracks.size();
                     tracks.addAll(newTracks);
 
-                    if (context.isFinite() && shouldShuffle && isShufflingContext())
-                        shuffleEntirely();
-
                     setCurrentTrackIndex(index);
+
+                    if (context.isFinite() && isShufflingContext())
+                        toggleShuffle(true);
+
                     break;
                 } else {
                     cannotLoadMore = true;
