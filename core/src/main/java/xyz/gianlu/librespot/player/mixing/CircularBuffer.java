@@ -6,19 +6,66 @@ import xyz.gianlu.librespot.common.Utils;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+
+class BoundedBuffer {
+    final Lock lock = new ReentrantLock();
+    final Condition notFull = lock.newCondition();
+    final Condition notEmpty = lock.newCondition();
+
+    final Object[] items = new Object[100];
+    int putptr, takeptr, count;
+
+    public void put(Object x) throws InterruptedException {
+        lock.lock();
+
+        try {
+            while (count == items.length)
+                notFull.await();
+
+            items[putptr] = x;
+            if (++putptr == items.length) putptr = 0;
+            ++count;
+
+            notEmpty.signal();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public Object take() throws InterruptedException {
+        lock.lock();
+
+        try {
+            while (count == 0)
+                notEmpty.await();
+
+            Object x = items[takeptr];
+            if (++takeptr == items.length) takeptr = 0;
+            --count;
+            notFull.signal();
+            return x;
+        } finally {
+            lock.unlock();
+        }
+    }
+}
 
 /**
  * @author Gianlu
  */
 public class CircularBuffer implements Closeable {
     private final byte[] data;
-    private final Object awaitSpaceLock = new Object();
-    private final Object awaitDataLock = new Object();
+    private final Lock lock = new ReentrantLock();
+    private final Condition awaitSpace = lock.newCondition();
+    private final Condition awaitData = lock.newCondition();
     private int head;
     private int tail;
     private volatile boolean closed = false;
-    private int awaitFreeBytes = -1;
-    private int awaitDataBytes = -1;
 
     public CircularBuffer(int bufferSize) {
         data = new byte[bufferSize + 1];
@@ -26,75 +73,78 @@ public class CircularBuffer implements Closeable {
         tail = 0;
     }
 
-    private void awaitSpace(int count) {
-        if (free() >= count) return;
-
-        checkNotifyData();
-
-        synchronized (awaitSpaceLock) {
-            awaitFreeBytes = count;
-
-            try {
-                awaitSpaceLock.wait();
-            } catch (InterruptedException ex) {
-                throw new IllegalStateException(ex);
-            }
-        }
+    private void awaitSpace(int count) throws InterruptedException {
+        while (free() < count && !closed)
+            awaitSpace.await(100, TimeUnit.MILLISECONDS);
     }
 
-    private void awaitData(int count) {
-        if (available() >= count) return;
-
-        checkNotifySpace();
-
-        synchronized (awaitDataLock) {
-            awaitDataBytes = count;
-
-            try {
-                awaitDataLock.wait();
-            } catch (InterruptedException ex) {
-                throw new IllegalStateException(ex);
-            }
-        }
+    private void awaitData(int count) throws InterruptedException {
+        while (available() < count && !closed)
+            awaitData.await(100, TimeUnit.MILLISECONDS);
     }
 
     public void write(byte[] b, int off, int len) throws IOException {
         if (closed) throw new IOException("Buffer is closed!");
 
-        awaitSpace(len);
-        if (closed) return;
+        lock.lock();
 
-        for (int i = off; i < off + len; i++) {
-            data[tail++] = b[i];
-            if (tail == data.length)
-                tail = 0;
+        try {
+            awaitSpace(len);
+            if (closed) return;
+
+            for (int i = off; i < off + len; i++) {
+                data[tail++] = b[i];
+                if (tail == data.length)
+                    tail = 0;
+            }
+
+            awaitData.signal();
+        } catch (InterruptedException ex) {
+            throw new IOException(ex);
+        } finally {
+            lock.unlock();
         }
-
-        checkNotifyData();
     }
 
+    @TestOnly
     public void write(byte value) throws IOException {
         if (closed) throw new IOException("Buffer is closed!");
 
-        awaitSpace(1);
-        if (closed) return;
+        lock.lock();
 
-        data[tail++] = value;
-        if (tail == data.length)
-            tail = 0;
+        try {
+            awaitSpace(1);
+            if (closed) return;
 
-        checkNotifyData();
+            data[tail++] = value;
+            if (tail == data.length)
+                tail = 0;
+
+            awaitData.signal();
+        } catch (InterruptedException ex) {
+            throw new IOException(ex);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public short readShort() throws IOException {
         if (closed) throw new IOException("Buffer is closed!");
 
-        awaitData(2);
-        if (closed) return -1;
+        lock.lock();
 
-        short val = (short) ((readInternal() & 0xFF) | ((readInternal() & 0xFF) << 8));
-        checkNotifySpace();
-        return val;
+        try {
+            awaitData(2);
+            if (closed) return -1;
+
+            short val = (short) ((readInternal() & 0xFF) | ((readInternal() & 0xFF) << 8));
+            awaitSpace.signal();
+            return val;
+        } catch (InterruptedException ex) {
+            throw new IOException(ex);
+        } finally {
+            lock.unlock();
+        }
     }
 
     private int readInternal() {
@@ -113,29 +163,19 @@ public class CircularBuffer implements Closeable {
     public int read() throws IOException {
         if (closed) throw new IOException("Buffer is closed!");
 
-        awaitData(1);
-        if (closed) return -1;
+        lock.lock();
 
-        int value = readInternal();
-        checkNotifySpace();
-        return value;
-    }
+        try {
+            awaitData(1);
+            if (closed) return -1;
 
-    private void checkNotifyData() {
-        if (awaitDataBytes != -1 && available() >= awaitDataBytes) {
-            synchronized (awaitDataLock) {
-                awaitDataBytes = -1;
-                awaitDataLock.notifyAll();
-            }
-        }
-    }
-
-    private void checkNotifySpace() {
-        if (awaitFreeBytes != -1 && free() >= awaitFreeBytes) {
-            synchronized (awaitSpaceLock) {
-                awaitFreeBytes = -1;
-                awaitSpaceLock.notifyAll();
-            }
+            int value = readInternal();
+            awaitSpace.signal();
+            return value;
+        } catch (InterruptedException ex) {
+            throw new IOException(ex);
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -176,12 +216,13 @@ public class CircularBuffer implements Closeable {
     public void close() {
         closed = true;
 
-        synchronized (awaitSpaceLock) {
-            awaitSpaceLock.notifyAll();
-        }
+        lock.lock();
 
-        synchronized (awaitDataLock) {
-            awaitDataLock.notifyAll();
+        try {
+            awaitSpace.signalAll();
+            awaitData.signalAll();
+        } finally {
+            lock.unlock();
         }
     }
 
