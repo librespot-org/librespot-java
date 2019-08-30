@@ -19,7 +19,7 @@ import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
 import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -406,13 +406,13 @@ public class StateWrapper implements DeviceStateHandler.Listener {
     }
 
     void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
-        state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandWrapper.getPlayOrigin(obj)));
-        state.setOptions(ProtoUtils.jsonToPlayerOptions(PlayCommandWrapper.getPlayerOptionsOverride(obj), state.getOptions()));
-        setContext(ProtoUtils.jsonToContext(PlayCommandWrapper.getContext(obj)));
+        state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandHelper.getPlayOrigin(obj)));
+        state.setOptions(ProtoUtils.jsonToPlayerOptions(PlayCommandHelper.getPlayerOptionsOverride(obj), state.getOptions()));
+        setContext(ProtoUtils.jsonToContext(PlayCommandHelper.getContext(obj)));
 
-        String trackUid = PlayCommandWrapper.getSkipToUid(obj);
-        String trackUri = PlayCommandWrapper.getSkipToUri(obj);
-        Integer trackIndex = PlayCommandWrapper.getSkipToIndex(obj);
+        String trackUid = PlayCommandHelper.getSkipToUid(obj);
+        String trackUri = PlayCommandHelper.getSkipToUri(obj);
+        Integer trackIndex = PlayCommandHelper.getSkipToIndex(obj);
 
         System.out.println(obj);
 
@@ -429,7 +429,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
             tracksKeeper.initializeStart();
         }
 
-        Integer seekTo = PlayCommandWrapper.getSeekTo(obj);
+        Integer seekTo = PlayCommandHelper.getSeekTo(obj);
         if (seekTo != null) setPosition(seekTo);
         else setPosition(0);
 

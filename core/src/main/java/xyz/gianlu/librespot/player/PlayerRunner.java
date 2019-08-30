@@ -68,7 +68,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
                     output = new Output(mixing, line, null, null);
                 } catch (LineUnavailableException ex) {
-                    throw new RuntimeException("Failed opening line!", ex);
+                    throw new IllegalStateException("Failed opening line!", ex);
                 }
                 break;
             case PIPE:
@@ -115,7 +115,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     try {
                         pauseLock.wait();
                     } catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
+                        throw new IllegalStateException(ex);
                     }
                 }
             } else {
@@ -260,7 +260,7 @@ public class PlayerRunner implements Runnable, Closeable {
                             else
                                 LOGGER.info("Created pipe: " + pipe);
                         } catch (InterruptedException ex) {
-                            throw new RuntimeException(ex);
+                            throw new IllegalStateException(ex);
                         }
                     }
 
@@ -375,6 +375,8 @@ public class PlayerRunner implements Runnable, Closeable {
                             break;
                         case TerminateMixer:
                             return;
+                        default:
+                            throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
                     }
                 }
             } catch (InterruptedException ex) {
@@ -435,7 +437,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     try {
                         readyLock.wait();
                     } catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
+                        throw new IllegalStateException(ex);
                     }
                 }
             }
@@ -607,7 +609,7 @@ public class PlayerRunner implements Runnable, Closeable {
                         try {
                             writeLock.wait();
                         } catch (InterruptedException ex) {
-                            throw new RuntimeException(ex);
+                            throw new IllegalStateException(ex);
                         }
                     }
                 }

@@ -117,7 +117,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             connectionId = headers.get("Spotify-Connection-Id");
             notifyReady();
-        } else if (uri.equals("hm://connect-state/v1/connect/volume")) {
+        } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
             deviceInfo.setVolume(cmd.getVolume());
 
@@ -128,7 +128,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             }
 
             notifyVolumeChange();
-        } else if (uri.equals("hm://connect-state/v1/cluster")) {
+        } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
 
             long now = TimeProvider.currentTimeMillis();
@@ -224,8 +224,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         void notActive();
     }
 
-    public static final class PlayCommandWrapper {
-        private PlayCommandWrapper() {
+    public static final class PlayCommandHelper {
+        private PlayCommandHelper() {
         }
 
         @Nullable

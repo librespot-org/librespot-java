@@ -9,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandWrapper;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -106,7 +106,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
-        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandWrapper.getContextUri(obj)));
+        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandHelper.getContextUri(obj)));
 
         try {
             state.load(obj);
@@ -120,7 +120,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        Boolean play = PlayCommandWrapper.isInitiallyPaused(obj);
+        Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
         if (play == null) play = true;
         loadTrack(play, PushToMixerReason.None);
     }
@@ -174,7 +174,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 setQueue(data.obj());
                 break;
             case UpdateContext:
-                state.updateContext(PlayCommandWrapper.getContext(data.obj()));
+                state.updateContext(PlayCommandHelper.getContext(data.obj()));
                 state.updated();
                 break;
             default:
@@ -439,8 +439,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     private void setQueue(@NotNull JsonObject obj) {
-        List<ContextTrack> prevTracks = PlayCommandWrapper.getPrevTracks(obj);
-        List<ContextTrack> nextTracks = PlayCommandWrapper.getNextTracks(obj);
+        List<ContextTrack> prevTracks = PlayCommandHelper.getPrevTracks(obj);
+        List<ContextTrack> nextTracks = PlayCommandHelper.getNextTracks(obj);
         if (prevTracks == null && nextTracks == null) throw new IllegalArgumentException();
 
         state.setQueue(prevTracks, nextTracks);
@@ -448,7 +448,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     private void addToQueue(@NotNull JsonObject obj) {
-        ContextTrack track = PlayCommandWrapper.getTrack(obj);
+        ContextTrack track = PlayCommandHelper.getTrack(obj);
         if (track == null) throw new IllegalArgumentException();
 
         state.addToQueue(track);
@@ -457,7 +457,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void handleNext(@Nullable JsonObject obj) {
         ContextTrack track = null;
-        if (obj != null) track = PlayCommandWrapper.getTrack(obj);
+        if (obj != null) track = PlayCommandHelper.getTrack(obj);
 
         if (track != null) {
             state.skipTo(track);

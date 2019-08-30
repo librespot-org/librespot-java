@@ -133,6 +133,8 @@ public class DealerClient extends WebSocketListener implements Closeable {
                 break;
             case PING:
                 break;
+            default:
+                throw new IllegalArgumentException("Unknown message type for " + type);
         }
     }
 

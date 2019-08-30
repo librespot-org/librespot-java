@@ -73,6 +73,8 @@ public final class RestrictionsManager {
             case SKIP_NEXT:
                 restrictions.clearDisallowSkippingNextReasons();
                 break;
+            default:
+                throw new IllegalArgumentException("Unknown restriction for " + action);
         }
     }
 
@@ -104,6 +106,8 @@ public final class RestrictionsManager {
             case SKIP_NEXT:
                 restrictions.addDisallowSkippingNextReasons(reason);
                 break;
+            default:
+                throw new IllegalArgumentException("Unknown restriction for " + action);
         }
     }
 

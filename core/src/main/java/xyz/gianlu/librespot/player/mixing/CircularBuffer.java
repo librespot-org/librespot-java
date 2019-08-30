@@ -37,7 +37,7 @@ public class CircularBuffer implements Closeable {
             try {
                 awaitSpaceLock.wait();
             } catch (InterruptedException ex) {
-                throw new RuntimeException();
+                throw new IllegalStateException(ex);
             }
         }
     }
@@ -53,7 +53,7 @@ public class CircularBuffer implements Closeable {
             try {
                 awaitDataLock.wait();
             } catch (InterruptedException ex) {
-                throw new RuntimeException();
+                throw new IllegalStateException(ex);
             }
         }
     }

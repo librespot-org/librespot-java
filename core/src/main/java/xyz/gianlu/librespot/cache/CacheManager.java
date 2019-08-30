@@ -79,7 +79,7 @@ public class CacheManager implements Closeable {
                 try {
                     tableLock.wait();
                 } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
+                    throw new IllegalStateException(ex);
                 }
             }
         }

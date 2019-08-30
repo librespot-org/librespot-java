@@ -370,7 +370,7 @@ public final class Session implements Closeable {
                 try {
                     authLock.wait();
                 } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
+                    throw new IllegalStateException(ex);
                 }
             }
         }

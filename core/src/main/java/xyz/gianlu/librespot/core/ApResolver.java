@@ -79,7 +79,7 @@ public class ApResolver {
                 try {
                     pool.wait();
                 } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
+                    throw new IllegalStateException(ex);
                 }
             }
         }
