@@ -133,9 +133,9 @@ public final class Session implements Closeable {
 
         Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
-                        .setProduct(Keyexchange.Product.PRODUCT_PARTNER)
-                        .setPlatform(Keyexchange.Platform.PLATFORM_LINUX_X86)
-                        .setVersion(111000540)
+                        .setProduct(Keyexchange.Product.PRODUCT_CLIENT)
+                        .setPlatform(Version.platform())
+                        .setVersion(Version.SPOTIFY_CLIENT_VERSION)
                         .build())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
@@ -209,13 +209,10 @@ public final class Session implements Closeable {
         Keyexchange.ClientResponsePlaintext clientResponsePlaintext = Keyexchange.ClientResponsePlaintext.newBuilder()
                 .setLoginCryptoResponse(Keyexchange.LoginCryptoResponseUnion.newBuilder()
                         .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanResponse.newBuilder()
-                                .setHmac(ByteString.copyFrom(challenge))
-                                .build())
+                                .setHmac(ByteString.copyFrom(challenge)).build())
                         .build())
-                .setPowResponse(Keyexchange.PoWResponseUnion.newBuilder()
-                        .build())
-                .setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder()
-                        .build())
+                .setPowResponse(Keyexchange.PoWResponseUnion.newBuilder().build())
+                .setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder().build())
                 .build();
 
         byte[] clientResponsePlaintextBytes = clientResponsePlaintext.toByteArray();
