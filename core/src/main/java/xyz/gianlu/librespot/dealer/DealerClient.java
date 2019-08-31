@@ -21,10 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * @author Gianlu
@@ -35,6 +32,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private final Map<MessageListener, List<String>> listeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
     private final Session session;
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "dealer-deliver-" + r.hashCode()));
     private ScheduledFuture<?> lastScheduledPing;
     private WebSocket ws;
     private volatile boolean receivedPong = false;
@@ -166,7 +164,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
                 for (String key : keys) {
                     if (mid.startsWith(key) && !dispatched) {
                         interesting = true;
-                        listener.onRequest(mid, pid, sender, command);
+                        executorService.execute(() -> listener.onRequest(mid, pid, sender, command));
                         dispatched = true;
                     }
                 }
@@ -202,13 +200,15 @@ public class DealerClient extends WebSocketListener implements Closeable {
                 List<String> keys = listeners.get(listener);
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
-                        try {
-                            interesting = true;
-                            listener.onMessage(uri, parsedHeaders, decodedPayloads);
-                            dispatched = true;
-                        } catch (IOException ex) {
-                            LOGGER.error("Failed dispatching message!", ex);
-                        }
+                        interesting = true;
+                        executorService.execute(() -> {
+                            try {
+                                listener.onMessage(uri, parsedHeaders, decodedPayloads);
+                            } catch (IOException ex) {
+                                LOGGER.error("Failed dispatching message!", ex);
+                            }
+                        });
+                        dispatched = true;
                     }
                 }
             }
