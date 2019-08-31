@@ -266,6 +266,11 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         LOGGER.info("Notified inactivity!");
     }
 
+    @Override
+    public void requestStateUpdate() {
+        updated();
+    }
+
     synchronized int getVolume() {
         return device.getVolume();
     }

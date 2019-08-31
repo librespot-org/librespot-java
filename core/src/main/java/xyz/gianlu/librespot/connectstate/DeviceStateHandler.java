@@ -79,37 +79,34 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     private void notifyReady() {
-        synchronized (listeners) {
-            for (Listener listener : listeners) {
-                listener.ready();
-            }
+        for (Listener listener : new ArrayList<>(listeners)) {
+            listener.ready();
         }
     }
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
-        synchronized (listeners) {
-            for (Listener listener : listeners) {
-                try {
-                    listener.command(endpoint, data);
-                } catch (InvalidProtocolBufferException ex) {
-                    LOGGER.error("Failed parsing command!", ex);
-                }
+        for (Listener listener : new ArrayList<>(listeners)) {
+            try {
+                listener.command(endpoint, data);
+            } catch (InvalidProtocolBufferException ex) {
+                LOGGER.error("Failed parsing command!", ex);
             }
         }
     }
 
     private void notifyVolumeChange() {
-        synchronized (listeners) {
-            for (Listener listener : listeners)
-                listener.volumeChanged();
-        }
+        for (Listener listener : new ArrayList<>(listeners))
+            listener.volumeChanged();
+    }
+
+    private void requestStateUpdate() {
+        for (Listener listener : new ArrayList<>(listeners))
+            listener.requestStateUpdate();
     }
 
     private void notifyNotActive() {
-        synchronized (listeners) {
-            for (Listener listener : listeners)
-                listener.notActive();
-        }
+        for (Listener listener : new ArrayList<>(listeners))
+            listener.notActive();
     }
 
     @Override
@@ -137,6 +134,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
+            else
+                requestStateUpdate();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
         }
@@ -222,6 +221,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         void volumeChanged();
 
         void notActive();
+
+        void requestStateUpdate();
     }
 
     public static final class PlayCommandHelper {
