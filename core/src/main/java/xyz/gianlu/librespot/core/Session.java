@@ -253,9 +253,14 @@ public final class Session implements Closeable {
     }
 
     void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
-        authenticatePartial(credentials);
+        authenticatePartial(credentials, false);
 
-        mercuryClient = new MercuryClient(this);
+        synchronized (authLock) {
+            mercuryClient = new MercuryClient(this);
+            authLock.set(false);
+            authLock.notifyAll();
+        }
+
         tokenProvider = new TokenProvider(this);
         audioKeyManager = new AudioKeyManager(this);
         channelManager = new ChannelManager(this);
@@ -272,7 +277,7 @@ public final class Session implements Closeable {
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
 
-    private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
+    private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials, boolean removeLock) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
@@ -510,7 +515,7 @@ public final class Session implements Closeable {
                     .setUsername(apWelcome.getCanonicalUsername())
                     .setTyp(apWelcome.getReusableAuthCredentialsType())
                     .setAuthData(apWelcome.getReusableAuthCredentials())
-                    .build());
+                    .build(), true);
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {

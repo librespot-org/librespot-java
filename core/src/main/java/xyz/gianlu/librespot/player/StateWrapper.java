@@ -80,9 +80,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
     }
 
-    synchronized void setBuffering(boolean buffering) {
-        if (buffering && !isPlaying()) throw new IllegalStateException();
-        state.setIsBuffering(buffering);
+    void setState(@Nullable Boolean playing, @Nullable Boolean paused, @Nullable Boolean buffering) {
+        setState(playing == null ? state.getIsPlaying() : playing, paused == null ? state.getIsPaused() : paused,
+                buffering == null ? state.getIsBuffering() : buffering);
     }
 
     synchronized void setState(boolean playing, boolean paused, boolean buffering) {
@@ -412,7 +412,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
-        state.setTimestamp(pb.getTimestamp());
+        if (pb.getIsPaused()) state.setTimestamp(TimeProvider.currentTimeMillis());
+        else state.setTimestamp(pb.getTimestamp());
 
         loadTransforming();
     }

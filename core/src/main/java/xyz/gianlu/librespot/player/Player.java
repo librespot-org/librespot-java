@@ -206,7 +206,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            state.setState(true, false, true);
+            state.setState(true, null, true);
             state.updated();
         }
     }
@@ -222,7 +222,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos) {
         if (handler == trackHandler) {
-            state.setBuffering(false);
+            state.setState(true, null, false);
 
             updateStateWithHandler();
 
