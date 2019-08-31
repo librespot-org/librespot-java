@@ -133,7 +133,7 @@ public final class Session implements Closeable {
 
         Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
                 .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
-                        .setProduct(Keyexchange.Product.PRODUCT_CLIENT)
+                        .setProduct(Keyexchange.Product.PRODUCT_LIBSPOTIFY)
                         .setPlatform(Version.platform())
                         .setVersion(Version.SPOTIFY_CLIENT_VERSION)
                         .build())
