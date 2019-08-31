@@ -524,27 +524,47 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return tracksKeeper.tracks.get(index).getMetadataMap();
     }
 
+    /**
+     * Performs the given add operation. This also makes sure that {@link TracksKeeper#tracks} is in a non-shuffled state,
+     * even if {@link StateWrapper#isShufflingContext()} may return {@code true}. Context will be therefore reshuffled.
+     */
     private synchronized void performAdd(@NotNull Playlist4ApiProto.Add add) {
-        if (isShufflingContext()) throw new UnsupportedOperationException(); // TODO
+        boolean wasShuffled = false;
+        if (isShufflingContext()) {
+            wasShuffled = true;
+            tracksKeeper.toggleShuffle(false);
+        }
 
-        if (add.hasAddFirst() && add.getAddFirst()) {
-            tracksKeeper.addToTracks(0, add.getItemsList());
-        } else if (add.hasAddLast() && add.getAddLast()) {
-            tracksKeeper.addToTracks(tracksKeeper.length(), add.getItemsList());
-        } else if (add.hasFromIndex()) {
-            tracksKeeper.addToTracks(add.getFromIndex(), add.getItemsList());
-        } else {
-            throw new IllegalArgumentException(TextFormat.shortDebugString(add));
+        try {
+            if (add.hasAddFirst() && add.getAddFirst())
+                tracksKeeper.addToTracks(0, add.getItemsList());
+            else if (add.hasAddLast() && add.getAddLast())
+                tracksKeeper.addToTracks(tracksKeeper.length(), add.getItemsList());
+            else if (add.hasFromIndex())
+                tracksKeeper.addToTracks(add.getFromIndex(), add.getItemsList());
+            else
+                throw new IllegalArgumentException(TextFormat.shortDebugString(add));
+        } finally {
+            if (wasShuffled) tracksKeeper.toggleShuffle(true);
         }
     }
 
+    /**
+     * Performs the given remove operation. This also makes sure that {@link TracksKeeper#tracks} is in a non-shuffled state,
+     * even if {@link StateWrapper#isShufflingContext()} may return {@code true}. Context will be therefore reshuffled.
+     */
     private synchronized void performRemove(@NotNull Playlist4ApiProto.Rem rem) {
-        if (isShufflingContext()) throw new UnsupportedOperationException(); // TODO
+        boolean wasShuffled = false;
+        if (isShufflingContext()) {
+            wasShuffled = true;
+            tracksKeeper.toggleShuffle(false);
+        }
 
-        if (rem.hasFromIndex() && rem.hasLength()) {
-            tracksKeeper.removeTracks(rem.getFromIndex(), rem.getLength());
-        } else {
-            throw new IllegalArgumentException(TextFormat.shortDebugString(rem));
+        try {
+            if (rem.hasFromIndex() && rem.hasLength()) tracksKeeper.removeTracks(rem.getFromIndex(), rem.getLength());
+            else throw new IllegalArgumentException(TextFormat.shortDebugString(rem));
+        } finally {
+            if (wasShuffled) tracksKeeper.toggleShuffle(true);
         }
     }
 
@@ -1083,9 +1103,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             return tracks.size();
         }
 
+        /**
+         * Adds tracks to the current state. {@link TracksKeeper#tracks} MUST be in a non-shuffled state.
+         */
         void addToTracks(int from, @NotNull List<Playlist4ApiProto.Item> items) {
-            if (isShufflingContext()) throw new IllegalStateException();
-
             if (!cannotLoadMore) {
                 if (loadAllTracks()) {
                     LOGGER.trace("Loaded all tracks before adding new ones.");
@@ -1104,11 +1125,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
             if (!isPlayingQueue && from <= getCurrentTrackIndex())
                 shiftCurrentTrackIndex(items.size());
+
+            updatePrevNextTracks();
         }
 
+        /**
+         * Removes tracks from the current state. {@link TracksKeeper#tracks} MUST be in a non-shuffled state.
+         */
         void removeTracks(int from, int length) {
-            if (isShufflingContext()) throw new IllegalStateException();
-
             if (!cannotLoadMore) {
                 if (loadAllTracks()) {
                     LOGGER.trace("Loaded all tracks before removing some.");
@@ -1136,6 +1160,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 queue.addFirst(current);
                 isPlayingQueue = true;
                 updateState();
+            } else {
+                updatePrevNextTracks();
             }
         }
     }
