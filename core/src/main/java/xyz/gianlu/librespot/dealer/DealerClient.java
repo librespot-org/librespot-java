@@ -32,7 +32,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private final Map<MessageListener, List<String>> listeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
     private final Session session;
-    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "dealer-deliver-" + r.hashCode()));
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "dealer-deliver-" + r.hashCode()));
     private ScheduledFuture<?> lastScheduledPing;
     private WebSocket ws;
     private volatile boolean receivedPong = false;
@@ -236,6 +236,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
         ws.close(1000, null);
 
         listeners.clear();
+        executorService.shutdown();
     }
 
     public interface MessageListener {
