@@ -794,15 +794,15 @@ public final class Session implements Closeable {
                     case MercuryUnsub:
                     case MercuryEvent:
                     case MercuryReq:
-                        mercuryClient.dispatch(packet);
+                        mercury().dispatch(packet);
                         break;
                     case AesKey:
                     case AesKeyError:
-                        audioKeyManager.dispatch(packet);
+                        audioKey().dispatch(packet);
                         break;
                     case ChannelError:
                     case StreamChunkRes:
-                        channelManager.dispatch(packet);
+                        channel().dispatch(packet);
                         break;
                     default:
                         LOGGER.info("Skipping " + cmd.name());

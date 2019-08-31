@@ -2,9 +2,12 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.connectstate.model.Player.*;
 import com.spotify.metadata.proto.Metadata;
+import com.spotify.playlist4.proto.Playlist4ApiProto;
+import com.spotify.playlist4.proto.Playlist4ApiProto.PlaylistModificationInfo;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -15,6 +18,7 @@ import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
 import spotify.player.proto.transfer.QueueOuterClass;
 import spotify.player.proto.transfer.SessionOuterClass;
 import spotify.player.proto.transfer.TransferStateOuterClass;
+import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
@@ -23,6 +27,7 @@ import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
 import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
+import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.AlbumId;
 import xyz.gianlu.librespot.mercury.model.ArtistId;
@@ -38,7 +43,7 @@ import static spotify.player.proto.ContextOuterClass.Context;
 /**
  * @author Gianlu
  */
-public class StateWrapper implements DeviceStateHandler.Listener {
+public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
     private static final JsonParser PARSER = new JsonParser();
     private final PlayerState.Builder state;
@@ -54,6 +59,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
+        session.dealer().addListener(this, "hm://playlist/");
     }
 
     @NotNull
@@ -420,8 +426,6 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         String trackUri = PlayCommandHelper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandHelper.getSkipToIndex(obj);
 
-        System.out.println(obj);
-
         if (trackUri != null) {
             tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
         } else if (trackUid != null) {
@@ -520,6 +524,66 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         return tracksKeeper.tracks.get(index).getMetadataMap();
     }
 
+    private synchronized void performAdd(@NotNull Playlist4ApiProto.Add add) {
+        if (isShufflingContext()) throw new UnsupportedOperationException(); // TODO
+
+        if (add.hasAddFirst() && add.getAddFirst()) {
+            tracksKeeper.addToTracks(0, add.getItemsList());
+        } else if (add.hasAddLast() && add.getAddLast()) {
+            tracksKeeper.addToTracks(tracksKeeper.length(), add.getItemsList());
+        } else if (add.hasFromIndex()) {
+            tracksKeeper.addToTracks(add.getFromIndex(), add.getItemsList());
+        } else {
+            throw new IllegalArgumentException(TextFormat.shortDebugString(add));
+        }
+    }
+
+    private synchronized void performRemove(@NotNull Playlist4ApiProto.Rem rem) {
+        if (isShufflingContext()) throw new UnsupportedOperationException(); // TODO
+
+        if (rem.hasFromIndex() && rem.hasLength()) {
+            tracksKeeper.removeTracks(rem.getFromIndex(), rem.getLength());
+        } else {
+            throw new IllegalArgumentException(TextFormat.shortDebugString(rem));
+        }
+    }
+
+    @Override
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+        if (uri.startsWith("hm://playlist/")) {
+            PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(BytesArrayList.streamBase64(payloads));
+            String modUri = mod.getUri().toStringUtf8();
+            if (Objects.equals(modUri, context.uri())) {
+                for (Playlist4ApiProto.Op op : mod.getOpsList()) {
+                    switch (op.getKind()) {
+                        case ADD:
+                            performAdd(op.getAdd());
+                            break;
+                        case REM:
+                            performRemove(op.getRem());
+                            break;
+                        case MOV:
+                        case UPDATE_ITEM_ATTRIBUTES:
+                        case UPDATE_LIST_ATTRIBUTES:
+                            throw new UnsupportedOperationException(TextFormat.shortDebugString(op));
+                        default:
+                        case KIND_UNKNOWN:
+                            LOGGER.warn("Received unknown op: " + op.getKind());
+                            break;
+                    }
+                }
+
+                LOGGER.info(String.format("Received update for current context! {uri: %s, ops: %s}", modUri, ProtoUtils.opsKindList(mod.getOpsList())));
+                updated();
+            }
+        }
+    }
+
+    @Override
+    public void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command) {
+        // Not interested
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 
@@ -599,9 +663,12 @@ public class StateWrapper implements DeviceStateHandler.Listener {
          */
         private void setCurrentTrackIndex(int index) {
             if (isPlayingQueue) throw new IllegalStateException();
-
             state.setIndex(ContextIndex.newBuilder().setTrack(index).build());
             updateState();
+        }
+
+        private void shiftCurrentTrackIndex(int delta) {
+            state.getIndexBuilder().setTrack(state.getIndex().getTrack() + delta);
         }
 
         private void updatePrevNextTracks() {
@@ -619,7 +686,7 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
         }
 
-        public void updateTrackDuration(int duration) {
+        void updateTrackDuration(int duration) {
             state.setDuration(duration);
             state.getTrackBuilder().putMetadata("duration", String.valueOf(duration));
 
@@ -1009,6 +1076,66 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                     setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, id.toSpotifyUri()));
                     LOGGER.trace("Unshuffled by reloading context.");
                 }
+            }
+        }
+
+        public int length() {
+            return tracks.size();
+        }
+
+        void addToTracks(int from, @NotNull List<Playlist4ApiProto.Item> items) {
+            if (isShufflingContext()) throw new IllegalStateException();
+
+            if (!cannotLoadMore) {
+                if (loadAllTracks()) {
+                    LOGGER.trace("Loaded all tracks before adding new ones.");
+                } else {
+                    LOGGER.warn("Cannot add new tracks!");
+                    return;
+                }
+            }
+
+            for (int i = 0; i < items.size(); i++) {
+                Playlist4ApiProto.Item item = items.get(i);
+                tracks.add(i + from, ContextTrack.newBuilder()
+                        .setUri(item.getUri())
+                        .build());
+            }
+
+            if (!isPlayingQueue && from <= getCurrentTrackIndex())
+                shiftCurrentTrackIndex(items.size());
+        }
+
+        void removeTracks(int from, int length) {
+            if (isShufflingContext()) throw new IllegalStateException();
+
+            if (!cannotLoadMore) {
+                if (loadAllTracks()) {
+                    LOGGER.trace("Loaded all tracks before removing some.");
+                } else {
+                    LOGGER.warn("Cannot remove tracks!");
+                    return;
+                }
+            }
+
+            boolean removeCurrent = false;
+            int curr = getCurrentTrackIndex();
+            if (from <= curr && length + from > curr)
+                removeCurrent = true;
+
+            ContextTrack current = tracks.get(curr);
+            for (int i = 0; i < length; i++)
+                tracks.remove(from);
+
+            if (!removeCurrent && from <= curr)
+                shiftCurrentTrackIndex(-length);
+
+            if (removeCurrent) {
+                shiftCurrentTrackIndex(-1);
+
+                queue.addFirst(current);
+                isPlayingQueue = true;
+                updateState();
             }
         }
     }

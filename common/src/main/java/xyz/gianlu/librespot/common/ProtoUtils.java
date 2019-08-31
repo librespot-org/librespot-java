@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.spotify.connectstate.model.Player;
 import com.spotify.connectstate.model.Player.ContextPlayerOptions;
 import com.spotify.metadata.proto.Metadata;
+import com.spotify.playlist4.proto.Playlist4ApiProto;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,6 +24,13 @@ import static spotify.player.proto.ContextOuterClass.Context;
  */
 public final class ProtoUtils {
     private ProtoUtils() {
+    }
+
+    @NotNull
+    public static List<Playlist4ApiProto.Op.Kind> opsKindList(@NotNull List<Playlist4ApiProto.Op> ops) {
+        List<Playlist4ApiProto.Op.Kind> kinds = new ArrayList<>(ops.size());
+        for (Playlist4ApiProto.Op op : ops) kinds.add(op.getKind());
+        return kinds;
     }
 
     @NotNull
