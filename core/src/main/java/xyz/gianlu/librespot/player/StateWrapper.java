@@ -635,6 +635,18 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
         }
 
+        private void updateLikeDislike() {
+            if (Objects.equals(state.getContextMetadataOrDefault("like-feedback-enabled", "0"), "1")) {
+                state.putContextMetadata("like-feedback-selected",
+                        state.getTrack().getMetadataOrDefault("like-feedback-selected", "0"));
+            }
+
+            if (Objects.equals(state.getContextMetadataOrDefault("dislike-feedback-enabled", "0"), "1")) {
+                state.putContextMetadata("dislike-feedback-selected",
+                        state.getTrack().getMetadataOrDefault("dislike-feedback-selected", "0"));
+            }
+        }
+
         /**
          * Updates the currently playing track (not index), recomputes the prev/next tracks and sets the duration field.
          *
@@ -643,6 +655,9 @@ public class StateWrapper implements DeviceStateHandler.Listener {
         private void updateState() {
             if (isPlayingQueue) state.setTrack(ProtoUtils.convertToProvidedTrack(queue.remove()));
             else state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+
+            updateLikeDislike();
+
             updateTrackDuration();
             updatePrevNextTracks();
         }
@@ -690,8 +705,10 @@ public class StateWrapper implements DeviceStateHandler.Listener {
                 ProtoUtils.copyOverMetadata(track, builder);
                 tracks.set(index, builder.build());
 
-                if (index == getCurrentTrackIndex())
+                if (index == getCurrentTrackIndex()) {
                     ProtoUtils.copyOverMetadata(track, state.getTrackBuilder());
+                    tracksKeeper.updateLikeDislike();
+                }
             }
         }
 
