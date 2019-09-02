@@ -6,13 +6,14 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
 import javax.sound.sampled.*;
+import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Gianlu
  */
-public class LinesHolder {
+public class LinesHolder implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(LinesHolder.class);
     private final Map<Mixer, LineWithState> openLines = new HashMap<>();
 
@@ -65,6 +66,12 @@ public class LinesHolder {
         if (conf.logAvailableMixers()) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
         Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords());
         return getLine(mixer, info);
+    }
+
+    @Override
+    public void close() {
+        for (LineWithState line : openLines.values())
+            line.line.close();
     }
 
     public static class MixerException extends Exception {

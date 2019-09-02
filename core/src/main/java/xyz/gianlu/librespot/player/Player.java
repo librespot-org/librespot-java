@@ -520,6 +520,8 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler.close();
             preloadTrackHandler = null;
         }
+
+        lines.close();
     }
 
     @Nullable
