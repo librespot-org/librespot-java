@@ -235,19 +235,19 @@ public class ZeroconfServer implements Closeable {
 
     private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
-        if (username == null) {
+        if (username == null || username.isEmpty()) {
             LOGGER.fatal("Missing userName!");
             return;
         }
 
         String blobStr = params.get("blob");
-        if (blobStr == null) {
+        if (blobStr == null || blobStr.isEmpty()) {
             LOGGER.fatal("Missing blob!");
             return;
         }
 
         String clientKeyStr = params.get("clientKey");
-        if (clientKeyStr == null) {
+        if (clientKeyStr == null || clientKeyStr.isEmpty()) {
             LOGGER.fatal("Missing clientKey!");
             return;
         }

@@ -32,7 +32,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private final Map<MessageListener, List<String>> listeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
     private final Session session;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "dealer-deliver-" + r.hashCode()));
+    private final Looper looper = new Looper();
     private ScheduledFuture<?> lastScheduledPing;
     private WebSocket ws;
     private volatile boolean receivedPong = false;
@@ -41,6 +41,8 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
         this.session = session;
+        new Thread(looper, "dealer-looper").start();
+
         connect();
     }
 
@@ -164,7 +166,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
                 for (String key : keys) {
                     if (mid.startsWith(key) && !dispatched) {
                         interesting = true;
-                        executorService.execute(() -> listener.onRequest(mid, pid, sender, command));
+                        looper.submit(() -> listener.onRequest(mid, pid, sender, command));
                         dispatched = true;
                     }
                 }
@@ -201,7 +203,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
                         interesting = true;
-                        executorService.execute(() -> {
+                        looper.submit(() -> {
                             try {
                                 listener.onMessage(uri, parsedHeaders, decodedPayloads);
                             } catch (IOException ex) {
@@ -236,12 +238,36 @@ public class DealerClient extends WebSocketListener implements Closeable {
         ws.close(1000, null);
 
         listeners.clear();
-        executorService.shutdown();
     }
 
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException;
 
         void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
+    }
+
+    private static class Looper implements Runnable, Closeable {
+        private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
+        private boolean shouldStop = false;
+
+        void submit(@NotNull Runnable task) {
+            tasks.add(task);
+        }
+
+        @Override
+        public void run() {
+            while (!shouldStop) {
+                try {
+                    tasks.take().run();
+                } catch (InterruptedException ex) {
+                    break;
+                }
+            }
+        }
+
+        @Override
+        public void close() {
+            shouldStop = true;
+        }
     }
 }
