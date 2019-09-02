@@ -25,7 +25,7 @@ public class SearchManager {
 
     @NotNull
     public JsonObject request(@NotNull SearchRequest req) throws IOException {
-        if (req.username.isEmpty()) req.username = session.apWelcome().getCanonicalUsername();
+        if (req.username.isEmpty()) req.username = session.username();
         if (req.country.isEmpty()) req.country = session.countryCode();
         if (req.locale.isEmpty()) req.locale = session.conf().preferredLocale();
 

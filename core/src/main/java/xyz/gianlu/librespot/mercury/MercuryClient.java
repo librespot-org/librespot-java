@@ -203,7 +203,7 @@ public class MercuryClient extends PacketsManager {
             }
 
             if (!dispatched)
-                LOGGER.warn(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex()));
+                LOGGER.debug(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex()));
         } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
             if (callback != null) {

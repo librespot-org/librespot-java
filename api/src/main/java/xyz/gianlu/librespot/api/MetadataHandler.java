@@ -28,7 +28,7 @@ public class MetadataHandler extends AbsApiHandler {
     protected @NotNull JsonElement handleRequest(ApiServer.@NotNull Request request) throws ApiServer.PredefinedJsonRpcException, HandlingException {
         switch (request.getSuffix()) {
             case "rootlists":
-                return handle(MercuryRequests.getRootPlaylists(session.apWelcome().getCanonicalUsername()));
+                return handle(MercuryRequests.getRootPlaylists(session.username()));
             case "playlist":
                 return handle(MercuryRequests.getPlaylist(ApiUtils.extractId(PlaylistId.class, request, request.params)));
             case "track":

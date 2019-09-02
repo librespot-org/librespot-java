@@ -464,6 +464,11 @@ public final class Session implements Closeable {
     }
 
     @NotNull
+    public String username() {
+        return apWelcome().getCanonicalUsername();
+    }
+
+    @NotNull
     public Authentication.APWelcome apWelcome() {
         waitAuthLock();
         if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");

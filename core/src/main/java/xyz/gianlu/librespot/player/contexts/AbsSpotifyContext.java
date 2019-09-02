@@ -2,6 +2,9 @@ package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.connectstate.RestrictionsManager;
+import xyz.gianlu.librespot.core.Session;
+
+import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -13,6 +16,10 @@ public abstract class AbsSpotifyContext {
     AbsSpotifyContext(@NotNull String context) {
         this.context = context;
         this.restrictions = new RestrictionsManager(this);
+    }
+
+    public static boolean isCollection(@NotNull Session session, @NotNull String uri) {
+        return Objects.equals(uri, "spotify:user:" + session.username() + ":collection");
     }
 
     @NotNull

@@ -213,7 +213,7 @@ public class ZeroconfServer implements Closeable {
 
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("activeUser", hasValidSession() ? session.apWelcome().getCanonicalUsername() : "");
+        info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));

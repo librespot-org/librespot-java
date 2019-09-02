@@ -173,7 +173,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
             }
         }
 
-        if (!interesting) LOGGER.warn("Couldn't dispatch command: " + mid);
+        if (!interesting) LOGGER.debug("Couldn't dispatch command: " + mid);
     }
 
     private void handleMessage(@NotNull JsonObject obj) {
@@ -216,7 +216,7 @@ public class DealerClient extends WebSocketListener implements Closeable {
             }
         }
 
-        if (!interesting) LOGGER.warn("Couldn't dispatch message: " + uri);
+        if (!interesting) LOGGER.debug("Couldn't dispatch message: " + uri);
     }
 
     public void addListener(@NotNull MessageListener listener, @NotNull String... uris) {

@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.player;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
@@ -59,7 +61,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
-        session.dealer().addListener(this, "hm://playlist/");
+        session.dealer().addListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
     }
 
     @NotNull
@@ -574,7 +576,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         if (uri.startsWith("hm://playlist/")) {
             PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(BytesArrayList.streamBase64(payloads));
             String modUri = mod.getUri().toStringUtf8();
-            if (Objects.equals(modUri, context.uri())) {
+            if (context != null && Objects.equals(modUri, context.uri())) {
                 for (Playlist4ApiProto.Op op : mod.getOpsList()) {
                     switch (op.getKind()) {
                         case ADD:
@@ -596,8 +598,49 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
                 LOGGER.info(String.format("Received update for current context! {uri: %s, ops: %s}", modUri, ProtoUtils.opsKindList(mod.getOpsList())));
                 updated();
+            } else if (context != null && AbsSpotifyContext.isCollection(session, modUri)) {
+                for (Playlist4ApiProto.Op op : mod.getOpsList()) {
+                    List<String> uris = new ArrayList<>();
+                    for (Playlist4ApiProto.Item item : op.getAdd().getItemsList())
+                        uris.add(item.getUri());
+
+                    if (op.getKind() == Playlist4ApiProto.Op.Kind.ADD)
+                        performCollectionUpdate(uris, true);
+                    else if (op.getKind() == Playlist4ApiProto.Op.Kind.REM)
+                        performCollectionUpdate(uris, false);
+                }
+
+                LOGGER.info(String.format("Updated tracks in collection! {uri: %s, ops: %s}", modUri, ProtoUtils.opsKindList(mod.getOpsList())));
+                updated();
             }
+        } else if (context != null && uri.equals("hm://collection/collection/" + session.username() + "/json")) {
+            List<String> added = null;
+            List<String> removed = null;
+
+            JsonArray items = PARSER.parse(payloads[0]).getAsJsonObject().getAsJsonArray("items");
+            for (JsonElement elm : items) {
+                JsonObject obj = elm.getAsJsonObject();
+                String itemUri = "spotify:" + obj.get("type").getAsString() + ":" + obj.get("identifier").getAsString();
+                if (obj.get("removed").getAsBoolean()) {
+                    if (removed == null) removed = new ArrayList<>();
+                    removed.add(itemUri);
+                } else {
+                    if (added == null) added = new ArrayList<>();
+                    added.add(itemUri);
+                }
+            }
+
+            if (added != null) performCollectionUpdate(added, true);
+            if (removed != null) performCollectionUpdate(removed, false);
+
+            LOGGER.info(String.format("Updated tracks in collection! {added: %b, removed: %b}", added != null, removed != null));
+            updated();
         }
+    }
+
+    private synchronized void performCollectionUpdate(@NotNull List<String> uris, boolean inCollection) {
+        for (String uri : uris)
+            tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));
     }
 
     @Override
@@ -710,11 +753,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         void updateTrackDuration(int duration) {
             state.setDuration(duration);
             state.getTrackBuilder().putMetadata("duration", String.valueOf(duration));
-
-            int index = getCurrentTrackIndex();
-            ContextTrack.Builder builder = tracks.get(index).toBuilder();
-            builder.putMetadata("duration", String.valueOf(duration));
-            tracks.set(index, builder.build());
+            updateMetadataFor(getCurrentTrackIndex(), "duration", String.valueOf(duration));
         }
 
         private void updateTrackDuration() {
@@ -1164,6 +1203,22 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             } else {
                 updatePrevNextTracks();
             }
+        }
+
+        void updateMetadataFor(int index, @NotNull String key, @NotNull String value) {
+            ContextTrack.Builder builder = tracks.get(index).toBuilder();
+            builder.putMetadata(key, value);
+            tracks.set(index, builder.build());
+        }
+
+        void updateMetadataFor(@NotNull String uri, @NotNull String key, @NotNull String value) {
+            int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
+            if (index == -1) {
+                LOGGER.warn("Failed updating context of " + uri);
+                return;
+            }
+
+            updateMetadataFor(index, key, value);
         }
     }
 }
