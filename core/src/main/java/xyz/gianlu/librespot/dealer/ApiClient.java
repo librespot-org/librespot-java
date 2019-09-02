@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.dealer;
 
-import com.google.protobuf.AbstractMessageLite;
+import com.google.protobuf.Message;
 import com.spotify.connectstate.model.Connect;
 import com.spotify.metadata.proto.Metadata;
 import okhttp3.*;
@@ -30,7 +30,7 @@ public class ApiClient {
     }
 
     @NotNull
-    private static RequestBody protoBody(@NotNull AbstractMessageLite msg) {
+    private static RequestBody protoBody(@NotNull Message msg) {
         return new RequestBody() {
             @Override
             public MediaType contentType() {

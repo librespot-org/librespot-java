@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.common;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.protobuf.Descriptors;
 import com.spotify.connectstate.model.Player;
 import com.spotify.connectstate.model.Player.ContextPlayerOptions;
 import com.spotify.metadata.proto.Metadata;
@@ -15,6 +16,7 @@ import spotify.player.proto.ContextPlayerOptionsOuterClass;
 import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import spotify.player.proto.PlayOriginOuterClass;
 
+import java.lang.reflect.Field;
 import java.util.*;
 
 import static spotify.player.proto.ContextOuterClass.Context;
@@ -24,6 +26,12 @@ import static spotify.player.proto.ContextOuterClass.Context;
  */
 public final class ProtoUtils {
     private ProtoUtils() {
+    }
+
+    public static void overrideDefaultValue(@NotNull Descriptors.FieldDescriptor desc, Object newDefault) throws IllegalAccessException, NoSuchFieldException {
+        Field f = Descriptors.FieldDescriptor.class.getDeclaredField("defaultValue");
+        f.setAccessible(true);
+        f.set(desc, newDefault);
     }
 
     @NotNull

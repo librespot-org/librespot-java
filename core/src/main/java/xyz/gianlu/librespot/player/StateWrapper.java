@@ -48,6 +48,16 @@ import static spotify.player.proto.ContextOuterClass.Context;
 public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
     private static final JsonParser PARSER = new JsonParser();
+
+    static {
+        try {
+            ProtoUtils.overrideDefaultValue(ContextIndex.getDescriptor().findFieldByName("track"), -1);
+            ProtoUtils.overrideDefaultValue(PlayerState.getDescriptor().findFieldByName("position_as_of_timestamp"), -1);
+        } catch (IllegalAccessException | NoSuchFieldException ex) {
+            LOGGER.warn("Failed changing default value!", ex);
+        }
+    }
+
     private final PlayerState.Builder state;
     private final Session session;
     private final DeviceStateHandler device;
@@ -374,7 +384,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     synchronized void setPosition(long pos) {
-        if (pos == 0) pos = 1; // This is the best thing I've ever discovered
         state.setTimestamp(TimeProvider.currentTimeMillis());
         state.setPositionAsOfTimestamp(pos);
         state.clearPosition();
@@ -1205,13 +1214,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
         }
 
-        void updateMetadataFor(int index, @NotNull String key, @NotNull String value) {
+        synchronized void updateMetadataFor(int index, @NotNull String key, @NotNull String value) {
             ContextTrack.Builder builder = tracks.get(index).toBuilder();
             builder.putMetadata(key, value);
             tracks.set(index, builder.build());
         }
 
-        void updateMetadataFor(@NotNull String uri, @NotNull String key, @NotNull String value) {
+        synchronized void updateMetadataFor(@NotNull String uri, @NotNull String key, @NotNull String value) {
             int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
             if (index == -1) {
                 LOGGER.warn("Failed updating context of " + uri);
