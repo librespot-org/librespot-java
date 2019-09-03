@@ -89,6 +89,11 @@ public class DealerClient extends WebSocketListener implements Closeable {
             lastScheduledPing = null;
         }
 
+        if (scheduledReconnect != null) {
+            scheduledReconnect.cancel(true);
+            scheduledReconnect = null;
+        }
+
         try {
             connect();
         } catch (IOException | MercuryClient.MercuryException ex) {
@@ -103,11 +108,14 @@ public class DealerClient extends WebSocketListener implements Closeable {
 
     @Override
     public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, Response response) {
-        if (closed) return;
-
         if (t instanceof SocketException) {
-            LOGGER.warn("An exception occurred. Reconnecting...", t);
-            reconnect();
+            if (closed) {
+                LOGGER.error("Failed reconnecting! Retrying in 10 seconds...", t);
+                scheduleReconnection();
+            } else {
+                LOGGER.warn("An exception occurred. Reconnecting...", t);
+                reconnect();
+            }
             return;
         }
 
