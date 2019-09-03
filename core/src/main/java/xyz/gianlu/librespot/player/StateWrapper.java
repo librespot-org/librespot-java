@@ -53,6 +53,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         try {
             ProtoUtils.overrideDefaultValue(ContextIndex.getDescriptor().findFieldByName("track"), -1);
             ProtoUtils.overrideDefaultValue(PlayerState.getDescriptor().findFieldByName("position_as_of_timestamp"), -1);
+            ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("shuffling_context"), "");
+            ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("repeating_track"), "");
+            ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("repeating_context"), "");
         } catch (IllegalAccessException | NoSuchFieldException ex) {
             LOGGER.warn("Failed changing default value!", ex);
         }
@@ -259,7 +262,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Override
-    public void ready() {
+    public synchronized void ready() {
         device.updateState(Connect.PutStateReason.NEW_DEVICE, state.build());
         LOGGER.info("Notified new device (us)!");
     }
@@ -270,12 +273,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Override
-    public void volumeChanged() {
+    public synchronized void volumeChanged() {
         device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
     }
 
     @Override
-    public void notActive() {
+    public synchronized void notActive() {
         state.clear();
         initState(state);
 
