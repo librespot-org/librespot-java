@@ -1225,10 +1225,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         synchronized void updateMetadataFor(@NotNull String uri, @NotNull String key, @NotNull String value) {
             int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
-            if (index == -1) {
-                LOGGER.warn("Failed updating context of " + uri);
-                return;
-            }
+            if (index == -1) return;
 
             updateMetadataFor(index, key, value);
         }
