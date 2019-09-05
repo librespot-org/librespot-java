@@ -545,7 +545,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
 
         boolean preloadEnabled();
 
-        boolean loudness();
+        boolean enableNormalisation();
 
         float normalisationPregain();
 

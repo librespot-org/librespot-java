@@ -150,8 +150,8 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public boolean loudness(){
-        return config.get("player.loudness");
+    public boolean enableNormalisation() {
+        return config.get("player.enableNormalisation");
     }
 
     @Override

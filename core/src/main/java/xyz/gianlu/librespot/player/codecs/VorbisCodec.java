@@ -38,7 +38,6 @@ public class VorbisCodec extends Codec {
     private float[][][] pcmInfo;
     private int[] pcmIndex;
     private long pcm_offset;
-    private Player.Configuration conf;
 
     public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
                        PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, LinesHolder.MixerException {
@@ -47,7 +46,6 @@ public class VorbisCodec extends Codec {
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
         this.buffer = joggSyncState.data;
-        this.conf = conf;
 
         readHeader();
         this.audioFormat = initializeSound(conf);
@@ -214,9 +212,7 @@ public class VorbisCodec extends Codec {
                     else if (value < -32768) value = -32768;
                     else if (value < 0) value = value | 32768;
 
-                    if(this.conf.loudness()){
-                        value *= normalizationFactor;
-                    }
+                    value *= normalizationFactor;
 
                     convertedBuffer[sampleIndex] = (byte) (value);
                     convertedBuffer[sampleIndex + 1] = (byte) (value >>> 8);
