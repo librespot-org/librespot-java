@@ -150,6 +150,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean loudness(){
+        return config.get("player.loudness");
+    }
+
+    @Override
     public float normalisationPregain() {
         Object raw = config.get("player.normalisationPregain");
 
