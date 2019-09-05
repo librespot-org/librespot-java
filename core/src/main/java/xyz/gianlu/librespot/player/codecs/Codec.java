@@ -35,8 +35,12 @@ public abstract class Codec implements Runnable {
         this.listener = listener;
         this.lines = lines;
         this.duration = duration;
-        this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
         this.preloadEnabled = conf.preloadEnabled();
+
+        if (conf.enableNormalisation())
+            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
+        else
+            this.normalizationFactor = 1;
     }
 
     public final void play() {
