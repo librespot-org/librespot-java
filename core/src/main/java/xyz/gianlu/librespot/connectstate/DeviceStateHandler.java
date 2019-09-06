@@ -61,6 +61,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
                         .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
                         .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
                         .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
+                        .setSupportsGzipPushes(false).setNeedsFullPlayerState(false)
                         .addSupportedTypes("audio/episode")
                         .addSupportedTypes("audio/track")
                         .build());
@@ -79,9 +80,8 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     private void notifyReady() {
-        for (Listener listener : new ArrayList<>(listeners)) {
+        for (Listener listener : new ArrayList<>(listeners))
             listener.ready();
-        }
     }
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
@@ -110,20 +110,24 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
     }
 
     @Override
-    public synchronized void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
-            connectionId = headers.get("Spotify-Connection-Id");
+            synchronized (this) {
+                connectionId = headers.get("Spotify-Connection-Id");
+            }
+
             notifyReady();
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
-            deviceInfo.setVolume(cmd.getVolume());
-
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
-            if (cmd.hasCommandOptions()) {
-                putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
-                        .clearLastCommandSentByDeviceId();
+            synchronized (this) {
+                deviceInfo.setVolume(cmd.getVolume());
+                if (cmd.hasCommandOptions()) {
+                    putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
+                            .clearLastCommandSentByDeviceId();
+                }
             }
 
+            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
