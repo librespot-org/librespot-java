@@ -182,6 +182,7 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         if (connectionId == null) throw new IllegalStateException();
 
         putState.setPutStateReason(reason)
+                .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
         session.api().putConnectState(connectionId, putState.build());
