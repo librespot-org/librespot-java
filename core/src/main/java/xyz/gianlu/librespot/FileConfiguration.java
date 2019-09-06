@@ -62,10 +62,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
         boolean migrating = FormatDetector.detect(confFile) instanceof PropertiesFormat;
 
-        InputStream defaultConfig = FileConfiguration.class.getClassLoader().getResourceAsStream("default.toml");
-        if (defaultConfig == null) throw new IllegalStateException();
-
-        config = CommentedFileConfig.builder(migrating ? new File("config.toml") : confFile).onFileNotFound(FileNotFoundAction.copyData(defaultConfig)).build();
+        config = CommentedFileConfig.builder(migrating ? new File("config.toml") : confFile).onFileNotFound(FileNotFoundAction.copyData(streamDefaultConfig())).build();
         config.load();
 
         if (migrating) {
@@ -75,7 +72,7 @@ public final class FileConfiguration extends AbsConfiguration {
 
             LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
         } else {
-            updateConfigFile(new TomlParser().parse(defaultConfig));
+            updateConfigFile(new TomlParser().parse(streamDefaultConfig()));
         }
 
         if (override != null && override.length > 0) {
@@ -166,6 +163,13 @@ public final class FileConfiguration extends AbsConfiguration {
             String val = old.getProperty((String) key);
             config.set((String) key, convertFromString((String) key, val));
         }
+    }
+
+    @NotNull
+    private static InputStream streamDefaultConfig() {
+        InputStream defaultConfig = FileConfiguration.class.getClassLoader().getResourceAsStream("default.toml");
+        if (defaultConfig == null) throw new IllegalStateException();
+        return defaultConfig;
     }
 
     private void updateConfigFile(@NotNull CommentedConfig defaultConfig) {
