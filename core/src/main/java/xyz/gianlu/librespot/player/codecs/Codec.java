@@ -31,7 +31,10 @@ public abstract class Codec implements Closeable {
         this.dstFormat = dstFormat;
         this.audioIn = audioFile.stream();
         this.duration = duration;
-        this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
+        if (conf.enableNormalisation())
+            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
+        else
+            this.normalizationFactor = 1;
     }
 
     public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {

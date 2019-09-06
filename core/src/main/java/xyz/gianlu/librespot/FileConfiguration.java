@@ -237,6 +237,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean enableNormalisation() {
+        return config.get("player.enableNormalisation");
+    }
+
+    @Override
     public float normalisationPregain() {
         Object raw = config.get("player.normalisationPregain");
         if (raw instanceof String) {

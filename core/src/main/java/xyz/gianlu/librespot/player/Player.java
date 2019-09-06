@@ -587,6 +587,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         boolean preloadEnabled();
 
+        boolean enableNormalisation();
+
         float normalisationPregain();
 
         @Nullable
