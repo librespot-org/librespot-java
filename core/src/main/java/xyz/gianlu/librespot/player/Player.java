@@ -575,6 +575,17 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         return state.getCurrentPlayable();
     }
 
+    /**
+     * @return The current position of the player or {@code -1} if unavailable (most likely if it's playing an episode).
+     */
+    public long time() {
+        try {
+            return trackHandler == null ? 0 : trackHandler.time();
+        } catch (Codec.CannotGetTimeException ex) {
+            return -1;
+        }
+    }
+
     public interface Configuration {
         @NotNull
         AudioQuality preferredQuality();

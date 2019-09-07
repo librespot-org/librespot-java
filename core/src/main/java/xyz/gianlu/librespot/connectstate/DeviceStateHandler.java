@@ -162,6 +162,10 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         }
     }
 
+    public synchronized void setHasBeenPlayingFor(long ms) {
+        putState.setHasBeenPlayingForMs(ms);
+    }
+
     private synchronized long startedPlayingAt() {
         return putState.getStartedPlayingAt();
     }
@@ -184,6 +188,10 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
 
     private synchronized void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
         if (connectionId == null) throw new IllegalStateException();
+
+        long playerTime = session.player().time();
+        if (playerTime == -1) putState.clearHasBeenPlayingForMs();
+        else putState.setHasBeenPlayingForMs(playerTime);
 
         putState.setPutStateReason(reason)
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
