@@ -181,12 +181,12 @@ public class PlayerRunner implements Runnable, Closeable {
 
     public enum Command {
         PlayMixer, PauseMixer, StopMixer, TerminateMixer,
-        Load, PushToMixer, Stop, Seek
+        Load, PushToMixer, Stop, Seek, RemoveFromMixer
     }
 
     public enum PushToMixerReason {
         None, Next,
-        Prev, Fade // Unused
+        Prev, Fade
     }
 
     public interface Listener {
@@ -351,6 +351,11 @@ public class PlayerRunner implements Runnable, Closeable {
 
                             executorService.execute(handler);
                             break;
+                        case RemoveFromMixer:
+                            handler = loadedTracks.get(cmd.id);
+                            if (handler == null) break;
+                            handler.clearOut();
+                            break;
                         case Stop:
                             handler = loadedTracks.remove(cmd.id);
                             if (handler != null) handler.close();
@@ -395,8 +400,8 @@ public class PlayerRunner implements Runnable, Closeable {
         private final PlayableId playable;
         private final Object writeLock = new Object();
         private final Object readyLock = new Object();
-        public Metadata.Track track;
-        public Metadata.Episode episode;
+        private Metadata.Track track;
+        private Metadata.Episode episode;
         private CrossfadeController crossfade;
         private long playbackHaltedAt = 0;
         private volatile boolean calledPreload = false;
@@ -425,7 +430,7 @@ public class PlayerRunner implements Runnable, Closeable {
             out.gain(gain);
         }
 
-        private void clearOut() throws IOException {
+        private void clearOut() {
             if (out == null) return;
             out.toggle(false);
             out.clear();
@@ -552,6 +557,10 @@ public class PlayerRunner implements Runnable, Closeable {
         void pushToMixer(@NotNull PushToMixerReason reason) {
             pushReason = reason;
             sendCommand(Command.PushToMixer, id);
+        }
+
+        void removeFromMixer() {
+            sendCommand(Command.RemoveFromMixer, id);
         }
 
         int time() throws Codec.CannotGetTimeException {

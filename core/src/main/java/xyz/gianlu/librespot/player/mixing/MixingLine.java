@@ -116,7 +116,7 @@ public class MixingLine extends InputStream {
 
         void write(byte[] buffer, int off, int len) throws IOException;
 
-        void clear() throws IOException;
+        void clear();
 
         @NotNull
         OutputStream stream();
