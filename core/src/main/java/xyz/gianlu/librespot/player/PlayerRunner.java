@@ -212,6 +212,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
         @NotNull
         Map<String, String> metadataFor(@NotNull PlayableId id);
+
+        void finishedSeek(@NotNull TrackHandler handler);
     }
 
     private static class Output implements Closeable {
@@ -321,9 +323,10 @@ public class PlayerRunner implements Runnable, Closeable {
             try {
                 while (true) {
                     CommandBundle cmd = commands.take();
+                    TrackHandler handler;
                     switch (cmd.cmd) {
                         case Load:
-                            TrackHandler handler = (TrackHandler) cmd.args[0];
+                            handler = (TrackHandler) cmd.args[0];
                             loadedTracks.put(cmd.id, handler);
 
                             try {
@@ -333,27 +336,29 @@ public class PlayerRunner implements Runnable, Closeable {
                             }
                             break;
                         case PushToMixer:
-                            TrackHandler hhh = loadedTracks.get(cmd.id);
-                            if (hhh == null) throw new IllegalArgumentException();
+                            handler = loadedTracks.get(cmd.id);
+                            if (handler == null) break;
 
                             if (firstHandler == null) {
-                                firstHandler = hhh;
+                                firstHandler = handler;
                                 firstHandler.setOut(mixing.firstOut());
                             } else if (secondHandler == null) {
-                                secondHandler = hhh;
+                                secondHandler = handler;
                                 secondHandler.setOut(mixing.secondOut());
                             } else {
                                 throw new IllegalStateException();
                             }
 
-                            executorService.execute(hhh);
+                            executorService.execute(handler);
                             break;
                         case Stop:
-                            TrackHandler hh = loadedTracks.remove(cmd.id);
-                            if (hh != null) hh.close();
+                            handler = loadedTracks.remove(cmd.id);
+                            if (handler != null) handler.close();
                             break;
                         case Seek:
-                            loadedTracks.get(cmd.id).codec.seek((Integer) cmd.args[0]);
+                            handler = loadedTracks.get(cmd.id);
+                            handler.codec.seek((Integer) cmd.args[0]);
+                            listener.finishedSeek(handler);
                             break;
                         case PlayMixer:
                             paused = false;

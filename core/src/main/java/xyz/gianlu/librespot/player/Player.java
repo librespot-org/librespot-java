@@ -314,6 +314,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
+    public void finishedSeek(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) state.updated();
+    }
+
+    @Override
     public void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex) {
         if (handler == trackHandler) {
             if (ex instanceof AbsChunckedInputStream.ChunkException)
@@ -352,7 +357,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private void handleSeek(int pos) {
         state.setPosition(pos);
         if (trackHandler != null) trackHandler.seek(pos);
-        state.updated();
     }
 
     private void panicState() {
@@ -362,7 +366,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     private void loadTrack(boolean play, @NotNull PushToMixerReason reason) {
-        if (trackHandler != null) trackHandler.stop();
+        if (trackHandler != null) {
+            trackHandler.stop();
+            trackHandler = null;
+        }
 
         PlayableId id = state.getCurrentPlayableOrThrow();
         if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
