@@ -308,11 +308,12 @@ public class ZeroconfServer extends Observable implements Closeable {
             }
 
             session = Session.from(inner);
-            notifyObservers(session);
             LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
 
             session.connect();
             session.authenticate(credentials);
+            setChanged();
+            notifyObservers(session);
         } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
