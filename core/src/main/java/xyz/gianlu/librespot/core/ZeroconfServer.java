@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
 /**
  * @author Gianlu
  */
-public class ZeroconfServer implements Closeable {
+public class ZeroconfServer extends Observable implements Closeable {
     public final static int MAX_PORT = 65536;
     public final static int MIN_PORT = 1024;
     private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
@@ -308,6 +308,7 @@ public class ZeroconfServer implements Closeable {
             }
 
             session = Session.from(inner);
+            notifyObservers(session);
             LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
 
             session.connect();
