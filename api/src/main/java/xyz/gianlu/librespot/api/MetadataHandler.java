@@ -5,6 +5,8 @@ import com.google.protobuf.Message;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.server.AbsApiHandler;
 import xyz.gianlu.librespot.api.server.ApiServer;
+import xyz.gianlu.librespot.api.server.ApiServer.PredefinedJsonRpcError;
+import xyz.gianlu.librespot.api.server.ApiServer.PredefinedJsonRpcException;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -25,7 +27,7 @@ public class MetadataHandler extends AbsApiHandler {
     }
 
     @Override
-    protected @NotNull JsonElement handleRequest(ApiServer.@NotNull Request request) throws ApiServer.PredefinedJsonRpcException, HandlingException {
+    protected @NotNull JsonElement handleRequest(ApiServer.@NotNull Request request) throws PredefinedJsonRpcException, HandlingException {
         switch (request.getSuffix()) {
             case "rootlists":
                 return handle(MercuryRequests.getRootPlaylists(session.username()));
@@ -40,7 +42,7 @@ public class MetadataHandler extends AbsApiHandler {
             case "episode":
                 return handle(MercuryRequests.getEpisode(ApiUtils.extractId(EpisodeId.class, request, request.params)));
             default:
-                throw ApiServer.PredefinedJsonRpcException.from(request, ApiServer.PredefinedJsonRpcError.METHOD_NOT_FOUND);
+                throw PredefinedJsonRpcException.from(request, PredefinedJsonRpcError.METHOD_NOT_FOUND);
         }
     }
 
