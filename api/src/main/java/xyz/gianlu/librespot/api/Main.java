@@ -23,7 +23,7 @@ public class Main {
             ZeroconfServer zeroconfServer = ZeroconfServer.create(conf);
 
             ZeroconfApiServer zeroconfApiServer = new ZeroconfApiServer(24879);
-            zeroconfServer.addObserver(zeroconfApiServer);
+            zeroconfServer.addSessionListener(zeroconfApiServer);
         } else {
             Session session = new Session.Builder(new FileConfiguration(args)).create();
 

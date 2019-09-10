@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
 /**
  * @author Gianlu
  */
-public class ZeroconfServer extends Observable implements Closeable {
+public class ZeroconfServer implements Closeable {
     public final static int MAX_PORT = 65536;
     public final static int MIN_PORT = 1024;
     private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
@@ -81,6 +81,7 @@ public class ZeroconfServer extends Observable implements Closeable {
     private final DiffieHellman keys;
     private final JmDNS[] instances;
     private volatile Session session;
+    private List<SessionListener> sessionListeners;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -135,6 +136,8 @@ public class ZeroconfServer extends Observable implements Closeable {
             } catch (IOException ignored) {
             }
         }));
+
+        sessionListeners = new ArrayList<>();
     }
 
     @NotNull
@@ -312,12 +315,16 @@ public class ZeroconfServer extends Observable implements Closeable {
 
             session.connect();
             session.authenticate(credentials);
-            setChanged();
-            notifyObservers(session);
+
+            sessionListeners.forEach(l -> l.sessionChanged(session));
         } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }
+    }
+
+    public void addSessionListener(SessionListener listener) {
+        sessionListeners.add(listener);
     }
 
     public interface Configuration {
@@ -327,6 +334,10 @@ public class ZeroconfServer extends Observable implements Closeable {
 
         @Nullable
         String[] zeroconfInterfaces();
+    }
+
+    public interface SessionListener {
+        void sessionChanged(Session session);
     }
 
     private class HttpRunner implements Runnable, Closeable {
@@ -438,5 +449,7 @@ public class ZeroconfServer extends Observable implements Closeable {
             shouldStop = true;
             serverSocket.close();
         }
+
     }
+
 }
