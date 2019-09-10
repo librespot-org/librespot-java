@@ -419,7 +419,8 @@ public class ZeroconfServer implements Closeable {
                 Map<String, String> params = new HashMap<>(pairs.length);
                 for (String pair : pairs) {
                     String[] split = Utils.split(pair, '=');
-                    params.put(URLDecoder.decode(split[0], StandardCharsets.UTF_8), URLDecoder.decode(split[1], StandardCharsets.UTF_8));
+                    params.put(URLDecoder.decode(split[0], StandardCharsets.UTF_8.name()),
+                            URLDecoder.decode(split[1], StandardCharsets.UTF_8.name()));
                 }
 
                 String action = params.get("action");
