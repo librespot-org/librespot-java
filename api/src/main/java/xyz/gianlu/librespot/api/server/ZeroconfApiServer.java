@@ -8,8 +8,6 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 
 import java.io.IOException;
-import java.util.Observable;
-import java.util.Observer;
 
 public class ZeroconfApiServer extends ApiServer implements ZeroconfServer.SessionListener {
 
