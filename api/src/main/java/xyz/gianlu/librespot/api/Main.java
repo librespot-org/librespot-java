@@ -20,12 +20,9 @@ public class Main {
     public static void main(String[] args) throws IOException, GeneralSecurityException, SpotifyIrc.IrcException, Session.SpotifyAuthenticationException {
         AbsConfiguration conf = new FileConfiguration(args);
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
-            ZeroconfServer zeroconfServer = ZeroconfServer.create(conf);
-
-            ZeroconfApiServer zeroconfApiServer = new ZeroconfApiServer(24879);
-            zeroconfServer.addSessionListener(zeroconfApiServer);
+            ZeroconfServer.create(conf).addSessionListener(new ZeroconfApiServer(24879));
         } else {
-            Session session = new Session.Builder(new FileConfiguration(args)).create();
+            Session session = new Session.Builder(conf).create();
 
             ApiServer server = new ApiServer(24879);
             server.registerHandler(new PlayerHandler(session));
