@@ -8,6 +8,7 @@ import com.jcraft.jorbis.Block;
 import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.*;
@@ -34,18 +35,23 @@ public class VorbisCodec extends Codec {
     private int count;
     private int index;
     private byte[] convertedBuffer;
+    private RpiMixerBypass rpimixerbypass;
     private LinesHolder.LineWrapper outputLine;
+    private LinesHolder.LineWrapper backupLine;
     private float[][][] pcmInfo;
     private int[] pcmIndex;
     private long pcm_offset;
 
+    private static final Logger LOGGER = Logger.getLogger(LinesHolder.class);
+
     public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf,
-                       PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration) throws IOException, CodecException, LinesHolder.MixerException {
+                       PlayerRunner.@NotNull Listener listener, @NotNull LinesHolder lines, int duration, RpiMixerBypass rpi_mixer_bypass) throws IOException, CodecException, LinesHolder.MixerException {
         super(audioFile, normalizationData, conf, listener, lines, duration);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
         this.buffer = joggSyncState.data;
+        this.rpimixerbypass = rpi_mixer_bypass;
 
         readHeader();
         this.audioFormat = initializeSound(conf);
@@ -120,7 +126,18 @@ public class VorbisCodec extends Codec {
         AudioFormat format = new AudioFormat((float) rate, 16, channels, true, false);
 
         try {
-            outputLine = lines.getLineFor(conf, format);
+
+            backupLine = rpimixerbypass.getBackupLine();
+
+            if (backupLine == null) {
+                LOGGER.debug("---- GET LINE ----");
+                outputLine = lines.getLineFor(conf, format);
+                rpimixerbypass.setBackupLine(outputLine);
+            } else {
+                LOGGER.debug("---- BACKUP LINE ----");
+                outputLine = backupLine;
+            }
+
         } catch (IllegalStateException | SecurityException ex) {
             throw new CodecException(ex);
         }

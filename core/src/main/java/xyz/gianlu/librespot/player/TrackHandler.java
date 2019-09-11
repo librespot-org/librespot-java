@@ -37,14 +37,16 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
     private Metadata.Track track;
     private Metadata.Episode episode;
     private PlayerRunner playerRunner;
+    private RpiMixerBypass rpi_mixer_bypass;
     private volatile boolean stopped = false;
     private long haltedAt = -1;
 
-    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener) {
+    TrackHandler(@NotNull Session session, @NotNull LinesHolder lines, @NotNull Player.Configuration conf, @NotNull Listener listener, @NotNull RpiMixerBypass rpi_mixer_bypass) {
         this.session = session;
         this.lines = lines;
         this.conf = conf;
         this.listener = listener;
+        this.rpi_mixer_bypass = rpi_mixer_bypass;
 
         Looper looper;
         new Thread(looper = new Looper(), "track-handler-" + looper.hashCode()).start();
@@ -52,7 +54,7 @@ public class TrackHandler implements PlayerRunner.Listener, Closeable, AbsChunck
 
     @NotNull
     private PlayerRunner createRunner(@NotNull BaseFeeder.LoadedStream stream) throws Codec.CodecException, IOException, LinesHolder.MixerException {
-        return new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track == null ? episode.getDuration() : track.getDuration());
+        return new PlayerRunner(stream.in, stream.normalizationData, lines, conf, this, track == null ? episode.getDuration() : track.getDuration(), rpi_mixer_bypass);
     }
 
     private void load(@NotNull PlayableId id, boolean play, int pos) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {

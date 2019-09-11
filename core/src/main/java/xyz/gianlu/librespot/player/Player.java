@@ -36,6 +36,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
     private final LinesHolder lines;
     private TrackHandler trackHandler;
     private TrackHandler preloadTrackHandler;
+    private RpiMixerBypass rpi_mixer_by_pass;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -43,6 +44,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         this.spirc = session.spirc();
         this.state = new StateWrapper(session);
         this.lines = new LinesHolder();
+        this.rpi_mixer_by_pass = new RpiMixerBypass();
 
         spirc.addListener(this);
     }
@@ -300,7 +302,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
         if (handler == trackHandler && state.hasTracks()) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null) {
-                preloadTrackHandler = new TrackHandler(session, lines, conf, this);
+                preloadTrackHandler = new TrackHandler(session, lines, conf, this, rpi_mixer_by_pass);
                 preloadTrackHandler.sendLoad(next, false, 0);
                 LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
             }
@@ -392,7 +394,7 @@ public class Player implements FrameListener, TrackHandler.Listener, Closeable {
             preloadTrackHandler = null;
             trackHandler.sendSeek(state.getPositionMs());
         } else {
-            trackHandler = new TrackHandler(session, lines, conf, this);
+            trackHandler = new TrackHandler(session, lines, conf, this, rpi_mixer_by_pass);
             trackHandler.sendLoad(id, play, state.getPositionMs());
         }
 

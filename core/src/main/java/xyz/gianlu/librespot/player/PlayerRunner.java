@@ -21,10 +21,10 @@ public class PlayerRunner implements Runnable {
     private final Codec codec;
 
     PlayerRunner(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull LinesHolder lines,
-                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration) throws IOException, Codec.CodecException, LinesHolder.MixerException {
+                 @NotNull Player.Configuration conf, @NotNull Listener listener, int duration, RpiMixerBypass rpi_mixer_bypass) throws IOException, Codec.CodecException, LinesHolder.MixerException {
         switch (audioFile.codec()) {
             case VORBIS:
-                codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration);
+                codec = new VorbisCodec(audioFile, normalizationData, conf, listener, lines, duration, rpi_mixer_bypass);
                 break;
             case MP3:
                 codec = new Mp3Codec(audioFile, normalizationData, conf, listener, lines, duration);
