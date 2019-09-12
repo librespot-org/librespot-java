@@ -203,8 +203,10 @@ public final class ProtoUtils {
                 builder.putMetadata(key, metadata.get(key).getAsString());
         }
 
-        for (JsonElement elm : obj.getAsJsonArray("pages"))
-            builder.addPages(jsonToContextPage(elm.getAsJsonObject()));
+        if (obj.has("pages")) {
+            for (JsonElement elm : obj.getAsJsonArray("pages"))
+                builder.addPages(jsonToContextPage(elm.getAsJsonObject()));
+        }
 
         return builder.build();
     }
