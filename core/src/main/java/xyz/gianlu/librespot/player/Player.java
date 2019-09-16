@@ -518,7 +518,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
                 LOGGER.fatal("Failed retrieving autoplay context, code: " + resp.statusCode);
-                panicState();
+
+                state.setPosition(0);
+                state.setState(true, false, false);
+                state.updated();
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
