@@ -362,7 +362,12 @@ public class PlayerRunner implements Runnable, Closeable {
                             break;
                         case Seek:
                             handler = loadedTracks.get(cmd.id);
-                            handler.codec.seek((Integer) cmd.args[0]);
+                            if (!handler.isReady())
+                                handler.waitReady();
+
+                            if (handler.codec != null)
+                                handler.codec.seek((Integer) cmd.args[0]);
+
                             listener.finishedSeek(handler);
                             break;
                         case PlayMixer:
