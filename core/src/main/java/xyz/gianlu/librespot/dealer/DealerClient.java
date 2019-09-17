@@ -39,14 +39,15 @@ public class DealerClient extends WebSocketListener implements Closeable {
     private volatile boolean closed = true;
     private ScheduledFuture<?> scheduledReconnect;
 
-    public DealerClient(@NotNull Session session) throws IOException, MercuryClient.MercuryException {
+    public DealerClient(@NotNull Session session) {
         this.session = session;
         new Thread(looper, "dealer-looper").start();
-
-        connect();
     }
 
-    private void connect() throws IOException, MercuryClient.MercuryException {
+    /**
+     * Creates a new WebSocket client. <b>Intended for internal use only!</b>
+     */
+    public void connect() throws IOException, MercuryClient.MercuryException {
         this.ws = session.client().newWebSocket(new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
                 .build(), this);

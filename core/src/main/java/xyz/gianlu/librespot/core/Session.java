@@ -252,31 +252,45 @@ public final class Session implements Closeable {
         LOGGER.info("Connected successfully!");
     }
 
+    /**
+     * Authenticates with the server and creates all the necessary components.
+     * All of them should be initialized inside the synchronized block and MUST NOT call any method on this {@link Session} object.
+     */
     void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
         authenticatePartial(credentials, false);
 
         synchronized (authLock) {
             mercuryClient = new MercuryClient(this);
+            tokenProvider = new TokenProvider(this);
+            audioKeyManager = new AudioKeyManager(this);
+            channelManager = new ChannelManager(this);
+            api = new ApiClient(this);
+            cdnManager = new CdnManager(this);
+            contentFeeder = new PlayableContentFeeder(this);
+            cacheManager = new CacheManager(inner.configuration);
+            dealer = new DealerClient(this);
+            player = new Player(inner.configuration, this);
+            search = new SearchManager(this);
+
             authLock.set(false);
             authLock.notifyAll();
         }
 
-        tokenProvider = new TokenProvider(this);
-        audioKeyManager = new AudioKeyManager(this);
-        channelManager = new ChannelManager(this);
-        api = new ApiClient(this);
-        cdnManager = new CdnManager(this);
-        contentFeeder = new PlayableContentFeeder(this);
-        cacheManager = new CacheManager(inner.configuration);
-        dealer = new DealerClient(this);
-        player = new Player(inner.configuration, this);
-        search = new SearchManager(this);
+        dealer.connect();
+        player.initState();
 
         TimeProvider.init(this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
 
+    /**
+     * Authenticates with the server. Does not create all the components unlike {@link Session#authenticate(Authentication.LoginCredentials)}.
+     *
+     * @param removeLock Whether {@link Session#authLock} should be released or not.
+     *                   {@code false} for {@link Session#authenticate(Authentication.LoginCredentials)},
+     *                   {@code true} for {@link Session#reconnect()}.
+     */
     private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials, boolean removeLock) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
         if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
@@ -310,9 +324,11 @@ public final class Session implements Closeable {
             preferredLocale.put(inner.configuration.preferredLocale().getBytes());
             sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
-            synchronized (authLock) {
-                authLock.set(false);
-                authLock.notifyAll();
+            if (removeLock) {
+                synchronized (authLock) {
+                    authLock.set(false);
+                    authLock.notifyAll();
+                }
             }
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
@@ -611,6 +627,9 @@ public final class Session implements Closeable {
         }
     }
 
+    /**
+     * Builder for setting up a {@link Session} object.
+     */
     public static class Builder {
         private final Inner inner;
         private Authentication.LoginCredentials loginCredentials = null;
@@ -626,6 +645,9 @@ public final class Session implements Closeable {
             this.authConf = configuration;
         }
 
+        /**
+         * Authenticate with your Facebook account, will prompt to open a link in the browser.
+         */
         @NotNull
         public Builder facebook() throws IOException {
             try (FacebookAuthenticator authenticator = new FacebookAuthenticator()) {
@@ -636,12 +658,24 @@ public final class Session implements Closeable {
             }
         }
 
+        /**
+         * Authenticate with a saved credentials blob.
+         *
+         * @param username Your Spotify username
+         * @param blob     The Base64-decoded blob
+         */
         @NotNull
         public Builder blob(String username, byte[] blob) throws GeneralSecurityException, IOException {
             loginCredentials = inner.decryptBlob(username, blob);
             return this;
         }
 
+        /**
+         * Authenticate with username and password. The credentials won't be saved.
+         *
+         * @param username Your Spotify username
+         * @param password Your Spotify password
+         */
         @NotNull
         public Builder userPass(@NotNull String username, @NotNull String password) {
             loginCredentials = Authentication.LoginCredentials.newBuilder()
@@ -652,6 +686,9 @@ public final class Session implements Closeable {
             return this;
         }
 
+        /**
+         * Creates a connected and fully authenticated {@link Session} object.
+         */
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
             if (loginCredentials == null) {
