@@ -30,6 +30,7 @@ public class AudioKeyManager extends PacketsManager {
         super(session);
     }
 
+    @NotNull
     public byte[] getAudioKey(@NotNull ByteString gid, @NotNull ByteString fileId) throws IOException {
         int seq;
         synchronized (seqHolder) {
@@ -45,14 +46,29 @@ public class AudioKeyManager extends PacketsManager {
         session.send(Packet.Type.RequestKey, out.toByteArray());
 
         AtomicReference<byte[]> ref = new AtomicReference<>();
-        callbacks.put(seq, key -> {
-            synchronized (ref) {
-                ref.set(key);
-                ref.notifyAll();
+        callbacks.put(seq, new Callback() {
+            @Override
+            public void key(byte[] key) {
+                synchronized (ref) {
+                    ref.set(key);
+                    ref.notifyAll();
+                }
+            }
+
+            @Override
+            public void error(short code) {
+                LOGGER.fatal(String.format("Audio key error, code: %d", code));
+
+                synchronized (ref) {
+                    ref.set(null);
+                    ref.notifyAll();
+                }
             }
         });
 
-        return Utils.wait(ref);
+        byte[] key = Utils.wait(ref);
+        if (key == null) throw new AesKeyException();
+        else return key;
     }
 
     @Override
@@ -72,7 +88,7 @@ public class AudioKeyManager extends PacketsManager {
             callback.key(key);
         } else if (packet.is(Packet.Type.AesKeyError)) {
             short code = payload.getShort();
-            LOGGER.fatal(String.format("Audio key error, code: %d, length: %d", code, packet.payload.length));
+            callback.error(code);
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length: %d", packet.type(), packet.payload.length));
         }
@@ -85,5 +101,12 @@ public class AudioKeyManager extends PacketsManager {
 
     private interface Callback {
         void key(byte[] key);
+
+        void error(short code);
+    }
+
+    public static class AesKeyException extends IOException {
+        AesKeyException() {
+        }
     }
 }
