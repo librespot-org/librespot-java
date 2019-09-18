@@ -34,9 +34,9 @@ import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRunner.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final Session session;
-    private StateWrapper state;
     private final Configuration conf;
     private final PlayerRunner runner;
+    private StateWrapper state;
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
@@ -568,7 +568,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         runner.close();
-        state.removeListener(this);
+        if (state != null) state.removeListener(this);
     }
 
     @Nullable
