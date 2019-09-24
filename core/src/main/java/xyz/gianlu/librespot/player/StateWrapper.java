@@ -535,7 +535,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         if (tracksKeeper == null) throw new IllegalStateException();
 
         int index = ProtoUtils.indexOfTrackByUri(tracksKeeper.tracks, id.toSpotifyUri());
-        if (index == -1) throw new IllegalArgumentException();
+        if (index == -1) {
+            index = ProtoUtils.indexOfTrackByUri(tracksKeeper.queue, id.toSpotifyUri());
+            if (index == -1) throw new IllegalArgumentException();
+        }
+
         return tracksKeeper.tracks.get(index).getMetadataMap();
     }
 
@@ -809,7 +813,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
          * @param track The track to add to queue
          */
         synchronized void addToQueue(@NotNull ContextTrack track) {
-            queue.add(track);
+            queue.add(track.toBuilder().putMetadata("is_queued", "true").build());
             updatePrevNextTracks();
             updateTrackCount();
         }
