@@ -7,7 +7,7 @@ import xyz.gianlu.librespot.common.proto.Keyexchange;
  * @author Gianlu
  */
 public class Version {
-    public static final int SPOTIFY_CLIENT_VERSION = 111400475;
+    public static final int SPOTIFY_CLIENT_VERSION = 111500448;
     private static final String VERSION;
     private static final String OS = System.getProperty("os.name").toLowerCase();
 
