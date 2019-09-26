@@ -85,7 +85,7 @@ public class CircularBuffer implements Closeable {
     }
 
     public short readShort() throws IOException {
-        if (closed) throw new IOException("Buffer is closed!");
+        if (closed) return -1;
 
         lock.lock();
 
@@ -117,7 +117,7 @@ public class CircularBuffer implements Closeable {
      * @return a byte from the buffer.
      */
     public int read() throws IOException {
-        if (closed) throw new IOException("Buffer is closed!");
+        if (closed) return -1;
 
         lock.lock();
 
