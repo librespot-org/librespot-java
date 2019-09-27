@@ -476,7 +476,13 @@ public class PlayerRunner implements Runnable, Closeable {
                 throw new IllegalArgumentException();
             }
 
-            crossfade = new CrossfadeController(duration, listener.metadataFor(playable), conf);
+            try {
+                Map<String, String> metadata = listener.metadataFor(playable);
+                crossfade = new CrossfadeController(duration, metadata, conf);
+            } catch (IllegalArgumentException ex) {
+                LOGGER.warn("Failed retrieving metadata for " + playable);
+                crossfade = new CrossfadeController(duration, conf);
+            }
 
             switch (stream.in.codec()) {
                 case VORBIS:

@@ -25,6 +25,30 @@ public class CrossfadeController {
     private FadeInterval activeInterval = null;
     private float lastGain = 1;
 
+    public CrossfadeController(int duration, @NotNull Player.Configuration conf) {
+        trackDuration = duration;
+        defaultFadeDuration = conf.crossfadeDuration();
+
+        fadeInDuration = -1;
+        fadeInStartTime = -1;
+
+        fadeOutUri = null;
+        fadeOutDuration = -1;
+        fadeOutStartTime = -1;
+
+        if (defaultFadeDuration > 0)
+            startInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
+        else
+            startInterval = null;
+
+        if (defaultFadeDuration > 0)
+            endInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
+        else
+            endInterval = null;
+
+        LOGGER.debug(String.format("Loaded default intervals. {start: %s, end: %s}", startInterval, endInterval));
+    }
+
     public CrossfadeController(int duration, @NotNull Map<String, String> metadata, @NotNull Player.Configuration conf) {
         trackDuration = duration;
         defaultFadeDuration = conf.crossfadeDuration();

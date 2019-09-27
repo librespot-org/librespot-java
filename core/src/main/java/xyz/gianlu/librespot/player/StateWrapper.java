@@ -297,8 +297,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
-        if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri()))
-            throw new IllegalArgumentException("Not same track as current!");
+        if (state.getTrack() == null) throw new IllegalStateException();
+        if (!state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri())) {
+            LOGGER.warn(String.format("Failed updating metadata: tracks do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(track).toSpotifyUri()));
+            return;
+        }
 
         if (track.hasDuration()) tracksKeeper.updateTrackDuration(track.getDuration());
 
@@ -355,8 +358,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
-        if (state.getTrack() == null || !state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri()))
-            throw new IllegalArgumentException("Not same episode as current!");
+        if (state.getTrack() == null) throw new IllegalStateException();
+        if (!state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri())) {
+            LOGGER.warn(String.format("Failed updating metadata: episodes do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(episode).toSpotifyUri()));
+            return;
+        }
 
         if (episode.hasDuration()) tracksKeeper.updateTrackDuration(episode.getDuration());
 
@@ -531,13 +537,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
-    Map<String, String> metadataFor(@NotNull PlayableId id) {
+    Map<String, String> metadataFor(@NotNull PlayableId id) throws IllegalArgumentException {
         if (tracksKeeper == null) throw new IllegalStateException();
 
         int index = ProtoUtils.indexOfTrackByUri(tracksKeeper.tracks, id.toSpotifyUri());
         if (index == -1) {
             index = ProtoUtils.indexOfTrackByUri(tracksKeeper.queue, id.toSpotifyUri());
-            if (index == -1) throw new IllegalArgumentException();
+            if (index == -1) throw new IllegalArgumentException(id.toString());
         }
 
         return tracksKeeper.tracks.get(index).getMetadataMap();

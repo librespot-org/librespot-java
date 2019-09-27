@@ -60,6 +60,7 @@ public final class EpisodeId implements SpotifyId, PlayableId {
         return Utils.hexToBytes(hexId);
     }
 
+    @NotNull
     @Override
     public String toString() {
         return "EpisodeId{" + toSpotifyUri() + '}';

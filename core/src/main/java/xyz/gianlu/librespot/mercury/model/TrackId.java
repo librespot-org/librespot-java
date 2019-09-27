@@ -60,6 +60,7 @@ public final class TrackId implements SpotifyId, PlayableId {
         return Utils.hexToBytes(hexId);
     }
 
+    @NotNull
     @Override
     public String toString() {
         return "TrackId{" + toSpotifyUri() + '}';

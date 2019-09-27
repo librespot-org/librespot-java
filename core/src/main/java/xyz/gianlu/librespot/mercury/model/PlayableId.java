@@ -62,6 +62,9 @@ public interface PlayableId {
         return EpisodeId.fromHex(Utils.bytesToHex(episode.getGid()));
     }
 
+    @NotNull
+    String toString();
+
     @NotNull byte[] getGid();
 
     @NotNull String hexId();
