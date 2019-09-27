@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public class AudioKeyManager extends PacketsManager {
+public final class AudioKeyManager extends PacketsManager {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
     private static final Logger LOGGER = Logger.getLogger(AudioKeyManager.class);
     private final AtomicInteger seqHolder = new AtomicInteger(0);
@@ -66,7 +66,7 @@ public class AudioKeyManager extends PacketsManager {
             }
         });
 
-        byte[] key = Utils.wait(ref);
+        byte[] key = Utils.wait(ref, 2000);
         if (key == null) throw new AesKeyException();
         else return key;
     }

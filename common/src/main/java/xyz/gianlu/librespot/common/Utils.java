@@ -82,11 +82,15 @@ public final class Utils {
         return buffer.toString();
     }
 
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     public static <A> A wait(@NotNull AtomicReference<A> ref) throws IOException {
+        return wait(ref, 0);
+    }
+
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    public static <A> A wait(@NotNull AtomicReference<A> ref, int timeout) throws IOException {
         synchronized (ref) {
             try {
-                ref.wait();
+                ref.wait(timeout);
                 return ref.get();
             } catch (InterruptedException ex) {
                 throw new IOException(ex);

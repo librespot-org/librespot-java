@@ -26,8 +26,17 @@ import java.util.*;
 /**
  * @author Gianlu
  */
-public class DeviceStateHandler implements DealerClient.MessageListener {
+public final class DeviceStateHandler implements DealerClient.MessageListener {
     private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
+
+    static {
+        try {
+            ProtoUtils.overrideDefaultValue(Connect.PutStateRequest.getDescriptor().findFieldByName("has_been_playing_for_ms"), -1);
+        } catch (IllegalAccessException | NoSuchFieldException ex) {
+            LOGGER.warn("Failed changing default value!", ex);
+        }
+    }
+
     private final Session session;
     private final Connect.DeviceInfo.Builder deviceInfo;
     private final List<Listener> listeners = new ArrayList<>();
@@ -159,10 +168,6 @@ public class DeviceStateHandler implements DealerClient.MessageListener {
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed updating state!", ex);
         }
-    }
-
-    public synchronized void setHasBeenPlayingFor(long ms) {
-        putState.setHasBeenPlayingForMs(ms);
     }
 
     private synchronized long startedPlayingAt() {

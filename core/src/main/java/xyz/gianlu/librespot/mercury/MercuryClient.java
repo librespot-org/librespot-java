@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public class MercuryClient extends PacketsManager {
+public final class MercuryClient extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
@@ -71,7 +71,7 @@ public class MercuryClient extends PacketsManager {
             }
         });
 
-        return Utils.wait(reference);
+        return Utils.wait(reference, 3000);
     }
 
     @NotNull
