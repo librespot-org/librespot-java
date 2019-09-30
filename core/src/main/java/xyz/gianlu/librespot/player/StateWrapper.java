@@ -782,17 +782,23 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             ProvidedTrack current = getCurrentTrack();
             if (current.containsMetadata("duration"))
                 state.setDuration(Long.parseLong(current.getMetadataOrThrow("duration")));
+            else
+                state.clearDuration();
         }
 
         private void updateLikeDislike() {
             if (Objects.equals(state.getContextMetadataOrDefault("like-feedback-enabled", "0"), "1")) {
                 state.putContextMetadata("like-feedback-selected",
                         state.getTrack().getMetadataOrDefault("like-feedback-selected", "0"));
+            } else {
+                state.removeContextMetadata("like-feedback-selected");
             }
 
             if (Objects.equals(state.getContextMetadataOrDefault("dislike-feedback-enabled", "0"), "1")) {
                 state.putContextMetadata("dislike-feedback-selected",
                         state.getTrack().getMetadataOrDefault("dislike-feedback-selected", "0"));
+            } else {
+                state.removeContextMetadata("dislike-feedback-selected");
             }
         }
 

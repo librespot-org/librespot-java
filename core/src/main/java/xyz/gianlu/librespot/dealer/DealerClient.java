@@ -71,6 +71,8 @@ public class DealerClient implements Closeable {
 
         JsonObject command = payload.getAsJsonObject("command");
 
+        LOGGER.trace(String.format("Received request. {mid: %s, pid: %d, sender: %s}", mid, pid, sender));
+
         boolean interesting = false;
         synchronized (listeners) {
             for (MessageListener listener : listeners.keySet()) {
