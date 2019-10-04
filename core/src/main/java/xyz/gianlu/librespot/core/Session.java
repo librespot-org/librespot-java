@@ -830,9 +830,13 @@ public final class Session implements Closeable {
                     case LicenseVersion:
                         ByteBuffer licenseVersion = ByteBuffer.wrap(packet.payload);
                         short id = licenseVersion.getShort();
-                        byte[] buffer = new byte[licenseVersion.get()];
-                        licenseVersion.get(buffer);
-                        LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                        if (id != 0) {
+                            byte[] buffer = new byte[licenseVersion.get()];
+                            licenseVersion.get(buffer);
+                            LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                        } else {
+                            LOGGER.info(String.format("Received LicenseVersion: %d", id));
+                        }
                         break;
                     case Unknown_0x10:
                         LOGGER.debug("Received 0x10: " + Utils.bytesToHex(packet.payload));
