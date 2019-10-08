@@ -23,6 +23,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
@@ -83,10 +84,12 @@ public class ZeroconfServer implements Closeable {
     private final DiffieHellman keys;
     private final JmDNS[] instances;
     private volatile Session session;
+    private final List<SessionListener> sessionListeners;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
+        this.sessionListeners = new ArrayList<>();
 
         int port = conf.zeroconfListenPort();
         if (port == -1)
@@ -319,10 +322,20 @@ public class ZeroconfServer implements Closeable {
 
             session.connect();
             session.authenticate(credentials);
+
+            sessionListeners.forEach(l -> l.sessionChanged(session));
         } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }
+    }
+
+    public void addSessionListener(@NotNull SessionListener listener) {
+        sessionListeners.add(listener);
+    }
+
+    public void removeSessionListener(@NotNull SessionListener listener) {
+        sessionListeners.remove(listener);
     }
 
     public interface Configuration {
@@ -332,6 +345,10 @@ public class ZeroconfServer implements Closeable {
 
         @Nullable
         String[] zeroconfInterfaces();
+    }
+
+    public interface SessionListener {
+        void sessionChanged(@NotNull Session session);
     }
 
     private class HttpRunner implements Runnable, Closeable {
@@ -409,7 +426,8 @@ public class ZeroconfServer implements Closeable {
                 Map<String, String> params = new HashMap<>(pairs.length);
                 for (String pair : pairs) {
                     String[] split = Utils.split(pair, '=');
-                    params.put(URLDecoder.decode(split[0], "UTF-8"), URLDecoder.decode(split[1], "UTF-8"));
+                    params.put(URLDecoder.decode(split[0], StandardCharsets.UTF_8.name()),
+                            URLDecoder.decode(split[1], StandardCharsets.UTF_8.name()));
                 }
 
                 String action = params.get("action");

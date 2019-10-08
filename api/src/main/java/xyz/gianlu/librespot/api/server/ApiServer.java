@@ -64,6 +64,10 @@ public class ApiServer implements Receiver {
         handlers.put(handler.prefix, handler);
     }
 
+    public void clearHandlers() {
+        handlers.clear();
+    }
+
     private void handleRequest(@NotNull Request request) throws PredefinedJsonRpcException {
         int index = request.method.indexOf('.');
         if (index == -1)
