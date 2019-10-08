@@ -44,13 +44,6 @@ public class ApiClient {
         };
     }
 
-    public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
-        try (Response resp = send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
-                .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto))) {
-            if (resp.code() != 200) LOGGER.warn(String.format("PUT %s returned %d", resp.request().url(), resp.code()));
-        }
-    }
-
     @NotNull
     private Request buildRequest(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
         Request.Builder request = new Request.Builder();
@@ -65,9 +58,42 @@ public class ApiClient {
         session.client().newCall(buildRequest(method, suffix, headers, body)).enqueue(callback);
     }
 
+    /**
+     * Sends a request to the Spotify API.
+     *
+     * @param method  The request method
+     * @param suffix  The suffix to be appended to {@link #baseUrl} also know as path
+     * @param headers Additional headers
+     * @param body    The request body
+     * @param tries   How many times the request should be reattempted (0 = none)
+     * @return The response
+     * @throws IOException                    The last {@link IOException} thrown by {@link Call#execute()}
+     * @throws MercuryClient.MercuryException If the API token couldn't be requested
+     */
+    @NotNull
+    public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body, int tries) throws IOException, MercuryClient.MercuryException {
+        IOException lastEx;
+        do {
+            try {
+                return session.client().newCall(buildRequest(method, suffix, headers, body)).execute();
+            } catch (IOException ex) {
+                lastEx = ex;
+            }
+        } while (tries-- > 0);
+
+        throw lastEx;
+    }
+
     @NotNull
     public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
-        return session.client().newCall(buildRequest(method, suffix, headers, body)).execute();
+        return send(method, suffix, headers, body, 0);
+    }
+
+    public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
+                .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto), 5 /* We want this to succeed */)) {
+            if (resp.code() != 200) LOGGER.warn(String.format("PUT %s returned %d", resp.request().url(), resp.code()));
+        }
     }
 
     @NotNull
