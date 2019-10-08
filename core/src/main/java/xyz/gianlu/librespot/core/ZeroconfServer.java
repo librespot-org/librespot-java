@@ -252,6 +252,16 @@ public class ZeroconfServer implements Closeable {
             return;
         }
 
+        if (hasValidSession()) {
+            if (session.username().equals(username)) {
+                LOGGER.debug(String.format("Dropped connection attempt because user is already connected. {username: %s}", session.username()));
+                return;
+            }
+
+            session.close();
+            LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
+        }
+
         byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
         byte[] blobBytes = Base64.getDecoder().decode(blobStr);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
@@ -303,10 +313,6 @@ public class ZeroconfServer implements Closeable {
 
         try {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
-            if (hasValidSession()) {
-                session.close();
-                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
-            }
 
             session = Session.from(inner);
             LOGGER.info(String.format("Accepted new user from %s. {deviceId: %s}", params.get("deviceName"), session.deviceId()));
