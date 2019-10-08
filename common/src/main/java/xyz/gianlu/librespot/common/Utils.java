@@ -11,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.sound.sampled.Mixer;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,15 +18,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.GZIPInputStream;
 
 /**
  * @author Gianlu
@@ -50,20 +46,6 @@ public final class Utils {
     }
 
     @NotNull
-    public static String decodeGZip(@NotNull ByteString bytes) throws IOException {
-        if (bytes.isEmpty()) return "";
-
-        try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(bytes.toByteArray()));
-             ByteArrayOutputStream dataOut = new ByteArrayOutputStream(bytes.size() /* At least */)) {
-            byte[] buffer = new byte[4096];
-            int count;
-            while ((count = gzis.read(buffer)) != -1)
-                dataOut.write(buffer, 0, count);
-            return new String(dataOut.toByteArray(), StandardCharsets.UTF_8);
-        }
-    }
-
-    @NotNull
     public static String readLine(@NotNull InputStream in) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         boolean lastWasR = false;
@@ -80,22 +62,6 @@ public final class Utils {
         }
 
         return buffer.toString();
-    }
-
-    public static <A> A wait(@NotNull AtomicReference<A> ref) throws IOException {
-        return wait(ref, 0);
-    }
-
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    public static <A> A wait(@NotNull AtomicReference<A> ref, int timeout) throws IOException {
-        synchronized (ref) {
-            try {
-                ref.wait(timeout);
-                return ref.get();
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
     }
 
     public static void removeCryptographyRestrictions() {
@@ -318,10 +284,5 @@ public final class Utils {
         }
 
         return builder.toString();
-    }
-
-    @NotNull
-    public static String removeLineBreaks(@NotNull String str) {
-        return str.replace("\n", "").replace("\r", "");
     }
 }
