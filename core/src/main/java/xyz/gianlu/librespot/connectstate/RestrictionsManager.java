@@ -14,9 +14,17 @@ public final class RestrictionsManager {
         restrictions = Player.Restrictions.newBuilder();
 
         if (!context.isFinite()) {
-            disallow(Action.SHUFFLE, "infinite-context");
-            disallow(Action.REPEAT_CONTEXT, "infinite-context");
+            disallow(Action.SHUFFLE, Reasons.ENDLESS_CONTEXT);
+            disallow(Action.REPEAT_CONTEXT, Reasons.ENDLESS_CONTEXT);
         }
+    }
+
+    public static final class Reasons {
+        public static final String ENDLESS_CONTEXT = "endless_context";
+        public static final String NOT_PAUSED = "not_paused";
+        public static final String ALREADY_PAUSED = "already_paused";
+        public static final String NO_PREV_TRACK = "no_prev_track";
+        public static final String NO_NEXT_TRACK = "no_next_track";
     }
 
     @NotNull
