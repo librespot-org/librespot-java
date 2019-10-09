@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonObject;
+import okhttp3.HttpUrl;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,7 +24,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
@@ -64,17 +64,17 @@ public class ZeroconfServer implements Closeable {
 
     static {
         DEFAULT_GET_INFO_FIELDS.addProperty("status", 101);
-        DEFAULT_GET_INFO_FIELDS.addProperty("statusString", "ERROR-OK");
+        DEFAULT_GET_INFO_FIELDS.addProperty("statusString", "OK");
         DEFAULT_GET_INFO_FIELDS.addProperty("spotifyError", 0);
-        DEFAULT_GET_INFO_FIELDS.addProperty("version", "2.1.0");
-        DEFAULT_GET_INFO_FIELDS.addProperty("libraryVersion", "0.1.0");
+        DEFAULT_GET_INFO_FIELDS.addProperty("version", "2.7.1");
+        DEFAULT_GET_INFO_FIELDS.addProperty("libraryVersion", Version.versionNumber());
         DEFAULT_GET_INFO_FIELDS.addProperty("accountReq", "PREMIUM");
-        DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-java");
-        DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", Version.versionString());
+        DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-org");
+        DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", "librespot-java");
 
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("status", 101);
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("spotifyError", 0);
-        DEFAULT_SUCCESSFUL_ADD_USER.addProperty("statusString", "ERROR-OK");
+        DEFAULT_SUCCESSFUL_ADD_USER.addProperty("statusString", "OK");
 
         Utils.removeCryptographyRestrictions();
     }
@@ -83,8 +83,8 @@ public class ZeroconfServer implements Closeable {
     private final Session.Inner inner;
     private final DiffieHellman keys;
     private final JmDNS[] instances;
-    private volatile Session session;
     private final List<SessionListener> sessionListeners;
+    private volatile Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -196,6 +196,14 @@ public class ZeroconfServer implements Closeable {
         Enumeration<NetworkInterface> is = NetworkInterface.getNetworkInterfaces();
         while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement(), true);
         return list.toArray(new InetAddress[0]);
+    }
+
+    @NotNull
+    private static Map<String, String> parsePath(@NotNull String path) {
+        HttpUrl url = HttpUrl.get("http://host" + path);
+        Map<String, String> map = new HashMap<>();
+        for (String name : url.queryParameterNames()) map.put(name, url.queryParameter(name));
+        return map;
     }
 
     @Override
@@ -380,6 +388,27 @@ public class ZeroconfServer implements Closeable {
             }
         }
 
+        private void handleRequest(@NotNull OutputStream out, @NotNull String httpVersion, @NotNull String method, @NotNull String path,
+                                   @NotNull Map<String, String> headers, @NotNull String action, @Nullable Map<String, String> params) {
+            if (action.equals("addUser")) {
+                if (params == null) throw new IllegalArgumentException();
+
+                try {
+                    handleAddUser(out, params, httpVersion);
+                } catch (GeneralSecurityException | IOException ex) {
+                    LOGGER.fatal("Failed handling addUser!", ex);
+                }
+            } else if (action.equals("getInfo")) {
+                try {
+                    handleGetInfo(out, httpVersion);
+                } catch (IOException ex) {
+                    LOGGER.fatal("Failed handling getInfo!", ex);
+                }
+            } else {
+                LOGGER.warn("Unknown action: " + action);
+            }
+        }
+
         private void handle(@NotNull Socket socket) throws IOException {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             OutputStream out = socket.getOutputStream();
@@ -404,7 +433,8 @@ public class ZeroconfServer implements Closeable {
             if (!hasValidSession())
                 LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
 
-            if (method.equals("POST") && path.equals("/")) {
+            Map<String, String> params;
+            if (method.equals("POST")) {
                 String contentType = headers.get("Content-Type");
                 if (!Objects.equals(contentType, "application/x-www-form-urlencoded")) {
                     LOGGER.fatal("Bad Content-Type: " + contentType);
@@ -423,37 +453,23 @@ public class ZeroconfServer implements Closeable {
                 String bodyStr = new String(body);
 
                 String[] pairs = Utils.split(bodyStr, '&');
-                Map<String, String> params = new HashMap<>(pairs.length);
+                params = new HashMap<>(pairs.length);
                 for (String pair : pairs) {
                     String[] split = Utils.split(pair, '=');
-                    params.put(URLDecoder.decode(split[0], StandardCharsets.UTF_8.name()),
-                            URLDecoder.decode(split[1], StandardCharsets.UTF_8.name()));
-                }
-
-                String action = params.get("action");
-                if (Objects.equals(action, "addUser")) {
-                    try {
-                        handleAddUser(out, params, httpVersion);
-                    } catch (GeneralSecurityException | IOException ex) {
-                        LOGGER.fatal("Failed handling addUser!", ex);
-                    }
-                } else {
-                    LOGGER.warn("Unknown action: " + action);
-                }
-            } else if (path.startsWith("/?action=")) {
-                String action = path.substring(9);
-                if (action.equals("getInfo")) {
-                    try {
-                        handleGetInfo(out, httpVersion);
-                    } catch (IOException ex) {
-                        LOGGER.fatal("Failed handling getInfo!", ex);
-                    }
-                } else {
-                    LOGGER.warn("Unknown action: " + action);
+                    params.put(URLDecoder.decode(split[0], "UTF-8"),
+                            URLDecoder.decode(split[1], "UTF-8"));
                 }
             } else {
-                LOGGER.warn(String.format("Couldn't handle request: %s %s %s", method, path, httpVersion));
+                params = parsePath(path);
             }
+
+            String action = params.get("action");
+            if (action == null) {
+                LOGGER.debug("Request is missing action.");
+                return;
+            }
+
+            handleRequest(out, httpVersion, method, path, headers, action, params);
         }
 
         @Override

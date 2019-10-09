@@ -30,6 +30,11 @@ public class Version {
     }
 
     @NotNull
+    public static String versionNumber() {
+        return VERSION;
+    }
+
+    @NotNull
     public static String versionString() {
         return "librespot-java " + VERSION;
     }
