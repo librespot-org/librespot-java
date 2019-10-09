@@ -388,9 +388,8 @@ public class ZeroconfServer implements Closeable {
             }
         }
 
-        private void handleRequest(@NotNull OutputStream out, @NotNull String httpVersion, @NotNull String method, @NotNull String path,
-                                   @NotNull Map<String, String> headers, @NotNull String action, @Nullable Map<String, String> params) {
-            if (action.equals("addUser")) {
+        private void handleRequest(@NotNull OutputStream out, @NotNull String httpVersion, @NotNull String action, @Nullable Map<String, String> params) {
+            if (Objects.equals(action, "addUser")) {
                 if (params == null) throw new IllegalArgumentException();
 
                 try {
@@ -398,7 +397,7 @@ public class ZeroconfServer implements Closeable {
                 } catch (GeneralSecurityException | IOException ex) {
                     LOGGER.fatal("Failed handling addUser!", ex);
                 }
-            } else if (action.equals("getInfo")) {
+            } else if (Objects.equals(action, "getInfo")) {
                 try {
                     handleGetInfo(out, httpVersion);
                 } catch (IOException ex) {
@@ -434,7 +433,7 @@ public class ZeroconfServer implements Closeable {
                 LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
 
             Map<String, String> params;
-            if (method.equals("POST")) {
+            if (Objects.equals(method, "POST")) {
                 String contentType = headers.get("Content-Type");
                 if (!Objects.equals(contentType, "application/x-www-form-urlencoded")) {
                     LOGGER.fatal("Bad Content-Type: " + contentType);
@@ -469,7 +468,7 @@ public class ZeroconfServer implements Closeable {
                 return;
             }
 
-            handleRequest(out, httpVersion, method, path, headers, action, params);
+            handleRequest(out, httpVersion, action, params);
         }
 
         @Override

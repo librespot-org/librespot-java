@@ -26,8 +26,8 @@ import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
+import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.connectstate.RestrictionsManager.Action;
-import xyz.gianlu.librespot.connectstate.RestrictionsManager.Reasons;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
@@ -230,18 +230,18 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private void updateRestrictions() {
         if (context == null) return;
 
-        if (isPaused()) context.restrictions.disallow(Action.PAUSE, Reasons.ALREADY_PAUSED);
+        if (isPaused()) context.restrictions.disallow(Action.PAUSE, RestrictionsManager.REASON_ALREADY_PAUSED);
         else context.restrictions.allow(Action.PAUSE);
-        if (isPlaying()) context.restrictions.disallow(Action.RESUME, Reasons.NOT_PAUSED);
+        if (isPlaying()) context.restrictions.disallow(Action.RESUME, RestrictionsManager.REASON_NOT_PAUSED);
         else context.restrictions.allow(Action.RESUME);
 
         if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
-            context.restrictions.disallow(Action.SKIP_PREV, Reasons.NO_PREV_TRACK);
+            context.restrictions.disallow(Action.SKIP_PREV, RestrictionsManager.REASON_NO_PREV_TRACK);
         else
             context.restrictions.allow(Action.SKIP_PREV);
 
         if (tracksKeeper.isPlayingLast() && !isRepeatingContext())
-            context.restrictions.disallow(Action.SKIP_NEXT, Reasons.NO_NEXT_TRACK);
+            context.restrictions.disallow(Action.SKIP_NEXT, RestrictionsManager.REASON_NO_NEXT_TRACK);
         else
             context.restrictions.allow(Action.SKIP_NEXT);
 

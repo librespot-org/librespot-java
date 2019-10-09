@@ -39,7 +39,7 @@ public interface PlayableId {
     }
 
     static boolean isSupported(@NotNull String uri) {
-        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
+        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter") && !uri.equals("spotify:meta:delimiter");
     }
 
     static boolean shouldPlay(@NotNull ContextTrack track) {
