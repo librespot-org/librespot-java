@@ -132,11 +132,7 @@ public final class Session implements Closeable {
         inner.random.nextBytes(nonce);
 
         Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
-                .setBuildInfo(Keyexchange.BuildInfo.newBuilder()
-                        .setProduct(Keyexchange.Product.PRODUCT_LIBSPOTIFY)
-                        .setPlatform(Version.platform())
-                        .setVersion(Version.SPOTIFY_CLIENT_VERSION)
-                        .build())
+                .setBuildInfo(Version.mobileBuildInfo())
                 .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
                 .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
                         .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello.newBuilder()

@@ -2,12 +2,12 @@ package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.proto.Keyexchange;
+import xyz.gianlu.librespot.common.proto.Keyexchange.BuildInfo;
 
 /**
  * @author Gianlu
  */
 public class Version {
-    public static final int SPOTIFY_CLIENT_VERSION = 111500448;
     private static final String VERSION;
     private static final String OS = System.getProperty("os.name").toLowerCase();
 
@@ -42,5 +42,30 @@ public class Version {
     @NotNull
     public static String systemInfoString() {
         return versionString() + "; Java " + System.getProperty("java.version") + "; " + System.getProperty("os.name");
+    }
+
+    /**
+     * @return A {@link BuildInfo} object identifying a standard client.
+     */
+    @NotNull
+    public static BuildInfo standardBuildInfo() {
+        return BuildInfo.newBuilder()
+                .setProduct(Keyexchange.Product.PRODUCT_LIBSPOTIFY)
+                .setPlatform(Version.platform())
+                .setVersion(111700543)
+                .build();
+    }
+
+    /**
+     * @return A {@link BuildInfo} object identifying a mobile client.
+     * See https://github.com/librespot-org/librespot-java/issues/140
+     */
+    @NotNull
+    public static BuildInfo mobileBuildInfo() {
+        return BuildInfo.newBuilder()
+                .setProduct(Keyexchange.Product.PRODUCT_MOBILE)
+                .setPlatform(Keyexchange.Platform.PLATFORM_ANDROID_ARM)
+                .setVersion(852700957)
+                .build();
     }
 }
