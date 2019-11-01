@@ -57,8 +57,7 @@ public class Version {
     }
 
     /**
-     * @return A {@link BuildInfo} object identifying a mobile client.
-     * See https://github.com/librespot-org/librespot-java/issues/140
+     * @return A {@link BuildInfo} object identifying a mobile (Android) client.
      */
     @NotNull
     public static BuildInfo mobileBuildInfo() {

@@ -32,7 +32,8 @@ public class DealerClient implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
     private final Looper looper = new Looper();
     private final Session session;
-    private final Map<MessageListener, List<String>> listeners = new HashMap<>();
+    private final Map<String, RequestListener> reqListeners = new HashMap<>();
+    private final Map<MessageListener, List<String>> msgListeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
     private ConnectionHolder conn;
     private ScheduledFuture lastScheduledReconnection;
@@ -52,11 +53,11 @@ public class DealerClient implements Closeable {
     }
 
     private void waitForListeners() {
-        synchronized (listeners) {
-            if (!listeners.isEmpty()) return;
+        synchronized (msgListeners) {
+            if (!msgListeners.isEmpty()) return;
 
             try {
-                listeners.wait();
+                msgListeners.wait();
             } catch (InterruptedException ignored) {
             }
         }
@@ -64,6 +65,7 @@ public class DealerClient implements Closeable {
 
     private void handleRequest(@NotNull JsonObject obj) {
         String mid = obj.get("message_ident").getAsString();
+        String key = obj.get("key").getAsString();
 
         JsonObject payload = obj.getAsJsonObject("payload");
         int pid = payload.get("message_id").getAsInt();
@@ -71,24 +73,24 @@ public class DealerClient implements Closeable {
 
         JsonObject command = payload.getAsJsonObject("command");
 
-        LOGGER.trace(String.format("Received request. {mid: %s, pid: %d, sender: %s}", mid, pid, sender));
+        LOGGER.trace(String.format("Received request. {mid: %s, key: %s, pid: %d, sender: %s}", mid, key, pid, sender));
 
         boolean interesting = false;
-        synchronized (listeners) {
-            for (MessageListener listener : listeners.keySet()) {
-                boolean dispatched = false;
-                List<String> keys = listeners.get(listener);
-                for (String key : keys) {
-                    if (mid.startsWith(key) && !dispatched) {
-                        interesting = true;
-                        looper.submit(() -> listener.onRequest(mid, pid, sender, command));
-                        dispatched = true;
-                    }
+        synchronized (reqListeners) {
+            for (String midPrefix : reqListeners.keySet()) {
+                if (mid.startsWith(midPrefix)) {
+                    RequestListener listener = reqListeners.get(midPrefix);
+                    interesting = true;
+                    looper.submit(() -> {
+                        RequestResult result = listener.onRequest(mid, pid, sender, command);
+                        conn.sendReply(key, result);
+                        LOGGER.debug(String.format("Handled request. {key: %s, result: %s}", key, result));
+                    });
                 }
             }
         }
 
-        if (!interesting) LOGGER.debug("Couldn't dispatch command: " + mid);
+        if (!interesting) LOGGER.debug("Couldn't dispatch request: " + mid);
     }
 
     private void handleMessage(@NotNull JsonObject obj) {
@@ -111,10 +113,10 @@ public class DealerClient implements Closeable {
         }
 
         boolean interesting = false;
-        synchronized (listeners) {
-            for (MessageListener listener : listeners.keySet()) {
+        synchronized (msgListeners) {
+            for (MessageListener listener : msgListeners.keySet()) {
                 boolean dispatched = false;
-                List<String> keys = listeners.get(listener);
+                List<String> keys = msgListeners.get(listener);
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
                         interesting = true;
@@ -134,16 +136,32 @@ public class DealerClient implements Closeable {
         if (!interesting) LOGGER.debug("Couldn't dispatch message: " + uri);
     }
 
-    public void addListener(@NotNull MessageListener listener, @NotNull String... uris) {
-        synchronized (listeners) {
-            listeners.put(listener, Arrays.asList(uris));
-            listeners.notifyAll();
+    public void addMessageListener(@NotNull MessageListener listener, @NotNull String... uris) {
+        synchronized (msgListeners) {
+            msgListeners.put(listener, Arrays.asList(uris));
+            msgListeners.notifyAll();
         }
     }
 
-    public void removeListener(@NotNull MessageListener listener) {
-        synchronized (listeners) {
-            listeners.remove(listener);
+    public void removeMessageListener(@NotNull MessageListener listener) {
+        synchronized (msgListeners) {
+            msgListeners.remove(listener);
+        }
+    }
+
+    public void addRequestListener(@NotNull RequestListener listener, @NotNull String uri) {
+        synchronized (reqListeners) {
+            if (reqListeners.containsKey(uri))
+                throw new IllegalArgumentException(String.format("A listener for '%s' has already been added.", uri));
+
+            reqListeners.put(uri, listener);
+            reqListeners.notifyAll();
+        }
+    }
+
+    public void removeRequestListener(@NotNull RequestListener listener) {
+        synchronized (reqListeners) {
+            reqListeners.values().remove(listener);
         }
     }
 
@@ -161,7 +179,7 @@ public class DealerClient implements Closeable {
         }
 
         scheduler.shutdown();
-        listeners.clear();
+        msgListeners.clear();
     }
 
     /**
@@ -186,10 +204,20 @@ public class DealerClient implements Closeable {
         }, 10, TimeUnit.SECONDS);
     }
 
+    public enum RequestResult {
+        UNKNOWN_SEND_COMMAND_RESULT, SUCCESS,
+        DEVICE_NOT_FOUND, CONTEXT_PLAYER_ERROR,
+        DEVICE_DISAPPEARED, UPSTREAM_ERROR,
+        DEVICE_DOES_NOT_SUPPORT_COMMAND, RATE_LIMITED
+    }
+
+    public interface RequestListener {
+        @NotNull
+        RequestResult onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
+    }
+
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException;
-
-        void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
     }
 
     private static class Looper implements Runnable, Closeable {
@@ -229,6 +257,11 @@ public class DealerClient implements Closeable {
 
         private void sendPing() {
             ws.send("{\"type\":\"ping\"}");
+        }
+
+        void sendReply(@NotNull String key, @NotNull RequestResult result) {
+            boolean success = result == RequestResult.SUCCESS;
+            ws.send(String.format("{\"type\":\"reply\", \"key\": \"%s\", \"payload\": {\"success\": %b}}", key, success));
         }
 
         @Override

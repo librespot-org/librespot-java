@@ -75,7 +75,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
-        session.dealer().addListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
+        session.dealer().addMessageListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
     }
 
     @NotNull
@@ -661,11 +661,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private synchronized void performCollectionUpdate(@NotNull List<String> uris, boolean inCollection) {
         for (String uri : uris)
             tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));
-    }
-
-    @Override
-    public void onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command) {
-        // Not interested
     }
 
     public enum PreviousPlayable {
