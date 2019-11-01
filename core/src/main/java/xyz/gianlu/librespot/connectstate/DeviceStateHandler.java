@@ -53,7 +53,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                         .setDeviceInfo(deviceInfo)
                         .build());
 
-        session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/cluster");
+        session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
     }
 
@@ -110,11 +110,6 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
             listener.volumeChanged();
     }
 
-    private void requestStateUpdate() {
-        for (Listener listener : new ArrayList<>(listeners))
-            listener.requestStateUpdate();
-    }
-
     private void notifyNotActive() {
         for (Listener listener : new ArrayList<>(listeners))
             listener.notActive();
@@ -149,8 +144,6 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
-            else
-                requestStateUpdate();
         } else {
             LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
         }
@@ -243,8 +236,6 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         void volumeChanged();
 
         void notActive();
-
-        void requestStateUpdate();
     }
 
     public static final class PlayCommandHelper {

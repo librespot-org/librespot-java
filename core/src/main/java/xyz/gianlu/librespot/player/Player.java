@@ -194,11 +194,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         runner.stopMixer();
     }
 
-    @Override
-    public void requestStateUpdate() {
-        // Not interested
-    }
-
     private void handlePlayPause() {
         if (state.isPlaying()) handlePause();
         else handleResume();
