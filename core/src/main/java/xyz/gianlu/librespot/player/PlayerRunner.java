@@ -214,6 +214,8 @@ public class PlayerRunner implements Runnable, Closeable {
         Map<String, String> metadataFor(@NotNull PlayableId id);
 
         void finishedSeek(@NotNull TrackHandler handler);
+
+        void abortedCrossfade(@NotNull TrackHandler handler);
     }
 
     private static class Output implements Closeable {
@@ -365,8 +367,21 @@ public class PlayerRunner implements Runnable, Closeable {
                             if (!handler.isReady())
                                 handler.waitReady();
 
-                            if (handler.codec != null)
+                            boolean shouldAbortCrossfade = false;
+                            if (handler == firstHandler && secondHandler != null) {
+                                secondHandler.close();
+                                secondHandler = null;
+                                shouldAbortCrossfade = true;
+                            } else if (handler == secondHandler && firstHandler != null) {
+                                firstHandler.close();
+                                firstHandler = null;
+                                shouldAbortCrossfade = true;
+                            }
+
+                            if (handler.codec != null) {
+                                if (shouldAbortCrossfade) handler.abortCrossfade();
                                 handler.codec.seek((Integer) cmd.args[0]);
+                            }
 
                             listener.finishedSeek(handler);
                             break;
@@ -415,6 +430,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private MixingLine.MixingOutput out;
         private PushToMixerReason pushReason = PushToMixerReason.None;
         private volatile boolean calledCrossfade = false;
+        private boolean abortCrossfade = false;
 
         TrackHandler(int id, @NotNull PlayableId playable) {
             this.id = id;
@@ -605,6 +621,12 @@ public class PlayerRunner implements Runnable, Closeable {
                 return false;
             }
 
+            if (abortCrossfade && calledCrossfade) {
+                abortCrossfade = false;
+                listener.abortedCrossfade(this);
+                return false;
+            }
+
             if (!calledCrossfade && crossfade.shouldStartNextTrack(pos)) {
                 listener.crossfadeNextTrack(this, crossfade.fadeOutUri());
                 calledCrossfade = true;
@@ -615,6 +637,10 @@ public class PlayerRunner implements Runnable, Closeable {
             }
 
             return false;
+        }
+
+        void abortCrossfade() {
+            abortCrossfade = true;
         }
 
         @Override

@@ -299,6 +299,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     @Override
+    public void abortedCrossfade(@NotNull TrackHandler handler) {
+        if (handler == trackHandler) {
+            if (crossfadeHandler == preloadTrackHandler) preloadTrackHandler = null;
+            crossfadeHandler = null;
+
+            LOGGER.trace("Aborted crossfade.");
+        }
+    }
+
+    @Override
     public @NotNull Map<String, String> metadataFor(@NotNull PlayableId id) {
         return state.metadataFor(id);
     }
