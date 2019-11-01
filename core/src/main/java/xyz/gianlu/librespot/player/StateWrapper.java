@@ -139,7 +139,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.getOptionsBuilder().setRepeatingContext(value && context.restrictions.can(Action.REPEAT_CONTEXT));
     }
 
-    boolean isRepeatingTrack() {
+    private boolean isRepeatingTrack() {
         return state.getOptions().getRepeatingTrack();
     }
 
@@ -668,10 +668,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     public enum NextPlayable {
         MISSING_TRACKS, AUTOPLAY,
-        OK_PLAY, OK_PAUSE;
+        OK_PLAY, OK_PAUSE, OK_REPEAT;
 
         public boolean isOk() {
-            return this == OK_PLAY || this == OK_PAUSE;
+            return this == OK_PLAY || this == OK_PAUSE || this == OK_REPEAT;
         }
     }
 
@@ -960,10 +960,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
          * Figures out what the next {@link PlayableId} should be. This is called directly by the preload function and therefore can return {@code null} as it doesn't account for repeating contexts.
          * This will NOT return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
          *
-         * @return The next {@link PlayableId} or {@code null}
+         * @return The next {@link PlayableId} or {@code null} if there are no more tracks or if repeating the current track
          */
         @Nullable
         synchronized PlayableIdWithIndex nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
+            if (isRepeatingTrack())
+                return null;
+
             if (!queue.isEmpty())
                 return new PlayableIdWithIndex(PlayableId.from(queue.peek()), -1);
 
@@ -1001,6 +1004,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         @NotNull
         synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+            if (isRepeatingTrack()) {
+                setRepeatingTrack(false);
+                return NextPlayable.OK_REPEAT;
+            }
+
             if (!queue.isEmpty()) {
                 isPlayingQueue = true;
                 updateState();

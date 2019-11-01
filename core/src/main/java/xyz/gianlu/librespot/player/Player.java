@@ -16,6 +16,7 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.PlayerRunner.PushToMixerReason;
 import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
+import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
@@ -255,19 +256,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
-            if (state.isRepeatingTrack()) {
-                state.setPosition(0);
+            LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
+            handleNext(null);
 
-                LOGGER.trace(String.format("End of track. Repeating. {fadeOut: %b}", fadeOut));
-                loadTrack(true, PushToMixerReason.None);
-            } else {
-                LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
-                handleNext(null);
-
-                PlayableId curr;
-                if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
-                    LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
-            }
+            PlayableId curr;
+            if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
+                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
         }
     }
 
@@ -473,15 +467,15 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        StateWrapper.NextPlayable next = state.nextPlayable(conf);
-        if (next == StateWrapper.NextPlayable.AUTOPLAY) {
+        NextPlayable next = state.nextPlayable(conf);
+        if (next == NextPlayable.AUTOPLAY) {
             loadAutoplay();
             return;
         }
 
         if (next.isOk()) {
             state.setPosition(0);
-            loadTrack(next == StateWrapper.NextPlayable.OK_PLAY, PushToMixerReason.Next);
+            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
             panicState();
