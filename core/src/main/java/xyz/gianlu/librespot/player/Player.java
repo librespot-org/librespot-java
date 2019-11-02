@@ -53,8 +53,22 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.addListener(this);
     }
 
-    public void playPause() {
-        handlePlayPause();
+    public void volumeUp() {
+        if (state == null) return;
+        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + PlayerRunner.VOLUME_ONE_STEP));
+    }
+
+    public void volumeDown() {
+        if (state == null) return;
+        setVolume(Math.max(0, state.getVolume() - PlayerRunner.VOLUME_ONE_STEP));
+    }
+
+    public void setVolume(int val) {
+        if (val < 0 || val > PlayerRunner.VOLUME_MAX)
+            throw new IllegalArgumentException(String.valueOf(val));
+
+        if (state == null) return;
+        state.setVolume(val);
     }
 
     public void play() {
@@ -193,11 +207,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void notActive() {
         runner.stopMixer();
-    }
-
-    private void handlePlayPause() {
-        if (state.isPlaying()) handlePause();
-        else handleResume();
     }
 
     @Override

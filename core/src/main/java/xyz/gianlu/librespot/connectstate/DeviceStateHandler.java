@@ -206,6 +206,15 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         return deviceInfo.getVolume();
     }
 
+    public void setVolume(int val) {
+        synchronized (this) {
+            deviceInfo.setVolume(val);
+        }
+
+        notifyVolumeChange();
+        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+    }
+
     public enum Endpoint {
         Play("play"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
         SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),

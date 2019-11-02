@@ -658,6 +658,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));
     }
 
+    void setVolume(int val) {
+        device.setVolume(val);
+    }
+
     public enum PreviousPlayable {
         MISSING_TRACKS, OK;
 

@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PlayerRunner implements Runnable, Closeable {
     public static final int VOLUME_STEPS = 64;
     public static final int VOLUME_MAX = 65536;
+    public static final int VOLUME_ONE_STEP = VOLUME_MAX / VOLUME_STEPS;
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);
     private final Session session;
