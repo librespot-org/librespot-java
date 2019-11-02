@@ -2,7 +2,6 @@ package xyz.gianlu.librespot.api;
 
 import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
-import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.handlers.PlayerHandler;
@@ -22,8 +21,7 @@ public class ApiServer {
     }
 
     private static void prepareHandlers(@NotNull RoutingHandler root, @NotNull Session session) {
-        root.post("/player/{cmd}", new PlayerHandler(session))
-                .get("/events", new WebSocketProtocolHandshakeHandler(new EventsDispatcher(session)));
+        root.post("/player/{cmd}", new PlayerHandler(session));
     }
 
     public void start(@NotNull Session session) {
