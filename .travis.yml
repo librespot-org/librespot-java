@@ -1,22 +1,14 @@
 language: java
 
 before_install:
-  - |
-    if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-      echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
-      echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
-    fi
+  - chmod +x .travis/*.sh
+  - .travis/load_gpg.sh
 
 install:
   - mvn clean install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
 
 script:
-  - |
-    if [[ -z "${TRAVIS_TAG}" ]]; then
-      mvn deploy -Dmaven.deploy.skip=true -B -U -Pdebug
-    else
-      mvn deploy --settings .maven.xml -B -U -Prelease
-    fi
+  - .travis/script.sh
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['

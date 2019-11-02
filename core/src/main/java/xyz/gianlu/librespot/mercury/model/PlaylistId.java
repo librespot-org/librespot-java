@@ -28,7 +28,6 @@ public final class PlaylistId implements SpotifyId {
         }
     }
 
-    @Override
     public @NotNull String toMercuryUri() {
         return String.format("hm://playlist/user/%s/playlist/%s", username, playlistId);
     }

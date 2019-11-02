@@ -75,7 +75,7 @@ public class AudioFileFetch implements AudioFile {
             if (streamError != null)
                 throw AbsChunckedInputStream.ChunkException.from(streamError);
         } catch (InterruptedException ex) {
-            throw new RuntimeException(ex);
+            throw new IllegalStateException(ex);
         }
     }
 

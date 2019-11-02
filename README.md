@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.com/librespot-org/librespot-java)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1ec8ca04e5054558a089bc7f640079a6)](https://www.codacy.com/manual/devgianlu/librespot-java?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=librespot-org/librespot-java&amp;utm_campaign=Badge_Grade)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1ec8ca04e5054558a089bc7f640079a6)](https://www.codacy.com/app/devgianlu/librespot-java?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=librespot-org/librespot-java&amp;utm_campaign=Badge_Grade)
 
 `librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust, which as evolved into the most up-to-date open-source Spotify client. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
 
@@ -18,6 +19,7 @@ Its main features are:
 - Local content caching
 - Zeroconf (Spotify Connect)
 - Gapless playback
+- Mixed playlists (cuepoints and transitions)
 
 ## Get started
 All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
@@ -58,5 +60,5 @@ To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-
 # Special thanks
 
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
-- All the contributors of this project for testing and fixing stuff
+- All the contributors of this project for testing and fixing stuff, especially [@loeffelpan](https://github.com/loeffelpan), [@crsmoro](https://github.com/crsmoro) and [@Schluggi](https://github.com/Schluggi) for the feedback provided
 - <a href="https://www.yourkit.com/"><img src="https://www.yourkit.com/images/yklogo.png" height="20"></a> that provided a free license for their [Java Profiler](https://www.yourkit.com/java/profiler/)

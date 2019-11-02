@@ -1,5 +1,6 @@
 deviceName = "librespot-java" ### Device name ###
-deviceType = "Computer" ### Device type (Computer, Tablet, Smartphone, Speaker, TV, AVR, STB, AudioDongle, Unknown) ###
+deviceType = "COMPUTER" ### Device type (COMPUTER, TABLET, SMARTPHONE, SPEAKER, TV, AVR, STB, AUDIO_DONGLE, GAME_CONSOLE, CAST_VIDEO, CAST_AUDIO, AUTOMOBILE, WEARABLE, UNKNOWN_SPOTIFY, CAR_THING, UNKNOWN) ###
+preferredLocale = "en" ### Preferred locale ###
 
 [auth] ### Authentication ###
 strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK)
@@ -20,6 +21,10 @@ doCleanUp = true
 [preload] ### Preload ###
 enabled = true # Preload enabled
 
+[time] ### Time correction ###
+synchronizationMethod = "NTP" # Time synchronization method (NTP, PING, MELODY, MANUAL)
+manualCorrection = 0 # Manual time correction in millis
+
 [player] ### Player ###
 autoplayEnabled = true # Autoplay similar songs when your music ends
 preferredAudioQuality = "VORBIS_160" # Preferred audio quality (VORBIS_96, VORBIS_160, VORBIS_320)
@@ -28,10 +33,6 @@ normalisationPregain = 0.0 # Normalisation pregain
 initialVolume = 65536 # Initial volume (0-65536)
 logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
-enableLoadingState = true # Enable loading state (useful for slow connections)
-
-[player.tracks]
-useCdn = true # Use CDN to download tracks
-
-[player.episodes]
-useCdn = true # Use CDN to download episodes
+crossfadeDuration = 0 # Crossfade overlap time (in milliseconds)
+output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
+pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)

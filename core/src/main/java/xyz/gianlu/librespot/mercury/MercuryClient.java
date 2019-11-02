@@ -26,8 +26,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public class MercuryClient extends PacketsManager {
+public final class MercuryClient extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
+    private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
@@ -63,15 +64,9 @@ public class MercuryClient extends PacketsManager {
 
     @NotNull
     public Response sendSync(@NotNull RawMercuryRequest request) throws IOException {
-        AtomicReference<Response> reference = new AtomicReference<>(null);
-        send(request, response -> {
-            synchronized (reference) {
-                reference.set(response);
-                reference.notifyAll();
-            }
-        });
-
-        return Utils.wait(reference);
+        SyncCallback callback = new SyncCallback();
+        send(request, callback);
+        return callback.waitResponse();
     }
 
     @NotNull
@@ -203,7 +198,7 @@ public class MercuryClient extends PacketsManager {
             }
 
             if (!dispatched)
-                LOGGER.warn(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), Utils.bytesToHex(resp.payload.get(0))));
+                LOGGER.debug(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex()));
         } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
             if (callback != null) {
@@ -281,6 +276,30 @@ public class MercuryClient extends PacketsManager {
 
     public interface Callback {
         void response(@NotNull Response response);
+    }
+
+    private static class SyncCallback implements Callback {
+        private final AtomicReference<Response> reference = new AtomicReference<>();
+
+        @Override
+        public void response(@NotNull Response response) {
+            synchronized (reference) {
+                reference.set(response);
+                reference.notifyAll();
+            }
+        }
+
+        @NotNull
+        Response waitResponse() {
+            synchronized (reference) {
+                try {
+                    reference.wait(MERCURY_REQUEST_TIMEOUT);
+                    return reference.get();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+        }
     }
 
     public static class ProtoWrapperResponse<P extends Message> {

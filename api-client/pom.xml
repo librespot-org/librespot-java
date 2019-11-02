@@ -28,6 +28,8 @@
                         <configuration>
                             <archive>
                                 <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.api.client.Main</mainClass>
                                 </manifest>
                             </archive>

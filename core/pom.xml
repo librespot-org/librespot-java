@@ -29,6 +29,8 @@
                         <configuration>
                             <archive>
                                 <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.Main</mainClass>
                                 </manifest>
                             </archive>
@@ -54,6 +56,11 @@
             <groupId>org.jcraft</groupId>
             <artifactId>jorbis</artifactId>
             <version>0.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>com.badlogicgames.jlayer</groupId>
+            <artifactId>jlayer</artifactId>
+            <version>1.0.2-gdx</version>
         </dependency>
 
         <!-- mDNS -->
@@ -82,6 +89,13 @@
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
             <version>3.6.0</version>
+        </dependency>
+
+        <!-- Commons Net (NTP) -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.6</version>
         </dependency>
     </dependencies>
 </project>

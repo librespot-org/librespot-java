@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player;
 import com.google.protobuf.ByteString;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
@@ -20,9 +21,10 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public class AudioKeyManager extends PacketsManager {
+public final class AudioKeyManager extends PacketsManager {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
     private static final Logger LOGGER = Logger.getLogger(AudioKeyManager.class);
+    private static final long AUDIO_KEY_REQUEST_TIMEOUT = 2000;
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
 
@@ -30,7 +32,13 @@ public class AudioKeyManager extends PacketsManager {
         super(session);
     }
 
+    @NotNull
     public byte[] getAudioKey(@NotNull ByteString gid, @NotNull ByteString fileId) throws IOException {
+        return getAudioKey(gid, fileId, true);
+    }
+
+    @NotNull
+    private byte[] getAudioKey(@NotNull ByteString gid, @NotNull ByteString fileId, boolean retry) throws IOException {
         int seq;
         synchronized (seqHolder) {
             seq = seqHolder.getAndIncrement();
@@ -44,15 +52,17 @@ public class AudioKeyManager extends PacketsManager {
 
         session.send(Packet.Type.RequestKey, out.toByteArray());
 
-        AtomicReference<byte[]> ref = new AtomicReference<>();
-        callbacks.put(seq, key -> {
-            synchronized (ref) {
-                ref.set(key);
-                ref.notifyAll();
-            }
-        });
+        SyncCallback callback = new SyncCallback();
+        callbacks.put(seq, callback);
 
-        return Utils.wait(ref);
+        byte[] key = callback.waitResponse();
+        if (key == null) {
+            if (retry) return getAudioKey(gid, fileId, false);
+            else throw new AesKeyException(String.format("Failed fetching audio key! {gid: %s, fileId: %s}",
+                    Utils.bytesToHex(gid), Utils.bytesToHex(fileId)));
+        }
+
+        return key;
     }
 
     @Override
@@ -72,7 +82,7 @@ public class AudioKeyManager extends PacketsManager {
             callback.key(key);
         } else if (packet.is(Packet.Type.AesKeyError)) {
             short code = payload.getShort();
-            LOGGER.fatal(String.format("Audio key error, code: %d, length: %d", code, packet.payload.length));
+            callback.error(code);
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length: %d", packet.type(), packet.payload.length));
         }
@@ -85,5 +95,47 @@ public class AudioKeyManager extends PacketsManager {
 
     private interface Callback {
         void key(byte[] key);
+
+        void error(short code);
+    }
+
+    private static class SyncCallback implements Callback {
+        private final AtomicReference<byte[]> reference = new AtomicReference<>();
+
+        @Override
+        public void key(byte[] key) {
+            synchronized (reference) {
+                reference.set(key);
+                reference.notifyAll();
+            }
+        }
+
+        @Override
+        public void error(short code) {
+            LOGGER.fatal(String.format("Audio key error, code: %d", code));
+
+            synchronized (reference) {
+                reference.set(null);
+                reference.notifyAll();
+            }
+        }
+
+        @Nullable
+        byte[] waitResponse() {
+            synchronized (reference) {
+                try {
+                    reference.wait(AUDIO_KEY_REQUEST_TIMEOUT);
+                    return reference.get();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+        }
+    }
+
+    public static class AesKeyException extends IOException {
+        AesKeyException(String message) {
+            super(message);
+        }
     }
 }
