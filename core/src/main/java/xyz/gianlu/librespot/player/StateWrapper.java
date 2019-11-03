@@ -892,10 +892,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     tracks.addAll(newTracks);
 
                     setCurrentTrackIndex(index);
-
-                    if (context.isFinite() && isShufflingContext())
-                        toggleShuffle(true);
-
                     break;
                 } else {
                     cannotLoadMore = true;
