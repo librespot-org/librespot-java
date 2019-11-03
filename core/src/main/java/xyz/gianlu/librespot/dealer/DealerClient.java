@@ -17,7 +17,6 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.SocketException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -336,13 +335,8 @@ public class DealerClient implements Closeable {
 
             @Override
             public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, @Nullable Response response) {
-                if (t instanceof SocketException) {
-                    LOGGER.warn("An exception occurred. Reconnecting...", t);
-                    close();
-                    return;
-                }
-
-                LOGGER.error("Unexpected failure when handling message!", t);
+                LOGGER.warn("An exception occurred. Reconnecting...", t);
+                close();
             }
         }
     }

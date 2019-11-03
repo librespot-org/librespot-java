@@ -122,6 +122,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                 connectionId = headers.get("Spotify-Connection-Id");
             }
 
+            LOGGER.debug("Updated Spotify-Connection-Id: " + connectionId);
             notifyReady();
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
