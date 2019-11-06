@@ -28,6 +28,7 @@ import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -397,7 +398,7 @@ public class PlayerRunner implements Runnable, Closeable {
                             break;
                         case StopMixer:
                             paused = true;
-                            for (TrackHandler h : loadedTracks.values())
+                            for (TrackHandler h : new ArrayList<>(loadedTracks.values()))
                                 h.close();
 
                             firstHandler = null;
