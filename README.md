@@ -54,6 +54,9 @@ This project uses [Maven](https://maven.apache.org/), after installing it you ca
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
 
+## Related Projects
+[ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure Librespot-Java.
+
 # Special thanks
 
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
