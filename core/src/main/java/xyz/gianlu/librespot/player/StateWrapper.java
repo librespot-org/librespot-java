@@ -603,7 +603,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                         case MOV:
                         case UPDATE_ITEM_ATTRIBUTES:
                         case UPDATE_LIST_ATTRIBUTES:
-                            throw new UnsupportedOperationException(TextFormat.shortDebugString(op));
+                            LOGGER.warn("Unsupported operation: " + TextFormat.shortDebugString(op));
+                            break;
                         default:
                         case KIND_UNKNOWN:
                             LOGGER.warn("Received unknown op: " + op.getKind());
