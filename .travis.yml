@@ -28,9 +28,9 @@ deploy:
     - api/target/librespot-api-jar-with-dependencies.jar
     - api/target/librespot-api-javadoc.jar
     - api/target/librespot-api-sources.jar
-    - api-client/target/librespot-api-client-jar-with-dependencies.jar
   on:
     repo: librespot-org/librespot-java
+    branch: master
     tags: true
 
 cache:
