@@ -150,6 +150,11 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         }
     }
 
+    @Override
+    public void onConnectionRestarted() {
+        // Do nothing (already handled by StateWrapper)
+    }
+
     @NotNull
     @Override
     public RequestResult onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command) {

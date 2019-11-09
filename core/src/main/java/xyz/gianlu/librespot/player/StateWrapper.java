@@ -654,6 +654,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
     }
 
+    @Override
+    public void onConnectionRestarted() {
+        updated();
+    }
+
     private synchronized void performCollectionUpdate(@NotNull List<String> uris, boolean inCollection) {
         for (String uri : uris)
             tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));

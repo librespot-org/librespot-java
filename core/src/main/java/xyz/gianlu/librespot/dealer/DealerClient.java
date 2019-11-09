@@ -196,11 +196,19 @@ public class DealerClient implements Closeable {
 
             try {
                 connect();
+                notifyConnectionRestarted();
             } catch (IOException | MercuryClient.MercuryException ex) {
                 LOGGER.error("Failed reconnecting, retrying...", ex);
                 connectionInvalided();
             }
         }, 10, TimeUnit.SECONDS);
+    }
+
+    private void notifyConnectionRestarted() {
+        synchronized (msgListeners) {
+            for (MessageListener listener : msgListeners.keySet())
+                listener.onConnectionRestarted();
+        }
     }
 
     public enum RequestResult {
@@ -217,6 +225,8 @@ public class DealerClient implements Closeable {
 
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException;
+
+        void onConnectionRestarted();
     }
 
     private static class Looper implements Runnable, Closeable {
