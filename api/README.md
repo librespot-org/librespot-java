@@ -3,18 +3,11 @@
 
 This module depends on `librespot-core` and provides an API to interact with the Spotify client.
 
-## Available endpoints
+## How it works
+This API uses JSON over Websocket according to the [JSON-RPC 2.0 standard](https://www.jsonrpc.org/specification). Three method prefixes are available:
+- `player`, just a placeholder
+- `metadata`, allows to retrieve some useful data about tracks and playlist (more to come)
+- `mercury`, allows to send requests with Mercury directly, therefore all URIs must start with `hm://`
 
-- `POST \player\load` Load a track from a given uri. The request body should contain two parameters: `uri` and `play`.
-- `POST \player\pause` Pause playback.
-- `POST \player\resume` Resume playback.
-- `POST \player\next` Skip to next track.
-- `POST \player\prev` Skip to previous track.
-- `POST \player\set-volume` Set volume to a given `volume` value from 0 to 65536.
-- `POST \player\volume-up` Up the volume a little bit.
-- `POST \player\volume-down` Lower the volume a little bit.
-
-## Example
-
-`curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true" http://localhost:24879/player/load`
-
+## Client
+You can find a suitable client [here](https://github.com/librespot-org/librespot-java/tree/master/api-client). 
