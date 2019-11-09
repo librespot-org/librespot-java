@@ -811,13 +811,12 @@ public final class Session implements Closeable {
 
                         try {
                             send(Packet.Type.Pong, packet.payload);
-                            LOGGER.trace(String.format("Handled Ping {payload: %s}", Utils.bytesToHex(packet.payload)));
                         } catch (IOException ex) {
                             LOGGER.fatal("Failed sending Pong!", ex);
                         }
                         break;
                     case PongAck:
-                        LOGGER.trace(String.format("Handled PongAck {payload: %s}", Utils.bytesToHex(packet.payload)));
+                        // Silent
                         break;
                     case CountryCode:
                         countryCode = new String(packet.payload);
