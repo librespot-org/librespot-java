@@ -60,7 +60,11 @@ public final class Utils {
     }
 
     public static void internalError(@NotNull HttpServerExchange exchange, @NotNull Exception ex) {
+        internalError(exchange, ex.getMessage());
+    }
+
+    public static void internalError(@NotNull HttpServerExchange exchange, @NotNull String reason) {
         exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
-        exchange.getResponseSender().send(String.format(INTERNAL_ERROR_BODY, ex.getMessage()));
+        exchange.getResponseSender().send(String.format(INTERNAL_ERROR_BODY, reason));
     }
 }
