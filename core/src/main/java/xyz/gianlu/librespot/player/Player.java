@@ -533,11 +533,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
+        String contextDesc = state.getContextMetadata("context_description");
+
         try {
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
                 state.loadContext(newContext);
+                state.setContextMetadata("context_description", contextDesc);
 
                 loadTrack(true, PushToMixerReason.None);
 
@@ -545,6 +548,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 state.loadContextWithTracks(station.uri(), station.tracks());
+                state.setContextMetadata("context_description", contextDesc);
 
                 loadTrack(true, PushToMixerReason.None);
 
