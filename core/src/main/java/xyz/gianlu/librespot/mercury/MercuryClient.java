@@ -252,7 +252,7 @@ public final class MercuryClient extends PacketsManager {
             } else {
                 synchronized (callbacks) {
                     try {
-                        callbacks.wait();
+                        callbacks.wait(100);
                     } catch (InterruptedException ignored) {
                     }
                 }
