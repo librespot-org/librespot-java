@@ -133,8 +133,7 @@ public class ZeroconfServer implements Closeable {
         }
 
         zeroconf = new Zeroconf();
-        zeroconf.addSendListener(packet -> System.out.println("SEND: " + packet));
-        zeroconf.addReceiveListener(packet -> System.out.println("RECV: " + packet));
+        zeroconf.setUseIpv4(true).setUseIpv6(false);
         zeroconf.addNetworkInterfaces(nics);
 
         Map<String, String> txt = new HashMap<>();
