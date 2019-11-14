@@ -71,6 +71,13 @@ public class ZeroconfServer implements Closeable {
         DEFAULT_GET_INFO_FIELDS.addProperty("accountReq", "PREMIUM");
         DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-org");
         DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", "librespot-java");
+        DEFAULT_GET_INFO_FIELDS.addProperty("voiceSupport", "NO");
+        DEFAULT_GET_INFO_FIELDS.addProperty("availability", "");
+        DEFAULT_GET_INFO_FIELDS.addProperty("productID", 0);
+        DEFAULT_GET_INFO_FIELDS.addProperty("tokenType", "default");
+        DEFAULT_GET_INFO_FIELDS.addProperty("groupStatus", "NONE");
+        DEFAULT_GET_INFO_FIELDS.addProperty("resolverVersion", "0");
+        DEFAULT_GET_INFO_FIELDS.addProperty("scope", "streaming,client-authorization-universal");
 
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("status", 101);
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("spotifyError", 0);
@@ -116,6 +123,7 @@ public class ZeroconfServer implements Closeable {
         Map<String, String> txt = new HashMap<>();
         txt.put("CPath", "/");
         txt.put("VERSION", "1.0");
+        txt.put("Stack", "SP");
 
         boolean atLeastOne = false;
         instances = new JmDNS[bound.length];
