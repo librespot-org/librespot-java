@@ -266,6 +266,7 @@ public class PlayerRunner implements Runnable, Closeable {
         private final Type type;
         private SourceDataLine line;
         private OutputStream out;
+        private int lastVolume = -1;
 
         Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull Player.Configuration conf, @Nullable File pipe, @Nullable OutputStream out) throws LineUnavailableException {
             this.conf = conf;
@@ -298,6 +299,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
             line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
             line.open(Output.OUTPUT_FORMAT);
+
+            if (lastVolume != -1) setVolume(lastVolume);
         }
 
         void stop() {
@@ -356,6 +359,8 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         void setVolume(int volume) {
+            lastVolume = volume;
+
             if (line != null) {
                 FloatControl ctrl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                 if (ctrl != null) {
