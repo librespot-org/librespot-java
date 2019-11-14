@@ -286,6 +286,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public int releaseLineDelay() {
+        return config.get("player.releaseLineDelay");
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }

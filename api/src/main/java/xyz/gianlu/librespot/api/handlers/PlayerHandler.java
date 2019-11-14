@@ -1,11 +1,17 @@
 package xyz.gianlu.librespot.api.handlers;
 
+import com.google.gson.JsonObject;
+import com.spotify.metadata.proto.Metadata;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.Utils;
+import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.mercury.model.EpisodeId;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.util.Deque;
@@ -50,6 +56,36 @@ public final class PlayerHandler implements HttpHandler {
         session.player().load(uri, play);
     }
 
+    private void current(HttpServerExchange exchange) {
+        PlayableId id = session.player().currentPlayableId();
+
+        JsonObject obj;
+        if (id instanceof TrackId) {
+            Metadata.Track track = session.player().currentTrack();
+            if (track == null) {
+                Utils.internalError(exchange, "Missing track metadata. Try again.");
+                return;
+            }
+
+            obj = ProtobufToJson.convert(track);
+            obj.addProperty("uri", id.toSpotifyUri());
+        } else if (id instanceof EpisodeId) {
+            Metadata.Episode episode = session.player().currentEpisode();
+            if (episode == null) {
+                Utils.internalError(exchange, "Missing episode metadata. Try again.");
+                return;
+            }
+
+            obj = ProtobufToJson.convert(episode);
+            obj.addProperty("uri", id.toSpotifyUri());
+        } else {
+            Utils.internalError(exchange, "Invalid PlayableId: " + id);
+            return;
+        }
+
+        exchange.getResponseSender().send(obj.toString());
+    }
+
     @Override
     public void handleRequest(HttpServerExchange exchange) throws Exception {
         exchange.startBlocking();
@@ -72,6 +108,9 @@ public final class PlayerHandler implements HttpHandler {
         }
 
         switch (cmd) {
+            case CURRENT:
+                current(exchange);
+                return;
             case SET_VOLUME:
                 setVolume(exchange, Utils.getFirstString(params, "volume"));
                 return;
@@ -104,7 +143,7 @@ public final class PlayerHandler implements HttpHandler {
     private enum Command {
         LOAD("load"), PAUSE("pause"), RESUME("resume"),
         NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
-        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down");
+        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current");
 
         private String name;
 

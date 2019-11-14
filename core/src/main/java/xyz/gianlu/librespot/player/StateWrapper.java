@@ -289,6 +289,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return device.getVolume();
     }
 
+    void setVolume(int val) {
+        device.setVolume(val);
+    }
+
     synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
         if (state.getTrack() == null) throw new IllegalStateException();
         if (!state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri())) {
@@ -664,8 +668,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));
     }
 
-    void setVolume(int val) {
-        device.setVolume(val);
+    @Nullable
+    public String getContextMetadata(@NotNull String key) {
+        return state.getContextMetadataOrDefault(key, null);
+    }
+
+    public void setContextMetadata(@NotNull String key, @Nullable String value) {
+        if (value == null) state.removeContextMetadata(key);
+        else state.putContextMetadata(key, value);
     }
 
     public enum PreviousPlayable {
