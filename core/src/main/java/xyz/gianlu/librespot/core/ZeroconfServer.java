@@ -23,12 +23,14 @@ import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Gianlu
@@ -90,8 +92,8 @@ public class ZeroconfServer implements Closeable {
     private final Session.Inner inner;
     private final DiffieHellman keys;
     private final List<SessionListener> sessionListeners;
-    private volatile Session session;
     private final Zeroconf zeroconf;
+    private volatile Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -133,6 +135,7 @@ public class ZeroconfServer implements Closeable {
         }
 
         zeroconf = new Zeroconf();
+        zeroconf.setLocalHostName(getUsefulHostname());
         zeroconf.setUseIpv4(true).setUseIpv6(false);
         zeroconf.addNetworkInterfaces(nics);
 
@@ -144,6 +147,18 @@ public class ZeroconfServer implements Closeable {
         service.setText(txt);
 
         zeroconf.announce(service);
+    }
+
+    @NotNull
+    public static String getUsefulHostname() throws UnknownHostException {
+        String host = InetAddress.getLocalHost().getHostName();
+        if (host.equals("localhost")) {
+            host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
+            return host;
+        }
+
+        return host;
     }
 
     @NotNull
