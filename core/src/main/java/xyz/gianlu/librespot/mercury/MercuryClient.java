@@ -247,10 +247,10 @@ public final class MercuryClient extends PacketsManager {
         }
 
         while (true) {
-            if (callbacks.isEmpty()) {
-                break;
-            } else {
-                synchronized (callbacks) {
+            synchronized (callbacks) {
+                if (callbacks.isEmpty()) {
+                    break;
+                } else {
                     try {
                         callbacks.wait(100);
                     } catch (InterruptedException ignored) {
