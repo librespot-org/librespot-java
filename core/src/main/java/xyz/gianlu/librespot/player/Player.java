@@ -694,7 +694,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         int releaseLineDelay();
     }
 
-    private interface EventsListener {
+    public interface EventsListener {
         void onContextChanged(@NotNull String newUri);
 
         void onTrackChanged(@NotNull PlayableId id, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
