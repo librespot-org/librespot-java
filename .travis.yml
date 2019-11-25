@@ -30,7 +30,6 @@ deploy:
     - api/target/librespot-api-sources.jar
   on:
     repo: librespot-org/librespot-java
-    branch: master
     tags: true
 
 cache:
