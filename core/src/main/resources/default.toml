@@ -35,4 +35,5 @@ logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
 crossfadeDuration = 0 # Crossfade overlap time (in milliseconds)
 output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
+releaseLineDelay = 20 # Release mixer line after set delay (in seconds)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)

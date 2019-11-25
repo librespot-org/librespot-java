@@ -200,7 +200,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
         session.api().putConnectState(connectionId, putState.build());
-        LOGGER.info(String.format("Put state. {ts: %d, reason: %s, request: %s}", TimeProvider.currentTimeMillis(), reason, TextFormat.shortDebugString(putState)));
+        LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", TimeProvider.currentTimeMillis(), connectionId.substring(0, 6), reason, TextFormat.shortDebugString(putState)));
     }
 
     public synchronized int getVolume() {

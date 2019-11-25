@@ -11,8 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.model.EpisodeId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.mercury.model.*;
 
 import java.io.IOException;
 
@@ -97,8 +96,10 @@ public class ApiClient {
     }
 
     @NotNull
-    public Metadata.Track getMedata4Track(@NotNull TrackId track) throws IOException, MercuryClient.MercuryException {
+    public Metadata.Track getMetadata4Track(@NotNull TrackId track) throws IOException, MercuryClient.MercuryException {
         try (Response resp = send("GET", "/metadata/4/track/" + track.hexId(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return Metadata.Track.parseFrom(body.byteStream());
@@ -106,11 +107,59 @@ public class ApiClient {
     }
 
     @NotNull
-    public Metadata.Episode getMedata4Episode(@NotNull EpisodeId episode) throws IOException, MercuryClient.MercuryException {
+    public Metadata.Episode getMetadata4Episode(@NotNull EpisodeId episode) throws IOException, MercuryClient.MercuryException {
         try (Response resp = send("GET", "/metadata/4/episode/" + episode.hexId(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return Metadata.Episode.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Metadata.Album getMetadata4Album(@NotNull AlbumId album) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/metadata/4/album/" + album.hexId(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Metadata.Album.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Metadata.Artist getMetadata4Artist(@NotNull ArtistId artist) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/metadata/4/artist/" + artist.hexId(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Metadata.Artist.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Metadata.Show getMetadata4Show(@NotNull ShowId show) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/metadata/4/show/" + show.hexId(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Metadata.Show.parseFrom(body.byteStream());
+        }
+    }
+
+    public static class StatusCodeException extends IOException {
+        public final int code;
+
+        StatusCodeException(@NotNull Response resp) {
+            super(String.format("%d: %s", resp.code(), resp.message()));
+            code = resp.code();
+        }
+
+        private static void checkStatus(@NotNull Response resp) throws StatusCodeException {
+            if (resp.code() != 200) throw new StatusCodeException(resp);
         }
     }
 }

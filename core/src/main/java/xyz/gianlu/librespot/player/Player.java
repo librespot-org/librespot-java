@@ -7,6 +7,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.transfer.TransferStateOuterClass;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
@@ -26,6 +27,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
@@ -34,6 +39,7 @@ import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
  */
 public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRunner.Listener {
     private static final Logger LOGGER = Logger.getLogger(Player.class);
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
     private final Configuration conf;
     private final PlayerRunner runner;
@@ -41,6 +47,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
+    private ScheduledFuture releaseLineFuture = null;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -206,7 +213,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Override
     public void notActive() {
-        runner.stopMixer();
+        if (runner.stopAndRelease()) LOGGER.debug("Released line due to inactivity.");
     }
 
     @Override
@@ -428,6 +435,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 runner.playMixer();
             }
         }
+
+        if (releaseLineFuture != null) {
+            releaseLineFuture.cancel(true);
+            releaseLineFuture = null;
+        }
     }
 
     private void handleResume() {
@@ -442,6 +454,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             state.updated();
+
+            if (releaseLineFuture != null) {
+                releaseLineFuture.cancel(true);
+                releaseLineFuture = null;
+            }
         }
     }
 
@@ -456,6 +473,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             state.updated();
+
+            if (releaseLineFuture != null) releaseLineFuture.cancel(true);
+            releaseLineFuture = scheduler.schedule(() -> {
+                if (!state.isPaused()) return;
+
+                if (runner.pauseAndRelease()) LOGGER.debug("Released line after a period of inactivity.");
+            }, conf.releaseLineDelay(), TimeUnit.SECONDS);
         }
     }
 
@@ -509,11 +533,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
+        String contextDesc = state.getContextMetadata("context_description");
+
         try {
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
                 state.loadContext(newContext);
+                state.setContextMetadata("context_description", contextDesc);
 
                 loadTrack(true, PushToMixerReason.None);
 
@@ -521,6 +548,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 state.loadContextWithTracks(station.uri(), station.tracks());
+                state.setContextMetadata("context_description", contextDesc);
 
                 loadTrack(true, PushToMixerReason.None);
 
@@ -631,5 +659,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         boolean autoplayEnabled();
 
         int crossfadeDuration();
+
+        int releaseLineDelay();
     }
 }

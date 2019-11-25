@@ -48,4 +48,8 @@ public final class ShowId implements SpotifyId {
     public @NotNull String toSpotifyUri() {
         return "spotify:show:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
     }
+
+    public @NotNull String hexId() {
+        return hexId;
+    }
 }

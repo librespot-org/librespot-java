@@ -73,7 +73,7 @@ public final class PlayableContentFeeder {
     }
 
     private @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
-        Metadata.Track original = session.api().getMedata4Track(id);
+        Metadata.Track original = session.api().getMetadata4Track(id);
         Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
             String country = session.countryCode();
@@ -120,7 +120,7 @@ public final class PlayableContentFeeder {
 
     @NotNull
     private LoadedStream loadEpisode(@NotNull EpisodeId id, @NotNull AudioQualityPreference audioQualityPreference, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
-        Metadata.Episode episode = session.api().getMedata4Episode(id);
+        Metadata.Episode episode = session.api().getMetadata4Episode(id);
 
         if (episode.hasExternalUrl()) {
             return CdnFeedHelper.loadEpisodeExternal(session, episode, haltListener);

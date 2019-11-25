@@ -14,6 +14,7 @@ import java.util.Map;
 
 public final class Utils {
     private static final String INVALID_PARAM_BODY = "{\"name\":\"%s\"}";
+    private static final String INTERNAL_ERROR_BODY = "{\"msg\":\"%s\"}";
     private static final String INVALID_PARAM_WITH_REASON_BODY = "{\"name\":\"%s\",\"reason\":\"%s\"}";
 
     private Utils() {
@@ -56,5 +57,14 @@ public final class Utils {
     public static void invalidParameter(@NotNull HttpServerExchange exchange, @NotNull String name, @NotNull String reason) {
         exchange.setStatusCode(StatusCodes.BAD_REQUEST);
         exchange.getResponseSender().send(String.format(INVALID_PARAM_WITH_REASON_BODY, name, reason));
+    }
+
+    public static void internalError(@NotNull HttpServerExchange exchange, @NotNull Exception ex) {
+        internalError(exchange, ex.getMessage());
+    }
+
+    public static void internalError(@NotNull HttpServerExchange exchange, @NotNull String reason) {
+        exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
+        exchange.getResponseSender().send(String.format(INTERNAL_ERROR_BODY, reason));
     }
 }

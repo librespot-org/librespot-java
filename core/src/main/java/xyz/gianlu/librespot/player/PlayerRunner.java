@@ -3,7 +3,6 @@ package xyz.gianlu.librespot.player;
 import com.spotify.metadata.proto.Metadata;
 import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -65,10 +64,7 @@ public class PlayerRunner implements Runnable, Closeable {
         switch (conf.output()) {
             case MIXER:
                 try {
-                    SourceDataLine line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
-                    line.open(Output.OUTPUT_FORMAT);
-
-                    output = new Output(mixing, line, null, null);
+                    output = new Output(Output.Type.MIXER, mixing, conf, null, null);
                 } catch (LineUnavailableException ex) {
                     throw new IllegalStateException("Failed opening line!", ex);
                 }
@@ -78,10 +74,18 @@ public class PlayerRunner implements Runnable, Closeable {
                 if (pipe == null || !pipe.exists() || !pipe.canWrite())
                     throw new IllegalArgumentException("Invalid pipe file: " + pipe);
 
-                output = new Output(mixing, null, pipe, null);
+                try {
+                    output = new Output(Output.Type.PIPE, mixing, conf, pipe, null);
+                } catch (LineUnavailableException ignored) {
+                    throw new IllegalStateException(); // Cannot be thrown
+                }
                 break;
             case STDOUT:
-                output = new Output(mixing, null, null, System.out);
+                try {
+                    output = new Output(Output.Type.STREAM, mixing, conf, null, System.out);
+                } catch (LineUnavailableException ignored) {
+                    throw new IllegalStateException(); // Cannot be thrown
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output());
@@ -91,6 +95,40 @@ public class PlayerRunner implements Runnable, Closeable {
 
         Looper looper;
         new Thread(looper = new Looper(), "player-runner-looper-" + looper.hashCode()).start();
+    }
+
+    /**
+     * Pauses the mixer and then releases the {@link javax.sound.sampled.Line} if acquired.
+     *
+     * @return Whether the line was released.
+     */
+    public boolean pauseAndRelease() {
+        pauseMixer();
+        while (!paused) {
+            synchronized (pauseLock) {
+                try {
+                    pauseLock.wait(100);
+                } catch (InterruptedException ignored) {
+                }
+            }
+        }
+
+        return output.releaseLine();
+    }
+
+    /**
+     * Stops the mixer and then releases the {@link javax.sound.sampled.Line} if acquired.
+     */
+    public boolean stopAndRelease() {
+        stopMixer();
+        synchronized (pauseLock) {
+            try {
+                pauseLock.wait();
+            } catch (InterruptedException ignored) {
+            }
+        }
+
+        return output.releaseLine();
     }
 
     private void sendCommand(@NotNull Command command, int id, Object... args) {
@@ -128,7 +166,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     int r = count % mixing.getFrameSize();
                     if (r != 0) count += mixing.read(buffer, count, mixing.getFrameSize() - r);
                     output.write(buffer, 0, count);
-                } catch (IOException ex) {
+                } catch (IOException | LineUnavailableException ex) {
                     if (closed) break;
 
                     paused = true;
@@ -222,23 +260,47 @@ public class PlayerRunner implements Runnable, Closeable {
 
     private static class Output implements Closeable {
         private static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
-        private final SourceDataLine line;
         private final File pipe;
         private final MixingLine mixing;
+        private final Player.Configuration conf;
+        private final Type type;
+        private SourceDataLine line;
         private OutputStream out;
+        private int lastVolume = -1;
 
-        @Contract("_, null, null, null -> fail")
-        Output(@NotNull MixingLine mixing, @Nullable SourceDataLine line, @Nullable File pipe, @Nullable OutputStream out) {
-            if (line == null && pipe == null && out == null) throw new IllegalArgumentException();
-
+        Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull Player.Configuration conf, @Nullable File pipe, @Nullable OutputStream out) throws LineUnavailableException {
+            this.conf = conf;
             this.mixing = mixing;
-            this.line = line;
+            this.type = type;
             this.pipe = pipe;
             this.out = out;
+
+            switch (type) {
+                case MIXER:
+                    acquireLine();
+                    break;
+                case PIPE:
+                    if (pipe == null) throw new IllegalArgumentException();
+                    break;
+                case STREAM:
+                    if (out == null) throw new IllegalArgumentException();
+                    break;
+                default:
+                    throw new IllegalArgumentException(String.valueOf(type));
+            }
         }
 
         private static float calcLogarithmic(int val) {
             return (float) (Math.log10((double) val / VOLUME_MAX) * 20f);
+        }
+
+        private void acquireLine() throws LineUnavailableException {
+            if (line != null) return;
+
+            line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
+            line.open(Output.OUTPUT_FORMAT);
+
+            if (lastVolume != -1) setVolume(lastVolume);
         }
 
         void stop() {
@@ -249,13 +311,12 @@ public class PlayerRunner implements Runnable, Closeable {
             if (line != null) line.start();
         }
 
-        void write(byte[] buffer, int off, int len) throws IOException {
-            if (line != null) {
+        void write(byte[] buffer, int off, int len) throws IOException, LineUnavailableException {
+            if (type == Type.MIXER) {
+                acquireLine();
                 line.write(buffer, off, len);
-            } else {
+            } else if (type == Type.PIPE) {
                 if (out == null) {
-                    if (pipe == null) throw new IllegalStateException();
-
                     if (!pipe.exists()) {
                         try {
                             Process p = new ProcessBuilder().command("mkfifo " + pipe.getAbsolutePath())
@@ -274,6 +335,10 @@ public class PlayerRunner implements Runnable, Closeable {
                 }
 
                 out.write(buffer, off, len);
+            } else if (type == Type.STREAM) {
+                out.write(buffer, off, len);
+            } else {
+                throw new IllegalStateException();
             }
         }
 
@@ -294,6 +359,8 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         void setVolume(int volume) {
+            lastVolume = volume;
+
             if (line != null) {
                 FloatControl ctrl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                 if (ctrl != null) {
@@ -305,6 +372,18 @@ public class PlayerRunner implements Runnable, Closeable {
 
             // Cannot set volume through line
             mixing.setGlobalGain(((float) volume) / VOLUME_MAX);
+        }
+
+        boolean releaseLine() {
+            if (line == null) return false;
+
+            line.close();
+            line = null;
+            return true;
+        }
+
+        enum Type {
+            MIXER, PIPE, STREAM
         }
     }
 
@@ -404,6 +483,10 @@ public class PlayerRunner implements Runnable, Closeable {
                             firstHandler = null;
                             secondHandler = null;
                             loadedTracks.clear();
+
+                            synchronized (pauseLock) {
+                                pauseLock.notifyAll();
+                            }
                             break;
                         case TerminateMixer:
                             return;

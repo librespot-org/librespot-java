@@ -48,4 +48,8 @@ public final class ArtistId implements SpotifyId {
     public @NotNull String toSpotifyUri() {
         return "spotify:artist:" + new String(BASE62.encode(Utils.hexToBytes(hexId)));
     }
+
+    public @NotNull String hexId() {
+        return hexId;
+    }
 }

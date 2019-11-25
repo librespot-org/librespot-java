@@ -279,6 +279,8 @@ public class DealerClient implements Closeable {
 
             if (conn == ConnectionHolder.this)
                 connectionInvalided();
+            else
+                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn, ConnectionHolder.this));
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {
@@ -300,7 +302,7 @@ public class DealerClient implements Closeable {
 
                         if (!receivedPong) {
                             LOGGER.warn("Did not receive ping in 3 seconds. Reconnecting...");
-                            close();
+                            ConnectionHolder.this.close();
                             return;
                         }
 
@@ -336,7 +338,7 @@ public class DealerClient implements Closeable {
             @Override
             public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, @Nullable Response response) {
                 LOGGER.warn("An exception occurred. Reconnecting...", t);
-                close();
+                ConnectionHolder.this.close();
             }
         }
     }

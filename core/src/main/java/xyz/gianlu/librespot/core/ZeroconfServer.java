@@ -12,23 +12,25 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.zeroconf.Service;
+import xyz.gianlu.zeroconf.Zeroconf;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.jmdns.JmDNS;
-import javax.jmdns.ServiceInfo;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Gianlu
@@ -71,6 +73,13 @@ public class ZeroconfServer implements Closeable {
         DEFAULT_GET_INFO_FIELDS.addProperty("accountReq", "PREMIUM");
         DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-org");
         DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", "librespot-java");
+        DEFAULT_GET_INFO_FIELDS.addProperty("voiceSupport", "NO");
+        DEFAULT_GET_INFO_FIELDS.addProperty("availability", "");
+        DEFAULT_GET_INFO_FIELDS.addProperty("productID", 0);
+        DEFAULT_GET_INFO_FIELDS.addProperty("tokenType", "default");
+        DEFAULT_GET_INFO_FIELDS.addProperty("groupStatus", "NONE");
+        DEFAULT_GET_INFO_FIELDS.addProperty("resolverVersion", "0");
+        DEFAULT_GET_INFO_FIELDS.addProperty("scope", "streaming,client-authorization-universal");
 
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("status", 101);
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("spotifyError", 0);
@@ -82,8 +91,8 @@ public class ZeroconfServer implements Closeable {
     private final HttpRunner runner;
     private final Session.Inner inner;
     private final DiffieHellman keys;
-    private final JmDNS[] instances;
     private final List<SessionListener> sessionListeners;
+    private final Zeroconf zeroconf;
     private volatile Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
@@ -97,64 +106,65 @@ public class ZeroconfServer implements Closeable {
 
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
-        InetAddress[] bound;
-        if (conf.zeroconfListenAll()) {
-            bound = getAllInterfacesAddresses();
-        } else {
-            String[] interfaces = conf.zeroconfInterfaces();
-            if (interfaces == null || interfaces.length == 0) {
-                bound = new InetAddress[]{InetAddress.getLoopbackAddress()};
-            } else {
-                List<InetAddress> list = new ArrayList<>();
-                for (String str : interfaces) addAddressForInterfaceName(list, str);
-                bound = list.toArray(new InetAddress[0]);
-            }
-        }
-
-        LOGGER.debug("Registering service on " + Arrays.toString(bound));
-
-        Map<String, String> txt = new HashMap<>();
-        txt.put("CPath", "/");
-        txt.put("VERSION", "1.0");
-
-        boolean atLeastOne = false;
-        instances = new JmDNS[bound.length];
-        for (int i = 0; i < instances.length; i++) {
-            try {
-                instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
-                ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java-" + i, port, 0, 0, txt);
-                instances[i].registerService(serviceInfo);
-                atLeastOne = true;
-            } catch (SocketException ex) {
-                LOGGER.warn("Failed creating socket for " + bound[i], ex);
-            }
-        }
-
-        if (atLeastOne) LOGGER.info("SpotifyConnect service registered successfully!");
-        else throw new IllegalStateException("Could not register the service anywhere!");
-
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 close();
             } catch (IOException ignored) {
             }
         }));
+
+        List<NetworkInterface> nics;
+        if (conf.zeroconfListenAll()) {
+            nics = getAllInterfaces();
+        } else {
+            String[] interfaces = conf.zeroconfInterfaces();
+            if (interfaces == null || interfaces.length == 0) {
+                nics = getAllInterfaces();
+            } else {
+                nics = new ArrayList<>();
+                for (String str : interfaces) {
+                    NetworkInterface nif = NetworkInterface.getByName(str);
+                    if (nif == null) {
+                        LOGGER.warn(String.format("Interface %s doesn't exists.", str));
+                        continue;
+                    }
+
+                    checkInterface(nics, nif, true);
+                }
+            }
+        }
+
+        zeroconf = new Zeroconf();
+        zeroconf.setLocalHostName(getUsefulHostname());
+        zeroconf.setUseIpv4(true).setUseIpv6(false);
+        zeroconf.addNetworkInterfaces(nics);
+
+        Map<String, String> txt = new HashMap<>();
+        txt.put("CPath", "/");
+        txt.put("VERSION", "1.0");
+        txt.put("Stack", "SP");
+        Service service = new Service(inner.deviceName, "spotify-connect", port);
+        service.setText(txt);
+
+        zeroconf.announce(service);
+    }
+
+    @NotNull
+    public static String getUsefulHostname() throws UnknownHostException {
+        String host = InetAddress.getLocalHost().getHostName();
+        if (host.equals("localhost")) {
+            host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
+            return host;
+        }
+
+        return host;
     }
 
     @NotNull
     public static ZeroconfServer create(@NotNull AbsConfiguration conf) throws IOException {
         ApResolver.fillPool();
         return new ZeroconfServer(Session.Inner.from(conf), conf);
-    }
-
-    private static void addAddressForInterfaceName(List<InetAddress> list, @NotNull String name) throws SocketException {
-        NetworkInterface nif = NetworkInterface.getByName(name);
-        if (nif == null) {
-            LOGGER.warn(String.format("Interface %s doesn't exists.", name));
-            return;
-        }
-
-        addAddressOfInterface(list, nif, false);
     }
 
     private static boolean isVirtual(@NotNull NetworkInterface nif) throws SocketException {
@@ -174,7 +184,7 @@ public class ZeroconfServer implements Closeable {
         return false;
     }
 
-    private static void addAddressOfInterface(List<InetAddress> list, @NotNull NetworkInterface nif, boolean checkVirtual) throws SocketException {
+    private static void checkInterface(List<NetworkInterface> list, @NotNull NetworkInterface nif, boolean checkVirtual) throws SocketException {
         if (nif.isLoopback()) return;
 
         if (isVirtual(nif)) {
@@ -184,18 +194,15 @@ public class ZeroconfServer implements Closeable {
                 LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
         }
 
-        LOGGER.trace(String.format("Adding addresses of %s {displayName: %s, mac: %s}", nif.getName(), nif.getDisplayName(), Utils.bytesToHex(nif.getHardwareAddress())));
-        Enumeration<InetAddress> ias = nif.getInetAddresses();
-        while (ias.hasMoreElements())
-            list.add(ias.nextElement());
+        list.add(nif);
     }
 
     @NotNull
-    private static InetAddress[] getAllInterfacesAddresses() throws SocketException {
-        List<InetAddress> list = new ArrayList<>();
+    private static List<NetworkInterface> getAllInterfaces() throws SocketException {
+        List<NetworkInterface> list = new ArrayList<>();
         Enumeration<NetworkInterface> is = NetworkInterface.getNetworkInterfaces();
-        while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement(), true);
-        return list.toArray(new InetAddress[0]);
+        while (is.hasMoreElements()) checkInterface(list, is.nextElement(), true);
+        return list;
     }
 
     @NotNull
@@ -208,11 +215,7 @@ public class ZeroconfServer implements Closeable {
 
     @Override
     public void close() throws IOException {
-        for (JmDNS instance : instances) {
-            if (instance != null) instance.unregisterAllServices();
-        }
-
-        LOGGER.trace("SpotifyConnect service unregistered successfully.");
+        zeroconf.close();
         runner.close();
     }
 
