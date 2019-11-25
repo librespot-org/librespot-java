@@ -1,7 +1,10 @@
 package xyz.gianlu.librespot.mercury.model;
 
+import com.spotify.connectstate.model.Player;
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.player.remote.Remote3Track;
+import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
 
@@ -22,17 +25,45 @@ public interface PlayableId {
         }
     }
 
-    static boolean hasAtLeastOneSupportedId(@NotNull List<Remote3Track> tracks) {
-        for (Remote3Track track : tracks)
-            if (track.isSupported())
+    static boolean canPlaySomething(@NotNull List<ContextTrack> tracks) {
+        for (ContextTrack track : tracks)
+            if (PlayableId.isSupported(track.getUri()) && shouldPlay(track))
                 return true;
 
         return false;
     }
 
-    static boolean isSupported(@NotNull String uri) {
-        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter");
+    @NotNull
+    static PlayableId from(@NotNull Player.ProvidedTrack track) {
+        return fromUri(track.getUri());
     }
+
+    static boolean isSupported(@NotNull String uri) {
+        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter") && !uri.equals("spotify:meta:delimiter");
+    }
+
+    static boolean shouldPlay(@NotNull ContextTrack track) {
+        String forceRemoveReasons = track.getMetadataOrDefault("force_remove_reasons", null);
+        return forceRemoveReasons == null || forceRemoveReasons.isEmpty();
+    }
+
+    @NotNull
+    static PlayableId from(@NotNull ContextTrack track) {
+        return fromUri(track.getUri());
+    }
+
+    @NotNull
+    static PlayableId from(@NotNull Metadata.Track track) {
+        return TrackId.fromHex(Utils.bytesToHex(track.getGid()));
+    }
+
+    @NotNull
+    static PlayableId from(@NotNull Metadata.Episode episode) {
+        return EpisodeId.fromHex(Utils.bytesToHex(episode.getGid()));
+    }
+
+    @NotNull
+    String toString();
 
     @NotNull byte[] getGid();
 

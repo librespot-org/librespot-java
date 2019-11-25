@@ -36,6 +36,10 @@ public abstract class AbsChunckedInputStream extends InputStream {
     @Override
     public void close() {
         closed = true;
+
+        synchronized (waitForChunk) {
+            waitForChunk.notifyAll();
+        }
     }
 
     @Override
@@ -83,6 +87,8 @@ public abstract class AbsChunckedInputStream extends InputStream {
 
                 waitForChunk.set(chunkIndex);
                 waitForChunk.wait();
+
+                if (closed) return;
 
                 if (chunkException != null)
                     throw chunkException;
@@ -171,7 +177,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
     public final void notifyChunkAvailable(int index) {
         availableChunks()[index] = true;
 
-        if (index == waitForChunk.get()) {
+        if (index == waitForChunk.get() && !closed) {
             synchronized (waitForChunk) {
                 waitForChunk.set(-1);
                 waitForChunk.notifyAll();
@@ -183,7 +189,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
         availableChunks()[index] = false;
         requestedChunks()[index] = false;
 
-        if (index == waitForChunk.get()) {
+        if (index == waitForChunk.get() && !closed) {
             synchronized (waitForChunk) {
                 chunkException = ex;
                 waitForChunk.set(-1);

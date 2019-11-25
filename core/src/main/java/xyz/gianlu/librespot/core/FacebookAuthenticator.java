@@ -31,7 +31,7 @@ public class FacebookAuthenticator implements Closeable {
         try {
             LOGIN_SPOTIFY = new URL("https://login2.spotify.com/v1/config");
         } catch (MalformedURLException ex) {
-            throw new RuntimeException(ex);
+            throw new IllegalArgumentException(ex);
         }
     }
 

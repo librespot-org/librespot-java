@@ -1,11 +1,9 @@
 # librespot-java
-[![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=master)](https://travis-ci.com/librespot-org/librespot-java)
+[![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=dev)](https://travis-ci.com/librespot-org/librespot-java)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1ec8ca04e5054558a089bc7f640079a6)](https://www.codacy.com/manual/devgianlu/librespot-java?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=librespot-org/librespot-java&amp;utm_campaign=Badge_Grade)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
 
 `librespot-java` is a port of [librespot](https://github.com/librespot-org/librespot), originally written in Rust, which as evolved into the most up-to-date open-source Spotify client. Additionally, this implementation provides an useful API to request metadata or control the player, more [here](https://github.com/librespot-org/librespot-java/blob/master/api).
-
-### Only PRs will be accepted for branch `master`, please checkout `new-spotify-api`.
 
 ## Disclaimer!
 We (the librespot-org organization and me) **DO NOT** encourage piracy and **DO NOT** support any form of downloader/recorder designed with the help of this repository. If you're brave enough to put at risk this entire project, just don't publish it. This is meant to provide support for all those devices that are not officially supported by Spotify.
@@ -18,6 +16,7 @@ Its main features are:
 - Local content caching
 - Zeroconf (Spotify Connect)
 - Gapless playback
+- Mixed playlists (cuepoints and transitions)
 
 ## Get started
 All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
@@ -54,6 +53,10 @@ On some system, many mixers could be installed making librespot-java playback on
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
+
+## Related Projects
+- [librespot](https://github.com/librespot-org/librespot)
+- [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure Librespot-Java.
 
 # Special thanks
 

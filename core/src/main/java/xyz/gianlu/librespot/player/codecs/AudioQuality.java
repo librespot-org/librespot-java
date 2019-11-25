@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.player.codecs;
 
+import com.spotify.metadata.proto.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,8 +22,8 @@ public enum AudioQuality {
     }
 
     @Nullable
-    public static Metadata.AudioFile getAnyVorbisFile(@NotNull Metadata.Track track) {
-        for (Metadata.AudioFile file : track.getFileList()) {
+    public static Metadata.AudioFile getAnyVorbisFile(@NotNull List<Metadata.AudioFile> files) {
+        for (Metadata.AudioFile file : files) {
             Metadata.AudioFile.Format fmt = file.getFormat();
             if (fmt == Metadata.AudioFile.Format.OGG_VORBIS_96
                     || fmt == Metadata.AudioFile.Format.OGG_VORBIS_160
@@ -36,22 +36,15 @@ public enum AudioQuality {
     }
 
     @NotNull
-    public static List<Metadata.AudioFile.Format> listFormats(@NotNull Metadata.Track track) {
-        List<Metadata.AudioFile.Format> list = new ArrayList<>(track.getFileCount());
-        for (Metadata.AudioFile file : track.getFileList()) list.add(file.getFormat());
-        return list;
-    }
-
-    @NotNull
-    public static List<Metadata.AudioFile.Format> listFormats(@NotNull Metadata.Episode episode) {
-        List<Metadata.AudioFile.Format> list = new ArrayList<>(episode.getAudioCount());
-        for (Metadata.AudioFile file : episode.getAudioList()) list.add(file.getFormat());
+    public static List<Metadata.AudioFile.Format> listFormats(@NotNull List<Metadata.AudioFile> files) {
+        List<Metadata.AudioFile.Format> list = new ArrayList<>(files.size());
+        for (Metadata.AudioFile file : files) list.add(file.getFormat());
         return list;
     }
 
     @Nullable
-    public Metadata.AudioFile getFile(@NotNull Metadata.Track track) {
-        for (Metadata.AudioFile file : track.getFileList()) {
+    public Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files) {
+        for (Metadata.AudioFile file : files) {
             if (file.getFormat() == this.format)
                 return file;
         }

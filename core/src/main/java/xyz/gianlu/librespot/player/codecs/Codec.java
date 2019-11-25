@@ -3,90 +3,66 @@ package xyz.gianlu.librespot.player.codecs;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.Player;
 
-import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.AudioFormat;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.TimeUnit;
+import java.io.OutputStream;
 
 /**
  * @author Gianlu
  */
-public abstract class Codec implements Runnable {
-    protected static final int BUFFER_SIZE = 2048;
-    private static final long TRACK_PRELOAD_THRESHOLD = TimeUnit.SECONDS.toMillis(10);
+public abstract class Codec implements Closeable {
+    public static final int BUFFER_SIZE = 2048;
     private static final Logger LOGGER = Logger.getLogger(Codec.class);
     protected final InputStream audioIn;
     protected final float normalizationFactor;
-    protected final Object pauseLock = new Object();
     protected final int duration;
-    protected final PlayerRunner.Listener listener;
-    protected final LinesHolder lines;
-    private final boolean preloadEnabled;
-    protected volatile boolean playing = false;
-    protected volatile boolean stopped = false;
-    protected PlayerRunner.Controller controller;
-    private volatile boolean calledPreload = false;
+    private final AudioFormat dstFormat;
+    protected volatile boolean closed = false;
+    private AudioFormat format;
+    private StreamConverter converter = null;
 
-    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf,
-          @NotNull PlayerRunner.Listener listener, @NotNull LinesHolder lines, int duration) {
+    Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
+        this.dstFormat = dstFormat;
         this.audioIn = audioFile.stream();
-        this.listener = listener;
-        this.lines = lines;
         this.duration = duration;
-        this.preloadEnabled = conf.preloadEnabled();
-
         if (conf.enableNormalisation())
             this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
         else
             this.normalizationFactor = 1;
     }
 
-    public final void play() {
-        playing = true;
-        synchronized (pauseLock) {
-            pauseLock.notifyAll();
-        }
+    public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+        if (converter == null) return readInternal(out);
+
+        int written = readInternal(converter);
+        if (written == -1) return -1;
+
+        converter.checkWritten(written);
+        return converter.convertInto(out);
     }
 
-    public final void stop() {
-        stopped = true;
-        synchronized (pauseLock) {
-            pauseLock.notifyAll(); // Allow thread to exit
-        }
-    }
+    protected abstract int readInternal(@NotNull OutputStream out) throws IOException, CodecException;
 
-    public final void pause() {
-        playing = false;
-    }
+    /**
+     * @return Time in millis
+     * @throws CannotGetTimeException If the codec can't determine the time. This condition is permanent for the entire playback.
+     */
+    public abstract int time() throws CannotGetTimeException;
 
-    @Nullable
-    public final PlayerRunner.Controller controller() {
-        return controller;
+    public final int remaining() throws CannotGetTimeException {
+        return duration - time();
     }
 
     @Override
-    public final void run() {
-        try {
-            readBody();
-            if (!stopped) listener.endOfTrack();
-        } catch (IOException | LineUnavailableException | CodecException | InterruptedException ex) {
-            if (!stopped) listener.playbackError(ex);
-        } finally {
-            cleanup();
-        }
-    }
-
-    protected abstract void readBody() throws IOException, LineUnavailableException, CodecException, InterruptedException;
-
-    public abstract int time() throws CannotGetTimeException;
-
-    public void cleanup() {
-        try {
-            audioIn.close();
-        } catch (IOException ignored) {
-        }
+    public void close() throws IOException {
+        closed = true;
+        audioIn.close();
     }
 
     public void seek(int positionMs) {
@@ -107,32 +83,34 @@ public abstract class Codec implements Runnable {
         }
     }
 
-    protected final void checkPreload() {
-        int time;
-        try {
-            time = time();
-        } catch (CannotGetTimeException ex) {
-            return;
-        }
+    @NotNull
+    public final AudioFormat getAudioFormat() {
+        if (format == null) throw new IllegalStateException();
+        return format;
+    }
 
-        if (preloadEnabled && !calledPreload && !stopped && duration - time <= TRACK_PRELOAD_THRESHOLD) {
-            calledPreload = true;
-            listener.preloadNextTrack();
-        }
+    protected final void setAudioFormat(@NotNull AudioFormat format) {
+        this.format = format;
+
+        if (format.matches(dstFormat)) converter = null;
+        else converter = StreamConverter.converter(format, dstFormat);
+    }
+
+    protected final int sampleSizeBytes() {
+        return getAudioFormat().getSampleSizeInBits() / 8;
+    }
+
+    public final int duration() {
+        return duration;
     }
 
     public static class CannotGetTimeException extends Exception {
-        protected CannotGetTimeException() {
+        CannotGetTimeException() {
         }
     }
 
     public static class CodecException extends Exception {
-
         CodecException() {
-        }
-
-        CodecException(@NotNull Throwable ex) {
-            super(ex);
         }
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>0.6.2</version>
+        <version>1.0.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -28,6 +28,8 @@
                         <configuration>
                             <archive>
                                 <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.api.Main</mainClass>
                                 </manifest>
                             </archive>
@@ -46,6 +48,12 @@
             <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.undertow</groupId>
+            <artifactId>undertow-core</artifactId>
+            <version>2.0.27.Final</version>
         </dependency>
     </dependencies>
 </project>

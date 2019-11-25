@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>0.6.2</version>
+        <version>1.0.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -29,6 +29,8 @@
                         <configuration>
                             <archive>
                                 <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.Main</mainClass>
                                 </manifest>
                             </archive>
@@ -55,12 +57,17 @@
             <artifactId>jorbis</artifactId>
             <version>0.0.17</version>
         </dependency>
-
-        <!-- mDNS -->
         <dependency>
-            <groupId>org.jmdns</groupId>
-            <artifactId>jmdns</artifactId>
-            <version>3.5.5</version>
+            <groupId>com.badlogicgames.jlayer</groupId>
+            <artifactId>jlayer</artifactId>
+            <version>1.0.2-gdx</version>
+        </dependency>
+
+        <!-- Zeroconf -->
+        <dependency>
+            <groupId>xyz.gianlu.zeroconf</groupId>
+            <artifactId>zeroconf</artifactId>
+            <version>1.1.2</version>
         </dependency>
 
         <!-- H2 (cache) -->
@@ -82,6 +89,13 @@
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
             <version>3.6.0</version>
+        </dependency>
+
+        <!-- Commons Net (NTP) -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.6</version>
         </dependency>
     </dependencies>
 </project>
