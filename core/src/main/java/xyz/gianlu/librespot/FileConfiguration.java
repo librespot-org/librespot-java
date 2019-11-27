@@ -291,6 +291,12 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public int getCustomOptionInt(@NotNull String key, int fallback) {
+        Integer val = config.get(key);
+        return val == null ? fallback : val;
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }
