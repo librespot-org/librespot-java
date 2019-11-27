@@ -81,6 +81,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     @NotNull
     private static PlayerState.Builder initState(@NotNull PlayerState.Builder builder) {
         return builder.setPlaybackSpeed(1.0)
+                .clearSessionId().clearPlaybackId()
                 .setSuppressions(Suppressions.newBuilder().build())
                 .setContextRestrictions(Restrictions.newBuilder().build())
                 .setOptions(ContextPlayerOptions.newBuilder()
@@ -94,6 +95,21 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     private static boolean shouldPlay(@NotNull ContextTrack track) {
         return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
+    }
+
+    @NotNull
+    private static String generatePlaybackId(@NotNull Random random) {
+        byte[] bytes = new byte[16];
+        random.nextBytes(bytes);
+        bytes[0] = 1;
+        return Utils.bytesToHex(bytes).toLowerCase();
+    }
+
+    @NotNull
+    private static String generateSessionId(@NotNull Random random) {
+        byte[] bytes = new byte[16];
+        random.nextBytes(bytes);
+        return Base64.getEncoder().withoutPadding().encodeToString(bytes);
     }
 
     void setState(@Nullable Boolean playing, @Nullable Boolean paused, @Nullable Boolean buffering) {
@@ -150,7 +166,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Nullable
-    String getContextUri() {
+    public String getContextUri() {
         return state.getContextUri();
     }
 
@@ -203,6 +219,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.tracksKeeper = new TracksKeeper();
 
         this.device.setIsActive(true);
+
+        renewSessionId();
     }
 
     private void setContext(@NotNull Context ctx) {
@@ -225,6 +243,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.tracksKeeper = new TracksKeeper();
 
         this.device.setIsActive(true);
+
+        renewSessionId();
     }
 
     private void updateRestrictions() {
@@ -671,6 +691,24 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     public void setContextMetadata(@NotNull String key, @Nullable String value) {
         if (value == null) state.removeContextMetadata(key);
         else state.putContextMetadata(key, value);
+    }
+
+    @Nullable
+    public String getPlaybackId() {
+        return state.getPlaybackId();
+    }
+
+    @Nullable
+    public String getSessionId() {
+        return state.getSessionId();
+    }
+
+    public void renewSessionId() {
+        state.setSessionId(generateSessionId(session.random()));
+    }
+
+    public void renewPlaybackId() {
+        state.setPlaybackId(generatePlaybackId(session.random()));
     }
 
     public enum PreviousPlayable {

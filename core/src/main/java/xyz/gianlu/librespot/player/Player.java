@@ -11,6 +11,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
+import xyz.gianlu.librespot.core.EventServiceHelper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -137,6 +138,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
         events.dispatchContextChanged();
         events.dispatchTrackChanged();
+
+        try {
+            EventServiceHelper.announceNewSessionId(session, state);
+            EventServiceHelper.announceNewPlaybackId(session, state);
+        } catch (IOException e) {
+            e.printStackTrace(); // FIXME
+        }
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
@@ -286,6 +294,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
+            try {
+                EventServiceHelper.reportPlayback(session, state, state.getCurrentPlayableOrThrow().toSpotifyUri(),
+                        new EventServiceHelper.PlaybackIntervals());
+            } catch (IOException e) {
+                e.printStackTrace(); // FIXME
+            }
+
             LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
             handleNext(null);
 
@@ -400,6 +415,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             trackHandler.stop();
             trackHandler = null;
         }
+
+        state.renewPlaybackId();
 
         PlayableId id = state.getCurrentPlayableOrThrow();
         if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
