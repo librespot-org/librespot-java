@@ -263,9 +263,9 @@ public final class Session implements Closeable {
             api = new ApiClient(this);
             cdnManager = new CdnManager(this);
             contentFeeder = new PlayableContentFeeder(this);
-            cacheManager = new CacheManager(inner.configuration);
+            cacheManager = new CacheManager(conf());
             dealer = new DealerClient(this);
-            player = new Player(inner.configuration, this);
+            player = new Player(conf(), this);
             search = new SearchManager(this);
 
             authLock.set(false);
@@ -276,6 +276,7 @@ public final class Session implements Closeable {
         player.initState();
 
         TimeProvider.init(this);
+        EventServiceHelper.reportLang(this, conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
     }
@@ -317,7 +318,7 @@ public final class Session implements Closeable {
             ByteBuffer preferredLocale = ByteBuffer.allocate(18 + 5);
             preferredLocale.put((byte) 0x0).put((byte) 0x0).put((byte) 0x10).put((byte) 0x0).put((byte) 0x02);
             preferredLocale.put("preferred-locale".getBytes());
-            preferredLocale.put(inner.configuration.preferredLocale().getBytes());
+            preferredLocale.put(conf().preferredLocale().getBytes());
             sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
             if (removeLock) {

@@ -24,12 +24,22 @@ public final class EventServiceHelper {
 
         MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
                 .setUri("hm://event-service/v1/events").setMethod("POST")
-                .addUserField("Accept-Language", "en").addUserField("X-Offset", "321" /* FIXME ?? */)
+                .addUserField("Accept-Language", "en")
                 .addUserField("X-ClientTimeStamp", String.valueOf(TimeProvider.currentTimeMillis()))
                 .addPayloadPart(body)
                 .build());
 
         System.out.println(resp.statusCode);
+    }
+
+    public static void reportLang(@NotNull Session session, @NotNull String lang) throws IOException {
+        EventBuilder event = new EventBuilder();
+        event.chars("812");
+        event.delimiter().chars('1');
+        event.delimiter().chars(lang);
+        event.delimiter();
+
+        sendEvent(session, event);
     }
 
     public static void reportPlayback(@NotNull Session session, @NotNull StateWrapper state, @NotNull String uri, @NotNull PlaybackIntervals intervals) throws IOException {
@@ -93,14 +103,8 @@ public final class EventServiceHelper {
         }
 
         @NotNull
-        byte[] toArray() throws IOException {
-            byte[] bodyBytes = body.toByteArray();
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream(bodyBytes.length + 2);
-            out.write(bodyBytes.length << 8);
-            out.write(bodyBytes.length & 0xFF);
-            out.write(bodyBytes);
-            return out.toByteArray();
+        byte[] toArray() {
+            return body.toByteArray();
         }
     }
 
