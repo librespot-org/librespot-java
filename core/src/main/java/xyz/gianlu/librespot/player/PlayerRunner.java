@@ -121,10 +121,12 @@ public class PlayerRunner implements Runnable, Closeable {
      */
     public boolean stopAndRelease() {
         stopMixer();
-        synchronized (pauseLock) {
-            try {
-                pauseLock.wait();
-            } catch (InterruptedException ignored) {
+        while (!paused) {
+            synchronized (pauseLock) {
+                try {
+                    pauseLock.wait(100);
+                } catch (InterruptedException ignored) {
+                }
             }
         }
 
