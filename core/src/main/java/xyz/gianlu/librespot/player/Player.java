@@ -114,9 +114,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        loadTrack(play, PushToMixerReason.None);
         events.dispatchContextChanged();
         events.dispatchTrackChanged();
+        loadTrack(play, PushToMixerReason.None);
     }
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
@@ -134,9 +134,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
         events.dispatchContextChanged();
         events.dispatchTrackChanged();
+        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
@@ -154,12 +154,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
+        events.dispatchContextChanged();
+        events.dispatchTrackChanged();
+
         Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
         if (play == null) play = true;
         loadTrack(play, PushToMixerReason.None);
-
-        events.dispatchContextChanged();
-        events.dispatchTrackChanged();
     }
 
     @Override
@@ -530,8 +530,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (track != null) {
             state.skipTo(track);
-            loadTrack(true, PushToMixerReason.Next);
             events.dispatchTrackChanged();
+            loadTrack(true, PushToMixerReason.Next);
             return;
         }
 
@@ -543,8 +543,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (next.isOk()) {
             state.setPosition(0);
-            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next);
             events.dispatchTrackChanged();
+            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
             panicState();
@@ -568,9 +568,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContext(newContext);
                 state.setContextMetadata("context_description", contextDesc);
 
-                loadTrack(true, PushToMixerReason.None);
                 events.dispatchContextChanged();
                 events.dispatchTrackChanged();
+                loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
@@ -578,9 +578,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContextWithTracks(station.uri(), station.tracks());
                 state.setContextMetadata("context_description", contextDesc);
 
-                loadTrack(true, PushToMixerReason.None);
                 events.dispatchContextChanged();
                 events.dispatchTrackChanged();
+                loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
@@ -604,8 +604,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
                 state.setPosition(0);
-                loadTrack(true, PushToMixerReason.Prev);
                 events.dispatchTrackChanged();
+                loadTrack(true, PushToMixerReason.Prev);
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
                 panicState();
