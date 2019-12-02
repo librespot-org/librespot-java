@@ -115,7 +115,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.dispatchContextChanged();
-        events.dispatchTrackChanged();
         loadTrack(play, PushToMixerReason.None);
     }
 
@@ -135,7 +134,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.dispatchContextChanged();
-        events.dispatchTrackChanged();
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
     }
 
@@ -155,7 +153,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.dispatchContextChanged();
-        events.dispatchTrackChanged();
 
         Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
         if (play == null) play = true;
@@ -422,6 +419,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.updated();
             }
 
+            events.dispatchTrackChanged();
+
             if (!play) {
                 runner.pauseMixer();
                 events.dispatchPlaybackPaused();
@@ -448,6 +447,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setState(true, !play, true);
                 state.updated();
             }
+
+            events.dispatchTrackChanged();
 
             if (play) {
                 trackHandler.pushToMixer(reason);
@@ -530,7 +531,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (track != null) {
             state.skipTo(track);
-            events.dispatchTrackChanged();
             loadTrack(true, PushToMixerReason.Next);
             return;
         }
@@ -543,7 +543,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (next.isOk()) {
             state.setPosition(0);
-            events.dispatchTrackChanged();
             loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
@@ -569,7 +568,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.dispatchContextChanged();
-                events.dispatchTrackChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
@@ -579,7 +577,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.dispatchContextChanged();
-                events.dispatchTrackChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -604,7 +601,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
                 state.setPosition(0);
-                events.dispatchTrackChanged();
                 loadTrack(true, PushToMixerReason.Prev);
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
@@ -732,7 +728,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             Metadata.Track track;
             Metadata.Episode episode;
-            if (trackHandler.isPlayable(id)) {
+            if (trackHandler != null && trackHandler.isPlayable(id)) {
                 track = trackHandler.track();
                 episode = trackHandler.episode();
             } else {
