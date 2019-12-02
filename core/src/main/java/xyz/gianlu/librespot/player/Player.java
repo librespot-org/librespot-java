@@ -315,7 +315,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (uri != null && !next.toSpotifyUri().equals(uri))
                 LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", next, uri));
 
-            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(next)) {
+            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(next)) {
                 crossfadeHandler = preloadTrackHandler;
             } else {
                 LOGGER.warn("Did not preload crossfade track. That's bad.");
@@ -402,7 +402,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         PlayableId id = state.getCurrentPlayableOrThrow();
-        if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
+        if (crossfadeHandler != null && crossfadeHandler.isPlayable(id)) {
             trackHandler = crossfadeHandler;
             if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
             crossfadeHandler = null;
@@ -429,7 +429,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 events.dispatchPlaybackResumed();
             }
         } else {
-            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
+            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(id)) {
                 trackHandler = preloadTrackHandler;
                 preloadTrackHandler = null;
 
@@ -732,7 +732,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             Metadata.Track track;
             Metadata.Episode episode;
-            if (trackHandler.isTrack(id)) {
+            if (trackHandler.isPlayable(id)) {
                 track = trackHandler.track();
                 episode = trackHandler.episode();
             } else {
