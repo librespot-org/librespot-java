@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
@@ -34,7 +35,7 @@ public class DealerClient implements Closeable {
     private final Map<String, RequestListener> reqListeners = new HashMap<>();
     private final Map<MessageListener, List<String>> msgListeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
-    private ConnectionHolder conn;
+    private final AtomicReference<ConnectionHolder> conn = new AtomicReference<>();
     private ScheduledFuture lastScheduledReconnection;
 
     public DealerClient(@NotNull Session session) {
@@ -46,9 +47,9 @@ public class DealerClient implements Closeable {
      * Creates a new WebSocket client. <b>Intended for internal use only!</b>
      */
     public void connect() throws IOException, MercuryClient.MercuryException {
-        conn = new ConnectionHolder(session, new Request.Builder()
+        conn.set(new ConnectionHolder(session, new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
-                .build());
+                .build()));
     }
 
     private void waitForListeners() {
@@ -82,7 +83,7 @@ public class DealerClient implements Closeable {
                     interesting = true;
                     looper.submit(() -> {
                         RequestResult result = listener.onRequest(mid, pid, sender, command);
-                        conn.sendReply(key, result);
+                        conn.get().sendReply(key, result);
                         LOGGER.debug(String.format("Handled request. {key: %s, result: %s}", key, result));
                     });
                 }
@@ -166,9 +167,9 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
-        if (conn != null) {
-            ConnectionHolder tmp = conn; // Do not trigger connectionInvalided()
-            conn = null;
+        if (conn.get() != null) {
+            ConnectionHolder tmp = conn.get(); // Do not trigger connectionInvalided()
+            conn.set(null);
             tmp.close();
         }
 
@@ -188,7 +189,7 @@ public class DealerClient implements Closeable {
         if (lastScheduledReconnection != null && !lastScheduledReconnection.isDone())
             throw new IllegalStateException();
 
-        conn = null;
+        conn.set(null);
 
         LOGGER.trace("Scheduled reconnection attempt in 10 seconds...");
         lastScheduledReconnection = scheduler.schedule(() -> {
@@ -277,10 +278,10 @@ public class DealerClient implements Closeable {
                 lastScheduledPing = null;
             }
 
-            if (conn == ConnectionHolder.this)
+            if (conn.get() == ConnectionHolder.this)
                 connectionInvalided();
             else
-                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn, ConnectionHolder.this));
+                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn.get(), ConnectionHolder.this));
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {
