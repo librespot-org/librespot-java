@@ -19,7 +19,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -30,7 +29,7 @@ public final class MercuryClient extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
     private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
-    private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
+    private final Map<Long, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
     private final Map<Long, BytesArrayList> partials = new HashMap<>();
 
@@ -247,10 +246,10 @@ public final class MercuryClient extends PacketsManager {
         }
 
         while (true) {
-            synchronized (callbacks) {
-                if (callbacks.isEmpty()) {
-                    break;
-                } else {
+            if (callbacks.isEmpty()) {
+                break;
+            } else {
+                synchronized (callbacks) {
                     try {
                         callbacks.wait(100);
                     } catch (InterruptedException ignored) {
