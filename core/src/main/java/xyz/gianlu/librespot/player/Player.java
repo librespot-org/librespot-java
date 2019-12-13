@@ -25,12 +25,10 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
@@ -43,6 +41,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private final Session session;
     private final Configuration conf;
     private final PlayerRunner runner;
+    private final EventsDispatcher events = new EventsDispatcher();
     private StateWrapper state;
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
@@ -53,6 +52,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         this.conf = conf;
         this.session = session;
         new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
+    }
+
+    public void addEventsListener(@NotNull EventsListener listener) {
+        events.listeners.add(listener);
+    }
+
+    public void removeEventsListener(@NotNull EventsListener listener) {
+        events.listeners.remove(listener);
     }
 
     public void initState() {
@@ -107,6 +114,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
+        events.dispatchContextChanged();
         loadTrack(play, PushToMixerReason.None);
     }
 
@@ -125,6 +133,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
+        events.dispatchContextChanged();
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
     }
 
@@ -142,6 +151,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             panicState();
             return;
         }
+
+        events.dispatchContextChanged();
 
         Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
         if (play == null) play = true;
@@ -301,7 +312,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (uri != null && !next.toSpotifyUri().equals(uri))
                 LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", next, uri));
 
-            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(next)) {
+            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(next)) {
                 crossfadeHandler = preloadTrackHandler;
             } else {
                 LOGGER.warn("Did not preload crossfade track. That's bad.");
@@ -388,7 +399,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         PlayableId id = state.getCurrentPlayableOrThrow();
-        if (crossfadeHandler != null && crossfadeHandler.isTrack(id)) {
+        if (crossfadeHandler != null && crossfadeHandler.isPlayable(id)) {
             trackHandler = crossfadeHandler;
             if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
             crossfadeHandler = null;
@@ -408,9 +419,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.updated();
             }
 
-            if (!play) runner.pauseMixer();
+            events.dispatchTrackChanged();
+
+            if (!play) {
+                runner.pauseMixer();
+                events.dispatchPlaybackPaused();
+            } else {
+                events.dispatchPlaybackResumed();
+            }
         } else {
-            if (preloadTrackHandler != null && preloadTrackHandler.isTrack(id)) {
+            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(id)) {
                 trackHandler = preloadTrackHandler;
                 preloadTrackHandler = null;
 
@@ -430,9 +448,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.updated();
             }
 
+            events.dispatchTrackChanged();
+
             if (play) {
                 trackHandler.pushToMixer(reason);
                 runner.playMixer();
+                events.dispatchPlaybackResumed();
+            } else {
+                events.dispatchPlaybackPaused();
             }
         }
 
@@ -454,6 +477,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             state.updated();
+            events.dispatchPlaybackResumed();
 
             if (releaseLineFuture != null) {
                 releaseLineFuture.cancel(true);
@@ -473,6 +497,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             state.updated();
+            events.dispatchPlaybackPaused();
 
             if (releaseLineFuture != null) releaseLineFuture.cancel(true);
             releaseLineFuture = scheduler.schedule(() -> {
@@ -542,6 +567,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContext(newContext);
                 state.setContextMetadata("context_description", contextDesc);
 
+                events.dispatchContextChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
@@ -550,6 +576,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContextWithTracks(station.uri(), station.tracks());
                 state.setContextMetadata("context_description", contextDesc);
 
+                events.dispatchContextChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -661,5 +688,56 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         int crossfadeDuration();
 
         int releaseLineDelay();
+    }
+
+    public interface EventsListener {
+        void onContextChanged(@NotNull String newUri);
+
+        void onTrackChanged(@NotNull PlayableId id, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
+
+        void onPlaybackPaused();
+
+        void onPlaybackResumed();
+    }
+
+    private class EventsDispatcher {
+        private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
+        private final List<EventsListener> listeners = new ArrayList<>();
+
+        void dispatchPlaybackPaused() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(l::onPlaybackPaused);
+        }
+
+        void dispatchPlaybackResumed() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(l::onPlaybackResumed);
+        }
+
+        void dispatchContextChanged() {
+            String uri = state.getContextUri();
+            if (uri == null) return;
+
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onContextChanged(uri));
+        }
+
+        void dispatchTrackChanged() {
+            PlayableId id = state.getCurrentPlayable();
+            if (id == null) return;
+
+            Metadata.Track track;
+            Metadata.Episode episode;
+            if (trackHandler != null && trackHandler.isPlayable(id)) {
+                track = trackHandler.track();
+                episode = trackHandler.episode();
+            } else {
+                track = null;
+                episode = null;
+            }
+
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onTrackChanged(id, track, episode));
+        }
     }
 }

@@ -19,6 +19,15 @@ This module depends on `librespot-core` and provides an API to interact with the
 ### Metadata
 - `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist`, `uri` is the standard Spotify uri.
 
+### Events
+
+You can subscribe for players events by creating a WebSocket connection to `/events`.
+The currently available events are:
+- `contextChanged`
+- `trackChanged`
+- `playbackPaused`
+- `playbackResumed`
+
 
 ## Examples
 

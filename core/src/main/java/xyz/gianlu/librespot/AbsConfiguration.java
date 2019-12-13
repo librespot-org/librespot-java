@@ -14,6 +14,8 @@ import xyz.gianlu.librespot.player.Player;
  */
 public abstract class AbsConfiguration implements TimeProvider.Configuration, Player.Configuration, CacheManager.Configuration, AuthConfiguration, ZeroconfServer.Configuration {
 
+    public abstract int getCustomOptionInt(@NotNull String key, int fallback);
+
     @Nullable
     public abstract String deviceName();
 

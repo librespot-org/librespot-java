@@ -16,9 +16,9 @@ import java.security.GeneralSecurityException;
 public class Main {
 
     public static void main(String[] args) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
-        ApiServer server = new ApiServer(24879);
-
         AbsConfiguration conf = new FileConfiguration(args);
+
+        ApiServer server = new ApiServer(conf.getCustomOptionInt("api.port", 24879));
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
             ZeroconfServer.create(conf).addSessionListener(server::restart);
         } else {
