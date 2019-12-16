@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.api;
 
+import com.stijndewitt.undertow.cors.AllowAll;
+import com.stijndewitt.undertow.cors.Filter;
 import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
 import org.apache.log4j.Logger;
@@ -32,7 +34,12 @@ public class ApiServer {
         RoutingHandler handler = new RoutingHandler();
         prepareHandlers(handler, session);
 
-        undertow = Undertow.builder().addHttpListener(port, "", handler).build();
+        Filter corsFilter = new Filter(handler);
+        corsFilter.setPolicyClass(AllowAll.class.getCanonicalName());
+        corsFilter.setPolicyParam(null);
+        corsFilter.setUrlPattern(".*");
+
+        undertow = Undertow.builder().addHttpListener(port, "", corsFilter).build();
         undertow.start();
         LOGGER.info(String.format("Server started on port %d!", port));
     }
