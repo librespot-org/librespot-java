@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.spotify.metadata.proto.Metadata;
 import com.spotify.playlist4.proto.Playlist4ApiProto;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.ContextPageOuterClass;
@@ -99,14 +98,7 @@ public final class MercuryRequests {
     @NotNull
     private static String getAsString(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement elm = obj.get(key);
-        if (elm == null) throw new NullPointerException("Unexpected null value for " + key);
-        else return elm.getAsString();
-    }
-
-    @Contract("_, _, !null -> !null")
-    private static String getAsString(@NotNull JsonObject obj, @NotNull String key, @Nullable String fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null) return fallback;
+        if (elm == null) throw new IllegalArgumentException("Unexpected null value for " + key);
         else return elm.getAsString();
     }
 
