@@ -880,8 +880,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (!PlayableId.canPlaySomething(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
-            if (context.isFinite() && isShufflingContext())
-                shuffleEntirely();
+            boolean transformingShuffle = Boolean.parseBoolean(state.getContextMetadataOrDefault("transforming.shuffle", "true"));
+            if (context.isFinite() && isShufflingContext() && transformingShuffle) shuffleEntirely();
+            else state.getOptionsBuilder().setShufflingContext(false); // Must do this directly!
 
             setCurrentTrackIndex(0);
         }
