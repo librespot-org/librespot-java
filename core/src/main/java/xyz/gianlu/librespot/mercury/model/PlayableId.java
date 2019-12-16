@@ -7,6 +7,7 @@ import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Gianlu
@@ -39,7 +40,8 @@ public interface PlayableId {
     }
 
     static boolean isSupported(@NotNull String uri) {
-        return !uri.startsWith("spotify:local:") && !uri.equals("spotify:delimiter") && !uri.equals("spotify:meta:delimiter");
+        return !uri.startsWith("spotify:local:") && !Objects.equals(uri, "spotify:delimiter")
+                && !Objects.equals(uri, "spotify:meta:delimiter");
     }
 
     static boolean shouldPlay(@NotNull ContextTrack track) {

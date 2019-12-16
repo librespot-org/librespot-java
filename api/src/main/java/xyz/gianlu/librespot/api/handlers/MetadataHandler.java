@@ -59,14 +59,15 @@ public final class MetadataHandler implements HttpHandler {
         try {
             JsonObject obj = handle(type, uri);
             exchange.getResponseSender().send(obj.toString());
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            if (ex instanceof ApiClient.StatusCodeException) {
-                if (((ApiClient.StatusCodeException) ex).code == 404) {
-                    Utils.invalidParameter(exchange, "uri", "404: Unknown uri");
-                    return;
-                }
+        } catch (ApiClient.StatusCodeException ex) {
+            if (ex.code == 404) {
+                Utils.invalidParameter(exchange, "uri", "404: Unknown uri");
+                return;
             }
 
+            Utils.internalError(exchange, ex);
+            LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s, code: %d}", type, uri, ex.code), ex);
+        } catch (IOException | MercuryClient.MercuryException ex) {
             Utils.internalError(exchange, ex);
             LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s}", type, uri), ex);
         } catch (IllegalArgumentException ex) {
