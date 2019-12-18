@@ -36,7 +36,7 @@ public class DealerClient implements Closeable {
     private final Map<MessageListener, List<String>> msgListeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
     private final AtomicReference<ConnectionHolder> conn = new AtomicReference<>();
-    private ScheduledFuture lastScheduledReconnection;
+    private ScheduledFuture<?> lastScheduledReconnection;
 
     public DealerClient(@NotNull Session session) {
         this.session = session;
@@ -249,7 +249,7 @@ public class DealerClient implements Closeable {
         private final WebSocket ws;
         private boolean closed = false;
         private boolean receivedPong = false;
-        private ScheduledFuture lastScheduledPing;
+        private ScheduledFuture<?> lastScheduledPing;
 
         ConnectionHolder(@NotNull Session session, @NotNull Request request) {
             ws = session.client().newWebSocket(request, new WebSocketListenerImpl());

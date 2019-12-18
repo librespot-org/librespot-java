@@ -5,6 +5,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
@@ -64,8 +65,13 @@ public final class MercuryClient extends PacketsManager {
     @NotNull
     public Response sendSync(@NotNull RawMercuryRequest request) throws IOException {
         SyncCallback callback = new SyncCallback();
-        send(request, callback);
-        return callback.waitResponse();
+        int seq = send(request, callback);
+
+        Response resp = callback.waitResponse();
+        if (resp == null)
+            throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
+
+        return resp;
     }
 
     @NotNull
@@ -113,7 +119,7 @@ public final class MercuryClient extends PacketsManager {
         }
     }
 
-    public void send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
+    public int send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
 
@@ -143,6 +149,7 @@ public final class MercuryClient extends PacketsManager {
         session.send(cmd, bytesOut.toByteArray());
 
         callbacks.put((long) seq, callback);
+        return seq;
     }
 
     @Override
@@ -225,10 +232,7 @@ public final class MercuryClient extends PacketsManager {
 
     public void notInterested(@NotNull SubListener listener) {
         synchronized (subscriptions) {
-            Iterator<InternalSubListener> iter = subscriptions.iterator();
-            while (iter.hasNext())
-                if (iter.next().listener == listener)
-                    iter.remove();
+            subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
         }
     }
 
@@ -288,7 +292,7 @@ public final class MercuryClient extends PacketsManager {
             }
         }
 
-        @NotNull
+        @Nullable
         Response waitResponse() {
             synchronized (reference) {
                 try {

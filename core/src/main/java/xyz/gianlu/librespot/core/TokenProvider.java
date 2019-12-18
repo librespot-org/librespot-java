@@ -34,9 +34,11 @@ public class TokenProvider {
             else return token.accessToken;
         }
 
-        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scope: %s, token: %s}", scope, token));
+        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scope: %s, oldToken: %s}", scope, token));
         MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), scope));
         token = new StoredToken(resp);
+
+        LOGGER.debug(String.format("Updated token successfully! {scope: %s, newToken: %s}", scope, token));
 
         tokens.put(scope, token);
         return token.accessToken;
