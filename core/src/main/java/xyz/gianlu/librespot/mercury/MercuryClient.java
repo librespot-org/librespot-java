@@ -31,6 +31,7 @@ public final class MercuryClient extends PacketsManager {
     private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
+    private final Object removeCallbackLock = new Object();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
     private final Map<Long, BytesArrayList> partials = new HashMap<>();
 
@@ -213,8 +214,8 @@ public final class MercuryClient extends PacketsManager {
                 LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
             }
 
-            synchronized (callbacks) {
-                callbacks.notifyAll();
+            synchronized (removeCallbackLock) {
+                removeCallbackLock.notifyAll();
             }
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
@@ -253,9 +254,9 @@ public final class MercuryClient extends PacketsManager {
             if (callbacks.isEmpty()) {
                 break;
             } else {
-                synchronized (callbacks) {
+                synchronized (removeCallbackLock) {
                     try {
-                        callbacks.wait(100);
+                        removeCallbackLock.wait(100);
                     } catch (InterruptedException ignored) {
                     }
                 }
