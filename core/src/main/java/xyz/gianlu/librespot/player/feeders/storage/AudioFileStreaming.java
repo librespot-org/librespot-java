@@ -41,7 +41,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable HaltListener haltListener) throws IOException {
+    AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable HaltListener haltListener) throws IOException {
         this.session = session;
         this.haltListener = haltListener;
         this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
@@ -93,6 +93,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (headers.isEmpty())
                 return false;
 
+            CacheManager.Header cdnHeader;
+            if ((cdnHeader = CacheManager.Header.find(headers, AudioFileFetch.HEADER_CDN)) != null)
+                throw new AudioFileFetch.StorageNotAvailable(new String(cdnHeader.value));
+
             for (CacheManager.Header header : headers)
                 fetch.writeHeader(header.id, header.value, true);
 
@@ -112,12 +116,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return fetch;
     }
 
-    public void open() throws IOException {
+    void open() throws IOException {
         AudioFileFetch fetch = requestHeaders();
         int size = fetch.getSize();
         chunks = fetch.getChunks();
         chunksBuffer = new ChunksBuffer(size, chunks);
-        // FIXME: Check that we don't need to wait for the first chunk
     }
 
     private void requestChunk(int index) {
@@ -147,7 +150,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     @Override
     public void streamError(int chunkIndex, short code) {
         LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
-        chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.from(code));
+        chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.fromStreamError(code));
     }
 
     @Override
@@ -178,8 +181,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
 
-            if (chunk.length != buffer[chunkIndex].length)
+            if (chunk.length != buffer[chunkIndex].length) {
+                System.out.println(Utils.bytesToHex(chunk));
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
+            }
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);

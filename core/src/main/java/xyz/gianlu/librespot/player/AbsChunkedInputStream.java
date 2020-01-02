@@ -11,7 +11,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public abstract class AbsChunkedInputStream extends InputStream implements HaltListener {
-    public static final int PRELOAD_AHEAD = 3;
+    private static final int PRELOAD_AHEAD = 3;
     private static final int PRELOAD_CHUNK_RETRIES = 2;
     private static final int MAX_CHUNK_TRIES = 128;
     private final Object waitLock = new Object();
@@ -234,12 +234,15 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
             super(cause);
         }
 
+        protected ChunkException() {
+        }
+
         private ChunkException(@NotNull String message) {
             super(message);
         }
 
         @NotNull
-        public static ChunkException from(short streamError) {
+        public static ChunkException fromStreamError(short streamError) {
             return new ChunkException("Failed due to stream error, code: " + streamError);
         }
     }
