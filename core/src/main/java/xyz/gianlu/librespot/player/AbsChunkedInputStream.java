@@ -1,28 +1,31 @@
 package xyz.gianlu.librespot.player;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
  */
-public abstract class AbsChunckedInputStream extends InputStream {
-    private static final int PRELOAD_AHEAD = 3;
-    private final AtomicInteger waitForChunk = new AtomicInteger(-1);
-    private final HaltListener haltListener;
-    private ChunkException chunkException = null;
+public abstract class AbsChunkedInputStream extends InputStream implements HaltListener {
+    public static final int PRELOAD_AHEAD = 3;
+    private static final int PRELOAD_CHUNK_RETRIES = 2;
+    private static final int MAX_CHUNK_TRIES = 128;
+    private final Object waitLock = new Object();
+    private final int[] retries;
+    private final boolean stopPlaybackOnChunkError;
+    private volatile int waitForChunk = -1;
+    private volatile ChunkException chunkException = null;
     private int pos = 0;
     private int mark = 0;
     private volatile boolean closed = false;
 
-    protected AbsChunckedInputStream(@Nullable HaltListener haltListener) {
-        this.haltListener = haltListener;
+    protected AbsChunkedInputStream(@NotNull Player.Configuration conf) {
+        this.retries = new int[chunks()];
+        this.stopPlaybackOnChunkError = conf.stopPlaybackOnChunkError();
     }
 
     public final boolean isClosed() {
@@ -37,8 +40,8 @@ public abstract class AbsChunckedInputStream extends InputStream {
     public void close() {
         closed = true;
 
-        synchronized (waitForChunk) {
-            waitForChunk.notifyAll();
+        synchronized (waitLock) {
+            waitLock.notifyAll();
         }
     }
 
@@ -71,31 +74,9 @@ public abstract class AbsChunckedInputStream extends InputStream {
         pos += k;
 
         int chunk = pos / CHUNK_SIZE;
-        checkAvailability(chunk, false);
+        checkAvailability(chunk, false, false);
 
         return k;
-    }
-
-    public void waitFor(int chunkIndex) throws IOException {
-        if (isClosed()) return;
-
-        if (availableChunks()[chunkIndex]) return;
-
-        synchronized (waitForChunk) {
-            try {
-                chunkException = null;
-
-                waitForChunk.set(chunkIndex);
-                waitForChunk.wait();
-
-                if (closed) return;
-
-                if (chunkException != null)
-                    throw chunkException;
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
     }
 
     protected abstract boolean[] requestedChunks();
@@ -109,25 +90,74 @@ public abstract class AbsChunckedInputStream extends InputStream {
      */
     protected abstract void requestChunkFromStream(int index);
 
-    private void checkAvailability(int chunk, boolean wait) throws IOException {
+    /**
+     * Should we retry fetching this chunk? MUST be called only for chunks that are needed immediately ({@code wait = true})!
+     *
+     * @param chunk The chunk index
+     * @return Whether we should retry.
+     */
+    private boolean shouldRetry(int chunk) {
+        if (retries[chunk] < 1) return true;
+        if (retries[chunk] > MAX_CHUNK_TRIES) return false;
+        return !stopPlaybackOnChunkError;
+    }
+
+    /**
+     * Chunk if {@param chunk} is available or wait until it becomes, also handles the retry mechanism.
+     *
+     * @param chunk  The chunk index
+     * @param wait   Whether we should wait for {@param chunk} to be available
+     * @param halted Whether we have already notified that the retrieving of this chunk is halted
+     * @throws IOException If we fail to retrieve this chunk and no more retries are available
+     */
+    private void checkAvailability(int chunk, boolean wait, boolean halted) throws IOException {
+        if (halted && !wait) throw new IllegalArgumentException();
+
         if (!requestedChunks()[chunk]) {
             requestChunkFromStream(chunk);
             requestedChunks()[chunk] = true;
         }
 
         for (int i = chunk + 1; i <= Math.min(chunks() - 1, chunk + PRELOAD_AHEAD); i++) {
-            if (!requestedChunks()[i]) {
+            if (!requestedChunks()[i] && retries[i] < PRELOAD_CHUNK_RETRIES) {
                 requestChunkFromStream(i);
                 requestedChunks()[i] = true;
             }
         }
 
-        if (availableChunks()[chunk]) return;
-
         if (wait) {
-            if (haltListener != null) haltListener.streamReadHalted(chunk, System.currentTimeMillis());
-            waitFor(chunk);
-            if (haltListener != null) haltListener.streamReadResumed(chunk, System.currentTimeMillis());
+            if (availableChunks()[chunk]) return;
+
+            boolean retry = false;
+            synchronized (waitLock) {
+                if (!halted) streamReadHalted(chunk, System.currentTimeMillis());
+
+                try {
+                    chunkException = null;
+                    waitForChunk = chunk;
+                    waitLock.wait();
+
+                    if (closed) return;
+
+                    if (chunkException != null) {
+                        if (shouldRetry(chunk)) retry = true;
+                        else throw chunkException;
+                    }
+                } catch (InterruptedException ex) {
+                    throw new IOException(ex);
+                }
+
+                if (!retry) streamReadResumed(chunk, System.currentTimeMillis());
+            }
+
+            if (retry) {
+                try {
+                    Thread.sleep((long) (Math.log10(retries[chunk]) * 1000));
+                } catch (InterruptedException ignored) {
+                }
+
+                checkAvailability(chunk, true, true); // We must exit the synchronized block!
+            }
         }
     }
 
@@ -149,7 +179,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
             int chunk = pos / CHUNK_SIZE;
             int chunkOff = pos % CHUNK_SIZE;
 
-            checkAvailability(chunk, true);
+            checkAvailability(chunk, true, false);
 
             int copy = Math.min(buffer()[chunk].length - chunkOff, len - i);
             System.arraycopy(buffer()[chunk], chunkOff, b, off + i, copy);
@@ -169,7 +199,7 @@ public abstract class AbsChunckedInputStream extends InputStream {
             return -1;
 
         int chunk = pos / CHUNK_SIZE;
-        checkAvailability(chunk, true);
+        checkAvailability(chunk, true, false);
 
         return buffer()[chunk][pos++ % CHUNK_SIZE] & 0xff;
     }
@@ -177,10 +207,10 @@ public abstract class AbsChunckedInputStream extends InputStream {
     public final void notifyChunkAvailable(int index) {
         availableChunks()[index] = true;
 
-        if (index == waitForChunk.get() && !closed) {
-            synchronized (waitForChunk) {
-                waitForChunk.set(-1);
-                waitForChunk.notifyAll();
+        synchronized (waitLock) {
+            if (index == waitForChunk && !closed) {
+                waitForChunk = -1;
+                waitLock.notifyAll();
             }
         }
     }
@@ -188,20 +218,15 @@ public abstract class AbsChunckedInputStream extends InputStream {
     public final void notifyChunkError(int index, @NotNull ChunkException ex) {
         availableChunks()[index] = false;
         requestedChunks()[index] = false;
+        retries[index] += 1;
 
-        if (index == waitForChunk.get() && !closed) {
-            synchronized (waitForChunk) {
+        synchronized (waitLock) {
+            if (index == waitForChunk && !closed) {
                 chunkException = ex;
-                waitForChunk.set(-1);
-                waitForChunk.notifyAll();
+                waitForChunk = -1;
+                waitLock.notifyAll();
             }
         }
-    }
-
-    public interface HaltListener {
-        void streamReadHalted(int chunk, long time);
-
-        void streamReadResumed(int chunk, long time);
     }
 
     public static class ChunkException extends IOException {

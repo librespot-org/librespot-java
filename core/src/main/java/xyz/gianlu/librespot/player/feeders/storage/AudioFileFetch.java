@@ -4,7 +4,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.AbsChunkedInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -65,7 +65,7 @@ public class AudioFileFetch implements AudioFile {
         notifyAll();
     }
 
-    synchronized void waitChunk() throws AbsChunckedInputStream.ChunkException {
+    synchronized void waitChunk() throws AbsChunkedInputStream.ChunkException {
         if (size != -1) return;
 
         try {
@@ -73,7 +73,7 @@ public class AudioFileFetch implements AudioFile {
             wait();
 
             if (streamError != null)
-                throw AbsChunckedInputStream.ChunkException.from(streamError);
+                throw AbsChunkedInputStream.ChunkException.from(streamError);
         } catch (InterruptedException ex) {
             throw new IllegalStateException(ex);
         }

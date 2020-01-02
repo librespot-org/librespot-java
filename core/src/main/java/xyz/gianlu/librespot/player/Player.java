@@ -348,7 +348,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex) {
         if (handler == trackHandler) {
-            if (ex instanceof AbsChunckedInputStream.ChunkException)
+            if (ex instanceof AbsChunkedInputStream.ChunkException)
                 LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
             else
                 LOGGER.fatal("Playback error!", ex);
@@ -688,6 +688,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         int crossfadeDuration();
 
         int releaseLineDelay();
+
+        boolean stopPlaybackOnChunkError();
     }
 
     public interface EventsListener {

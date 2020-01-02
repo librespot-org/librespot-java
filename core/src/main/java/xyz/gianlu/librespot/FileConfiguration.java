@@ -291,6 +291,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean stopPlaybackOnChunkError() {
+        return config.get("player.stopPlaybackOnChunkError");
+    }
+
+    @Override
     public int getCustomOptionInt(@NotNull String key, int fallback) {
         Integer val = config.get(key);
         return val == null ? fallback : val;

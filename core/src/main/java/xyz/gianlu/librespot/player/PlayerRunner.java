@@ -504,7 +504,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
-    public class TrackHandler implements AbsChunckedInputStream.HaltListener, Closeable, Runnable {
+    public class TrackHandler implements HaltListener, Closeable, Runnable {
         private final int id;
         private final PlayableId playable;
         private final Object writeLock = new Object();

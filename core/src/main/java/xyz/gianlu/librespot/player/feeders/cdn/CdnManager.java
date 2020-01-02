@@ -12,10 +12,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.GeneralWritableStream;
-import xyz.gianlu.librespot.player.StreamId;
+import xyz.gianlu.librespot.player.*;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
@@ -60,13 +57,13 @@ public class CdnManager {
     }
 
     @NotNull
-    public Streamer streamExternalEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
+    public Streamer streamExternalEpisode(@NotNull Metadata.Episode episode, @NotNull HttpUrl externalUrl, @Nullable HaltListener haltListener) throws IOException, CdnException {
         return new Streamer(new StreamId(episode), SuperAudioFormat.MP3 /* Guaranteed */, new CdnUrl(null, externalUrl),
                 session.cache(), new NoopAudioDecrypt(), haltListener);
     }
 
     @NotNull
-    public Streamer streamFile(@NotNull Metadata.AudioFile file, @NotNull byte[] key, @NotNull HttpUrl url, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
+    public Streamer streamFile(@NotNull Metadata.AudioFile file, @NotNull byte[] key, @NotNull HttpUrl url, @Nullable HaltListener haltListener) throws IOException, CdnException {
         return new Streamer(new StreamId(file), SuperAudioFormat.get(file.getFormat()), new CdnUrl(file.getFileId(), url),
                 session.cache(), new AesAudioDecrypt(key), haltListener);
     }
@@ -189,7 +186,7 @@ public class CdnManager {
 
     public class Streamer implements GeneralAudioStream, GeneralWritableStream {
         private final StreamId streamId;
-        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "cdn-chunk-async-" + r.hashCode()));
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "cdn-async-" + r.hashCode()));
         private final SuperAudioFormat format;
         private final AudioDecrypt audioDecrypt;
         private final CdnUrl cdnUrl;
@@ -200,13 +197,15 @@ public class CdnManager {
         private final int chunks;
         private final InternalStream internalStream;
         private final CacheManager.Handler cacheHandler;
+        private final HaltListener haltListener;
 
         private Streamer(@NotNull StreamId streamId, @NotNull SuperAudioFormat format, @NotNull CdnUrl cdnUrl, @Nullable CacheManager cache,
-                         @Nullable AudioDecrypt audioDecrypt, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException, CdnException {
+                         @Nullable AudioDecrypt audioDecrypt, @Nullable HaltListener haltListener) throws IOException, CdnException {
             this.streamId = streamId;
             this.format = format;
             this.audioDecrypt = audioDecrypt;
             this.cdnUrl = cdnUrl;
+            this.haltListener = haltListener;
             this.cacheHandler = cache != null ? cache.forWhatever(streamId) : null;
 
             byte[] firstChunk;
@@ -242,7 +241,7 @@ public class CdnManager {
             buffer = new byte[chunks][CHUNK_SIZE];
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
-            this.internalStream = new InternalStream(haltListener);
+            this.internalStream = new InternalStream(session.conf());
             writeChunk(firstChunk, 0, false);
         }
 
@@ -280,7 +279,7 @@ public class CdnManager {
             else return "{fileId: " + streamId.getFileId() + "}";
         }
 
-        private void requestChunk(int index, boolean retried) {
+        private void requestChunk(int index) {
             if (cacheHandler != null) {
                 try {
                     if (cacheHandler.hasChunk(index)) {
@@ -296,9 +295,8 @@ public class CdnManager {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
             } catch (IOException | CdnException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
-                if (retried) internalStream.notifyChunkError(index, new AbsChunckedInputStream.ChunkException(ex));
-                else requestChunk(index, true);
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
 
@@ -324,10 +322,10 @@ public class CdnManager {
             }
         }
 
-        private class InternalStream extends AbsChunckedInputStream {
+        private class InternalStream extends AbsChunkedInputStream {
 
-            InternalStream(@Nullable HaltListener haltListener) {
-                super(haltListener);
+            private InternalStream(Player.@NotNull Configuration conf) {
+                super(conf);
             }
 
             @Override
@@ -363,7 +361,17 @@ public class CdnManager {
 
             @Override
             protected void requestChunkFromStream(int index) {
-                executorService.execute(() -> requestChunk(index, false));
+                executorService.execute(() -> requestChunk(index));
+            }
+
+            @Override
+            public void streamReadHalted(int chunk, long time) {
+                if (haltListener != null) executorService.submit(() -> haltListener.streamReadHalted(chunk, time));
+            }
+
+            @Override
+            public void streamReadResumed(int chunk, long time) {
+                if (haltListener != null) executorService.submit(() -> haltListener.streamReadResumed(chunk, time));
             }
         }
     }
