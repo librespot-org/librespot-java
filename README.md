@@ -17,6 +17,7 @@ Its main features are:
 - Zeroconf (Spotify Connect)
 - Gapless playback
 - Mixed playlists (cuepoints and transitions)
+- Free accounts support
 
 ## Get started
 All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
