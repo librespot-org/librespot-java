@@ -14,10 +14,12 @@ import xyz.gianlu.librespot.core.Session;
 public class ApiServer {
     private static final Logger LOGGER = Logger.getLogger(ApiServer.class);
     private final int port;
+    private final String host;
     private Undertow undertow = null;
 
-    public ApiServer(int port) {
-        this.port = port;
+    public ApiServer(@NotNull ApiConfiguration conf) {
+        this.port = conf.apiPort();
+        this.host = conf.apiHost();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (undertow != null) undertow.stop();
@@ -39,7 +41,7 @@ public class ApiServer {
         corsFilter.setPolicyParam(null);
         corsFilter.setUrlPattern(".*");
 
-        undertow = Undertow.builder().addHttpListener(port, "", corsFilter).build();
+        undertow = Undertow.builder().addHttpListener(port, host, corsFilter).build();
         undertow.start();
         LOGGER.info(String.format("Server started on port %d!", port));
     }
