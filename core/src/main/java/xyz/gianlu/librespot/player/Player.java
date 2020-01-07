@@ -46,7 +46,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
-    private ScheduledFuture releaseLineFuture = null;
+    private ScheduledFuture<?> releaseLineFuture = null;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -384,6 +384,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private void handleSeek(int pos) {
         state.setPosition(pos);
         if (trackHandler != null) trackHandler.seek(pos);
+        events.dispatchSeek(pos);
     }
 
     private void panicState() {
@@ -697,9 +698,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         void onTrackChanged(@NotNull PlayableId id, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
 
-        void onPlaybackPaused();
+        void onPlaybackPaused(long trackTime);
 
-        void onPlaybackResumed();
+        void onPlaybackResumed(long trackTime);
+
+        void onTrackSeeked(long trackTime);
     }
 
     private class EventsDispatcher {
@@ -707,13 +710,15 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private final List<EventsListener> listeners = new ArrayList<>();
 
         void dispatchPlaybackPaused() {
+            long trackTime = time();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(l::onPlaybackPaused);
+                executorService.execute(() -> l.onPlaybackPaused(trackTime));
         }
 
         void dispatchPlaybackResumed() {
+            long trackTime = time();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(l::onPlaybackResumed);
+                executorService.execute(() -> l.onPlaybackResumed(trackTime));
         }
 
         void dispatchContextChanged() {
@@ -740,6 +745,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackChanged(id, track, episode));
+        }
+
+        public void dispatchSeek(int pos) {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onTrackSeeked(pos));
         }
     }
 }

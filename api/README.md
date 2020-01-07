@@ -14,7 +14,7 @@ This module depends on `librespot-core` and provides an API to interact with the
 - `POST \player\set-volume` Set volume to a given `volume` value from 0 to 65536.
 - `POST \player\volume-up` Up the volume a little bit.
 - `POST \player\volume-down` Lower the volume a little bit.
-- `POST \player\current` Retrieve information about the current track.
+- `POST \player\current` Retrieve information about the current track (metadata and time).
 
 ### Metadata
 - `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist`, `uri` is the standard Spotify uri.
@@ -27,7 +27,7 @@ The currently available events are:
 - `trackChanged`
 - `playbackPaused`
 - `playbackResumed`
-
+- `trackSeeked`
 
 ## Examples
 

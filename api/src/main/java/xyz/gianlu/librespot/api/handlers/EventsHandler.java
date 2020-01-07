@@ -46,16 +46,26 @@ public class EventsHandler extends WebSocketProtocolHandshakeHandler implements 
     }
 
     @Override
-    public void onPlaybackPaused() {
+    public void onPlaybackPaused(long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackPaused");
+        obj.addProperty("trackTime", trackTime);
         dispatch(obj);
     }
 
     @Override
-    public void onPlaybackResumed() {
+    public void onPlaybackResumed(long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackResumed");
+        obj.addProperty("trackTime", trackTime);
+        dispatch(obj);
+    }
+
+    @Override
+    public void onTrackSeeked(long trackTime) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "trackSeeked");
+        obj.addProperty("trackTime", trackTime);
         dispatch(obj);
     }
 }

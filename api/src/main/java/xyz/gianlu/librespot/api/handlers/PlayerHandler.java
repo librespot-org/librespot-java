@@ -59,7 +59,12 @@ public final class PlayerHandler implements HttpHandler {
     private void current(HttpServerExchange exchange) {
         PlayableId id = session.player().currentPlayableId();
 
-        JsonObject obj;
+        JsonObject obj = new JsonObject();
+        if (id != null) obj.addProperty("current", id.toSpotifyUri());
+
+        long time = session.player().time();
+        obj.addProperty("trackTime", time);
+
         if (id instanceof TrackId) {
             Metadata.Track track = session.player().currentTrack();
             if (track == null) {
@@ -67,8 +72,7 @@ public final class PlayerHandler implements HttpHandler {
                 return;
             }
 
-            obj = ProtobufToJson.convert(track);
-            obj.addProperty("uri", id.toSpotifyUri());
+            obj.add("track", ProtobufToJson.convert(track));
         } else if (id instanceof EpisodeId) {
             Metadata.Episode episode = session.player().currentEpisode();
             if (episode == null) {
@@ -76,8 +80,7 @@ public final class PlayerHandler implements HttpHandler {
                 return;
             }
 
-            obj = ProtobufToJson.convert(episode);
-            obj.addProperty("uri", id.toSpotifyUri());
+            obj.add("episode", ProtobufToJson.convert(episode));
         } else {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;
