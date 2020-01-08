@@ -28,6 +28,8 @@ The currently available events are:
 - `playbackPaused`
 - `playbackResumed`
 - `trackSeeked`
+- `metadataAvailable`
+- `playbackHaltStateChanged`
 
 ## Examples
 

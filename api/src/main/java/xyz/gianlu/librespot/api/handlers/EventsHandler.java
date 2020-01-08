@@ -14,7 +14,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
-public class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener {
+public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener {
     private static final Logger LOGGER = Logger.getLogger(EventsHandler.class);
 
     public EventsHandler(@NotNull Session session) {
@@ -66,6 +66,24 @@ public class EventsHandler extends WebSocketProtocolHandshakeHandler implements 
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackSeeked");
         obj.addProperty("trackTime", trackTime);
+        dispatch(obj);
+    }
+
+    @Override
+    public void onMetadataAvailable(Metadata.@Nullable Track track, Metadata.@Nullable Episode episode) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "metadataAvailable");
+        if (track != null) obj.add("track", ProtobufToJson.convert(track));
+        if (episode != null) obj.add("episode", ProtobufToJson.convert(episode));
+        dispatch(obj);
+    }
+
+    @Override
+    public void onPlaybackHaltStateChanged(boolean halted, long trackTime) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "playbackHaltStateChanged");
+        obj.addProperty("trackTime", trackTime);
+        obj.addProperty("halted", halted);
         dispatch(obj);
     }
 }

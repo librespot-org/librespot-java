@@ -241,6 +241,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
         else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
         else LOGGER.warn("Couldn't update metadata!");
+
+        events.metadataAvailable();
     }
 
     @Override
@@ -367,6 +369,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             state.setState(true, false, true);
             state.updated();
+
+            events.playbackHaltStateChanged(true);
         }
     }
 
@@ -378,6 +382,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             state.setPosition(state.getPosition() - diff);
             state.setState(true, false, false);
             state.updated();
+
+            events.playbackHaltStateChanged(false);
         }
     }
 
@@ -703,6 +709,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void onPlaybackResumed(long trackTime);
 
         void onTrackSeeked(long trackTime);
+
+        void onMetadataAvailable(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
+
+        void onPlaybackHaltStateChanged(boolean halted, long trackTime);
     }
 
     private class EventsDispatcher {
@@ -710,13 +720,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private final List<EventsListener> listeners = new ArrayList<>();
 
         void dispatchPlaybackPaused() {
-            long trackTime = time();
+            long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackPaused(trackTime));
         }
 
         void dispatchPlaybackResumed() {
-            long trackTime = time();
+            long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackResumed(trackTime));
         }
@@ -750,6 +760,23 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         public void dispatchSeek(int pos) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
+        }
+
+        public void metadataAvailable() {
+            if (trackHandler == null) return;
+
+            Metadata.Track track = trackHandler.track();
+            Metadata.Episode episode = trackHandler.episode();
+            if (track == null && episode == null) return;
+
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onMetadataAvailable(track, episode));
+        }
+
+        public void playbackHaltStateChanged(boolean halted) {
+            long trackTime = state.getPosition();
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onPlaybackHaltStateChanged(halted, trackTime));
         }
     }
 }
