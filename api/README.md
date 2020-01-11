@@ -5,6 +5,8 @@ This module depends on `librespot-core` and provides an API to interact with the
 
 ## Available endpoints
 
+All the endpoints will respond with `200` if successful or `204` if there isn't any active session.
+
 ### Player
 - `POST \player\load` Load a track from a given uri. The request body should contain two parameters: `uri` and `play`.
 - `POST \player\pause` Pause playback.
@@ -30,6 +32,9 @@ The currently available events are:
 - `trackSeeked`
 - `metadataAvailable`
 - `playbackHaltStateChanged`
+- `sessionCleared`
+- `sessionChanged`
+- `inactiveSession`
 
 ## Examples
 

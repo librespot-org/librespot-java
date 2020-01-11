@@ -9,17 +9,17 @@ import io.undertow.websockets.core.WebSockets;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
-public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener {
+public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener {
     private static final Logger LOGGER = Logger.getLogger(EventsHandler.class);
 
-    public EventsHandler(@NotNull Session session) {
+    public EventsHandler() {
         super((WebSocketConnectionCallback) (exchange, channel) -> LOGGER.info(String.format("Accepted new websocket connection from %s.", channel.getSourceAddress().getAddress())));
-        session.player().addEventsListener(this);
     }
 
     private void dispatch(@NotNull JsonObject obj) {
@@ -85,5 +85,30 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         obj.addProperty("trackTime", trackTime);
         obj.addProperty("halted", halted);
         dispatch(obj);
+    }
+
+    @Override
+    public void onInactiveSession(boolean timeout) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "inactiveSession");
+        obj.addProperty("timeout", timeout);
+        dispatch(obj);
+    }
+
+    @Override
+    public void onSessionCleared() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "sessionCleared");
+        dispatch(obj);
+    }
+
+    @Override
+    public void onNewSession(@NotNull Session session) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "sessionChanged");
+        obj.addProperty("username", session.username());
+        dispatch(obj);
+
+        session.player().addEventsListener(this);
     }
 }

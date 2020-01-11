@@ -224,6 +224,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Override
     public void notActive() {
+        events.inactiveSession(false);
         if (runner.stopAndRelease()) LOGGER.debug("Released line due to inactivity.");
     }
 
@@ -510,6 +511,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             releaseLineFuture = scheduler.schedule(() -> {
                 if (!state.isPaused()) return;
 
+                events.inactiveSession(true);
                 if (runner.pauseAndRelease()) LOGGER.debug("Released line after a period of inactivity.");
             }, conf.releaseLineDelay(), TimeUnit.SECONDS);
         }
@@ -637,6 +639,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             preloadTrackHandler = null;
         }
 
+        events.listeners.clear();
+
         runner.close();
         if (state != null) state.removeListener(this);
     }
@@ -713,6 +717,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void onMetadataAvailable(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
 
         void onPlaybackHaltStateChanged(boolean halted, long trackTime);
+
+        void onInactiveSession(boolean timeout);
     }
 
     private class EventsDispatcher {
@@ -777,6 +783,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackHaltStateChanged(halted, trackTime));
+        }
+
+        public void inactiveSession(boolean timeout) {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onInactiveSession(timeout));
         }
     }
 }
