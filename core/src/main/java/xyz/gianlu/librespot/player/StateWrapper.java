@@ -96,9 +96,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
     }
 
-    void setState(@Nullable Boolean playing, @Nullable Boolean paused, @Nullable Boolean buffering) {
-        setState(playing == null ? state.getIsPlaying() : playing, paused == null ? state.getIsPaused() : paused,
-                buffering == null ? state.getIsBuffering() : buffering);
+    void setBuffering(boolean buffering) {
+        setState(state.getIsPlaying(), state.getIsPaused(), buffering);
     }
 
     synchronized void setState(boolean playing, boolean paused, boolean buffering) {

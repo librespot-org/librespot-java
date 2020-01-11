@@ -231,7 +231,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void startedLoading(@NotNull TrackHandler handler) {
         if (handler == trackHandler) {
-            state.setState(true, null, true);
+            state.setBuffering(true);
             state.updated();
         }
     }
@@ -249,7 +249,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void finishedLoading(@NotNull TrackHandler handler, int pos) {
         if (handler == trackHandler) {
-            state.setState(true, null, false);
+            state.setBuffering(false);
 
             updateStateWithHandler();
 
@@ -368,7 +368,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (handler == trackHandler) {
             LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
 
-            state.setState(true, false, true);
+            state.setBuffering(true);
             state.updated();
 
             events.playbackHaltStateChanged(true);
@@ -381,7 +381,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
 
             state.setPosition(state.getPosition() - diff);
-            state.setState(true, false, false);
+            state.setBuffering(false);
             state.updated();
 
             events.playbackHaltStateChanged(false);
