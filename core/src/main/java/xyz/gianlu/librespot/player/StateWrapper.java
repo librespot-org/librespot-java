@@ -230,11 +230,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private void updateRestrictions() {
         if (context == null) return;
 
-        if (isPaused()) context.restrictions.disallow(Action.PAUSE, RestrictionsManager.REASON_ALREADY_PAUSED);
-        else context.restrictions.allow(Action.PAUSE);
-        if (isPlaying()) context.restrictions.disallow(Action.RESUME, RestrictionsManager.REASON_NOT_PAUSED);
-        else context.restrictions.allow(Action.RESUME);
-
         if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
             context.restrictions.disallow(Action.SKIP_PREV, RestrictionsManager.REASON_NO_PREV_TRACK);
         else
