@@ -40,7 +40,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
     private final Session session;
     private final Connect.DeviceInfo.Builder deviceInfo;
-    private final List<Listener> listeners = new ArrayList<>();
+    private final List<Listener> listeners = Collections.synchronizedList(new ArrayList<>());
     private final Connect.PutStateRequest.Builder putState;
     private volatile String connectionId = null;
 
@@ -79,15 +79,11 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     public void addListener(@NotNull Listener listener) {
-        synchronized (listeners) {
-            listeners.add(listener);
-        }
+        listeners.add(listener);
     }
 
     public void removeListener(@NotNull Listener listener) {
-        synchronized (listeners) {
-            listeners.remove(listener);
-        }
+        listeners.remove(listener);
     }
 
     private void notifyReady() {
@@ -96,6 +92,11 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
+        if (listeners.isEmpty()) {
+            LOGGER.warn(String.format("Cannot dispatch command because there are no listeners. {command: %s}", endpoint));
+            return;
+        }
+
         for (Listener listener : new ArrayList<>(listeners)) {
             try {
                 listener.command(endpoint, data);
