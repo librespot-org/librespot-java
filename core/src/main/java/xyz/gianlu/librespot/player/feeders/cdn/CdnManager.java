@@ -264,7 +264,7 @@ public class CdnManager {
         }
 
         @Override
-        public @NotNull InputStream stream() {
+        public @NotNull AbsChunkedInputStream stream() {
             return internalStream;
         }
 

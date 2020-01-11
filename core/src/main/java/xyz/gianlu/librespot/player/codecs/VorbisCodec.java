@@ -49,8 +49,7 @@ public class VorbisCodec extends Codec {
         this.buffer = joggSyncState.data;
 
         readHeader();
-
-        audioIn.mark(-1);
+        seekZero = audioIn.pos();
 
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
@@ -61,6 +60,28 @@ public class VorbisCodec extends Codec {
         pcmIndex = new int[jorbisInfo.channels];
 
         setAudioFormat(new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false));
+    }
+
+    @Override
+    public void seek(int positionMs) {
+        super.seek(positionMs);
+        if (positionMs == 0) return;
+
+        audioIn.mark(-1);
+        long oldOffset = pcm_offset;
+        while (oldOffset == pcm_offset || pcm_offset <= 0) {
+            try {
+                if (readInternal(new OutputStream() {
+                    @Override
+                    public void write(int b) {
+                        // Noop
+                    }
+                }) == -1) break;
+            } catch (IOException | CodecException ex) {
+                break;
+            }
+        }
+        audioIn.reset();
     }
 
     @Override
