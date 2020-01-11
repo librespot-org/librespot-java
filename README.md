@@ -56,7 +56,8 @@ To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-
 
 ## Related Projects
 - [librespot](https://github.com/librespot-org/librespot)
-- [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure Librespot-Java.
+- [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
+- [spocon](https://github.com/spocon/spocon) - Install librespot-java from APT
 
 # Special thanks
 

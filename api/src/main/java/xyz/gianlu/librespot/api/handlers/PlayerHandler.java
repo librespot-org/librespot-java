@@ -147,7 +147,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
         VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current");
 
-        private String name;
+        private final String name;
 
         Command(String name) {
             this.name = name;

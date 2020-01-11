@@ -16,7 +16,6 @@ import java.net.URLEncoder;
  */
 public class SearchManager {
     private static final String BASE_URL = "hm://searchview/km/v4/search/";
-    private static final JsonParser PARSER = new JsonParser();
     private final Session session;
 
     public SearchManager(@NotNull Session session) {
@@ -34,7 +33,7 @@ public class SearchManager {
 
         if (resp.statusCode != 200) throw new SearchException(resp.statusCode);
 
-        return (JsonObject) PARSER.parse(new InputStreamReader(resp.payload.stream()));
+        return JsonParser.parseReader(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
     }
 
     public static class SearchException extends IOException {

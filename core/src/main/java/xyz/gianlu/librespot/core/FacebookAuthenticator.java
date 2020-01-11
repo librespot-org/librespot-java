@@ -23,7 +23,6 @@ import java.util.Base64;
  */
 public class FacebookAuthenticator implements Closeable {
     private static final URL LOGIN_SPOTIFY;
-    private static final JsonParser PARSER = new JsonParser();
     private static final Logger LOGGER = Logger.getLogger(FacebookAuthenticator.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
 
@@ -44,7 +43,7 @@ public class FacebookAuthenticator implements Closeable {
         HttpURLConnection conn = (HttpURLConnection) LOGIN_SPOTIFY.openConnection();
         try {
             conn.connect();
-            JsonObject obj = PARSER.parse(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+            JsonObject obj = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
             credentialsUrl = obj.get("credentials_url").getAsString();
             String loginUrl = obj.get("login_url").getAsString();
             LOGGER.info(String.format("Visit %s in your browser.", loginUrl));
@@ -73,7 +72,7 @@ public class FacebookAuthenticator implements Closeable {
     }
 
     private void authData(@NotNull String json) {
-        JsonObject obj = PARSER.parse(json).getAsJsonObject();
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
         if (!obj.get("error").isJsonNull()) {
             LOGGER.fatal("Error during authentication: " + obj.get("error"));
             return;

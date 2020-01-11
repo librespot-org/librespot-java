@@ -12,7 +12,6 @@ import java.lang.reflect.InvocationTargetException;
  * @author Gianlu
  */
 public class JsonMercuryRequest<W extends JsonWrapper> {
-    private static final JsonParser PARSER = new JsonParser();
     final RawMercuryRequest request;
     private final Class<W> wrapperClass;
 
@@ -24,7 +23,7 @@ public class JsonMercuryRequest<W extends JsonWrapper> {
     @NotNull
     public W instantiate(@NotNull MercuryClient.Response resp) {
         try {
-            JsonElement elm = PARSER.parse(new InputStreamReader(resp.payload.stream()));
+            JsonElement elm = JsonParser.parseReader(new InputStreamReader(resp.payload.stream()));
             return wrapperClass.getConstructor(JsonObject.class).newInstance(elm.getAsJsonObject());
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
             throw new IllegalArgumentException(ex);

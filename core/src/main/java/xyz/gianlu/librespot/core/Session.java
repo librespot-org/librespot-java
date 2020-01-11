@@ -643,8 +643,8 @@ public final class Session implements Closeable {
      */
     public static class Builder {
         private final Inner inner;
+        private final AuthConfiguration authConf;
         private Authentication.LoginCredentials loginCredentials = null;
-        private AuthConfiguration authConf;
 
         public Builder(@NotNull Connect.DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);

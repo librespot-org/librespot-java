@@ -22,7 +22,6 @@ import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
  * @author Gianlu
  */
 public final class PagesLoader {
-    private static final JsonParser PARSER = new JsonParser();
     private final List<ContextPage> pages;
     private final Session session;
     private String resolveUrl = null;
@@ -55,7 +54,7 @@ public final class PagesLoader {
         MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
                 .setUri(url).setMethod("GET").build());
 
-        JsonObject obj = PARSER.parse(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
+        JsonObject obj = JsonParser.parseReader(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
         return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
     }
 
