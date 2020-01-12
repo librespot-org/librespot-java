@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class TimeProvider {
     private static final AtomicLong offset = new AtomicLong(0);
     private static final Logger LOGGER = Logger.getLogger(TimeProvider.class);
-    private static final JsonParser PARSER = new JsonParser();
     private static Method method = Method.NTP;
 
     private TimeProvider() {
@@ -99,7 +98,7 @@ public final class TimeProvider {
             ResponseBody body = resp.body();
             if (body == null) throw new IllegalStateException();
 
-            JsonObject obj = PARSER.parse(body.string()).getAsJsonObject();
+            JsonObject obj = JsonParser.parseString(body.string()).getAsJsonObject();
             long diff = obj.get("timestamp").getAsLong() - System.currentTimeMillis();
             synchronized (offset) {
                 offset.set(diff);

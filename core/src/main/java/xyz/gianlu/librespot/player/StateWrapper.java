@@ -48,7 +48,6 @@ import static spotify.player.proto.ContextOuterClass.Context;
  */
 public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
-    private static final JsonParser PARSER = new JsonParser();
 
     static {
         try {
@@ -175,7 +174,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 return;
             }
 
-            if (body != null) updateContext(PARSER.parse(body.string()).getAsJsonObject());
+            if (body != null) updateContext(JsonParser.parseString(body.string()).getAsJsonObject());
             else throw new IllegalArgumentException();
 
             LOGGER.debug("Updated context with transforming information!");
@@ -631,7 +630,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             List<String> added = null;
             List<String> removed = null;
 
-            JsonArray items = PARSER.parse(payloads[0]).getAsJsonObject().getAsJsonArray("items");
+            JsonArray items = JsonParser.parseString(payloads[0]).getAsJsonObject().getAsJsonArray("items");
             for (JsonElement elm : items) {
                 JsonObject obj = elm.getAsJsonObject();
                 String itemUri = "spotify:" + obj.get("type").getAsString() + ":" + obj.get("identifier").getAsString();

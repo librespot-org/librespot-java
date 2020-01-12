@@ -22,7 +22,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * @author Gianlu
  */
 public class ApResolver {
-    private static final JsonParser PARSER = new JsonParser();
     private static final String BASE_URL = "http://apresolve.spotify.com/";
     private static final Map<String, List<String>> pool = new HashMap<>(3);
     private static final Logger LOGGER = Logger.getLogger(ApResolver.class);
@@ -54,7 +53,7 @@ public class ApResolver {
         conn.connect();
 
         try {
-            JsonObject obj = PARSER.parse(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+            JsonObject obj = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
             HashMap<String, List<String>> map = new HashMap<>();
             for (String type : types)
                 map.put(type, getUrls(obj, type));

@@ -26,8 +26,6 @@ public final class AesAudioDecrypt implements AudioDecrypt {
     public synchronized void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
         int pos = CHUNK_SIZE * chunkIndex;
 
-        if (pos % 16 != 0) throw new IllegalArgumentException("Position not multiple of 16: " + pos);
-
         try {
             Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, new IvParameterSpec(Utils.toByteArray(IV_INT.add(BigInteger.valueOf(pos / 16)))));
