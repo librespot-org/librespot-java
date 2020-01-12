@@ -9,15 +9,16 @@ import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.AbsChunckedInputStream;
+import xyz.gianlu.librespot.player.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
+import xyz.gianlu.librespot.player.HaltListener;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -34,12 +35,12 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private final Metadata.AudioFile file;
     private final byte[] key;
     private final Session session;
-    private final AbsChunckedInputStream.HaltListener haltListener;
-    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "request-chunk-" + r.hashCode()));
+    private final HaltListener haltListener;
+    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "storage-async-" + r.hashCode()));
     private int chunks = -1;
     private ChunksBuffer chunksBuffer;
 
-    public AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable AbsChunckedInputStream.HaltListener haltListener) throws IOException {
+    AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable HaltListener haltListener) throws IOException {
         this.session = session;
         this.haltListener = haltListener;
         this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
@@ -58,21 +59,18 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @NotNull
-    public InputStream stream() {
+    public AbsChunkedInputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
         return chunksBuffer.stream();
     }
 
-    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file, boolean retried) {
+    private void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) {
         if (cacheHandler == null || !tryCacheChunk(index)) {
             try {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d, retried: %b", index, retried), ex);
-                if (retried)
-                    chunksBuffer.internalStream.notifyChunkError(index, new AbsChunckedInputStream.ChunkException(ex));
-                else
-                    requestChunk(fileId, index, file, true);
+                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                chunksBuffer.internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
     }
@@ -94,6 +92,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (headers.isEmpty())
                 return false;
 
+            CacheManager.Header cdnHeader;
+            if ((cdnHeader = CacheManager.Header.find(headers, AudioFileFetch.HEADER_CDN)) != null)
+                throw new AudioFileFetch.StorageNotAvailable(new String(cdnHeader.value));
+
             for (CacheManager.Header header : headers)
                 fetch.writeHeader(header.id, header.value, true);
 
@@ -107,28 +109,21 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     private AudioFileFetch requestHeaders() throws IOException {
         AudioFileFetch fetch = new AudioFileFetch(cacheHandler);
         if (cacheHandler == null || !tryCacheHeaders(fetch))
-            requestChunk(file.getFileId(), 0, fetch, false);
+            requestChunk(file.getFileId(), 0, fetch);
 
         fetch.waitChunk();
         return fetch;
     }
 
-    public void open() throws IOException {
+    void open() throws IOException {
         AudioFileFetch fetch = requestHeaders();
-
         int size = fetch.getSize();
-        LOGGER.trace("Track size: " + size);
         chunks = fetch.getChunks();
-        LOGGER.trace(String.format("Track has %d chunks.", chunks));
-
         chunksBuffer = new ChunksBuffer(size, chunks);
-        requestChunk(0);
-
-        chunksBuffer.internalStream.waitFor(0);
     }
 
     private void requestChunk(int index) {
-        requestChunk(file.getFileId(), index, this, false);
+        requestChunk(file.getFileId(), index, this);
         chunksBuffer.requested[index] = true; // Just to be sure
     }
 
@@ -148,12 +143,13 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void writeHeader(byte id, byte[] bytes, boolean cached) {
+        // Not interested
     }
 
     @Override
     public void streamError(int chunkIndex, short code) {
         LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
-        chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunckedInputStream.ChunkException.from(code));
+        chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.fromStreamError(code));
     }
 
     @Override
@@ -178,21 +174,23 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
             this.audioDecrypt = new AesAudioDecrypt(key);
-            this.internalStream = new InternalStream(haltListener);
+            this.internalStream = new InternalStream(session.conf());
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
 
-            if (chunk.length != buffer[chunkIndex].length)
+            if (chunk.length != buffer[chunkIndex].length) {
+                System.out.println(Utils.bytesToHex(chunk));
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
+            }
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
         }
 
         @NotNull
-        InputStream stream() {
+        AbsChunkedInputStream stream() {
             return internalStream;
         }
 
@@ -201,10 +199,10 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             internalStream.close();
         }
 
-        private class InternalStream extends AbsChunckedInputStream {
+        private class InternalStream extends AbsChunkedInputStream {
 
-            protected InternalStream(@Nullable HaltListener haltListener) {
-                super(haltListener);
+            private InternalStream(Player.@NotNull Configuration conf) {
+                super(conf);
             }
 
             @Override
@@ -235,6 +233,16 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             @Override
             protected void requestChunkFromStream(int index) {
                 executorService.submit(() -> requestChunk(index));
+            }
+
+            @Override
+            public void streamReadHalted(int chunk, long time) {
+                if (haltListener != null) executorService.submit(() -> haltListener.streamReadHalted(chunk, time));
+            }
+
+            @Override
+            public void streamReadResumed(int chunk, long time) {
+                if (haltListener != null) executorService.submit(() -> haltListener.streamReadResumed(chunk, time));
             }
         }
     }

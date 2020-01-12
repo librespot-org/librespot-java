@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.api;
 
+import com.stijndewitt.undertow.cors.AllowAll;
+import com.stijndewitt.undertow.cors.Filter;
 import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
 import org.apache.log4j.Logger;
@@ -7,32 +9,36 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.handlers.EventsHandler;
 import xyz.gianlu.librespot.api.handlers.MetadataHandler;
 import xyz.gianlu.librespot.api.handlers.PlayerHandler;
-import xyz.gianlu.librespot.core.Session;
 
 public class ApiServer {
     private static final Logger LOGGER = Logger.getLogger(ApiServer.class);
     private final int port;
+    private final String host;
+    private final RoutingHandler handler;
     private Undertow undertow = null;
 
-    public ApiServer(int port) {
-        this.port = port;
+    public ApiServer(@NotNull ApiConfiguration conf, @NotNull SessionWrapper wrapper) {
+        this.port = conf.apiPort();
+        this.host = conf.apiHost();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (undertow != null) undertow.stop();
-        }));
+        EventsHandler events = new EventsHandler();
+        wrapper.setListener(events);
+
+        handler = new RoutingHandler();
+        handler.post("/player/{cmd}", new PlayerHandler(wrapper))
+                .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper))
+                .get("/events", events);
     }
 
-    private static void prepareHandlers(@NotNull RoutingHandler root, @NotNull Session session) {
-        root.post("/player/{cmd}", new PlayerHandler(session))
-                .post("/metadata/{type}/{uri}", new MetadataHandler(session))
-                .get("/events", new EventsHandler(session));
-    }
+    public void start() {
+        if (undertow != null) throw new IllegalStateException("Already started!");
 
-    public void start(@NotNull Session session) {
-        RoutingHandler handler = new RoutingHandler();
-        prepareHandlers(handler, session);
+        Filter corsFilter = new Filter(handler);
+        corsFilter.setPolicyClass(AllowAll.class.getCanonicalName());
+        corsFilter.setPolicyParam(null);
+        corsFilter.setUrlPattern(".*");
 
-        undertow = Undertow.builder().addHttpListener(port, "", handler).build();
+        undertow = Undertow.builder().addHttpListener(port, host, corsFilter).build();
         undertow.start();
         LOGGER.info(String.format("Server started on port %d!", port));
     }
@@ -44,10 +50,5 @@ public class ApiServer {
         }
 
         LOGGER.info("Server stopped!");
-    }
-
-    public void restart(@NotNull Session session) {
-        stop();
-        start(session);
     }
 }

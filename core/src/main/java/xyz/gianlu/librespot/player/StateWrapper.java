@@ -112,9 +112,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return Base64.getEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    void setState(@Nullable Boolean playing, @Nullable Boolean paused, @Nullable Boolean buffering) {
-        setState(playing == null ? state.getIsPlaying() : playing, paused == null ? state.getIsPaused() : paused,
-                buffering == null ? state.getIsBuffering() : buffering);
+    void setBuffering(boolean buffering) {
+        setState(state.getIsPlaying(), state.getIsPaused(), buffering);
     }
 
     synchronized void setState(boolean playing, boolean paused, boolean buffering) {
@@ -249,11 +248,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     private void updateRestrictions() {
         if (context == null) return;
-
-        if (isPaused()) context.restrictions.disallow(Action.PAUSE, RestrictionsManager.REASON_ALREADY_PAUSED);
-        else context.restrictions.allow(Action.PAUSE);
-        if (isPlaying()) context.restrictions.disallow(Action.RESUME, RestrictionsManager.REASON_NOT_PAUSED);
-        else context.restrictions.allow(Action.RESUME);
 
         if (tracksKeeper.isPlayingFirst() && !isRepeatingContext())
             context.restrictions.disallow(Action.SKIP_PREV, RestrictionsManager.REASON_NO_PREV_TRACK);
@@ -918,8 +912,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (!PlayableId.canPlaySomething(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
-            if (context.isFinite() && isShufflingContext())
-                shuffleEntirely();
+            boolean transformingShuffle = Boolean.parseBoolean(state.getContextMetadataOrDefault("transforming.shuffle", "true"));
+            if (context.isFinite() && isShufflingContext() && transformingShuffle) shuffleEntirely();
+            else state.getOptionsBuilder().setShufflingContext(false); // Must do this directly!
 
             setCurrentTrackIndex(0);
         }

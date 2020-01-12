@@ -50,9 +50,10 @@ public class Version {
     @NotNull
     public static BuildInfo standardBuildInfo() {
         return BuildInfo.newBuilder()
-                .setProduct(Keyexchange.Product.PRODUCT_LIBSPOTIFY)
+                .setProduct(Keyexchange.Product.PRODUCT_CLIENT)
+                .addProductFlags(Keyexchange.ProductFlags.PRODUCT_FLAG_NONE)
                 .setPlatform(Version.platform())
-                .setVersion(111700543)
+                .setVersion(112200633)
                 .build();
     }
 

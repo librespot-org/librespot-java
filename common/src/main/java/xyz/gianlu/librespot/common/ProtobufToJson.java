@@ -102,6 +102,8 @@ public final class ProtobufToJson {
                 else if (descriptor.isRepeated()) json.add(key, array((List<? extends Message>) obj));
                 else json.add(key, convert((Message) obj));
                 break;
+            default:
+                throw new IllegalStateException("Unknown type: " + descriptor.getJavaType());
         }
     }
 }

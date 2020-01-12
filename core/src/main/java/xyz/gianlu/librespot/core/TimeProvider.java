@@ -12,7 +12,9 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -61,14 +63,19 @@ public final class TimeProvider {
     }
 
     private static void updateWithNtp() throws IOException {
-        synchronized (offset) {
-            NTPUDPClient client = new NTPUDPClient();
-            client.open();
-            TimeInfo info = client.getTime(InetAddress.getByName("time.google.com"));
-            info.computeDetails();
-            Long offsetValue = info.getOffset();
-            LOGGER.debug(String.format("Loaded time offset from NTP: %dms", offsetValue));
-            offset.set(offsetValue == null ? 0 : offsetValue);
+        try {
+            synchronized (offset) {
+                NTPUDPClient client = new NTPUDPClient();
+                client.open();
+                client.setSoTimeout((int) TimeUnit.SECONDS.toMillis(10));
+                TimeInfo info = client.getTime(InetAddress.getByName("time.google.com"));
+                info.computeDetails();
+                Long offsetValue = info.getOffset();
+                LOGGER.debug(String.format("Loaded time offset from NTP: %dms", offsetValue));
+                offset.set(offsetValue == null ? 0 : offsetValue);
+            }
+        } catch (SocketTimeoutException ex) {
+            updateWithNtp();
         }
     }
 

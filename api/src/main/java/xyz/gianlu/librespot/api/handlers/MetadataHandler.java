@@ -1,11 +1,11 @@
 package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
-import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
@@ -21,16 +21,15 @@ import java.util.Objects;
 /**
  * @author Gianlu
  */
-public final class MetadataHandler implements HttpHandler {
+public final class MetadataHandler extends AbsSessionHandler {
     private static final Logger LOGGER = Logger.getLogger(MetadataHandler.class);
-    private final Session session;
 
-    public MetadataHandler(@NotNull Session session) {
-        this.session = session;
+    public MetadataHandler(@NotNull SessionWrapper wrapper) {
+        super(wrapper);
     }
 
     @Override
-    public void handleRequest(HttpServerExchange exchange) throws Exception {
+    public void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception {
         exchange.startBlocking();
         if (exchange.isInIoThread()) {
             exchange.dispatch(this);
@@ -57,16 +56,17 @@ public final class MetadataHandler implements HttpHandler {
         }
 
         try {
-            JsonObject obj = handle(type, uri);
+            JsonObject obj = handle(session, type, uri);
             exchange.getResponseSender().send(obj.toString());
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            if (ex instanceof ApiClient.StatusCodeException) {
-                if (((ApiClient.StatusCodeException) ex).code == 404) {
-                    Utils.invalidParameter(exchange, "uri", "404: Unknown uri");
-                    return;
-                }
+        } catch (ApiClient.StatusCodeException ex) {
+            if (ex.code == 404) {
+                Utils.invalidParameter(exchange, "uri", "404: Unknown uri");
+                return;
             }
 
+            Utils.internalError(exchange, ex);
+            LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s, code: %d}", type, uri, ex.code), ex);
+        } catch (IOException | MercuryClient.MercuryException ex) {
             Utils.internalError(exchange, ex);
             LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s}", type, uri), ex);
         } catch (IllegalArgumentException ex) {
@@ -75,7 +75,7 @@ public final class MetadataHandler implements HttpHandler {
     }
 
     @NotNull
-    private JsonObject handle(@NotNull MetadataType type, @NotNull String uri) throws IOException, MercuryClient.MercuryException, IllegalArgumentException {
+    private JsonObject handle(@NotNull Session session, @NotNull MetadataType type, @NotNull String uri) throws IOException, MercuryClient.MercuryException, IllegalArgumentException {
         switch (type) {
             case ALBUM:
                 return ProtobufToJson.convert(session.api().getMetadata4Album(AlbumId.fromUri(uri)));

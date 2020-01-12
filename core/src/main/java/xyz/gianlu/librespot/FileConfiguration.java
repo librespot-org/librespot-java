@@ -291,6 +291,17 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean stopPlaybackOnChunkError() {
+        return config.get("player.stopPlaybackOnChunkError");
+    }
+
+    @Override
+    public int getCustomOptionInt(@NotNull String key, int fallback) {
+        Integer val = config.get(key);
+        return val == null ? fallback : val;
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }
@@ -356,6 +367,16 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public int timeManualCorrection() {
         return config.get("time.manualCorrection");
+    }
+
+    @Override
+    public int apiPort() {
+        return config.get("api.port");
+    }
+
+    @Override
+    public @NotNull String apiHost() {
+        return config.get("api.host");
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {

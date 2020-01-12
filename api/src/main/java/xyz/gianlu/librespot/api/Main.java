@@ -16,13 +16,16 @@ import java.security.GeneralSecurityException;
 public class Main {
 
     public static void main(String[] args) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
-        ApiServer server = new ApiServer(24879);
-
         AbsConfiguration conf = new FileConfiguration(args);
-        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
-            ZeroconfServer.create(conf).addSessionListener(server::restart);
-        } else {
-            server.start(new Session.Builder(conf).create());
-        }
+
+        SessionWrapper wrapper;
+        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF)
+            wrapper = SessionWrapper.fromZeroconf(ZeroconfServer.create(conf));
+        else
+            wrapper = SessionWrapper.fromSession(new Session.Builder(conf).create());
+
+        ApiServer server = new ApiServer(conf, wrapper);
+        Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+        server.start();
     }
 }

@@ -74,24 +74,31 @@ public class ApiClient {
         IOException lastEx;
         do {
             try {
-                return session.client().newCall(buildRequest(method, suffix, headers, body)).execute();
+                Response resp = session.client().newCall(buildRequest(method, suffix, headers, body)).execute();
+                if (resp.code() == 503) {
+                    lastEx = new StatusCodeException(resp);
+                    continue;
+                }
+
+                return resp;
             } catch (IOException ex) {
                 lastEx = ex;
             }
-        } while (tries-- > 0);
+        } while (tries-- > 1);
 
         throw lastEx;
     }
 
     @NotNull
     public Response send(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
-        return send(method, suffix, headers, body, 0);
+        return send(method, suffix, headers, body, 1);
     }
 
     public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
         try (Response resp = send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
                 .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto), 5 /* We want this to succeed */)) {
-            if (resp.code() != 200) LOGGER.warn(String.format("PUT %s returned %d", resp.request().url(), resp.code()));
+            if (resp.code() != 200)
+                LOGGER.warn(String.format("PUT %s returned %d. {headers: %s}", resp.request().url(), resp.code(), resp.headers()));
         }
     }
 

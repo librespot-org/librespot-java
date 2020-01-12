@@ -121,10 +121,12 @@ public class PlayerRunner implements Runnable, Closeable {
      */
     public boolean stopAndRelease() {
         stopMixer();
-        synchronized (pauseLock) {
-            try {
-                pauseLock.wait();
-            } catch (InterruptedException ignored) {
+        while (!paused) {
+            synchronized (pauseLock) {
+                try {
+                    pauseLock.wait(100);
+                } catch (InterruptedException ignored) {
+                }
             }
         }
 
@@ -440,11 +442,13 @@ public class PlayerRunner implements Runnable, Closeable {
                             handler.clearOut();
                             break;
                         case Stop:
-                            handler = loadedTracks.remove(cmd.id);
+                            handler = loadedTracks.get(cmd.id);
                             if (handler != null) handler.close();
                             break;
                         case Seek:
                             handler = loadedTracks.get(cmd.id);
+                            if (handler == null) break;
+
                             if (!handler.isReady())
                                 handler.waitReady();
 
@@ -500,7 +504,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
-    public class TrackHandler implements AbsChunckedInputStream.HaltListener, Closeable, Runnable {
+    public class TrackHandler implements HaltListener, Closeable, Runnable {
         private final int id;
         private final PlayableId playable;
         private final Object writeLock = new Object();
@@ -544,6 +548,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         boolean isReady() {
+            if (closed) throw new IllegalStateException("The handler is closed!");
             return codec != null;
         }
 
@@ -654,12 +659,13 @@ public class PlayerRunner implements Runnable, Closeable {
             try {
                 clearOut();
                 if (codec != null) codec.close();
+                codec = null;
             } catch (IOException ignored) {
             }
         }
 
-        boolean isTrack(@NotNull PlayableId id) {
-            return playable.toSpotifyUri().equals(id.toSpotifyUri());
+        boolean isPlayable(@NotNull PlayableId id) {
+            return !closed && playable.toSpotifyUri().equals(id.toSpotifyUri());
         }
 
         void seek(int pos) {

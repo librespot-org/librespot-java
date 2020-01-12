@@ -152,7 +152,7 @@ public class ZeroconfServer implements Closeable {
     @NotNull
     public static String getUsefulHostname() throws UnknownHostException {
         String host = InetAddress.getLocalHost().getHostName();
-        if (host.equals("localhost")) {
+        if (Objects.equals(host, "localhost")) {
             host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
             LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
             return host;
