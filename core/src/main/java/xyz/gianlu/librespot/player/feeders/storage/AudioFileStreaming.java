@@ -19,7 +19,6 @@ import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -60,7 +59,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @NotNull
-    public InputStream stream() {
+    public AbsChunkedInputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
         return chunksBuffer.stream();
     }
@@ -191,7 +190,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         }
 
         @NotNull
-        InputStream stream() {
+        AbsChunkedInputStream stream() {
             return internalStream;
         }
 

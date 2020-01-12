@@ -369,6 +369,16 @@ public final class FileConfiguration extends AbsConfiguration {
         return config.get("time.manualCorrection");
     }
 
+    @Override
+    public int apiPort() {
+        return config.get("api.port");
+    }
+
+    @Override
+    public @NotNull String apiHost() {
+        return config.get("api.host");
+    }
+
     private final static class PropertiesFormat implements ConfigFormat<Config> {
         @Override
         public ConfigWriter createWriter() {

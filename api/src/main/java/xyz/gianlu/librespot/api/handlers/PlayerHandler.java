@@ -2,10 +2,10 @@ package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
 import com.spotify.metadata.proto.Metadata;
-import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
@@ -18,14 +18,13 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.Objects;
 
-public final class PlayerHandler implements HttpHandler {
-    private final Session session;
+public final class PlayerHandler extends AbsSessionHandler {
 
-    public PlayerHandler(@NotNull Session session) {
-        this.session = session;
+    public PlayerHandler(@NotNull SessionWrapper wrapper) {
+        super(wrapper);
     }
 
-    private void setVolume(HttpServerExchange exchange, @Nullable String valStr) {
+    private void setVolume(HttpServerExchange exchange, Session session, @Nullable String valStr) {
         if (valStr == null) {
             Utils.invalidParameter(exchange, "volume");
             return;
@@ -47,7 +46,7 @@ public final class PlayerHandler implements HttpHandler {
         session.player().setVolume(val);
     }
 
-    private void load(HttpServerExchange exchange, @Nullable String uri, boolean play) {
+    private void load(HttpServerExchange exchange, Session session, @Nullable String uri, boolean play) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
@@ -56,10 +55,15 @@ public final class PlayerHandler implements HttpHandler {
         session.player().load(uri, play);
     }
 
-    private void current(HttpServerExchange exchange) {
+    private void current(HttpServerExchange exchange, Session session) {
         PlayableId id = session.player().currentPlayableId();
 
-        JsonObject obj;
+        JsonObject obj = new JsonObject();
+        if (id != null) obj.addProperty("current", id.toSpotifyUri());
+
+        long time = session.player().time();
+        obj.addProperty("trackTime", time);
+
         if (id instanceof TrackId) {
             Metadata.Track track = session.player().currentTrack();
             if (track == null) {
@@ -67,8 +71,7 @@ public final class PlayerHandler implements HttpHandler {
                 return;
             }
 
-            obj = ProtobufToJson.convert(track);
-            obj.addProperty("uri", id.toSpotifyUri());
+            obj.add("track", ProtobufToJson.convert(track));
         } else if (id instanceof EpisodeId) {
             Metadata.Episode episode = session.player().currentEpisode();
             if (episode == null) {
@@ -76,8 +79,7 @@ public final class PlayerHandler implements HttpHandler {
                 return;
             }
 
-            obj = ProtobufToJson.convert(episode);
-            obj.addProperty("uri", id.toSpotifyUri());
+            obj.add("episode", ProtobufToJson.convert(episode));
         } else {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;
@@ -87,7 +89,7 @@ public final class PlayerHandler implements HttpHandler {
     }
 
     @Override
-    public void handleRequest(HttpServerExchange exchange) throws Exception {
+    protected void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception {
         exchange.startBlocking();
         if (exchange.isInIoThread()) {
             exchange.dispatch(this);
@@ -109,10 +111,10 @@ public final class PlayerHandler implements HttpHandler {
 
         switch (cmd) {
             case CURRENT:
-                current(exchange);
+                current(exchange, session);
                 return;
             case SET_VOLUME:
-                setVolume(exchange, Utils.getFirstString(params, "volume"));
+                setVolume(exchange, session, Utils.getFirstString(params, "volume"));
                 return;
             case VOLUME_UP:
                 session.player().volumeUp();
@@ -121,7 +123,7 @@ public final class PlayerHandler implements HttpHandler {
                 session.player().volumeDown();
                 return;
             case LOAD:
-                load(exchange, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
+                load(exchange, session, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
                 return;
             case PAUSE:
                 session.player().pause();

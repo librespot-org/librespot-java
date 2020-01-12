@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -54,7 +54,7 @@
         <dependency>
             <groupId>io.undertow</groupId>
             <artifactId>undertow-core</artifactId>
-            <version>2.0.27.Final</version>
+            <version>2.0.29.Final</version>
         </dependency>
         <dependency>
             <groupId>com.stijndewitt.undertow.cors</groupId>

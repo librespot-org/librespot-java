@@ -36,9 +36,7 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.RSAPublicKeySpec;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -77,6 +75,7 @@ public final class Session implements Closeable {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(true).build();
+    private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
     private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;
@@ -372,6 +371,14 @@ public final class Session implements Closeable {
         cipherPair = null;
         closed = true;
 
+        synchronized (closeListeners) {
+            Iterator<CloseListener> i = closeListeners.iterator();
+            while (i.hasNext()) {
+                i.next().onClosed();
+                i.remove();
+            }
+        }
+
         LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
     }
 
@@ -549,6 +556,14 @@ public final class Session implements Closeable {
     @Nullable
     public String countryCode() {
         return countryCode;
+    }
+
+    public void addCloseListener(@NotNull CloseListener listener) {
+        if (!closeListeners.contains(listener)) closeListeners.add(listener);
+    }
+
+    public interface CloseListener {
+        void onClosed();
     }
 
     static class Inner {

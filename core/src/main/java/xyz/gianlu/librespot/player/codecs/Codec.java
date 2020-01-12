@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player.codecs;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.player.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.GeneralAudioStream;
 import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
@@ -10,7 +11,6 @@ import xyz.gianlu.librespot.player.Player;
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -19,13 +19,14 @@ import java.io.OutputStream;
 public abstract class Codec implements Closeable {
     public static final int BUFFER_SIZE = 2048;
     private static final Logger LOGGER = Logger.getLogger(Codec.class);
-    protected final InputStream audioIn;
+    protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
     private final AudioFormat dstFormat;
     protected volatile boolean closed = false;
     private AudioFormat format;
     private StreamConverter converter = null;
+    protected int seekZero = 0;
 
     Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
         this.dstFormat = dstFormat;
@@ -55,10 +56,6 @@ public abstract class Codec implements Closeable {
      */
     public abstract int time() throws CannotGetTimeException;
 
-    public final int remaining() throws CannotGetTimeException {
-        return duration - time();
-    }
-
     @Override
     public void close() throws IOException {
         closed = true;
@@ -69,7 +66,7 @@ public abstract class Codec implements Closeable {
         if (positionMs < 0) positionMs = 0;
 
         try {
-            audioIn.reset();
+            audioIn.seek(seekZero);
             if (positionMs > 0) {
                 int skip = Math.round(audioIn.available() / (float) duration * positionMs);
                 if (skip > audioIn.available()) skip = audioIn.available();

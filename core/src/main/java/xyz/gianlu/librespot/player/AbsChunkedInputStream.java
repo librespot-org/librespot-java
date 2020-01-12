@@ -65,12 +65,25 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
         pos = mark;
     }
 
+    public final synchronized int pos() {
+        return pos;
+    }
+
+    public final synchronized void seek(int where) throws IOException {
+        if (where < 0) throw new IllegalArgumentException();
+        if (closed) throw new IOException("Stream is closed!");
+        pos = where;
+
+        checkAvailability(pos / CHUNK_SIZE, false, false);
+    }
+
     @Override
     public final synchronized long skip(long n) throws IOException {
+        if (n < 0) throw new IllegalArgumentException();
         if (closed) throw new IOException("Stream is closed!");
 
         long k = size() - pos;
-        if (n < k) k = n < 0 ? 0 : n;
+        if (n < k) k = n;
         pos += k;
 
         int chunk = pos / CHUNK_SIZE;
