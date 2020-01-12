@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.core;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.player.StateWrapper;
@@ -20,8 +19,6 @@ public final class EventServiceHelper {
 
     private static void sendEvent(@NotNull Session session, @NotNull EventBuilder builder) throws IOException {
         byte[] body = builder.toArray();
-        System.out.println(Utils.bytesToHex(body));
-
         MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
                 .setUri("hm://event-service/v1/events").setMethod("POST")
                 .addUserField("Accept-Language", "en")
@@ -29,7 +26,7 @@ public final class EventServiceHelper {
                 .addPayloadPart(body)
                 .build());
 
-        System.out.println(resp.statusCode);
+        System.out.println(EventBuilder.toString(body) + " => " + resp.statusCode);
     }
 
     public static void reportLang(@NotNull Session session, @NotNull String lang) throws IOException {
@@ -75,8 +72,8 @@ public final class EventServiceHelper {
         event.delimiter().chars(contextUri);
         event.delimiter().chars(contextUri);
         event.delimiter().chars(String.valueOf(TimeProvider.currentTimeMillis()));
-        event.delimiter().delimiter().chars("300"); // FIXME: Number of tracks in context
-        event.delimiter().chars("context://" + state.getContextUri()); // FIXME. Might not be this way
+        event.delimiter().delimiter().chars(String.valueOf(state.getContextSize()));
+        event.delimiter().chars("context://" + state.getContextUri()); // FIXME: Might not be this way
 
         sendEvent(session, event);
     }
@@ -85,6 +82,17 @@ public final class EventServiceHelper {
         private final ByteArrayOutputStream body = new ByteArrayOutputStream(256);
 
         EventBuilder() {
+        }
+
+        @NotNull
+        static String toString(byte[] body) {
+            StringBuilder result = new StringBuilder();
+            for (byte b : body) {
+                if (b == 0x09) result.append('|');
+                else result.append((char) b);
+            }
+
+            return result.toString();
         }
 
         EventBuilder chars(char c) {
@@ -112,7 +120,7 @@ public final class EventServiceHelper {
 
         @NotNull
         String toSend() {
-            return "[[0,40000]]";
+            return "[[0,40000]]"; // FIXME
         }
     }
 }

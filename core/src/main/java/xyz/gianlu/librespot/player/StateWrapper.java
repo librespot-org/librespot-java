@@ -677,6 +677,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             tracksKeeper.updateMetadataFor(uri, "collection.in_collection", String.valueOf(inCollection));
     }
 
+    public int getContextSize() {
+        String trackCount = getContextMetadata("track_count");
+        if (trackCount != null) return Integer.parseInt(trackCount);
+        else if (tracksKeeper != null) return tracksKeeper.tracks.size();
+        else return 0;
+    }
+
     @Nullable
     public String getContextMetadata(@NotNull String key) {
         return state.getContextMetadataOrDefault(key, null);
