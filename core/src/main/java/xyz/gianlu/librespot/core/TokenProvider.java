@@ -25,13 +25,13 @@ public class TokenProvider {
     }
 
     @NotNull
-    public String get(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
+    public StoredToken getToken(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
         if (scope.contains(",")) throw new UnsupportedOperationException("Only single scope tokens are supported.");
 
         StoredToken token = tokens.get(scope);
         if (token != null) {
             if (token.expired()) tokens.remove(scope);
-            else return token.accessToken;
+            else return token;
         }
 
         LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scope: %s, oldToken: %s}", scope, token));
@@ -41,14 +41,19 @@ public class TokenProvider {
         LOGGER.debug(String.format("Updated token successfully! {scope: %s, newToken: %s}", scope, token));
 
         tokens.put(scope, token);
-        return token.accessToken;
+        return token;
     }
 
-    private static class StoredToken {
-        final int expiresIn;
-        final String accessToken;
-        final String[] scopes;
-        final long timestamp;
+    @NotNull
+    public String get(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
+        return getToken(scope).accessToken;
+    }
+
+    public static class StoredToken {
+        public final int expiresIn;
+        public final String accessToken;
+        public final String[] scopes;
+        public final long timestamp;
 
         private StoredToken(@NotNull MercuryRequests.KeymasterToken token) {
             timestamp = TimeProvider.currentTimeMillis();
@@ -61,7 +66,7 @@ public class TokenProvider {
                 scopes[i] = scopesArray.get(i).getAsString();
         }
 
-        private boolean expired() {
+        public boolean expired() {
             return timestamp + (expiresIn - TOKEN_EXPIRE_THRESHOLD) * 1000 < TimeProvider.currentTimeMillis();
         }
 

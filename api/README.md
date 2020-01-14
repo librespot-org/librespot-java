@@ -21,6 +21,12 @@ All the endpoints will respond with `200` if successful or `204` if there isn't 
 ### Metadata
 - `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist`, `uri` is the standard Spotify uri.
 
+### Search
+- `POST \search\{query}` Make a search.
+
+### Tokens
+- `POST \token\{scope}` Request an access token for a specific scope.
+
 ### Events
 
 You can subscribe for players events by creating a WebSocket connection to `/events`.
