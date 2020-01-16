@@ -145,7 +145,7 @@ public class VorbisCodec extends Codec {
      * @throws IOException          if an I/O exception occurs
      */
     @Override
-    public int readInternal(@NotNull OutputStream out) throws IOException, CodecException {
+    public synchronized int readInternal(@NotNull OutputStream out) throws IOException, CodecException {
         if (closed) return -1;
 
         int written = 0;

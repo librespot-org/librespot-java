@@ -175,7 +175,7 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
     }
 
     @Override
-    public final int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public final synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
         if (closed) throw new IOException("Stream is closed!");
 
         if (off < 0 || len < 0 || len > b.length - off) {
