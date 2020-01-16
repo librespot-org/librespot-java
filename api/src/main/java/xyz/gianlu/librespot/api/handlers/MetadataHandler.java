@@ -11,6 +11,7 @@ import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.dealer.ApiClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.*;
 
 import java.io.IOException;
@@ -87,14 +88,29 @@ public final class MetadataHandler extends AbsSessionHandler {
                 return ProtobufToJson.convert(session.api().getMetadata4Episode(EpisodeId.fromUri(uri)));
             case TRACK:
                 return ProtobufToJson.convert(session.api().getMetadata4Track(TrackId.fromUri(uri)));
+            case PLAYLIST:
+                return handlePlaylist(session, uri);
             default:
                 throw new IllegalArgumentException(type.name());
         }
     }
 
+    @NotNull
+    private JsonObject handlePlaylist(@NotNull Session session, @NotNull String uri) throws IOException, MercuryClient.MercuryException {
+        JsonObject obj = new JsonObject();
+        obj.add("tracks", session.mercury().sendSync(MercuryRequests.getPlaylist(PlaylistId.fromUri(uri))).json());
+
+        try {
+            obj.add("annotations", session.mercury().sendSync(MercuryRequests.getPlaylistAnnotation(PlaylistId.fromUri(uri))).json());
+        } catch (MercuryClient.MercuryException ignored) {
+        }
+
+        return obj;
+    }
+
     private enum MetadataType {
         EPISODE("episode"), TRACK("track"), ALBUM("album"),
-        ARTIST("artist"), SHOW("show");
+        ARTIST("artist"), SHOW("show"), PLAYLIST("playlist");
 
         private final String val;
 

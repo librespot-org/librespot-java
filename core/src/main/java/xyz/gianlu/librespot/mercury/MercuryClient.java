@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
@@ -320,9 +321,9 @@ public final class MercuryClient extends PacketsManager {
         }
 
         @NotNull
-        public JsonElement json() {
+        public JsonObject json() {
             if (json == null) json = ProtobufToJson.convert(proto);
-            return json;
+            return json.getAsJsonObject();
         }
     }
 

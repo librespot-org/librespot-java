@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spotify.player.proto.ContextPageOuterClass;
 import spotify.player.proto.ContextTrackOuterClass;
+import spotify_playlist_annotate3.proto.PlaylistAnnotate3;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.mercury.model.*;
@@ -30,8 +31,14 @@ public final class MercuryRequests {
     }
 
     @NotNull
+    public static ProtobufMercuryRequest<PlaylistAnnotate3.PlaylistAnnotation> getPlaylistAnnotation(@NotNull PlaylistId id) {
+        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri(true)),
+                PlaylistAnnotate3.PlaylistAnnotation.parser());
+    }
+
+    @NotNull
     public static ProtobufMercuryRequest<Playlist4ApiProto.SelectedListContent> getPlaylist(@NotNull PlaylistId id) {
-        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()),
+        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri(false)),
                 Playlist4ApiProto.SelectedListContent.parser());
     }
 

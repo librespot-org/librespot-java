@@ -19,7 +19,7 @@ All the endpoints will respond with `200` if successful or `204` if there isn't 
 - `POST \player\current` Retrieve information about the current track (metadata and time).
 
 ### Metadata
-- `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist`, `uri` is the standard Spotify uri.
+- `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.
 
 ### Search
 - `POST \search\{query}` Make a search.
