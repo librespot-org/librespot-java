@@ -3,12 +3,12 @@ package xyz.gianlu.librespot.core;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
+import com.spotify.Authentication;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Authentication;
 
 import javax.net.ssl.SSLSocketFactory;
 import java.io.*;

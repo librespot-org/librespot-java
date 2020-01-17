@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

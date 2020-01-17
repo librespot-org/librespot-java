@@ -54,6 +54,11 @@ This project uses [Maven](https://maven.apache.org/), after installing it you ca
 
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
 
+## Protobuf generation
+The compiled Java protobuf definitions aren't versioned, therefore, if you want to open the project inside you're IDE, you'll need to run `mvn compile` first to ensure that all the necessary files are created. 
+The `com.spotify` package is reserved for the generated files.
+
+
 ## Related Projects
 - [librespot](https://github.com/librespot-org/librespot)
 - [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.

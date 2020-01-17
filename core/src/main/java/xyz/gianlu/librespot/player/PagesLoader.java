@@ -2,8 +2,9 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.spotify.context.ContextOuterClass.Context;
+import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import org.jetbrains.annotations.NotNull;
-import spotify.player.proto.ContextPageOuterClass.ContextPage;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -15,8 +16,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import static spotify.player.proto.ContextOuterClass.Context;
-import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
+import static com.spotify.context.ContextPageOuterClass.ContextPage;
 
 /**
  * @author Gianlu

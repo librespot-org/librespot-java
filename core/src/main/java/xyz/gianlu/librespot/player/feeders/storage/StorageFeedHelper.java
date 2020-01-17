@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;

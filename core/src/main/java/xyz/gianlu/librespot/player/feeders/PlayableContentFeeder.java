@@ -1,14 +1,14 @@
 package xyz.gianlu.librespot.player.feeders;
 
 import com.google.protobuf.ByteString;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
+import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.HttpUrl;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.download.proto.StorageResolve.StorageResolveResponse;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;

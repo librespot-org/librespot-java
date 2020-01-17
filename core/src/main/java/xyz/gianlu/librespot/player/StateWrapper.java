@@ -5,21 +5,22 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
-import com.spotify.connectstate.model.Connect;
-import com.spotify.connectstate.model.Player.*;
-import com.spotify.metadata.proto.Metadata;
-import com.spotify.playlist4.proto.Playlist4ApiProto;
-import com.spotify.playlist4.proto.Playlist4ApiProto.PlaylistModificationInfo;
+import com.spotify.connectstate.Connect;
+import com.spotify.connectstate.Player.*;
+import com.spotify.context.ContextOuterClass.Context;
+import com.spotify.context.ContextPageOuterClass.ContextPage;
+import com.spotify.context.ContextTrackOuterClass.ContextTrack;
+import com.spotify.metadata.Metadata;
+import com.spotify.playlist4.Playlist4ApiProto;
+import com.spotify.playlist4.Playlist4ApiProto.PlaylistModificationInfo;
+import com.spotify.transfer.PlaybackOuterClass;
+import com.spotify.transfer.QueueOuterClass;
+import com.spotify.transfer.SessionOuterClass;
+import com.spotify.transfer.TransferStateOuterClass;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextPageOuterClass.ContextPage;
-import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
-import spotify.player.proto.transfer.PlaybackOuterClass.Playback;
-import spotify.player.proto.transfer.QueueOuterClass;
-import spotify.player.proto.transfer.SessionOuterClass;
-import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
@@ -41,8 +42,6 @@ import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import java.io.IOException;
 import java.util.*;
 
-import static spotify.player.proto.ContextOuterClass.Context;
-
 /**
  * @author Gianlu
  */
@@ -52,7 +51,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     static {
         try {
             ProtoUtils.overrideDefaultValue(ContextIndex.getDescriptor().findFieldByName("track"), -1);
-            ProtoUtils.overrideDefaultValue(PlayerState.getDescriptor().findFieldByName("position_as_of_timestamp"), -1);
+            ProtoUtils.overrideDefaultValue(com.spotify.connectstate.Player.PlayerState.getDescriptor().findFieldByName("position_as_of_timestamp"), -1);
             ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("shuffling_context"), "");
             ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("repeating_track"), "");
             ProtoUtils.overrideDefaultValue(ContextPlayerOptions.getDescriptor().findFieldByName("repeating_context"), "");
@@ -418,7 +417,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
         setContext(ps.getContext());
 
-        Playback pb = cmd.getPlayback();
+        PlaybackOuterClass.Playback pb = cmd.getPlayback();
         tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());

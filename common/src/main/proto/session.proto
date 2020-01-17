@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package spotify.player.proto.transfer;
+
+import "context.proto";
+import "context_player_options.proto";
+import "play_origin.proto";
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.transfer";
+
+message Session {
+    optional PlayOrigin play_origin = 1;
+    optional Context context = 2;
+    optional string current_uid = 3;
+    optional ContextPlayerOptionOverrides option_overrides = 4;
+}

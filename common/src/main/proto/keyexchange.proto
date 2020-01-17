@@ -1,5 +1,8 @@
 syntax = "proto2";
 
+package spotify;
+option java_package = "com.spotify";
+
 message ClientHello {
     required BuildInfo build_info = 0xa;
     repeated Fingerprint fingerprints_supported = 0x14;

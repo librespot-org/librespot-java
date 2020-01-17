@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot;
 
-import com.spotify.connectstate.model.Connect;
+import com.spotify.connectstate.Connect;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.ApiConfiguration;

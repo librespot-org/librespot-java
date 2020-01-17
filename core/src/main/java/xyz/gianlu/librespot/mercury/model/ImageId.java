@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.mercury.model;
 
-import com.spotify.connectstate.model.Player;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.connectstate.Player;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 

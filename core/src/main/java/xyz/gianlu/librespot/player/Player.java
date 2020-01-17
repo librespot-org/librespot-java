@@ -2,11 +2,12 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.context.ContextTrackOuterClass.ContextTrack;
+import com.spotify.metadata.Metadata;
+import com.spotify.transfer.TransferStateOuterClass;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.transfer.TransferStateOuterClass;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
@@ -29,8 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-
-import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
 /**
  * @author Gianlu

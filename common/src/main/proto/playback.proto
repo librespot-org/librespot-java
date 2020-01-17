@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package spotify.player.proto.transfer;
+
+import "context_track.proto";
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.transfer";
+
+message Playback {
+    optional int64 timestamp = 1;
+    optional int32 position_as_of_timestamp = 2;
+    optional double playback_speed = 3;
+    optional bool is_paused = 4;
+    optional ContextTrack current_track = 5;
+}

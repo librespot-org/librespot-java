@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player;
 
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;

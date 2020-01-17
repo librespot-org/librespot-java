@@ -2,15 +2,15 @@ package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.spotify.metadata.proto.Metadata;
-import com.spotify.playlist4.proto.Playlist4ApiProto;
+import com.spotify.Mercury;
+import com.spotify.context.ContextPageOuterClass;
+import com.spotify.context.ContextTrackOuterClass;
+import com.spotify.metadata.Metadata;
+import com.spotify.playlist4.Playlist4ApiProto;
+import com.spotify.playlist_annotate3.PlaylistAnnotate3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextPageOuterClass;
-import spotify.player.proto.ContextTrackOuterClass;
-import spotify_playlist_annotate3.proto.PlaylistAnnotate3;
 import xyz.gianlu.librespot.common.ProtoUtils;
-import xyz.gianlu.librespot.common.proto.Mercury;
 import xyz.gianlu.librespot.mercury.model.*;
 
 import java.util.List;

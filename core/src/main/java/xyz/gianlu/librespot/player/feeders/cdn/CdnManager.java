@@ -1,12 +1,12 @@
 package xyz.gianlu.librespot.player.feeders.cdn;
 
 import com.google.protobuf.ByteString;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
+import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.download.proto.StorageResolve;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
@@ -80,8 +80,8 @@ public class CdnManager {
             ResponseBody body = resp.body();
             if (body == null) throw new IOException("Response body is empty!");
 
-            StorageResolve.StorageResolveResponse proto = StorageResolve.StorageResolveResponse.parseFrom(body.byteStream());
-            if (proto.getResult() == StorageResolve.StorageResolveResponse.Result.CDN) {
+            StorageResolveResponse proto = StorageResolveResponse.parseFrom(body.byteStream());
+            if (proto.getResult() == StorageResolveResponse.Result.CDN) {
                 String url = proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount()));
                 LOGGER.debug(String.format("Fetched CDN url for %s: %s", Utils.bytesToHex(fileId), url));
                 return HttpUrl.get(url);

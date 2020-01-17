@@ -4,22 +4,23 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.Descriptors;
-import com.spotify.connectstate.model.Player;
-import com.spotify.connectstate.model.Player.ContextPlayerOptions;
-import com.spotify.metadata.proto.Metadata;
-import com.spotify.playlist4.proto.Playlist4ApiProto;
+import com.spotify.connectstate.Player;
+import com.spotify.connectstate.Player.ContextPlayerOptions;
+import com.spotify.context.ContextOuterClass.Context;
+import com.spotify.context.ContextPageOuterClass.ContextPage;
+import com.spotify.context.ContextPlayerOptionsOuterClass;
+import com.spotify.metadata.Metadata;
+import com.spotify.playlist4.Playlist4ApiProto;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextPageOuterClass.ContextPage;
-import spotify.player.proto.ContextPlayerOptionsOuterClass;
-import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
-import spotify.player.proto.PlayOriginOuterClass;
 
 import java.lang.reflect.Field;
 import java.util.*;
 
-import static spotify.player.proto.ContextOuterClass.Context;
+import static com.spotify.context.ContextTrackOuterClass.ContextTrack;
+import static com.spotify.context.PlayOriginOuterClass.PlayOrigin;
+
 
 /**
  * @author Gianlu
@@ -159,7 +160,7 @@ public final class ProtoUtils {
 
     @Nullable
     @Contract("null -> null")
-    public static Player.PlayOrigin convertPlayOrigin(@Nullable PlayOriginOuterClass.PlayOrigin po) {
+    public static Player.PlayOrigin convertPlayOrigin(@Nullable PlayOrigin po) {
         if (po == null) return null;
 
         Player.PlayOrigin.Builder builder = Player.PlayOrigin.newBuilder();

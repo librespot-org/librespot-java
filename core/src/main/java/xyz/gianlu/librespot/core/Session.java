@@ -1,7 +1,9 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.protobuf.ByteString;
-import com.spotify.connectstate.model.Connect;
+import com.spotify.Authentication;
+import com.spotify.Keyexchange;
+import com.spotify.connectstate.Connect;
 import okhttp3.OkHttpClient;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -11,8 +13,6 @@ import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Authentication;
-import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.PBKDF2;

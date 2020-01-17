@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player;
 
 import com.google.protobuf.ByteString;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 

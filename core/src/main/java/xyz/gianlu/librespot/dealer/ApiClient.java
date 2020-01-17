@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.Message;
-import com.spotify.connectstate.model.Connect;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.connectstate.Connect;
+import com.spotify.metadata.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.apache.log4j.Logger;
