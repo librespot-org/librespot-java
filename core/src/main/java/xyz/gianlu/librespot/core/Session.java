@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
 import com.spotify.Keyexchange;
 import com.spotify.connectstate.Connect;
+import okhttp3.Authenticator;
 import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -31,10 +32,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.RSAPublicKeySpec;
@@ -865,6 +863,21 @@ public final class Session implements Closeable {
                     LOGGER.info("Successfully connected to the HTTP proxy.");
                     return new ConnectionHolder(sock);
                 case SOCKS:
+                    if (conf.proxyAuth()) {
+                        java.net.Authenticator.setDefault(new java.net.Authenticator() {
+                            final String username = conf.proxyUsername();
+                            final String password = conf.proxyPassword();
+
+                            @Override
+                            protected PasswordAuthentication getPasswordAuthentication() {
+                                if (Objects.equals(getRequestingProtocol(), "SOCKS5") && Objects.equals(getRequestingPrompt(), "SOCKS authentication"))
+                                    return new PasswordAuthentication(username, password.toCharArray());
+
+                                return super.getPasswordAuthentication();
+                            }
+                        });
+                    }
+
                     Proxy proxy = new Proxy(conf.proxyType(), new InetSocketAddress(conf.proxyAddress(), conf.proxyPort()));
                     Socket proxySocket = new Socket(proxy);
                     proxySocket.connect(new InetSocketAddress(apAddr, apPort));
