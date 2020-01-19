@@ -39,6 +39,15 @@ releaseLineDelay = 20 # Release mixer line after set delay (in seconds)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)
 stopPlaybackOnChunkError = false # Whether the playback should be stopped when the current chunk cannot be downloaded
 
-[api]
+[api] ### API ###
 port = 24879 # API port (`api` module only)
 host = "0.0.0.0" # API listen interface (`api` module only)
+
+[proxy] ### Proxy ###
+enabled = false # Whether the proxy is enabled
+type = "HTTP" # The proxy type (HTTP, SOCKS)
+address = "" # The proxy hostname
+port = 0 # The proxy port
+auth = false # Whether authentication is enabled on the server
+username = "" # Basic auth username
+password = "" # Basic auth password

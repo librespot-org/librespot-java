@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -104,9 +103,7 @@ public class ApResolver {
     }
 
     @NotNull
-    public static Socket getSocketFromRandomAccessPoint() throws IOException {
-        String ap = getRandomOf("accesspoint");
-        int colon = ap.indexOf(':');
-        return new Socket(ap.substring(0, colon), Integer.parseInt(ap.substring(colon + 1)));
+    public static String getRandomAccesspoint() {
+        return getRandomOf("accesspoint");
     }
 }

@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
@@ -296,12 +297,6 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
-    public int getCustomOptionInt(@NotNull String key, int fallback) {
-        Integer val = config.get(key);
-        return val == null ? fallback : val;
-    }
-
-    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }
@@ -377,6 +372,41 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public @NotNull String apiHost() {
         return config.get("api.host");
+    }
+
+    @Override
+    public boolean proxyEnabled() {
+        return config.get("proxy.enabled");
+    }
+
+    @Override
+    public @NotNull Proxy.Type proxyType() {
+        return config.getEnum("proxy.type", Proxy.Type.class);
+    }
+
+    @Override
+    public @NotNull String proxyAddress() {
+        return config.get("proxy.address");
+    }
+
+    @Override
+    public int proxyPort() {
+        return config.get("proxy.port");
+    }
+
+    @Override
+    public boolean proxyAuth() {
+        return config.get("proxy.auth");
+    }
+
+    @Override
+    public @NotNull String proxyUsername() {
+        return config.get("proxy.username");
+    }
+
+    @Override
+    public @NotNull String proxyPassword() {
+        return config.get("proxy.password");
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {
