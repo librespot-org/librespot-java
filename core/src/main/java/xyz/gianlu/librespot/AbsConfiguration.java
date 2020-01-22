@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot;
 
 import com.spotify.connectstate.Connect;
+import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.ApiConfiguration;
@@ -24,4 +25,7 @@ public abstract class AbsConfiguration implements ApiConfiguration, Session.Prox
 
     @NotNull
     public abstract String preferredLocale();
+
+    @NotNull
+    public abstract Level loggingLevel();
 }
