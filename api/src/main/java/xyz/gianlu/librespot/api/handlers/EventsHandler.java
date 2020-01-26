@@ -15,7 +15,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
-public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener {
+public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener, Session.ReconnectionListener {
     private static final Logger LOGGER = Logger.getLogger(EventsHandler.class);
 
     public EventsHandler() {
@@ -110,5 +110,20 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         dispatch(obj);
 
         session.player().addEventsListener(this);
+        session.addReconnectionListener(this);
+    }
+
+    @Override
+    public void onConnectionDropped() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "connectionDropped");
+        dispatch(obj);
+    }
+
+    @Override
+    public void onConnectionEstablished() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "connectionEstablished");
+        dispatch(obj);
     }
 }

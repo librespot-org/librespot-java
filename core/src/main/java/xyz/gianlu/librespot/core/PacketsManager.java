@@ -45,12 +45,6 @@ public abstract class PacketsManager implements AutoCloseable {
 
     protected abstract void exception(@NotNull Exception ex);
 
-    private static final class LooperException extends Exception {
-        private LooperException(Throwable cause) {
-            super(cause);
-        }
-    }
-
     private final class Looper implements Runnable {
         private volatile boolean shouldStop = false;
 
@@ -66,8 +60,7 @@ public abstract class PacketsManager implements AutoCloseable {
                             exception(ex);
                         }
                     });
-                } catch (InterruptedException ex) {
-                    executorService.execute(() -> exception(new LooperException(ex)));
+                } catch (InterruptedException ignored) {
                 }
             }
         }

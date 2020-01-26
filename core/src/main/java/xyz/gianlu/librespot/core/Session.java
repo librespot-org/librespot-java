@@ -76,6 +76,7 @@ public final class Session implements Closeable {
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private final OkHttpClient client;
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
+    private final List<ReconnectionListener> reconnectionListeners = Collections.synchronizedList(new ArrayList<>());
     private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;
@@ -528,6 +529,10 @@ public final class Session implements Closeable {
         return apWelcome != null && conn != null && !conn.socket.isClosed();
     }
 
+    public boolean reconnecting() {
+        return !closed && conn == null;
+    }
+
     @NotNull
     public String deviceId() {
         return inner.deviceId;
@@ -554,6 +559,10 @@ public final class Session implements Closeable {
     }
 
     private void reconnect() {
+        synchronized (reconnectionListeners) {
+            reconnectionListeners.forEach(ReconnectionListener::onConnectionDropped);
+        }
+
         try {
             if (conn != null) {
                 conn.socket.close();
@@ -569,7 +578,12 @@ public final class Session implements Closeable {
                     .build(), true);
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
+
+            synchronized (reconnectionListeners) {
+                reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
+            }
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+            conn = null;
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
         }
@@ -587,6 +601,16 @@ public final class Session implements Closeable {
 
     public void addCloseListener(@NotNull CloseListener listener) {
         if (!closeListeners.contains(listener)) closeListeners.add(listener);
+    }
+
+    public void addReconnectionListener(@NotNull ReconnectionListener listener) {
+        if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
+    }
+
+    public interface ReconnectionListener {
+        void onConnectionDropped();
+
+        void onConnectionEstablished();
     }
 
     public interface ProxyConfiguration {
