@@ -418,6 +418,7 @@ public class PlayerRunner implements Runnable, Closeable {
                                 handler.load((int) cmd.args[1]);
                             } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                                 listener.loadingError(handler, handler.playable, ex);
+                                handler.close();
                             }
                             break;
                         case PushToMixer:

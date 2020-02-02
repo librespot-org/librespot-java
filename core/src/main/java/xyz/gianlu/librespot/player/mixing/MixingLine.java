@@ -23,7 +23,7 @@ public class MixingLine extends InputStream {
     private volatile boolean se = false;
     private volatile float fg = 1;
     private volatile float sg = 1;
-    private float gg = 1;
+    private volatile float gg = 1;
 
     public MixingLine(@NotNull AudioFormat format) {
         this.format = format;
