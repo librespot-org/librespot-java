@@ -27,7 +27,7 @@ All the endpoints will respond with `200` if successful or:
 - `POST \search\{query}` Make a search.
 
 ### Tokens
-- `POST \token\{scope}` Request an access token for a specific scope.
+- `POST \token\{scope}` Request an access token for a specific scope (or a comma separated list of scopes).
 
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.

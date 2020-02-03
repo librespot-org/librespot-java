@@ -3,44 +3,55 @@ package xyz.gianlu.librespot.core;
 import com.google.gson.JsonArray;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Gianlu
  */
-public class TokenProvider {
+public final class TokenProvider {
     private final static Logger LOGGER = Logger.getLogger(TokenProvider.class);
     private final static int TOKEN_EXPIRE_THRESHOLD = 10;
     private final Session session;
-    private final Map<String, StoredToken> tokens = new HashMap<>();
+    private final List<StoredToken> tokens = new ArrayList<>();
 
     TokenProvider(@NotNull Session session) {
         this.session = session;
     }
 
-    @NotNull
-    public StoredToken getToken(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
-        if (scope.contains(",")) throw new UnsupportedOperationException("Only single scope tokens are supported.");
+    @Nullable
+    private StoredToken findTokenWithAllScopes(String[] scopes) {
+        for (StoredToken token : tokens)
+            if (token.hasScopes(scopes))
+                return token;
 
-        StoredToken token = tokens.get(scope);
+        return null;
+    }
+
+    @NotNull
+    public StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
+        if (scopes.length == 0) throw new IllegalArgumentException();
+
+        StoredToken token = findTokenWithAllScopes(scopes);
         if (token != null) {
-            if (token.expired()) tokens.remove(scope);
+            if (token.expired()) tokens.remove(token);
             else return token;
         }
 
-        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scope: %s, oldToken: %s}", scope, token));
-        MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), scope));
+        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scopes: %s, oldToken: %s}", Arrays.asList(scopes), token));
+        MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
         token = new StoredToken(resp);
 
-        LOGGER.debug(String.format("Updated token successfully! {scope: %s, newToken: %s}", scope, token));
+        LOGGER.debug(String.format("Updated token successfully! {scopes: %s, newToken: %s}", Arrays.asList(scopes), token));
+        tokens.add(token);
 
-        tokens.put(scope, token);
         return token;
     }
 
@@ -78,6 +89,22 @@ public class TokenProvider {
                     ", scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
+        }
+
+        public boolean hasScope(@NotNull String scope) {
+            for (String s : scopes)
+                if (Objects.equals(s, scope))
+                    return true;
+
+            return false;
+        }
+
+        public boolean hasScopes(String[] sc) {
+            for (String s : sc)
+                if (!hasScope(s))
+                    return false;
+
+            return true;
         }
     }
 }
