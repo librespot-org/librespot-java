@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 03-02-2020
+### Added
+- Added HTTP and SOCKS proxy support with authentication (#172)
+- Added `logLevel` option (#171)
+- Added support for requesting token with multiple scopes (8c637169df1ca699abfc42ee49e9c67a11c86cb8)
+- Added `connectionDropped` and `connectionEstablished` events (#172, 9c9842a743d30a16a95992f69595b1bd439a1d71)
+
+### Fixed
+- Fixed deadlock when track loading fails (c014f947eac1cdc66a1b365573ca815204cd678a)
+
+## Changed
+- Changed response codes for API requests (#172, 9c9842a743d30a16a95992f69595b1bd439a1d71)
+
+
 ## [1.2.1] - 17-01-2020
 ### Added
 - Added search and tokens endpoints (ba8b2fb46352b7b92e8f785efa42a5f58459397b)
