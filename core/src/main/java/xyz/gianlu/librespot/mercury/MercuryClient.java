@@ -251,19 +251,16 @@ public final class MercuryClient extends PacketsManager {
             }
         }
 
-        while (true) {
-            if (callbacks.isEmpty()) {
-                break;
-            } else {
-                synchronized (removeCallbackLock) {
-                    try {
-                        removeCallbackLock.wait(100);
-                    } catch (InterruptedException ignored) {
-                    }
+        if (!callbacks.isEmpty()) {
+            synchronized (removeCallbackLock) {
+                try {
+                    removeCallbackLock.wait(MERCURY_REQUEST_TIMEOUT + 100);
+                } catch (InterruptedException ignored) {
                 }
             }
         }
 
+        callbacks.clear();
         super.close();
     }
 
