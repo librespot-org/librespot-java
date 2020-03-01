@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.MessageOrBuilder;
+import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.Player;
 import com.spotify.connectstate.Player.ContextPlayerOptions;
 import com.spotify.context.ContextOuterClass.Context;
@@ -11,6 +13,8 @@ import com.spotify.context.ContextPageOuterClass.ContextPage;
 import com.spotify.context.ContextPlayerOptionsOuterClass;
 import com.spotify.metadata.Metadata;
 import com.spotify.playlist4.Playlist4ApiProto;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,6 +31,14 @@ import static com.spotify.context.PlayOriginOuterClass.PlayOrigin;
  */
 public final class ProtoUtils {
     private ProtoUtils() {
+    }
+
+    @NotNull
+    public static String toLogString(@NotNull MessageOrBuilder message, @NotNull Logger logger) {
+        Level level = logger.getLevel();
+        if (level == null) level = Logger.getRootLogger().getLevel();
+        if (level == Level.TRACE || level == Level.ALL) return TextFormat.shortDebugString(message);
+        else return "<available for TRACE only>";
     }
 
     public static void overrideDefaultValue(@NotNull Descriptors.FieldDescriptor desc, Object newDefault) throws IllegalAccessException, NoSuchFieldException {
