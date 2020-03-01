@@ -40,7 +40,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private final Session session;
     private final Configuration conf;
     private final PlayerRunner runner;
-    private final EventsDispatcher events = new EventsDispatcher();
+    private final EventsDispatcher events;
     private StateWrapper state;
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
@@ -50,6 +50,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
+        this.events = new EventsDispatcher(conf);
         new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
     }
 
@@ -771,7 +772,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
         private final List<EventsListener> listeners = new ArrayList<>();
 
-        {
+        EventsDispatcher(@NotNull Configuration conf) {
             try {
                 metadataPipe = new MetadataPipe(conf);
             } catch (FileNotFoundException ex) {
