@@ -15,8 +15,8 @@ import java.io.OutputStream;
 public class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final AudioFormat format;
-    private CircularBuffer fcb;
-    private CircularBuffer scb;
+    private GainAwareCircularBuffer fcb;
+    private GainAwareCircularBuffer scb;
     private FirstOutputStream fout;
     private SecondOutputStream sout;
     private volatile boolean fe = false;
@@ -32,63 +32,36 @@ public class MixingLine extends InputStream {
             throw new IllegalArgumentException();
     }
 
-    private static void applyGain(float gain, short val, byte[] b, int dest) {
-        if (gain != 1) {
-            val *= gain;
-            if (val < 0) val |= 32768;
-        }
-
-        b[dest] = (byte) val;
-        b[dest + 1] = (byte) (val >>> 8);
-    }
-
-    public final int getFrameSize() {
-        return format.getFrameSize();
-    }
-
     @Override
     public int read() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    @SuppressWarnings("DuplicatedCode")
     public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
-        int dest = off;
-        for (int i = 0; i < len; i += 2, dest += 2) {
-            if (fe && fcb != null && se && scb != null) {
-                short first = fcb.readShort();
-                first *= fg;
+        if (fe && fcb != null && se && scb != null) {
+            int willRead = Math.min(fcb.available(), scb.available());
+            willRead = Math.min(willRead, len);
+            willRead -= willRead % format.getFrameSize();
 
-                short second = scb.readShort();
-                second *= sg;
-
-                int result = first + second;
-                result *= gg;
-
-                if (result > 32767) result = 32767;
-                else if (result < -32768) result = -32768;
-                else if (result < 0) result |= 32768;
-
-                b[dest] = (byte) result;
-                b[dest + 1] = (byte) (result >>> 8);
-            } else if (fe && fcb != null) {
-                applyGain(gg * fg, fcb.readShort(), b, dest);
-            } else if (se && scb != null) {
-                applyGain(gg * sg, scb.readShort(), b, dest);
-            } else {
-                dest -= (dest - off) % format.getFrameSize();
-                break;
-            }
+            fcb.read(b, off, willRead);
+            scb.readMergeGain(b, off, willRead, gg, fg, sg);
+            return willRead;
+        } else if (fe && fcb != null) {
+            fcb.readGain(b, off, len, gg * fg);
+        } else if (se && scb != null) {
+            scb.readGain(b, off, len, gg * sg);
+        } else {
+            for (int i = off; i < len - off; i++) b[i] = 0;
         }
 
-        return dest - off;
+        return len;
     }
 
     @NotNull
     public MixingOutput firstOut() {
         if (fout == null) {
-            fcb = new CircularBuffer(Codec.BUFFER_SIZE * 4);
+            fcb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
             fout = new FirstOutputStream(fcb);
         }
 
@@ -98,7 +71,7 @@ public class MixingLine extends InputStream {
     @NotNull
     public MixingOutput secondOut() {
         if (sout == null) {
-            scb = new CircularBuffer(Codec.BUFFER_SIZE * 4);
+            scb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
             sout = new SecondOutputStream(scb);
         }
 

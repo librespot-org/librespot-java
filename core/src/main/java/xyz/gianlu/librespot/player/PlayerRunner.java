@@ -149,9 +149,11 @@ public class PlayerRunner implements Runnable, Closeable {
     public void run() {
         byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
 
+        boolean started = false;
         while (!closed) {
             if (paused) {
                 output.stop();
+                started = false;
 
                 synchronized (pauseLock) {
                     try {
@@ -161,12 +163,13 @@ public class PlayerRunner implements Runnable, Closeable {
                     }
                 }
             } else {
-                output.start();
+                if (!started) {
+                    output.start();
+                    started = true;
+                }
 
                 try {
                     int count = mixing.read(buffer);
-                    int r = count % mixing.getFrameSize();
-                    if (r != 0) count += mixing.read(buffer, count, mixing.getFrameSize() - r);
                     output.write(buffer, 0, count);
                 } catch (IOException | LineUnavailableException ex) {
                     if (closed) break;
