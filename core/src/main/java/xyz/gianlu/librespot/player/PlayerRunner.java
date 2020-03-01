@@ -163,10 +163,7 @@ public class PlayerRunner implements Runnable, Closeable {
                     }
                 }
             } else {
-                if (!started) {
-                    output.start();
-                    started = true;
-                }
+                if (!started) started = output.start();
 
                 try {
                     int count = mixing.read(buffer);
@@ -312,8 +309,13 @@ public class PlayerRunner implements Runnable, Closeable {
             if (line != null) line.stop();
         }
 
-        void start() {
-            if (line != null) line.start();
+        boolean start() {
+            if (line != null) {
+                line.start();
+                return true;
+            }
+
+            return false;
         }
 
         void write(byte[] buffer, int off, int len) throws IOException, LineUnavailableException {
