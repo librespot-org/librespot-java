@@ -39,6 +39,7 @@ output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
 releaseLineDelay = 20 # Release mixer line after set delay (in seconds)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)
 stopPlaybackOnChunkError = false # Whether the playback should be stopped when the current chunk cannot be downloaded
+metadataPipe = "" # Output metadata in Shairport Sync format (https://github.com/mikebrady/shairport-sync-metadata-reader)
 
 [api] ### API ###
 port = 24879 # API port (`api` module only)

@@ -36,6 +36,7 @@ The currently available events are:
 - `trackChanged`, the Spotify track URI changed
 - `playbackPaused`, playback has been paused
 - `playbackResumed`, playback has been resumed
+- `volumeChanged`, playback volume changed
 - `trackSeeked`, track has been seeked
 - `metadataAvailable`, metadata for the current track is available
 - `playbackHaltStateChanged`, playback halted or resumed from halt

@@ -234,6 +234,13 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public @Nullable File metadataPipe() {
+        String path = config.get("player.metadataPipe");
+        if (path == null || path.isEmpty()) return null;
+        return new File(path);
+    }
+
+    @Override
     public boolean preloadEnabled() {
         return config.get("preload.enabled");
     }

@@ -9,6 +9,7 @@ import io.undertow.websockets.core.WebSockets;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
@@ -92,6 +93,14 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "inactiveSession");
         obj.addProperty("timeout", timeout);
+        dispatch(obj);
+    }
+
+    @Override
+    public void onVolumeChanged(@Range(from = 0, to = 1) float volume) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "volumeChanged");
+        obj.addProperty("value", volume);
         dispatch(obj);
     }
 
