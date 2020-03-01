@@ -63,15 +63,18 @@ public class CrossfadeController {
         JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
         if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
 
-
-        if (fadeInCurves.size() > 0)
+        if (fadeInDuration == 0)
+            startInterval = null;
+        else if (fadeInCurves.size() > 0)
             startInterval = new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves)));
         else if (defaultFadeDuration > 0)
             startInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
         else
             startInterval = null;
 
-        if (fadeOutCurves.size() > 0)
+        if (fadeOutDuration == 0)
+            endInterval = null;
+        else if (fadeOutCurves.size() > 0)
             endInterval = new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves)));
         else if (defaultFadeDuration > 0)
             endInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
