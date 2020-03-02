@@ -15,6 +15,9 @@ import xyz.gianlu.librespot.mercury.model.*;
 
 import java.io.IOException;
 
+import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazRequest;
+import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
+
 /**
  * @author Gianlu
  */
@@ -154,6 +157,17 @@ public class ApiClient {
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return Metadata.Show.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public EntityCanvazResponse getCanvases(@NotNull EntityCanvazRequest req) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("POST", "/canvaz-cache/v0/canvases", null, protoBody(req))) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return EntityCanvazResponse.parseFrom(body.byteStream());
         }
     }
 
