@@ -156,9 +156,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         events.contextChanged();
 
-        Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
-        if (play == null) play = true;
-        loadTrack(play, PushToMixerReason.None);
+        Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
+        if (paused == null) paused = true;
+        loadTrack(!paused, PushToMixerReason.None);
     }
 
     @Override
@@ -171,6 +171,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         switch (endpoint) {
             case Play:
+                System.out.println(data.obj());
                 handleLoad(data.obj());
                 break;
             case Transfer:
