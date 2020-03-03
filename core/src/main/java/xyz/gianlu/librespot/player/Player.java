@@ -423,12 +423,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 }
 
                 state.setState(true, !play, false);
-                state.updated();
             } else {
                 state.setState(true, !play, true);
-                state.updated();
             }
 
+            state.updated();
             events.trackChanged();
 
             if (!play) {
@@ -447,17 +446,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
                     trackHandler.seek(state.getPosition());
                     state.setState(true, !play, false);
-                    state.updated();
                 } else {
                     state.setState(true, !play, true);
-                    state.updated();
                 }
+
             } else {
                 trackHandler = runner.load(id, state.getPosition());
                 state.setState(true, !play, true);
-                state.updated();
             }
 
+            state.updated();
             events.trackChanged();
 
             if (play) {

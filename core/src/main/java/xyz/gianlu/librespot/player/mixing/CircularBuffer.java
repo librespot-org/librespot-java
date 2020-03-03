@@ -121,6 +121,7 @@ public class CircularBuffer implements Closeable {
      *
      * @return a byte from the buffer.
      */
+    @TestOnly
     public int read() throws IOException {
         if (closed) return -1;
 
@@ -171,6 +172,23 @@ public class CircularBuffer implements Closeable {
      */
     public boolean full() {
         return tail + 1 == head || (head == 0 && tail == data.length - 1);
+    }
+
+    /**
+     * Empties the buffer from its data, the data is not erased (will be overridden anyway).
+     */
+    public void empty() {
+        lock.lock();
+
+        try {
+            head = 0;
+            tail = 0;
+
+            awaitData.signalAll();
+            awaitSpace.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

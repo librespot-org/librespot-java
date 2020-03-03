@@ -92,10 +92,10 @@ public class MixingLine extends InputStream {
         void clear();
 
         @NotNull
-        OutputStream stream();
+        LowLevelStream stream();
     }
 
-    private static abstract class LowLevelStream extends OutputStream {
+    public static abstract class LowLevelStream extends OutputStream {
         private final CircularBuffer buffer;
 
         LowLevelStream(@NotNull CircularBuffer buffer) {
@@ -110,6 +110,10 @@ public class MixingLine extends InputStream {
         @Override
         public final void write(@NotNull byte[] b, int off, int len) throws IOException {
             buffer.write(b, off, len);
+        }
+
+        public final void emptyBuffer() {
+            buffer.empty();
         }
     }
 
@@ -149,7 +153,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull OutputStream stream() {
+        public @NotNull LowLevelStream stream() {
             if (fout != this) throw new IllegalArgumentException();
             return this;
         }
@@ -192,7 +196,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull OutputStream stream() {
+        public @NotNull LowLevelStream stream() {
             if (sout != this) throw new IllegalArgumentException();
             return this;
         }

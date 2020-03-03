@@ -167,7 +167,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
                 try {
                     int count = mixing.read(buffer);
-                    output.write(buffer, 0, count);
+                    output.write(buffer, count);
                 } catch (IOException | LineUnavailableException ex) {
                     if (closed) break;
 
@@ -305,6 +305,10 @@ public class PlayerRunner implements Runnable, Closeable {
             if (lastVolume != -1) setVolume(lastVolume);
         }
 
+        void flush() {
+            if (line != null) line.flush();
+        }
+
         void stop() {
             if (line != null) line.stop();
         }
@@ -318,10 +322,10 @@ public class PlayerRunner implements Runnable, Closeable {
             return false;
         }
 
-        void write(byte[] buffer, int off, int len) throws IOException, LineUnavailableException {
+        void write(byte[] buffer, int len) throws IOException, LineUnavailableException {
             if (type == Type.MIXER) {
                 acquireLine();
-                line.write(buffer, off, len);
+                line.write(buffer, 0, len);
             } else if (type == Type.PIPE) {
                 if (out == null) {
                     if (!pipe.exists()) {
@@ -341,9 +345,9 @@ public class PlayerRunner implements Runnable, Closeable {
                     out = new FileOutputStream(pipe, true);
                 }
 
-                out.write(buffer, off, len);
+                out.write(buffer, 0, len);
             } else if (type == Type.STREAM) {
-                out.write(buffer, off, len);
+                out.write(buffer, 0, len);
             } else {
                 throw new IllegalStateException();
             }
@@ -471,6 +475,9 @@ public class PlayerRunner implements Runnable, Closeable {
 
                             if (handler.codec != null) {
                                 if (shouldAbortCrossfade) handler.abortCrossfade();
+
+                                output.flush();
+                                if (handler.out != null) handler.out.stream().emptyBuffer();
                                 handler.codec.seek((Integer) cmd.args[0]);
                             }
 
