@@ -688,7 +688,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         int time() throws Codec.CannotGetTimeException {
-            return Math.max(0, codec == null ? 0 : codec.time());
+            return codec == null ? 0 : Math.max(0, codec.time());
         }
 
         private void shouldPreload() {

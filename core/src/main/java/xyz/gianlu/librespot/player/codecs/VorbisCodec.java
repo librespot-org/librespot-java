@@ -62,28 +62,12 @@ public class VorbisCodec extends Codec {
         setAudioFormat(new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false));
     }
 
-    @Override
-    public void seek(int positionMs) {
-        super.seek(positionMs);
-        if (positionMs == 0) return;
-
-        audioIn.mark(-1);
-        long oldOffset = pcm_offset;
-        while (oldOffset == pcm_offset || pcm_offset <= 0) {
-            try {
-                if (readInternal(new OutputStream() {
-                    @Override
-                    public void write(int b) {
-                        // Noop
-                    }
-                }) == -1) break;
-            } catch (IOException | CodecException ex) {
-                break;
-            }
-        }
-        audioIn.reset();
-    }
-
+    /**
+     * Get the track time. Be aware that after a seek operation this value won't be updated immediately,
+     * if the playback is paused you'll need to wait once it's resumed.
+     *
+     * @return the current track time in milliseconds.
+     */
     @Override
     public int time() {
         return (int) (((float) pcm_offset / (float) jorbisInfo.rate) * 1000f);

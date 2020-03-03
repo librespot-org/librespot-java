@@ -481,11 +481,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             runner.playMixer();
             state.setState(true, false, false);
 
-            try {
-                state.setPosition(trackHandler.time());
-            } catch (Codec.CannotGetTimeException ignored) {
-            }
-
             state.updated();
             events.playbackResumed();
 
