@@ -806,14 +806,6 @@ public final class Session implements Closeable {
             Session session = Session.from(inner);
             session.connect();
             session.authenticate(loginCredentials);
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    session.close();
-                } catch (IOException ignored) {
-                }
-            }));
-
             return session;
         }
     }

@@ -106,13 +106,6 @@ public class ZeroconfServer implements Closeable {
 
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                close();
-            } catch (IOException ignored) {
-            }
-        }));
-
         List<NetworkInterface> nics;
         if (conf.zeroconfListenAll()) {
             nics = getAllInterfaces();
@@ -217,6 +210,10 @@ public class ZeroconfServer implements Closeable {
     public void close() throws IOException {
         zeroconf.close();
         runner.close();
+    }
+
+    public void closeSession() throws IOException {
+        if (session != null) session.close();
     }
 
     public boolean hasValidSession() {
