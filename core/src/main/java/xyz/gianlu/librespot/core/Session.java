@@ -945,6 +945,8 @@ public final class Session implements Closeable {
                     return;
                 }
 
+                if (shouldStop) return;
+
                 switch (cmd) {
                     case Ping:
                         if (scheduledReconnect != null) scheduledReconnect.cancel(true);
