@@ -15,13 +15,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Gianlu
  */
 public class CircularBuffer implements Closeable {
+    protected final Lock lock = new ReentrantLock();
+    protected final Condition awaitSpace = lock.newCondition();
     private final byte[] data;
-    private final Lock lock = new ReentrantLock();
-    private final Condition awaitSpace = lock.newCondition();
     private final Condition awaitData = lock.newCondition();
+    protected volatile boolean closed = false;
     private int head;
     private int tail;
-    private volatile boolean closed = false;
 
     public CircularBuffer(int bufferSize) {
         data = new byte[bufferSize + 1];
@@ -34,7 +34,7 @@ public class CircularBuffer implements Closeable {
             awaitSpace.await(100, TimeUnit.MILLISECONDS);
     }
 
-    private void awaitData(int count) throws InterruptedException {
+    protected void awaitData(int count) throws InterruptedException {
         while (available() < count && !closed)
             awaitData.await(100, TimeUnit.MILLISECONDS);
     }
@@ -84,18 +84,23 @@ public class CircularBuffer implements Closeable {
         }
     }
 
-    public short readShort() throws IOException {
+    public int read(byte[] b, int off, int len) throws IOException {
         if (closed) return -1;
 
         lock.lock();
 
         try {
-            awaitData(2);
+            awaitData(len);
             if (closed) return -1;
 
-            short val = (short) ((readInternal() & 0xFF) | ((readInternal() & 0xFF) << 8));
+            int dest = off;
+            for (int i = 0; i < len; i += 2, dest += 2) {
+                b[dest] = (byte) readInternal();
+                b[dest + 1] = (byte) readInternal();
+            }
+
             awaitSpace.signal();
-            return val;
+            return dest - off;
         } catch (InterruptedException ex) {
             throw new IOException(ex);
         } finally {
@@ -103,7 +108,7 @@ public class CircularBuffer implements Closeable {
         }
     }
 
-    private int readInternal() {
+    protected int readInternal() {
         int value = data[head++] & 0xFF;
         if (head == data.length)
             head = 0;
@@ -116,6 +121,7 @@ public class CircularBuffer implements Closeable {
      *
      * @return a byte from the buffer.
      */
+    @TestOnly
     public int read() throws IOException {
         if (closed) return -1;
 
@@ -166,6 +172,23 @@ public class CircularBuffer implements Closeable {
      */
     public boolean full() {
         return tail + 1 == head || (head == 0 && tail == data.length - 1);
+    }
+
+    /**
+     * Empties the buffer from its data, the data is not erased (will be overridden anyway).
+     */
+    public void empty() {
+        lock.lock();
+
+        try {
+            head = 0;
+            tail = 0;
+
+            awaitData.signalAll();
+            awaitSpace.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

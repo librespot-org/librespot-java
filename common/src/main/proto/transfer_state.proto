@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package spotify.player.proto.transfer;
+
+import "context_player_options.proto";
+import "playback.proto";
+import "session.proto";
+import "queue.proto";
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.transfer";
+
+message TransferState {
+    optional ContextPlayerOptions options = 1;
+    optional Playback playback = 2;
+    optional Session current_session = 3;
+    optional Queue queue = 4;
+    optional int64 creation_timestamp = 5;
+}

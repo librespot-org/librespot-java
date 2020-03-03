@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
 import io.undertow.websockets.core.WebSocketChannel;
@@ -9,13 +9,14 @@ import io.undertow.websockets.core.WebSockets;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
-public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener {
+public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener, Session.ReconnectionListener {
     private static final Logger LOGGER = Logger.getLogger(EventsHandler.class);
 
     public EventsHandler() {
@@ -96,6 +97,14 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
+    public void onVolumeChanged(@Range(from = 0, to = 1) float volume) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "volumeChanged");
+        obj.addProperty("value", volume);
+        dispatch(obj);
+    }
+
+    @Override
     public void onSessionCleared() {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "sessionCleared");
@@ -110,5 +119,20 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         dispatch(obj);
 
         session.player().addEventsListener(this);
+        session.addReconnectionListener(this);
+    }
+
+    @Override
+    public void onConnectionDropped() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "connectionDropped");
+        dispatch(obj);
+    }
+
+    @Override
+    public void onConnectionEstablished() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "connectionEstablished");
+        dispatch(obj);
     }
 }

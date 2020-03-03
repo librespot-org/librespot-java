@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

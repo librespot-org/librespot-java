@@ -2,9 +2,9 @@ package xyz.gianlu.librespot.mercury;
 
 import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
+import com.spotify.Mercury;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.BytesArrayList;
-import xyz.gianlu.librespot.common.proto.Mercury;
 
 /**
  * @author Gianlu

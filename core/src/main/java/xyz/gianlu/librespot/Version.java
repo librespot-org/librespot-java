@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.proto.Keyexchange;
-import xyz.gianlu.librespot.common.proto.Keyexchange.BuildInfo;
+
+import static com.spotify.Keyexchange.*;
 
 /**
  * @author Gianlu
@@ -20,13 +20,13 @@ public class Version {
     }
 
     @NotNull
-    public static Keyexchange.Platform platform() {
+    public static Platform platform() {
         if (OS.contains("win"))
-            return Keyexchange.Platform.PLATFORM_WIN32_X86;
+            return Platform.PLATFORM_WIN32_X86;
         else if (OS.contains("mac"))
-            return Keyexchange.Platform.PLATFORM_OSX_X86;
+            return Platform.PLATFORM_OSX_X86;
         else
-            return Keyexchange.Platform.PLATFORM_LINUX_X86;
+            return Platform.PLATFORM_LINUX_X86;
     }
 
     @NotNull
@@ -50,8 +50,8 @@ public class Version {
     @NotNull
     public static BuildInfo standardBuildInfo() {
         return BuildInfo.newBuilder()
-                .setProduct(Keyexchange.Product.PRODUCT_CLIENT)
-                .addProductFlags(Keyexchange.ProductFlags.PRODUCT_FLAG_NONE)
+                .setProduct(Product.PRODUCT_CLIENT)
+                .addProductFlags(ProductFlags.PRODUCT_FLAG_NONE)
                 .setPlatform(Version.platform())
                 .setVersion(112200633)
                 .build();
@@ -63,8 +63,8 @@ public class Version {
     @NotNull
     public static BuildInfo mobileBuildInfo() {
         return BuildInfo.newBuilder()
-                .setProduct(Keyexchange.Product.PRODUCT_MOBILE)
-                .setPlatform(Keyexchange.Platform.PLATFORM_ANDROID_ARM)
+                .setProduct(Product.PRODUCT_MOBILE)
+                .setPlatform(Platform.PLATFORM_ANDROID_ARM)
                 .setVersion(852700957)
                 .build();
     }

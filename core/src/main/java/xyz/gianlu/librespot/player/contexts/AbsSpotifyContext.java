@@ -34,7 +34,7 @@ public abstract class AbsSpotifyContext {
 
     @Override
     public String toString() {
-        return "AbsSpotifyContext{context='" + context + "\'}";
+        return "AbsSpotifyContext{context='" + context + "'}";
     }
 
     public abstract boolean isFinite();

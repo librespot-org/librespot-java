@@ -4,13 +4,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.TextFormat;
-import com.spotify.connectstate.model.Connect;
-import com.spotify.connectstate.model.Player;
+import com.spotify.connectstate.Connect;
+import com.spotify.connectstate.Player;
+import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.ProtoUtils;
@@ -40,7 +39,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
     private final Session session;
     private final Connect.DeviceInfo.Builder deviceInfo;
-    private final List<Listener> listeners = new ArrayList<>();
+    private final List<Listener> listeners = Collections.synchronizedList(new ArrayList<>());
     private final Connect.PutStateRequest.Builder putState;
     private volatile String connectionId = null;
 
@@ -79,15 +78,11 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     public void addListener(@NotNull Listener listener) {
-        synchronized (listeners) {
-            listeners.add(listener);
-        }
+        listeners.add(listener);
     }
 
     public void removeListener(@NotNull Listener listener) {
-        synchronized (listeners) {
-            listeners.remove(listener);
-        }
+        listeners.remove(listener);
     }
 
     private void notifyReady() {
@@ -96,6 +91,11 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
+        if (listeners.isEmpty()) {
+            LOGGER.warn(String.format("Cannot dispatch command because there are no listeners. {command: %s}", endpoint));
+            return;
+        }
+
         for (Listener listener : new ArrayList<>(listeners)) {
             try {
                 listener.command(endpoint, data);
@@ -140,7 +140,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
 
             long now = TimeProvider.currentTimeMillis();
-            LOGGER.debug(String.format("Received cluster update at %d: %s", now, TextFormat.shortDebugString(update)));
+            LOGGER.debug(String.format("Received cluster update at %d: %s", now, ProtoUtils.toLogString(update, LOGGER)));
 
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
@@ -200,7 +200,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
         session.api().putConnectState(connectionId, putState.build());
-        LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", TimeProvider.currentTimeMillis(), connectionId.substring(0, 6), reason, TextFormat.shortDebugString(putState)));
+        LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", TimeProvider.currentTimeMillis(), connectionId.substring(0, 6), reason, ProtoUtils.toLogString(putState, LOGGER)));
     }
 
     public synchronized int getVolume() {

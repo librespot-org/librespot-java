@@ -1,6 +1,7 @@
 deviceName = "librespot-java" ### Device name ###
 deviceType = "COMPUTER" ### Device type (COMPUTER, TABLET, SMARTPHONE, SPEAKER, TV, AVR, STB, AUDIO_DONGLE, GAME_CONSOLE, CAST_VIDEO, CAST_AUDIO, AUTOMOBILE, WEARABLE, UNKNOWN_SPOTIFY, CAR_THING, UNKNOWN) ###
 preferredLocale = "en" ### Preferred locale ###
+logLevel = "TRACE" ### Log level (OFF, FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL) ###
 
 [auth] ### Authentication ###
 strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK)
@@ -38,7 +39,17 @@ output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
 releaseLineDelay = 20 # Release mixer line after set delay (in seconds)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)
 stopPlaybackOnChunkError = false # Whether the playback should be stopped when the current chunk cannot be downloaded
+metadataPipe = "" # Output metadata in Shairport Sync format (https://github.com/mikebrady/shairport-sync-metadata-reader)
 
-[api]
+[api] ### API ###
 port = 24879 # API port (`api` module only)
 host = "0.0.0.0" # API listen interface (`api` module only)
+
+[proxy] ### Proxy ###
+enabled = false # Whether the proxy is enabled
+type = "HTTP" # The proxy type (HTTP, SOCKS)
+address = "" # The proxy hostname
+port = 0 # The proxy port
+auth = false # Whether authentication is enabled on the server
+username = "" # Basic auth username
+password = "" # Basic auth password

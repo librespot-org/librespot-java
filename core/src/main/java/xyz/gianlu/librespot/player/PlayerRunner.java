@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player;
 
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.metadata.Metadata;
 import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -149,9 +149,11 @@ public class PlayerRunner implements Runnable, Closeable {
     public void run() {
         byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
 
+        boolean started = false;
         while (!closed) {
             if (paused) {
                 output.stop();
+                started = false;
 
                 synchronized (pauseLock) {
                     try {
@@ -161,13 +163,11 @@ public class PlayerRunner implements Runnable, Closeable {
                     }
                 }
             } else {
-                output.start();
+                if (!started) started = output.start();
 
                 try {
                     int count = mixing.read(buffer);
-                    int r = count % mixing.getFrameSize();
-                    if (r != 0) count += mixing.read(buffer, count, mixing.getFrameSize() - r);
-                    output.write(buffer, 0, count);
+                    output.write(buffer, count);
                 } catch (IOException | LineUnavailableException ex) {
                     if (closed) break;
 
@@ -305,18 +305,27 @@ public class PlayerRunner implements Runnable, Closeable {
             if (lastVolume != -1) setVolume(lastVolume);
         }
 
+        void flush() {
+            if (line != null) line.flush();
+        }
+
         void stop() {
             if (line != null) line.stop();
         }
 
-        void start() {
-            if (line != null) line.start();
+        boolean start() {
+            if (line != null) {
+                line.start();
+                return true;
+            }
+
+            return false;
         }
 
-        void write(byte[] buffer, int off, int len) throws IOException, LineUnavailableException {
+        void write(byte[] buffer, int len) throws IOException, LineUnavailableException {
             if (type == Type.MIXER) {
                 acquireLine();
-                line.write(buffer, off, len);
+                line.write(buffer, 0, len);
             } else if (type == Type.PIPE) {
                 if (out == null) {
                     if (!pipe.exists()) {
@@ -336,9 +345,9 @@ public class PlayerRunner implements Runnable, Closeable {
                     out = new FileOutputStream(pipe, true);
                 }
 
-                out.write(buffer, off, len);
+                out.write(buffer, 0, len);
             } else if (type == Type.STREAM) {
-                out.write(buffer, off, len);
+                out.write(buffer, 0, len);
             } else {
                 throw new IllegalStateException();
             }
@@ -418,6 +427,7 @@ public class PlayerRunner implements Runnable, Closeable {
                                 handler.load((int) cmd.args[1]);
                             } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                                 listener.loadingError(handler, handler.playable, ex);
+                                handler.close();
                             }
                             break;
                         case PushToMixer:
@@ -465,6 +475,9 @@ public class PlayerRunner implements Runnable, Closeable {
 
                             if (handler.codec != null) {
                                 if (shouldAbortCrossfade) handler.abortCrossfade();
+
+                                output.flush();
+                                if (handler.out != null) handler.out.stream().emptyBuffer();
                                 handler.codec.seek((Integer) cmd.args[0]);
                             }
 
@@ -682,7 +695,7 @@ public class PlayerRunner implements Runnable, Closeable {
         }
 
         int time() throws Codec.CannotGetTimeException {
-            return Math.max(0, codec == null ? 0 : codec.time());
+            return codec == null ? 0 : Math.max(0, codec.time());
         }
 
         private void shouldPreload() {

@@ -1,8 +1,11 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.protobuf.ByteString;
-import com.spotify.connectstate.model.Connect;
-import okhttp3.OkHttpClient;
+import com.spotify.Authentication;
+import com.spotify.Keyexchange;
+import com.spotify.connectstate.Connect;
+import okhttp3.Authenticator;
+import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -11,8 +14,6 @@ import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Authentication;
-import xyz.gianlu.librespot.common.proto.Keyexchange;
 import xyz.gianlu.librespot.crypto.CipherPair;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.crypto.PBKDF2;
@@ -31,8 +32,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.RSAPublicKeySpec;
@@ -74,8 +74,9 @@ public final class Session implements Closeable {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
-    private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(true).build();
+    private final OkHttpClient client;
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
+    private final List<ReconnectionListener> reconnectionListeners = Collections.synchronizedList(new ArrayList<>());
     private ConnectionHolder conn;
     private CipherPair cipherPair;
     private Receiver receiver;
@@ -95,12 +96,39 @@ public final class Session implements Closeable {
     private volatile boolean closed = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
 
-    private Session(Inner inner, Socket socket) throws IOException {
+    private Session(Inner inner, String addr) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
-        this.conn = new ConnectionHolder(socket);
+        this.conn = ConnectionHolder.create(addr, inner.configuration);
+        this.client = createClient(inner.configuration);
 
-        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s} ", inner.deviceId, socket.getInetAddress()));
+        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s, proxy: %b} ", inner.deviceId, addr, inner.configuration.proxyEnabled()));
+    }
+
+    @NotNull
+    private static OkHttpClient createClient(@NotNull ProxyConfiguration conf) {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.retryOnConnectionFailure(true);
+
+        if (conf.proxyEnabled() && conf.proxyType() != Proxy.Type.DIRECT) {
+            builder.proxy(new Proxy(conf.proxyType(), new InetSocketAddress(conf.proxyAddress(), conf.proxyPort())));
+            if (conf.proxyAuth()) {
+                builder.proxyAuthenticator(new Authenticator() {
+                    final String username = conf.proxyUsername();
+                    final String password = conf.proxyPassword();
+
+                    @Override
+                    public Request authenticate(Route route, @NotNull Response response) {
+                        String credential = Credentials.basic(username, password);
+                        return response.request().newBuilder()
+                                .header("Proxy-Authorization", credential)
+                                .build();
+                    }
+                });
+            }
+        }
+
+        return builder.build();
     }
 
     private static int readBlobInt(ByteBuffer buffer) {
@@ -114,7 +142,7 @@ public final class Session implements Closeable {
     static Session from(@NotNull Inner inner) throws IOException {
         ApResolver.fillPool();
         TimeProvider.init(inner.configuration);
-        return new Session(inner, ApResolver.getSocketFromRandomAccessPoint());
+        return new Session(inner, ApResolver.getRandomAccesspoint());
     }
 
     @NotNull
@@ -502,6 +530,10 @@ public final class Session implements Closeable {
         return apWelcome != null && conn != null && !conn.socket.isClosed();
     }
 
+    public boolean reconnecting() {
+        return !closed && conn == null;
+    }
+
     @NotNull
     public String deviceId() {
         return inner.deviceId;
@@ -528,13 +560,17 @@ public final class Session implements Closeable {
     }
 
     private void reconnect() {
+        synchronized (reconnectionListeners) {
+            reconnectionListeners.forEach(ReconnectionListener::onConnectionDropped);
+        }
+
         try {
             if (conn != null) {
                 conn.socket.close();
                 receiver.stop();
             }
 
-            conn = new ConnectionHolder(ApResolver.getSocketFromRandomAccessPoint());
+            conn = ConnectionHolder.create(ApResolver.getRandomAccesspoint(), conf());
             connect();
             authenticatePartial(Authentication.LoginCredentials.newBuilder()
                     .setUsername(apWelcome.getCanonicalUsername())
@@ -543,7 +579,12 @@ public final class Session implements Closeable {
                     .build(), true);
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
+
+            synchronized (reconnectionListeners) {
+                reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
+            }
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+            conn = null;
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
             scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
         }
@@ -561,6 +602,36 @@ public final class Session implements Closeable {
 
     public void addCloseListener(@NotNull CloseListener listener) {
         if (!closeListeners.contains(listener)) closeListeners.add(listener);
+    }
+
+    public void addReconnectionListener(@NotNull ReconnectionListener listener) {
+        if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
+    }
+
+    public interface ReconnectionListener {
+        void onConnectionDropped();
+
+        void onConnectionEstablished();
+    }
+
+    public interface ProxyConfiguration {
+        boolean proxyEnabled();
+
+        @NotNull
+        Proxy.Type proxyType();
+
+        @NotNull
+        String proxyAddress();
+
+        int proxyPort();
+
+        boolean proxyAuth();
+
+        @NotNull
+        String proxyUsername();
+
+        @NotNull
+        String proxyPassword();
     }
 
     public interface CloseListener {
@@ -644,8 +715,8 @@ public final class Session implements Closeable {
      */
     public static class Builder {
         private final Inner inner;
+        private final AuthConfiguration authConf;
         private Authentication.LoginCredentials loginCredentials = null;
-        private AuthConfiguration authConf;
 
         public Builder(@NotNull Connect.DeviceType deviceType, @NotNull String deviceName, @NotNull AbsConfiguration configuration) {
             this.inner = new Inner(deviceType, deviceName, configuration);
@@ -736,14 +807,6 @@ public final class Session implements Closeable {
             Session session = Session.from(inner);
             session.connect();
             session.authenticate(loginCredentials);
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    session.close();
-                } catch (IOException ignored) {
-                }
-            }));
-
             return session;
         }
     }
@@ -777,10 +840,70 @@ public final class Session implements Closeable {
         final DataInputStream in;
         final DataOutputStream out;
 
-        ConnectionHolder(Socket socket) throws IOException {
+        private ConnectionHolder(@NotNull Socket socket) throws IOException {
             this.socket = socket;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
+        }
+
+        @NotNull
+        static ConnectionHolder create(@NotNull String addr, @NotNull ProxyConfiguration conf) throws IOException {
+            int colon = addr.indexOf(':');
+            String apAddr = addr.substring(0, colon);
+            int apPort = Integer.parseInt(addr.substring(colon + 1));
+            if (!conf.proxyEnabled() || conf.proxyType() == Proxy.Type.DIRECT)
+                return new ConnectionHolder(new Socket(apAddr, apPort));
+
+            switch (conf.proxyType()) {
+                case HTTP:
+                    Socket sock = new Socket(conf.proxyAddress(), conf.proxyPort());
+                    OutputStream out = sock.getOutputStream();
+                    DataInputStream in = new DataInputStream(sock.getInputStream());
+
+                    out.write(String.format("CONNECT %s:%d HTTP/1.0\n", apAddr, apPort).getBytes());
+                    if (conf.proxyAuth()) {
+                        out.write("Proxy-Authorization: Basic ".getBytes());
+                        out.write(Base64.getEncoder().encodeToString(String.format("%s:%s\n", conf.proxyUsername(), conf.proxyPassword()).getBytes()).getBytes());
+                    }
+
+                    out.write('\n');
+                    out.flush();
+
+                    String sl = Utils.readLine(in);
+                    if (!sl.contains("200")) throw new IOException("Failed connecting: " + sl);
+
+                    //noinspection StatementWithEmptyBody
+                    while (!Utils.readLine(in).isEmpty()) {
+                        // Read all headers
+                    }
+
+                    LOGGER.info("Successfully connected to the HTTP proxy.");
+                    return new ConnectionHolder(sock);
+                case SOCKS:
+                    if (conf.proxyAuth()) {
+                        java.net.Authenticator.setDefault(new java.net.Authenticator() {
+                            final String username = conf.proxyUsername();
+                            final String password = conf.proxyPassword();
+
+                            @Override
+                            protected PasswordAuthentication getPasswordAuthentication() {
+                                if (Objects.equals(getRequestingProtocol(), "SOCKS5") && Objects.equals(getRequestingPrompt(), "SOCKS authentication"))
+                                    return new PasswordAuthentication(username, password.toCharArray());
+
+                                return super.getPasswordAuthentication();
+                            }
+                        });
+                    }
+
+                    Proxy proxy = new Proxy(conf.proxyType(), new InetSocketAddress(conf.proxyAddress(), conf.proxyPort()));
+                    Socket proxySocket = new Socket(proxy);
+                    proxySocket.connect(new InetSocketAddress(apAddr, apPort));
+                    LOGGER.info("Successfully connected to the SOCKS proxy.");
+                    return new ConnectionHolder(proxySocket);
+                case DIRECT:
+                default:
+                    throw new UnsupportedOperationException();
+            }
         }
     }
 
@@ -814,6 +937,8 @@ public final class Session implements Closeable {
 
                     return;
                 }
+
+                if (shouldStop) return;
 
                 switch (cmd) {
                     case Ping:

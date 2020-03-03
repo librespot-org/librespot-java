@@ -2,11 +2,13 @@ package xyz.gianlu.librespot.player;
 
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.context.ContextTrackOuterClass.ContextTrack;
+import com.spotify.metadata.Metadata;
+import com.spotify.transfer.TransferStateOuterClass;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import spotify.player.proto.transfer.TransferStateOuterClass;
+import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
@@ -23,15 +25,12 @@ import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-
-import static spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 
 /**
  * @author Gianlu
@@ -42,7 +41,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private final Session session;
     private final Configuration conf;
     private final PlayerRunner runner;
-    private final EventsDispatcher events = new EventsDispatcher();
+    private final EventsDispatcher events;
     private StateWrapper state;
     private TrackHandler trackHandler;
     private TrackHandler crossfadeHandler;
@@ -52,6 +51,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
+        this.events = new EventsDispatcher(conf);
         new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
     }
 
@@ -81,6 +81,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public void setVolume(int val) {
         if (val < 0 || val > PlayerRunner.VOLUME_MAX)
             throw new IllegalArgumentException(String.valueOf(val));
+
+        events.volumeChanged(val);
 
         if (state == null) return;
         state.setVolume(val);
@@ -115,7 +117,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        events.dispatchContextChanged();
+        events.contextChanged();
         loadTrack(play, PushToMixerReason.None);
     }
 
@@ -134,7 +136,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        events.dispatchContextChanged();
+        events.contextChanged();
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
 
         try {
@@ -160,11 +162,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return;
         }
 
-        events.dispatchContextChanged();
+        events.contextChanged();
 
-        Boolean play = PlayCommandHelper.isInitiallyPaused(obj);
-        if (play == null) play = true;
-        loadTrack(play, PushToMixerReason.None);
+        Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
+        if (paused == null) paused = true;
+        loadTrack(!paused, PushToMixerReason.None);
     }
 
     @Override
@@ -177,6 +179,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         switch (endpoint) {
             case Play:
+                System.out.println(data.obj());
                 handleLoad(data.obj());
                 break;
             case Transfer:
@@ -406,7 +409,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private void handleSeek(int pos) {
         state.setPosition(pos);
         if (trackHandler != null) trackHandler.seek(pos);
-        events.dispatchSeek(pos);
+        events.seeked(pos);
     }
 
     private void panicState() {
@@ -438,19 +441,18 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 }
 
                 state.setState(true, !play, false);
-                state.updated();
             } else {
                 state.setState(true, !play, true);
-                state.updated();
             }
 
-            events.dispatchTrackChanged();
+            state.updated();
+            events.trackChanged();
 
             if (!play) {
                 runner.pauseMixer();
-                events.dispatchPlaybackPaused();
+                events.playbackPaused();
             } else {
-                events.dispatchPlaybackResumed();
+                events.playbackResumed();
             }
         } else {
             if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(id)) {
@@ -462,25 +464,24 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
                     trackHandler.seek(state.getPosition());
                     state.setState(true, !play, false);
-                    state.updated();
                 } else {
                     state.setState(true, !play, true);
-                    state.updated();
                 }
+
             } else {
                 trackHandler = runner.load(id, state.getPosition());
                 state.setState(true, !play, true);
-                state.updated();
             }
 
-            events.dispatchTrackChanged();
+            state.updated();
+            events.trackChanged();
 
             if (play) {
                 trackHandler.pushToMixer(reason);
                 runner.playMixer();
-                events.dispatchPlaybackResumed();
+                events.playbackResumed();
             } else {
-                events.dispatchPlaybackPaused();
+                events.playbackPaused();
             }
         }
 
@@ -496,13 +497,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             runner.playMixer();
             state.setState(true, false, false);
 
-            try {
-                state.setPosition(trackHandler.time());
-            } catch (Codec.CannotGetTimeException ignored) {
-            }
-
             state.updated();
-            events.dispatchPlaybackResumed();
+            events.playbackResumed();
 
             if (releaseLineFuture != null) {
                 releaseLineFuture.cancel(true);
@@ -522,7 +518,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             state.updated();
-            events.dispatchPlaybackPaused();
+            events.playbackPaused();
 
             if (releaseLineFuture != null) releaseLineFuture.cancel(true);
             releaseLineFuture = scheduler.schedule(() -> {
@@ -593,7 +589,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContext(newContext);
                 state.setContextMetadata("context_description", contextDesc);
 
-                events.dispatchContextChanged();
+                events.contextChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
@@ -602,7 +598,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.loadContextWithTracks(station.uri(), station.tracks());
                 state.setContextMetadata("context_description", contextDesc);
 
-                events.dispatchContextChanged();
+                events.contextChanged();
                 loadTrack(true, PushToMixerReason.None);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
@@ -698,6 +694,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         @Nullable
         File outputPipe();
 
+        @Nullable
+        File metadataPipe();
+
         boolean preloadEnabled();
 
         boolean enableNormalisation();
@@ -736,25 +735,75 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void onPlaybackHaltStateChanged(boolean halted, long trackTime);
 
         void onInactiveSession(boolean timeout);
+
+        void onVolumeChanged(@Range(from = 0, to = 1) float volume);
+    }
+
+    private static class MetadataPipe {
+        private static final String TYPE_SSNC = "73736e63";
+        private static final String TYPE_CORE = "636f7265";
+        private static final String CODE_ASAR = "61736172";
+        private static final String CODE_ASAL = "6173616c";
+        private static final String CODE_MINM = "6d696e6d";
+        private static final String CODE_PVOL = "70766f6c";
+        private final FileOutputStream out;
+
+        MetadataPipe(@NotNull Configuration conf) throws FileNotFoundException {
+            File file = conf.metadataPipe();
+            if (file != null) out = new FileOutputStream(file);
+            else out = null;
+        }
+
+        private void send(@NotNull String type, @NotNull String code, @Nullable String payload) throws IOException {
+            if (out == null) return;
+
+            if (payload != null) {
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">\n%s</data></item>", type, code,
+                        payload.length(), Base64.getEncoder().encodeToString(payload.getBytes())).getBytes());
+            } else {
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>", type, code).getBytes());
+            }
+        }
+
+        void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
+            try {
+                send(type, code, payload);
+            } catch (IOException ex) {
+                LOGGER.error("Failed sending metadata through pipe!", ex);
+            }
+        }
+
+        boolean enabled() {
+            return out != null;
+        }
     }
 
     private class EventsDispatcher {
+        private final MetadataPipe metadataPipe;
         private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
         private final List<EventsListener> listeners = new ArrayList<>();
 
-        void dispatchPlaybackPaused() {
+        EventsDispatcher(@NotNull Configuration conf) {
+            try {
+                metadataPipe = new MetadataPipe(conf);
+            } catch (FileNotFoundException ex) {
+                throw new IllegalArgumentException(ex);
+            }
+        }
+
+        void playbackPaused() {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackPaused(trackTime));
         }
 
-        void dispatchPlaybackResumed() {
+        void playbackResumed() {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackResumed(trackTime));
         }
 
-        void dispatchContextChanged() {
+        void contextChanged() {
             String uri = state.getContextUri();
             if (uri == null) return;
 
@@ -762,7 +811,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 executorService.execute(() -> l.onContextChanged(uri));
         }
 
-        void dispatchTrackChanged() {
+        void trackChanged() {
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return;
 
@@ -780,12 +829,30 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 executorService.execute(() -> l.onTrackChanged(id, track, episode));
         }
 
-        public void dispatchSeek(int pos) {
+        void seeked(int pos) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
         }
 
-        public void metadataAvailable() {
+        void volumeChanged(@Range(from = 0, to = PlayerRunner.VOLUME_MAX) int value) {
+            float volume = (float) value / PlayerRunner.VOLUME_MAX;
+
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onVolumeChanged(volume));
+
+            if (metadataPipe.enabled()) {
+                float xmlValue;
+                if (value == 0) xmlValue = 144.0f;
+                else if (value == 1) xmlValue = -30.0f;
+                else if (value == 0xFFFF) xmlValue = 0.0f;
+                else xmlValue = (value - 0xFFFF) * 30.0f / 0xFFFE;
+
+                String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
+                metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
+            }
+        }
+
+        void metadataAvailable() {
             if (trackHandler == null) return;
 
             Metadata.Track track = trackHandler.track();
@@ -794,15 +861,26 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onMetadataAvailable(track, episode));
+
+            if (metadataPipe.enabled()) {
+                String title = track != null ? track.getName() : episode.getName();
+                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, title);
+
+                String album = track != null ? track.getAlbum().getName() : episode.getShow().getName();
+                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, album);
+
+                String artist = track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
+                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
+            }
         }
 
-        public void playbackHaltStateChanged(boolean halted) {
+        void playbackHaltStateChanged(boolean halted) {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackHaltStateChanged(halted, trackTime));
         }
 
-        public void inactiveSession(boolean timeout) {
+        void inactiveSession(boolean timeout) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onInactiveSession(timeout));
         }

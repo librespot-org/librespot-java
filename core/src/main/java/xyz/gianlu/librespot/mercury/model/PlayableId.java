@@ -1,13 +1,14 @@
 package xyz.gianlu.librespot.mercury.model;
 
-import com.spotify.connectstate.model.Player;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.connectstate.Player;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
-import spotify.player.proto.ContextTrackOuterClass.ContextTrack;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
 import java.util.Objects;
+
+import static com.spotify.context.ContextTrackOuterClass.ContextTrack;
 
 /**
  * @author Gianlu

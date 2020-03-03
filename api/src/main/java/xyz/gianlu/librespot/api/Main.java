@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.api;
 
+import org.apache.log4j.LogManager;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.FileConfiguration;
 import xyz.gianlu.librespot.core.AuthConfiguration;
@@ -17,6 +18,7 @@ public class Main {
 
     public static void main(String[] args) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         AbsConfiguration conf = new FileConfiguration(args);
+        LogManager.getRootLogger().setLevel(conf.loggingLevel());
 
         SessionWrapper wrapper;
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF)

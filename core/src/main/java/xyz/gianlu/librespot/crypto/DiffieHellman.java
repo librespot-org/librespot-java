@@ -11,7 +11,7 @@ import java.util.Random;
  */
 public class DiffieHellman {
     private static final BigInteger GENERATOR = BigInteger.valueOf(2);
-    private static final byte PRIME_BYTES[] = {
+    private static final byte[] PRIME_BYTES = {
             (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xc9, (byte)
             (byte) 0x0f, (byte) 0xda, (byte) 0xa2, (byte) 0x21, (byte) 0x68, (byte) 0xc2, (byte) 0x34, (byte) 0xc4, (byte) 0xc6, (byte)
             (byte) 0x62, (byte) 0x8b, (byte) 0x80, (byte) 0xdc, (byte) 0x1c, (byte) 0xd1, (byte) 0x29, (byte) 0x02, (byte) 0x4e, (byte)

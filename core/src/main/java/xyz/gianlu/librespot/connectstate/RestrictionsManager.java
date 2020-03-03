@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.connectstate;
 
-import com.spotify.connectstate.model.Player;
+import com.spotify.connectstate.Player;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 

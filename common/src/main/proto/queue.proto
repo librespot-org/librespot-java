@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package spotify.player.proto.transfer;
+
+import "context_track.proto";
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.transfer";
+
+message Queue {
+    repeated ContextTrack tracks = 1;
+    optional bool is_playing_queue = 2;
+}

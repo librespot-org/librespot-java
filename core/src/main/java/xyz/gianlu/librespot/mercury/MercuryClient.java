@@ -1,16 +1,17 @@
 package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.spotify.Mercury;
+import com.spotify.Pubsub;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Pubsub;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
@@ -250,19 +251,16 @@ public final class MercuryClient extends PacketsManager {
             }
         }
 
-        while (true) {
-            if (callbacks.isEmpty()) {
-                break;
-            } else {
-                synchronized (removeCallbackLock) {
-                    try {
-                        removeCallbackLock.wait(100);
-                    } catch (InterruptedException ignored) {
-                    }
+        if (!callbacks.isEmpty()) {
+            synchronized (removeCallbackLock) {
+                try {
+                    removeCallbackLock.wait(MERCURY_REQUEST_TIMEOUT + 100);
+                } catch (InterruptedException ignored) {
                 }
             }
         }
 
+        callbacks.clear();
         super.close();
     }
 
@@ -320,9 +318,9 @@ public final class MercuryClient extends PacketsManager {
         }
 
         @NotNull
-        public JsonElement json() {
+        public JsonObject json() {
             if (json == null) json = ProtobufToJson.convert(proto);
-            return json;
+            return json.getAsJsonObject();
         }
     }
 

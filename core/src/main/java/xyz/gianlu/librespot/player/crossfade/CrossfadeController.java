@@ -11,7 +11,6 @@ import xyz.gianlu.librespot.player.Player;
 import java.util.Map;
 
 public class CrossfadeController {
-    private final static JsonParser PARSER = new JsonParser();
     private static final Logger LOGGER = Logger.getLogger(CrossfadeController.class);
     private final int trackDuration;
     private final int defaultFadeDuration;
@@ -55,24 +54,27 @@ public class CrossfadeController {
 
         fadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_in_duration", "-1"));
         fadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_in_start_time", "-1"));
-        JsonArray fadeInCurves = PARSER.parse(metadata.getOrDefault("audio.fade_in_curves", "[]")).getAsJsonArray();
+        JsonArray fadeInCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_in_curves", "[]")).getAsJsonArray();
         if (fadeInCurves.size() > 1) throw new UnsupportedOperationException(fadeInCurves.toString());
 
         fadeOutUri = metadata.get("audio.fade_out_uri");
         fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
         fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
-        JsonArray fadeOutCurves = PARSER.parse(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
+        JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
         if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
 
-
-        if (fadeInCurves.size() > 0)
+        if (fadeInDuration == 0)
+            startInterval = null;
+        else if (fadeInCurves.size() > 0)
             startInterval = new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves)));
         else if (defaultFadeDuration > 0)
             startInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
         else
             startInterval = null;
 
-        if (fadeOutCurves.size() > 0)
+        if (fadeOutDuration == 0)
+            endInterval = null;
+        else if (fadeOutCurves.size() > 0)
             endInterval = new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves)));
         else if (defaultFadeDuration > 0)
             endInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());

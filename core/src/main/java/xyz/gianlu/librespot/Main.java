@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot;
 
+import org.apache.log4j.LogManager;
 import xyz.gianlu.librespot.core.AuthConfiguration;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.ZeroconfServer;
@@ -15,10 +16,24 @@ public class Main {
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         AbsConfiguration conf = new FileConfiguration(args);
+        LogManager.getRootLogger().setLevel(conf.loggingLevel());
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
-            ZeroconfServer.create(conf);
+            ZeroconfServer server = ZeroconfServer.create(conf);
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    server.closeSession();
+                    server.close();
+                } catch (IOException ignored) {
+                }
+            }));
         } else {
-            new Session.Builder(conf).create();
+            Session session = new Session.Builder(conf).create();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    session.close();
+                } catch (IOException ignored) {
+                }
+            }));
         }
     }
 }

@@ -51,15 +51,21 @@ On some system, many mixers could be installed making librespot-java playback on
 
 ## Build it
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
-
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
+
+## Protobuf generation
+The compiled Java protobuf definitions aren't versioned, therefore, if you want to open the project inside you're IDE, you'll need to run `mvn compile` first to ensure that all the necessary files are created. 
+The `com.spotify` package is reserved for the generated files.
+
+## Logging
+The application uses Log4J for logging purposes, the configuration file is placed inside `core/src/main/resources` or `api/src/main/resources` depending on what you're working with.
 
 ## Related Projects
 - [librespot](https://github.com/librespot-org/librespot)
-- [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure Librespot-Java.
+- [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
+- [spocon](https://github.com/spocon/spocon) - Install librespot-java from APT
 
 # Special thanks
-
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
 - All the contributors of this project for testing and fixing stuff
 - <a href="https://www.yourkit.com/"><img src="https://www.yourkit.com/images/yklogo.png" height="20"></a> that provided a free license for their [Java Profiler](https://www.yourkit.com/java/profiler/)

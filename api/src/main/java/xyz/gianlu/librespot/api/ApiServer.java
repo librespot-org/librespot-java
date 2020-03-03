@@ -6,9 +6,7 @@ import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.api.handlers.EventsHandler;
-import xyz.gianlu.librespot.api.handlers.MetadataHandler;
-import xyz.gianlu.librespot.api.handlers.PlayerHandler;
+import xyz.gianlu.librespot.api.handlers.*;
 
 public class ApiServer {
     private static final Logger LOGGER = Logger.getLogger(ApiServer.class);
@@ -27,6 +25,8 @@ public class ApiServer {
         handler = new RoutingHandler();
         handler.post("/player/{cmd}", new PlayerHandler(wrapper))
                 .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper))
+                .post("/search/{query}", new SearchHandler(wrapper))
+                .post("/token/{scope}", new TokensHandler(wrapper))
                 .get("/events", events);
     }
 

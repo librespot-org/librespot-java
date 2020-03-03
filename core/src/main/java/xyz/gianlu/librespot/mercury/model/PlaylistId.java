@@ -28,8 +28,11 @@ public final class PlaylistId implements SpotifyId {
         }
     }
 
-    public @NotNull String toMercuryUri() {
-        return String.format("hm://playlist/user/%s/playlist/%s", username, playlistId);
+    public @NotNull String toMercuryUri(boolean annotate) {
+        if (annotate)
+            return String.format("hm://playlist-annotate/v1/annotation/user/%s/playlist/%s", username, playlistId);
+        else
+            return String.format("hm://playlist/user/%s/playlist/%s", username, playlistId);
     }
 
     @Override

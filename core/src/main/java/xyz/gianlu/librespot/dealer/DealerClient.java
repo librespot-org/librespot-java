@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Gianlu
  */
 public class DealerClient implements Closeable {
-    private static final JsonParser PARSER = new JsonParser();
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
     private final Looper looper = new Looper();
     private final Session session;
@@ -314,7 +313,7 @@ public class DealerClient implements Closeable {
 
             @Override
             public void onMessage(@NotNull WebSocket ws, @NotNull String text) {
-                JsonObject obj = PARSER.parse(text).getAsJsonObject();
+                JsonObject obj = JsonParser.parseString(text).getAsJsonObject();
 
                 waitForListeners();
 

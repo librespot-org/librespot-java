@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.Message;
-import com.spotify.connectstate.model.Connect;
-import com.spotify.metadata.proto.Metadata;
+import com.spotify.connectstate.Connect;
+import com.spotify.metadata.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.apache.log4j.Logger;
@@ -14,6 +14,9 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.*;
 
 import java.io.IOException;
+
+import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazRequest;
+import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
 
 /**
  * @author Gianlu
@@ -154,6 +157,17 @@ public class ApiClient {
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return Metadata.Show.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public EntityCanvazResponse getCanvases(@NotNull EntityCanvazRequest req) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("POST", "/canvaz-cache/v0/canvases", null, protoBody(req))) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return EntityCanvazResponse.parseFrom(body.byteStream());
         }
     }
 

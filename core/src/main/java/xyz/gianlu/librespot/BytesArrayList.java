@@ -118,9 +118,6 @@ public class BytesArrayList implements Iterable<byte[]> {
 
             int i = 0;
             while (true) {
-                if (sub >= elementData.length)
-                    return i;
-
                 int copy = Math.min(len - i, elementData[sub].length - offset);
                 System.arraycopy(elementData[sub], offset, b, off + i, copy);
                 i += copy;

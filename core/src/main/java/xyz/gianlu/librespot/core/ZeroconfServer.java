@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonObject;
+import com.spotify.Authentication;
 import okhttp3.HttpUrl;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -9,7 +10,6 @@ import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.zeroconf.Service;
@@ -105,13 +105,6 @@ public class ZeroconfServer implements Closeable {
             port = inner.random.nextInt((MAX_PORT - MIN_PORT) + 1) + MIN_PORT;
 
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                close();
-            } catch (IOException ignored) {
-            }
-        }));
 
         List<NetworkInterface> nics;
         if (conf.zeroconfListenAll()) {
@@ -217,6 +210,10 @@ public class ZeroconfServer implements Closeable {
     public void close() throws IOException {
         zeroconf.close();
         runner.close();
+    }
+
+    public void closeSession() throws IOException {
+        if (session != null) session.close();
     }
 
     public boolean hasValidSession() {
