@@ -22,6 +22,7 @@ All the endpoints will respond with `200` if successful or:
 
 ### Metadata
 - `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.
+- `POST \metadata\{uri}` Retrieve metadata. `uri` is the standard Spotify uri, the type will be guessed based on the provided uri.
 
 ### Search
 - `POST \search\{query}` Make a search.
@@ -50,3 +51,5 @@ The currently available events are:
 `curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true" http://localhost:24879/player/load`
 
 `curl -X POST http://localhost:24879/metadata/track/spotify:track:xxxxxxxxxxxxxxxxxxxxxx`
+
+`curl -X POST http://localhost:24879/metadata/spotify:track:xxxxxxxxxxxxxxxxxxxxxx`

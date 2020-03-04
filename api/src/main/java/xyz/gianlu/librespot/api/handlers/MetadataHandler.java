@@ -24,9 +24,11 @@ import java.util.Objects;
  */
 public final class MetadataHandler extends AbsSessionHandler {
     private static final Logger LOGGER = Logger.getLogger(MetadataHandler.class);
+    private final boolean needsType;
 
-    public MetadataHandler(@NotNull SessionWrapper wrapper) {
+    public MetadataHandler(@NotNull SessionWrapper wrapper, boolean needsType) {
         super(wrapper);
+        this.needsType = needsType;
     }
 
     @Override
@@ -38,21 +40,27 @@ public final class MetadataHandler extends AbsSessionHandler {
         }
 
         Map<String, Deque<String>> params = Utils.readParameters(exchange);
-        String typeStr = Utils.getFirstString(params, "type");
-        if (typeStr == null) {
-            Utils.invalidParameter(exchange, "type");
-            return;
-        }
-
-        MetadataType type = MetadataType.parse(typeStr);
-        if (type == null) {
-            Utils.invalidParameter(exchange, "type");
-            return;
-        }
-
         String uri = Utils.getFirstString(params, "uri");
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
+            return;
+        }
+
+        MetadataType type;
+        String typeStr = Utils.getFirstString(params, "type");
+        if (typeStr == null) {
+            if (needsType) {
+                Utils.invalidParameter(exchange, "type");
+                return;
+            }
+
+            type = MetadataType.guessTypeFromUri(uri);
+        } else {
+            type = MetadataType.parse(typeStr);
+        }
+
+        if (type == null) {
+            Utils.invalidParameter(exchange, "type");
             return;
         }
 
@@ -122,6 +130,15 @@ public final class MetadataHandler extends AbsSessionHandler {
         private static MetadataType parse(@NotNull String val) {
             for (MetadataType type : values())
                 if (Objects.equals(type.val, val))
+                    return type;
+
+            return null;
+        }
+
+        @Nullable
+        public static MetadataType guessTypeFromUri(@NotNull String uri) {
+            for (MetadataType type : values())
+                if (uri.contains(type.val))
                     return type;
 
             return null;
