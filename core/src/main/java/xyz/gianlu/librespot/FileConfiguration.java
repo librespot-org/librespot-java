@@ -305,6 +305,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public @Nullable String deviceId() {
+        return config.get("deviceId");
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }

@@ -649,7 +649,9 @@ public final class Session implements Closeable {
             this.deviceName = deviceName;
             this.configuration = configuration;
             this.random = new SecureRandom();
-            this.deviceId = Utils.randomString(random, 40);
+
+            final String configuredDeviceId = configuration.deviceId();
+            this.deviceId = (configuredDeviceId == null || configuredDeviceId.isEmpty()) ? Utils.randomString(random, 40) : configuredDeviceId;
         }
 
         @NotNull
@@ -784,6 +786,7 @@ public final class Session implements Closeable {
                             facebook();
                             break;
                         case BLOB:
+                            if(!inner.deviceId.equals(inner.configuration.deviceId())) throw new IllegalArgumentException("Missing deviceId! Must not be empty when using " + authConf.authStrategy());
                             if (username == null) throw new IllegalArgumentException("Missing authUsername!");
                             if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
                             blob(username, Base64.getDecoder().decode(blob));
