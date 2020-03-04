@@ -347,6 +347,18 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public boolean storeCredentials() {
+        return config.get("auth.storeCredentials");
+    }
+
+    @Override
+    public @Nullable File credentialsFile() {
+        String path = config.get("auth.credentialsFile");
+        if (path == null || path.isEmpty()) return null;
+        return new File(path);
+    }
+
+    @Override
     public boolean zeroconfListenAll() {
         return config.get("zeroconf.listenAll");
     }
