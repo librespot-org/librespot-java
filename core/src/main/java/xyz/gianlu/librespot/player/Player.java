@@ -25,6 +25,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -742,9 +743,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             if (payload != null) {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">\n%s</data></item>", type, code,
-                        payload.length(), Base64.getEncoder().encodeToString(payload.getBytes())).getBytes());
+                        payload.length(), Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8))).getBytes(StandardCharsets.UTF_8));
             } else {
-                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>", type, code).getBytes());
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>", type, code).getBytes(StandardCharsets.UTF_8));
             }
         }
 
