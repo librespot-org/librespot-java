@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.core;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
 import com.spotify.Keyexchange;
@@ -351,6 +353,22 @@ public final class Session implements Closeable {
                 synchronized (authLock) {
                     authLock.set(false);
                     authLock.notifyAll();
+                }
+            }
+
+            if (conf().storeCredentials()) {
+                ByteString reusable = apWelcome.getReusableAuthCredentials();
+                Authentication.AuthenticationType reusableType = apWelcome.getReusableAuthCredentialsType();
+
+                JsonObject obj = new JsonObject();
+                obj.addProperty("username", apWelcome.getCanonicalUsername());
+                obj.addProperty("credentials", Utils.toBase64(reusable));
+                obj.addProperty("type", reusableType.name());
+
+                File storeFile = conf().credentialsFile();
+                if (storeFile == null) throw new IllegalArgumentException();
+                try (FileOutputStream out = new FileOutputStream(storeFile)) {
+                    out.write(obj.toString().getBytes());
                 }
             }
         } else if (packet.is(Packet.Type.AuthFailure)) {
@@ -775,34 +793,41 @@ public final class Session implements Closeable {
          */
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
-            if (loginCredentials == null) {
-                if (authConf != null) {
-                    String blob = authConf.authBlob();
-                    String username = authConf.authUsername();
-                    String password = authConf.authPassword();
+            if (authConf.storeCredentials()) {
+                File storeFile = authConf.credentialsFile();
+                if (storeFile != null && storeFile.exists()) {
+                    JsonObject obj = JsonParser.parseReader(new FileReader(storeFile)).getAsJsonObject();
+                    loginCredentials = Authentication.LoginCredentials.newBuilder()
+                            .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
+                            .setUsername(obj.get("username").getAsString())
+                            .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                            .build();
+                }
+            }
 
-                    switch (authConf.authStrategy()) {
-                        case FACEBOOK:
-                            facebook();
-                            break;
-                        case BLOB:
-                            if(!inner.deviceId.equals(inner.configuration.deviceId())) throw new IllegalArgumentException("Missing deviceId! Must not be empty when using " + authConf.authStrategy());
-                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
-                            if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
-                            blob(username, Base64.getDecoder().decode(blob));
-                            break;
-                        case USER_PASS:
-                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
-                            if (password == null) throw new IllegalArgumentException("Missing authPassword!");
-                            userPass(username, password);
-                            break;
-                        case ZEROCONF:
-                            throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
-                        default:
-                            throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
-                    }
-                } else {
-                    throw new IllegalStateException("Missing credentials!");
+            if (loginCredentials == null) {
+                String blob = authConf.authBlob();
+                String username = authConf.authUsername();
+                String password = authConf.authPassword();
+
+                switch (authConf.authStrategy()) {
+                    case FACEBOOK:
+                        facebook();
+                        break;
+                    case BLOB:
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
+                        blob(username, Base64.getDecoder().decode(blob));
+                        break;
+                    case USER_PASS:
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (password == null) throw new IllegalArgumentException("Missing authPassword!");
+                        userPass(username, password);
+                        break;
+                    case ZEROCONF:
+                        throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
+                    default:
+                        throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
                 }
             }
 

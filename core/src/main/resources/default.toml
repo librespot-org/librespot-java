@@ -9,6 +9,8 @@ strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK)
 username = "" # Spotify username (BLOB, USER_PASS only)
 password = "" # Spotify password (USER_PASS only)
 blob = "" # Spotify authentication blob (BLOB only)
+storeCredentials = false # Whether to store reusable credentials on disk (not a plain password)
+credentialsFile = "" # Credentials file (JSON)
 
 [zeroconf] ### Zeroconf ###
 listenPort = -1 # Listen on this port (`-1` for random)

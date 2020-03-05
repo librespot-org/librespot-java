@@ -17,7 +17,7 @@ public class Main {
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         AbsConfiguration conf = new FileConfiguration(args);
         LogManager.getRootLogger().setLevel(conf.loggingLevel());
-        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF) {
+        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF && !conf.hasStoredCredentials()) {
             ZeroconfServer server = ZeroconfServer.create(conf);
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {

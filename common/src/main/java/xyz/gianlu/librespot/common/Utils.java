@@ -20,10 +20,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.Permission;
 import java.security.PermissionCollection;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 /**
  * @author Gianlu
@@ -284,5 +281,15 @@ public final class Utils {
         }
 
         return builder.toString();
+    }
+
+    @NotNull
+    public static String toBase64(@NotNull ByteString bytes) {
+        return Base64.getEncoder().encodeToString(bytes.toByteArray());
+    }
+
+    @NotNull
+    public static ByteString fromBase64(@NotNull String str) {
+        return ByteString.copyFrom(Base64.getDecoder().decode(str.getBytes()));
     }
 }

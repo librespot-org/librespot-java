@@ -24,7 +24,8 @@ public class ApiServer {
 
         handler = new RoutingHandler();
         handler.post("/player/{cmd}", new PlayerHandler(wrapper))
-                .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper))
+                .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper, true))
+                .post("/metadata/{uri}", new MetadataHandler(wrapper, false))
                 .post("/search/{query}", new SearchHandler(wrapper))
                 .post("/token/{scope}", new TokensHandler(wrapper))
                 .get("/events", events);
