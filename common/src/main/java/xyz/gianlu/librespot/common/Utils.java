@@ -35,6 +35,13 @@ public final class Utils {
     }
 
     @NotNull
+    public static String randomHexString(@NotNull Random random, int length) {
+        byte[] bytes = new byte[length / 2];
+        random.nextBytes(bytes);
+        return bytesToHex(bytes, 0, bytes.length, false, length);
+    }
+
+    @NotNull
     public static String randomString(@NotNull Random random, int length) {
         char[] chars = new char[length];
         for (int i = 0; i < length; i++)
