@@ -22,7 +22,6 @@ import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -206,33 +205,29 @@ public class CdnManager {
             this.audioDecrypt = audioDecrypt;
             this.cdnUrl = cdnUrl;
             this.haltListener = haltListener;
-            this.cacheHandler = cache != null ? cache.forWhatever(streamId) : null;
+            this.cacheHandler = cache != null ? cache.getHandler(streamId) : null;
 
             byte[] firstChunk;
-            try {
-                byte[] sizeHeader;
-                if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
-                    InternalResponse resp = request(0, CHUNK_SIZE - 1);
-                    String contentRange = resp.headers.get("Content-Range");
-                    if (contentRange == null)
-                        throw new IOException("Missing Content-Range header!");
+            byte[] sizeHeader;
+            if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
+                InternalResponse resp = request(0, CHUNK_SIZE - 1);
+                String contentRange = resp.headers.get("Content-Range");
+                if (contentRange == null)
+                    throw new IOException("Missing Content-Range header!");
 
-                    String[] split = Utils.split(contentRange, '/');
-                    size = Integer.parseInt(split[1]);
-                    chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
+                String[] split = Utils.split(contentRange, '/');
+                size = Integer.parseInt(split[1]);
+                chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-                    firstChunk = resp.buffer;
+                firstChunk = resp.buffer;
 
-                    if (cacheHandler != null)
-                        cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
-                } else {
-                    size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
-                    chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+                if (cacheHandler != null)
+                    cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
+            } else {
+                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
+                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-                    firstChunk = cacheHandler.readChunk(0);
-                }
-            } catch (SQLException ex) {
-                throw new IOException(ex);
+                firstChunk = cacheHandler.readChunk(0);
             }
 
             available = new boolean[chunks];
@@ -252,7 +247,7 @@ public class CdnManager {
             if (!cached && cacheHandler != null) {
                 try {
                     cacheHandler.writeChunk(chunk, chunkIndex);
-                } catch (SQLException ex) {
+                } catch (IOException ex) {
                     LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
                 }
             }
@@ -286,7 +281,7 @@ public class CdnManager {
                         cacheHandler.readChunk(index, this);
                         return;
                     }
-                } catch (SQLException | IOException ex) {
+                } catch (IOException ex) {
                     LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
                 }
             }

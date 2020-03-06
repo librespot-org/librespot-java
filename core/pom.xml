@@ -71,13 +71,6 @@
             <version>1.1.2</version>
         </dependency>
 
-        <!-- H2 (cache) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>1.4.200</version>
-        </dependency>
-
         <!-- HTTP -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>

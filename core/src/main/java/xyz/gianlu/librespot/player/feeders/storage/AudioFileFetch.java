@@ -9,7 +9,6 @@ import xyz.gianlu.librespot.player.AbsChunkedInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.sql.SQLException;
 
 import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_SIZE;
 
@@ -43,7 +42,7 @@ public class AudioFileFetch implements AudioFile {
         if (!cached && cache != null) {
             try {
                 cache.setHeader(id, bytes);
-            } catch (SQLException ex) {
+            } catch (IOException ex) {
                 if (id == HEADER_SIZE) throw new IOException(ex);
                 else LOGGER.warn(String.format("Failed writing header to cache! {id: %s}", Utils.byteToHex(id)));
             }
