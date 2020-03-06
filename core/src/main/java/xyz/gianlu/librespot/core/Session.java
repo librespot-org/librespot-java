@@ -667,7 +667,10 @@ public final class Session implements Closeable {
             this.deviceName = deviceName;
             this.configuration = configuration;
             this.random = new SecureRandom();
-            this.deviceId = Utils.randomString(random, 40);
+
+            String configuredDeviceId = configuration.deviceId();
+            this.deviceId = (configuredDeviceId == null || configuredDeviceId.isEmpty()) ?
+                    Utils.randomHexString(random, 40).toLowerCase() : configuredDeviceId;
         }
 
         @NotNull

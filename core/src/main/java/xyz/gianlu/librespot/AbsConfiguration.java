@@ -18,6 +18,9 @@ import xyz.gianlu.librespot.player.Player;
 public abstract class AbsConfiguration implements ApiConfiguration, Session.ProxyConfiguration, TimeProvider.Configuration, Player.Configuration, CacheManager.Configuration, AuthConfiguration, ZeroconfServer.Configuration {
 
     @Nullable
+    public abstract String deviceId();
+
+    @Nullable
     public abstract String deviceName();
 
     @Nullable

@@ -1,3 +1,4 @@
+deviceId = "" ### Device ID (40 chars, leave empty for random)  ###
 deviceName = "librespot-java" ### Device name ###
 deviceType = "COMPUTER" ### Device type (COMPUTER, TABLET, SMARTPHONE, SPEAKER, TV, AVR, STB, AUDIO_DONGLE, GAME_CONSOLE, CAST_VIDEO, CAST_AUDIO, AUTOMOBILE, WEARABLE, UNKNOWN_SPOTIFY, CAR_THING, UNKNOWN) ###
 preferredLocale = "en" ### Preferred locale ###
