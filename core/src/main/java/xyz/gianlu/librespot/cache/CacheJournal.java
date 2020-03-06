@@ -25,6 +25,7 @@ class CacheJournal implements Closeable {
     private static final int MAX_HEADER_LENGTH = 1023;
     private static final int MAX_ID_LENGTH = 40;
     private static final int JOURNAL_ENTRY_SIZE = MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (1 + MAX_HEADER_LENGTH) * MAX_HEADERS;
+    private static final byte[] ZERO_ARRAY = new byte[JOURNAL_ENTRY_SIZE];
     private final RandomAccessFile io;
     private final Map<String, Entry> entries = Collections.synchronizedMap(new HashMap<>());
 
@@ -211,8 +212,7 @@ class CacheJournal implements Closeable {
         void writeId() throws IOException {
             io.seek(offset);
             io.write(id.getBytes(StandardCharsets.US_ASCII));
-            for (int i = 0; i < JOURNAL_ENTRY_SIZE - id.length(); i++)
-                io.write(0);
+            io.write(ZERO_ARRAY, 0, JOURNAL_ENTRY_SIZE - id.length());
         }
 
         void remove() throws IOException {
