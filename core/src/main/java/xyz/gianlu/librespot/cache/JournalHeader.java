@@ -1,6 +1,8 @@
 package xyz.gianlu.librespot.cache;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
 
@@ -11,9 +13,9 @@ public final class JournalHeader {
     public final byte id;
     public final byte[] value;
 
-    private JournalHeader(byte id, byte[] value) {
+    JournalHeader(byte id, @NotNull String value) {
         this.id = id;
-        this.value = value;
+        this.value = Utils.hexToBytes(value);
     }
 
     @Nullable
@@ -23,5 +25,10 @@ public final class JournalHeader {
                 return header;
 
         return null;
+    }
+
+    @Override
+    public String toString() {
+        return "JournalHeader{" + "id=" + id + ", value=" + Utils.bytesToHex(value) + '}';
     }
 }

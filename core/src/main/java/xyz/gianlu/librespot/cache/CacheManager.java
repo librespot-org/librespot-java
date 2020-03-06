@@ -119,7 +119,7 @@ public class CacheManager implements Closeable {
 
             this.io = new RandomAccessFile(file, "rwd");
 
-            journal.create(streamId);
+            journal.createIfNeeded(streamId);
         }
 
         private void updateTimestamp() {
