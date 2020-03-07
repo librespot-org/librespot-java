@@ -27,7 +27,7 @@ class CacheJournal implements Closeable {
     private static final int JOURNAL_ENTRY_SIZE = MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (1 + MAX_HEADER_LENGTH) * MAX_HEADERS;
     private static final byte[] ZERO_ARRAY = new byte[JOURNAL_ENTRY_SIZE];
     private final RandomAccessFile io;
-    private final Map<String, Entry> entries = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, Entry> entries = Collections.synchronizedMap(new HashMap<>(1024));
 
     CacheJournal(@NotNull File parent) throws FileNotFoundException {
         File file = new File(parent, "journal.dat");
@@ -125,8 +125,45 @@ class CacheJournal implements Closeable {
         Entry entry = find(streamId);
         if (entry == null) return;
 
-        entry.remove();
+        synchronized (io) {
+            entry.remove();
+        }
+
         entries.remove(streamId);
+    }
+
+    @NotNull
+    List<String> getEntries() throws IOException {
+        List<String> list = new ArrayList<>(1024);
+
+        synchronized (io) {
+            io.seek(0);
+
+            int i = 0;
+            while (true) {
+                io.seek(i * JOURNAL_ENTRY_SIZE);
+
+                int first = io.read();
+                if (first == -1) // EOF
+                    break;
+
+                if (first == 0) // Empty spot
+                    continue;
+
+                byte[] id = new byte[MAX_ID_LENGTH];
+                id[0] = (byte) first;
+                io.read(id, 1, MAX_ID_LENGTH - 1);
+
+                String idStr = trimArrayToNullTerminator(id);
+                Entry entry = new Entry(idStr, i * JOURNAL_ENTRY_SIZE);
+                entries.put(idStr, entry);
+                list.add(idStr);
+
+                i++;
+            }
+        }
+
+        return list;
     }
 
     @Nullable

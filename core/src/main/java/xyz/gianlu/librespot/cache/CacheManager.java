@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,8 +45,32 @@ public class CacheManager implements Closeable {
 
         journal = new CacheJournal(parent);
 
-        // TODO: Clean up
-        // TODO: Remove corrupted entries
+        new Thread(() -> {
+            try {
+                List<String> entries = journal.getEntries();
+                Iterator<String> iter = entries.iterator();
+                while (iter.hasNext()) {
+                    String id = iter.next();
+                    if (!exists(parent, id)) {
+                        iter.remove();
+                        journal.remove(id);
+                    }
+                }
+
+                if (conf.doCleanUp()) {
+                    for (String id : entries) {
+                        JournalHeader header = journal.getHeader(id, HEADER_TIMESTAMP);
+                        if (header == null) continue;
+
+                        long timestamp = new BigInteger(header.value).longValue();
+                        if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
+                            remove(id);
+                    }
+                }
+            } catch (IOException ex) {
+                LOGGER.warn("Failed performing maintenance operations.", ex);
+            }
+        }, "cache-maintenance").start();
     }
 
     @NotNull

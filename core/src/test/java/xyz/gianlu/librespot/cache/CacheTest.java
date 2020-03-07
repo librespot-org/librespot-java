@@ -94,6 +94,12 @@ class CacheTest {
         printJournalFileContent();
         assertSequence(18472 * 2, "4242424242420000");
 
+        List<String> entries = journal.getEntries();
+        System.out.println(entries);
+        assertEquals(2, entries.size());
+        assertEquals("AAAAAA", entries.get(0));
+        assertEquals("BBBBBB", entries.get(1));
+
         journal.remove("AAAAAA");
         printJournalFileContent();
         assertSequence(0, "00");
@@ -126,10 +132,10 @@ class CacheTest {
         assertEquals(2, headers.size());
 
         assertEquals(headers.get(0).id, (byte) 0b00000001);
-        assertArrayEquals(headers.get(0).value, "test".getBytes());
+        assertArrayEquals("test".getBytes(), headers.get(0).value);
 
         assertEquals(headers.get(1).id, (byte) 0b10000001);
-        assertArrayEquals(headers.get(1).value, "anotherTest".getBytes());
+        assertArrayEquals("anotherTest".getBytes(), headers.get(1).value);
 
         journal.remove(ID);
     }
