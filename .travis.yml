@@ -1,14 +1,15 @@
 language: java
+os: linux
 
 before_install:
-  - chmod +x .travis/*.sh
-  - .travis/load_gpg.sh
-
-install:
-  - mvn clean install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
+  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
 
 script:
-  - .travis/script.sh
+  - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
+
+after_script:
+  - test $TRAVIS_PULL_REQUEST = "false" && mvn deploy --settings .maven.xml -B -U -Prelease
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
