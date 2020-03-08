@@ -1,7 +1,7 @@
 language: java
+os: linux
 
 before_install:
-  - chmod +x .travis/*.sh
   - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
   - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
 
@@ -9,7 +9,7 @@ script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
 after_script:
-  - mvn deploy --settings .maven.xml -B -U -Prelease
+  - test $TRAVIS_PULL_REQUEST = "false" && mvn deploy --settings .maven.xml -B -U -Prelease
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
