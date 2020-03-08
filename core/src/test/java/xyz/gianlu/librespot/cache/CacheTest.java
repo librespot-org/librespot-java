@@ -8,9 +8,11 @@ import xyz.gianlu.librespot.common.Utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static xyz.gianlu.librespot.cache.CacheJournal.*;
 
 /**
  * @author Gianlu
@@ -49,37 +51,37 @@ class CacheTest {
 
         journal.setChunk(ID, 0, true);
         printJournalFileContent();
-        assertSequence(80, "01000000");
+        assertSequence(MAX_ID_LENGTH * 2, "01000000");
 
         journal.setChunk(ID, 1, true);
         printJournalFileContent();
-        assertSequence(80, "03000000");
+        assertSequence(MAX_ID_LENGTH * 2, "03000000");
 
         journal.setChunk(ID, 5, true);
         printJournalFileContent();
-        assertSequence(80, "23000000");
+        assertSequence(MAX_ID_LENGTH * 2, "23000000");
         assertTrue(journal.hasChunk(ID, 5));
 
         journal.setChunk(ID, 8, true);
         printJournalFileContent();
-        assertSequence(80, "23010000");
+        assertSequence(MAX_ID_LENGTH * 2, "23010000");
         assertTrue(journal.hasChunk(ID, 8));
 
         journal.setChunk(ID, 5, false);
         printJournalFileContent();
-        assertSequence(80, "03010000");
+        assertSequence(MAX_ID_LENGTH * 2, "03010000");
         assertFalse(journal.hasChunk(ID, 5));
 
-        journal.setChunk(ID, 2048 * 8 - 1, true);
+        journal.setChunk(ID, MAX_CHUNKS - 1, true);
         printJournalFileContent();
-        assertSequence(4172, "0080000000");
-        assertTrue(journal.hasChunk(ID, 2048 * 8 - 1));
+        assertSequence((MAX_ID_LENGTH + MAX_CHUNKS_SIZE - 1) * 2, "80000000");
+        assertTrue(journal.hasChunk(ID, MAX_CHUNKS - 1));
 
-        journal.setChunk(ID, 2048 * 8 - 2, true);
+        journal.setChunk(ID, MAX_CHUNKS - 2, true);
         printJournalFileContent();
-        assertSequence(4172, "00C0000000");
-        assertTrue(journal.hasChunk(ID, 2048 * 8 - 1));
-        assertTrue(journal.hasChunk(ID, 2048 * 8 - 2));
+        assertSequence((MAX_ID_LENGTH + MAX_CHUNKS_SIZE - 1) * 2, "C0000000");
+        assertTrue(journal.hasChunk(ID, MAX_CHUNKS - 1));
+        assertTrue(journal.hasChunk(ID, MAX_CHUNKS - 2));
 
         journal.remove(ID);
     }
@@ -92,7 +94,7 @@ class CacheTest {
 
         journal.createIfNeeded("BBBBBB");
         printJournalFileContent();
-        assertSequence(18472 * 2, "4242424242420000");
+        assertSequence(JOURNAL_ENTRY_SIZE * 2, "4242424242420000");
 
         List<String> entries = journal.getEntries();
         System.out.println(entries);
@@ -103,12 +105,12 @@ class CacheTest {
         journal.remove("AAAAAA");
         printJournalFileContent();
         assertSequence(0, "00");
-        assertSequence(18472 * 2, "4242424242420000");
+        assertSequence(JOURNAL_ENTRY_SIZE * 2, "4242424242420000");
 
         journal.remove("BBBBBB");
         printJournalFileContent();
         assertSequence(0, "00");
-        assertSequence(18472 * 2, "00");
+        assertSequence(JOURNAL_ENTRY_SIZE * 2, "00");
     }
 
     private void testHeaders(CacheJournal journal) throws IOException {
@@ -118,14 +120,14 @@ class CacheTest {
         journal.createIfNeeded(ID);
         printJournalFileContent();
 
-        journal.setHeader(ID, (byte) 0b00000001, "test".getBytes());
+        journal.setHeader(ID, (byte) 0b00000001, "test".getBytes(StandardCharsets.UTF_8));
         printJournalFileContent();
-        assertSequence(4176, "017465737400");
+        assertSequence((MAX_ID_LENGTH + MAX_CHUNKS_SIZE) * 2, "01373436353733373400"); // Double hex encoding...
 
         journal.setHeader(ID, (byte) 0b10000001, "anotherTest".getBytes());
         printJournalFileContent();
-        assertSequence(4176, "017465737400");
-        assertSequence(4176 + 1024 * 2, "81616E6F746865725465737400");
+        assertSequence((MAX_ID_LENGTH + MAX_CHUNKS_SIZE) * 2, "01373436353733373400");
+        assertSequence((MAX_ID_LENGTH + MAX_CHUNKS_SIZE + MAX_HEADER_LENGTH + 1) * 2, "813631364536463734363836353732353436353733373400");
 
         List<JournalHeader> headers = journal.getHeaders(ID);
         System.out.println(headers);

@@ -19,12 +19,12 @@ import java.util.*;
  * @author Gianlu
  */
 class CacheJournal implements Closeable {
-    private static final int MAX_CHUNKS_SIZE = 2048;
-    private static final int MAX_CHUNKS = MAX_CHUNKS_SIZE * 8;
+    static final int MAX_CHUNKS_SIZE = 2048;
+    static final int MAX_CHUNKS = MAX_CHUNKS_SIZE * 8;
+    static final int MAX_HEADER_LENGTH = 1023;
+    static final int MAX_ID_LENGTH = 40;
     private static final int MAX_HEADERS = 8;
-    private static final int MAX_HEADER_LENGTH = 1023;
-    private static final int MAX_ID_LENGTH = 40;
-    private static final int JOURNAL_ENTRY_SIZE = MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (1 + MAX_HEADER_LENGTH) * MAX_HEADERS;
+    static final int JOURNAL_ENTRY_SIZE = MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (1 + MAX_HEADER_LENGTH) * MAX_HEADERS;
     private static final byte[] ZERO_ARRAY = new byte[JOURNAL_ENTRY_SIZE];
     private final RandomAccessFile io;
     private final Map<String, Entry> entries = Collections.synchronizedMap(new HashMap<>(1024));
@@ -138,8 +138,10 @@ class CacheJournal implements Closeable {
                 if (first == -1) // EOF
                     break;
 
-                if (first == 0) // Empty spot
+                if (first == 0) { // Empty spot
+                    i++;
                     continue;
+                }
 
                 byte[] id = new byte[MAX_ID_LENGTH];
                 id[0] = (byte) first;
@@ -176,8 +178,10 @@ class CacheJournal implements Closeable {
                 if (first == -1) // EOF
                     return null;
 
-                if (first == 0) // Empty spot
+                if (first == 0) { // Empty spot
+                    i++;
                     continue;
+                }
 
                 if (checkId(io, first, idBytes)) {
                     entry = new Entry(id, i * JOURNAL_ENTRY_SIZE);
@@ -192,8 +196,6 @@ class CacheJournal implements Closeable {
 
     void createIfNeeded(@NotNull String id) throws IOException {
         if (find(id) != null) return;
-
-        if (id.length() > 40) throw new IllegalArgumentException();
 
         synchronized (io) {
             io.seek(0);
