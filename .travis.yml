@@ -9,7 +9,7 @@ script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
 after_script:
-  - test $TRAVIS_PULL_REQUEST = "false" && mvn deploy --settings .maven.xml -B -U -Prelease
+  - test $TRAVIS_PULL_REQUEST = "false" && test $TRAVIS_BRANCH = "dev" && mvn deploy --settings .maven.xml -B -U -Prelease
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['

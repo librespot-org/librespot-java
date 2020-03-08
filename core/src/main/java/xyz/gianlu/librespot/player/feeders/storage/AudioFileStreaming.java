@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
+import xyz.gianlu.librespot.cache.JournalHeader;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
@@ -19,7 +20,6 @@ import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +43,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     AudioFileStreaming(@NotNull Session session, @NotNull Metadata.AudioFile file, byte[] key, @Nullable HaltListener haltListener) throws IOException {
         this.session = session;
         this.haltListener = haltListener;
-        this.cacheHandler = session.cache().forFileId(Utils.bytesToHex(file.getFileId()));
+        this.cacheHandler = session.cache().getHandler(Utils.bytesToHex(file.getFileId()));
         this.file = file;
         this.key = key;
     }
@@ -80,29 +80,25 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (!cacheHandler.hasChunk(index)) return false;
             cacheHandler.readChunk(index, this);
             return true;
-        } catch (SQLException | IOException ex) {
+        } catch (IOException ex) {
             LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
             return false;
         }
     }
 
     private boolean tryCacheHeaders(@NotNull AudioFileFetch fetch) throws IOException {
-        try {
-            List<CacheManager.Header> headers = cacheHandler.getAllHeaders();
-            if (headers.isEmpty())
-                return false;
+        List<JournalHeader> headers = cacheHandler.getAllHeaders();
+        if (headers.isEmpty())
+            return false;
 
-            CacheManager.Header cdnHeader;
-            if ((cdnHeader = CacheManager.Header.find(headers, AudioFileFetch.HEADER_CDN)) != null)
-                throw new AudioFileFetch.StorageNotAvailable(new String(cdnHeader.value));
+        JournalHeader cdnHeader;
+        if ((cdnHeader = JournalHeader.find(headers, AudioFileFetch.HEADER_CDN)) != null)
+            throw new AudioFileFetch.StorageNotAvailable(new String(cdnHeader.value));
 
-            for (CacheManager.Header header : headers)
-                fetch.writeHeader(header.id, header.value, true);
+        for (JournalHeader header : headers)
+            fetch.writeHeader(header.id, header.value, true);
 
-            return true;
-        } catch (SQLException ex) {
-            throw new IOException(ex);
-        }
+        return true;
     }
 
     @NotNull
@@ -132,7 +128,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         if (!cached && cacheHandler != null) {
             try {
                 cacheHandler.writeChunk(buffer, chunkIndex);
-            } catch (SQLException ex) {
+            } catch (IOException ex) {
                 LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
             }
         }
