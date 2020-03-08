@@ -57,8 +57,7 @@ class CacheJournal implements Closeable {
     }
 
     boolean hasChunk(@NotNull String streamId, int index) throws IOException {
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-        else if (index < 0 || index > MAX_CHUNKS) throw new IllegalArgumentException();
+        if (index < 0 || index > MAX_CHUNKS) throw new IllegalArgumentException();
 
         Entry entry = find(streamId);
         if (entry == null) throw new JournalException("Couldn't find entry on journal: " + streamId);
@@ -69,8 +68,7 @@ class CacheJournal implements Closeable {
     }
 
     void setChunk(@NotNull String streamId, int index, boolean val) throws IOException {
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-        else if (index < 0 || index > MAX_CHUNKS) throw new IllegalArgumentException();
+        if (index < 0 || index > MAX_CHUNKS) throw new IllegalArgumentException();
 
         Entry entry = find(streamId);
         if (entry == null) throw new JournalException("Couldn't find entry on journal: " + streamId);
@@ -82,8 +80,6 @@ class CacheJournal implements Closeable {
 
     @NotNull
     List<JournalHeader> getHeaders(@NotNull String streamId) throws IOException {
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-
         Entry entry = find(streamId);
         if (entry == null) throw new JournalException("Couldn't find entry on journal: " + streamId);
 
@@ -94,8 +90,6 @@ class CacheJournal implements Closeable {
 
     @Nullable
     JournalHeader getHeader(@NotNull String streamId, byte id) throws IOException {
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-
         Entry entry = find(streamId);
         if (entry == null) throw new JournalException("Couldn't find entry on journal: " + streamId);
 
@@ -107,8 +101,7 @@ class CacheJournal implements Closeable {
     void setHeader(@NotNull String streamId, byte headerId, byte[] value) throws IOException {
         String strValue = Utils.bytesToHex(value);
 
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-        else if (strValue.length() > MAX_HEADER_LENGTH) throw new IllegalArgumentException();
+        if (strValue.length() > MAX_HEADER_LENGTH) throw new IllegalArgumentException();
         else if (headerId == 0) throw new IllegalArgumentException();
 
         Entry entry = find(streamId);
@@ -120,8 +113,6 @@ class CacheJournal implements Closeable {
     }
 
     void remove(@NotNull String streamId) throws IOException {
-        if (streamId.length() > 40) throw new IllegalArgumentException();
-
         Entry entry = find(streamId);
         if (entry == null) return;
 
@@ -168,7 +159,7 @@ class CacheJournal implements Closeable {
 
     @Nullable
     private Entry find(@NotNull String id) throws IOException {
-        if (id.length() > 40) throw new IllegalArgumentException();
+        if (id.length() > MAX_ID_LENGTH) throw new IllegalArgumentException();
 
         Entry entry = entries.get(id);
         if (entry != null) return entry;

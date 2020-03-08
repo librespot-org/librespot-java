@@ -67,6 +67,8 @@ public class CacheManager implements Closeable {
                             remove(id);
                     }
                 }
+
+                LOGGER.info(String.format("There are %d cached entries.", entries.size()));
             } catch (IOException ex) {
                 LOGGER.warn("Failed performing maintenance operations.", ex);
             }
