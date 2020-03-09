@@ -40,6 +40,7 @@ public class PlayerRunner implements Runnable, Closeable {
     public static final int VOLUME_STEPS = 64;
     public static final int VOLUME_MAX = 65536;
     public static final int VOLUME_ONE_STEP = VOLUME_MAX / VOLUME_STEPS;
+    public static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);
     private final Session session;
@@ -50,7 +51,7 @@ public class PlayerRunner implements Runnable, Closeable {
     private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
     private final Object pauseLock = new Object();
     private final Output output;
-    private final MixingLine mixing = new MixingLine(Output.OUTPUT_FORMAT);
+    private final MixingLine mixing = new MixingLine(OUTPUT_FORMAT);
     private volatile boolean closed = false;
     private volatile boolean paused = true;
     private TrackHandler firstHandler = null;
@@ -261,7 +262,6 @@ public class PlayerRunner implements Runnable, Closeable {
     }
 
     private static class Output implements Closeable {
-        private static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
         private final File pipe;
         private final MixingLine mixing;
         private final Player.Configuration conf;
@@ -299,8 +299,8 @@ public class PlayerRunner implements Runnable, Closeable {
         private void acquireLine() throws LineUnavailableException {
             if (line != null) return;
 
-            line = LineHelper.getLineFor(conf, Output.OUTPUT_FORMAT);
-            line.open(Output.OUTPUT_FORMAT);
+            line = LineHelper.getLineFor(conf, OUTPUT_FORMAT);
+            line.open(OUTPUT_FORMAT);
 
             if (lastVolume != -1) setVolume(lastVolume);
         }
