@@ -765,7 +765,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             if (payload != null) {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
-                        payload.length, Base64.getEncoder().encodeToString(payload)).getBytes(StandardCharsets.UTF_8));
+                        payload.length, new String(Base64.getEncoder().encode(payload),StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
             } else {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
             }
