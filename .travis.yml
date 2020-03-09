@@ -2,14 +2,14 @@ language: java
 os: linux
 
 before_install:
-  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
-  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
 
 script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
 after_script:
-  - test $TRAVIS_PULL_REQUEST = "false" && test $TRAVIS_BRANCH = "dev" && mvn deploy --settings .maven.xml -B -U -Prelease
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && [ "${$TRAVIS_BRANCH}" = "dev" ] && mvn deploy --settings .maven.xml -B -U -Prelease
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['

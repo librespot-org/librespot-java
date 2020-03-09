@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
  * @author Gianlu
  */
 public final class ImageId implements SpotifyId {
+    public static final String[] IMAGE_SIZES_URLS = new String[]{"image_xlarge_url", "image_large_url", "image_url", "image_small_url"};
     private static final Pattern PATTERN = Pattern.compile("spotify:image:(.{40})");
     private final String hexId;
 
@@ -58,5 +59,10 @@ public final class ImageId implements SpotifyId {
     @Override
     public @NotNull String toSpotifyUri() {
         return "spotify:image:" + hexId;
+    }
+
+    @NotNull
+    public String hexId() {
+        return hexId;
     }
 }
