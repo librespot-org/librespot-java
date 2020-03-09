@@ -5,6 +5,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import com.spotify.metadata.Metadata;
 import com.spotify.transfer.TransferStateOuterClass;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -730,6 +733,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private static final String CODE_ASAL = "6173616c";
         private static final String CODE_MINM = "6d696e6d";
         private static final String CODE_PVOL = "70766f6c";
+        private static final String CODE_PRGR = "70726772";
+        private static final String CODE_PICT = "50494354";
         private final FileOutputStream out;
 
         MetadataPipe(@NotNull Configuration conf) throws FileNotFoundException {
@@ -742,14 +747,33 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (out == null) return;
 
             if (payload != null) {
-                out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">\n%s</data></item>", type, code,
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
                         payload.length(), Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8))).getBytes(StandardCharsets.UTF_8));
             } else {
-                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>", type, code).getBytes(StandardCharsets.UTF_8));
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
             }
         }
 
         void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
+            try {
+                send(type, code, payload);
+            } catch (IOException ex) {
+                LOGGER.error("Failed sending metadata through pipe!", ex);
+            }
+        }
+
+        private void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
+            if (out == null) return;
+
+            if (payload != null) {
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
+                        payload.length, Base64.getEncoder().encodeToString(payload)).getBytes(StandardCharsets.UTF_8));
+            } else {
+                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        void safeSend(@NotNull String type, @NotNull String code, @Nullable byte[] payload) {
             try {
                 send(type, code, payload);
             } catch (IOException ex) {
@@ -772,6 +796,76 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 metadataPipe = new MetadataPipe(conf);
             } catch (FileNotFoundException ex) {
                 throw new IllegalArgumentException(ex);
+            }
+        }
+
+        private void sendImage() {
+            PlayableId id = state.getCurrentPlayable();
+            if (id == null) return;
+            Map<String, String> metadata;
+            try {
+                metadata=state.metadataFor(id);
+            } catch (IllegalArgumentException e) {
+                LOGGER.error("Couldn't get metadata for playable.");
+                return;
+            }
+            String[] image_keys={"image_large_url","image_url","image_small_url","image_xlarge_url"}; //try a few sizes in case first doesn't work
+            String image_key=null;
+            for (String k: image_keys) {
+                if (metadata.containsKey(k)){
+                    image_key=k;
+                    break;
+                }
+            }
+            if (image_key==null) {
+                LOGGER.error("Couldn't get art for track.");
+            } else{
+                String uri=metadata.get(image_key);
+                int colon = uri.lastIndexOf(":");
+                String image_hex = uri.substring(colon + 1);
+                LOGGER.debug("Image URL: "+image_hex);
+                String image_url="http://open.spotify.com/image/"+image_hex;
+                Request request = new Request.Builder().url(image_url).build();
+                try (Response resp = session.client().newCall(request).execute()) {
+                    ResponseBody body;
+                    if (resp.code()==200 && (body = resp.body()) != null){
+                        metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, body.bytes());
+                    } else {
+                        LOGGER.debug("Couldn't get image "+metadata.get(image_key));
+                    }
+                } catch (IOException e) {
+                    LOGGER.debug("Couldn't get image "+metadata.get(image_key));
+                }
+            }
+        }
+
+        private void sendProgress() {
+            PlayableId id = state.getCurrentPlayable();
+            if (id == null) return;
+
+            Metadata.Track track;
+            Metadata.Episode episode;
+            if (trackHandler != null && trackHandler.isPlayable(id)) {
+                track = trackHandler.track();
+                episode = trackHandler.episode();
+            } else {
+                track = null;
+                episode = null;
+            }
+            if (track==null && episode==null){
+                return;
+            }
+            int duration;
+            if (metadataPipe.enabled()) {
+                if (track!=null) {
+                    if (track.hasDuration()) {
+                        String prgrData = String.format("1/%d/%d", state.getPosition()*44100L/1000+1,track.getDuration()*44100L/1000+1);
+                        metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, prgrData);
+                    }
+                } else if (episode.hasDuration()) {
+                    String prgrData = String.format("1/%d/%d", state.getPosition()*44100L/1000+1,track.getDuration()*44100L/1000+1);
+                    metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, prgrData);
+                }
             }
         }
 
@@ -816,6 +910,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void seeked(int pos) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
+            sendProgress();
         }
 
         void volumeChanged(@Range(from = 0, to = PlayerRunner.VOLUME_MAX) int value) {
@@ -827,10 +922,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (metadataPipe.enabled()) {
                 float xmlValue;
                 if (value == 0) xmlValue = 144.0f;
-                else if (value == 1) xmlValue = -30.0f;
-                else if (value == 0xFFFF) xmlValue = 0.0f;
-                else xmlValue = (value - 0xFFFF) * 30.0f / 0xFFFE;
-
+                else xmlValue = (value - PlayerRunner.VOLUME_MAX) * 30.0f / (PlayerRunner.VOLUME_MAX-1);
                 String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
                 metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
             }
@@ -856,6 +948,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 String artist = track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
                 metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
             }
+            sendProgress();
+            sendImage();
         }
 
         void playbackHaltStateChanged(boolean halted) {
