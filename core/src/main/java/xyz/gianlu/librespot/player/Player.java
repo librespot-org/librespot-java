@@ -924,8 +924,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 sendProgress();
                 sendImage();
             }
-            sendProgress();
-            sendImage();
         }
 
         void playbackHaltStateChanged(boolean halted) {
