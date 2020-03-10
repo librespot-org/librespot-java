@@ -51,9 +51,9 @@ class CacheJournal implements Closeable {
     private static String trimArrayToNullTerminator(byte[] bytes) {
         for (int i = 0; i < bytes.length; i++)
             if (bytes[i] == 0)
-                return new String(bytes, 0, i);
+                return new String(bytes, 0, i, StandardCharsets.US_ASCII);
 
-        return new String(bytes);
+        return new String(bytes, StandardCharsets.US_ASCII);
     }
 
     boolean hasChunk(@NotNull String streamId, int index) throws IOException {
@@ -276,7 +276,7 @@ class CacheJournal implements Closeable {
 
             io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + index * (MAX_HEADER_LENGTH + 1));
             io.write(id);
-            io.write(value.getBytes());
+            io.write(value.getBytes(StandardCharsets.US_ASCII));
         }
 
         @NotNull
