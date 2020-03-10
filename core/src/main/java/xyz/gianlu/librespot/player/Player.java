@@ -9,6 +9,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -789,21 +790,37 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
         }
 
-        private void sendImage() {
-            PlayableId id = state.getCurrentPlayable();
-            if (id == null) return;
+        @Contract("null, null -> fail")
+        private void sendImage(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode) {
+            Metadata.ImageGroup group = null;
+            if (track != null) {
+                if (track.hasAlbum() && track.getAlbum().hasCoverGroup())
+                    group = track.getAlbum().getCoverGroup();
+            } else if (episode != null) {
+                if (episode.hasCoverImage())
+                    group = episode.getCoverImage();
+            } else {
+                throw new IllegalStateException();
+            }
 
-            Map<String, String> metadata = state.metadataFor(id);
             ImageId image = null;
-            for (String key : ImageId.IMAGE_SIZES_URLS) {
-                if (metadata.containsKey(key)) {
-                    image = ImageId.fromUri(metadata.get(key));
-                    break;
+            if (group == null) {
+                PlayableId id = state.getCurrentPlayable();
+                if (id == null) return;
+
+                Map<String, String> metadata = state.metadataFor(id);
+                for (String key : ImageId.IMAGE_SIZES_URLS) {
+                    if (metadata.containsKey(key)) {
+                        image = ImageId.fromUri(metadata.get(key));
+                        break;
+                    }
                 }
+            } else {
+                image = ImageId.biggestImage(group);
             }
 
             if (image == null) {
-                LOGGER.warn("No image found in metadata: " + id);
+                LOGGER.warn("No image found in metadata.");
                 return;
             }
 
@@ -814,9 +831,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 if (resp.code() == 200 && (body = resp.body()) != null)
                     metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, body.bytes());
                 else
-                    LOGGER.warn(String.format("Failed download image. {id: %s, code: %d}", image.hexId(), resp.code()));
+                    LOGGER.warn(String.format("Failed downloading image. {id: %s, code: %d}", image.hexId(), resp.code()));
             } catch (IOException ex) {
-                LOGGER.warn("Failed download image.", ex);
+                LOGGER.warn("Failed downloading image.", ex);
             }
         }
 
@@ -922,7 +939,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
 
                 sendProgress();
-                sendImage();
+                sendImage(track, episode);
             }
         }
 
