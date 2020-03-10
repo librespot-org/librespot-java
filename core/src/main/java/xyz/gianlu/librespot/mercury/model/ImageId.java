@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.mercury.model;
 import com.spotify.connectstate.Player;
 import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.regex.Matcher;
@@ -32,6 +33,17 @@ public final class ImageId implements SpotifyId {
         return new ImageId(hex);
     }
 
+    @Nullable
+    public static ImageId biggestImage(@NotNull Metadata.ImageGroup group) {
+        Metadata.Image biggest = null;
+        for (Metadata.Image image : group.getImageList()) {
+            if (biggest == null || biggest.getSize().getNumber() < image.getSize().getNumber())
+                biggest = image;
+        }
+
+        return biggest == null ? null : fromHex(Utils.bytesToHex(biggest.getFileId()));
+    }
+
     public static void putAsMetadata(@NotNull Player.ProvidedTrack.Builder builder, @NotNull Metadata.ImageGroup group) {
         for (Metadata.Image image : group.getImageList()) {
             String key;
@@ -52,7 +64,7 @@ public final class ImageId implements SpotifyId {
                     continue;
             }
 
-            builder.putMetadata(key, ImageId.fromHex(Utils.bytesToHex(image.getFileId())).toSpotifyUri());
+            builder.putMetadata(key, fromHex(Utils.bytesToHex(image.getFileId())).toSpotifyUri());
         }
     }
 
