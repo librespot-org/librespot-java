@@ -9,7 +9,6 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -662,6 +661,51 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         return state.getCurrentPlayable();
     }
 
+    @Nullable
+    public byte[] currentCoverImage() throws IOException {
+        Metadata.Track track = currentTrack();
+        Metadata.Episode episode = currentEpisode();
+        Metadata.ImageGroup group = null;
+        if (track != null) {
+            if (track.hasAlbum() && track.getAlbum().hasCoverGroup())
+                group = track.getAlbum().getCoverGroup();
+        } else if (episode != null) {
+            if (episode.hasCoverImage())
+                group = episode.getCoverImage();
+        } else {
+            throw new IllegalStateException();
+        }
+
+        ImageId image = null;
+        if (group == null) {
+            PlayableId id = state.getCurrentPlayable();
+            if (id == null) return null;
+
+            Map<String, String> metadata = state.metadataFor(id);
+            for (String key : ImageId.IMAGE_SIZES_URLS) {
+                if (metadata.containsKey(key)) {
+                    image = ImageId.fromUri(metadata.get(key));
+                    break;
+                }
+            }
+        } else {
+            image = ImageId.biggestImage(group);
+        }
+
+        if (image == null)
+            return null;
+
+        try (Response resp = session.client().newCall(new Request.Builder()
+                .url("http://open.spotify.com/image/" + image.hexId()).build())
+                .execute()) {
+            ResponseBody body;
+            if (resp.code() == 200 && (body = resp.body()) != null)
+                return body.bytes();
+            else
+                throw new IOException(String.format("Bad response code. {id: %s, code: %d}", image.hexId(), resp.code()));
+        }
+    }
+
     /**
      * @return The current position of the player or {@code -1} if unavailable (most likely if it's playing an episode).
      */
@@ -766,7 +810,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             if (payload != null) {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
-                        payload.length, new String(Base64.getEncoder().encode(payload),StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                        payload.length, new String(Base64.getEncoder().encode(payload), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
             } else {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
             }
@@ -790,33 +834,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
         }
 
-        @Contract("null, null -> fail")
-        private void sendImage(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode) {
-            Metadata.ImageGroup group = null;
-            if (track != null) {
-                if (track.hasAlbum() && track.getAlbum().hasCoverGroup())
-                    group = track.getAlbum().getCoverGroup();
-            } else if (episode != null) {
-                if (episode.hasCoverImage())
-                    group = episode.getCoverImage();
-            } else {
-                throw new IllegalStateException();
-            }
-
-            ImageId image = null;
-            if (group == null) {
-                PlayableId id = state.getCurrentPlayable();
-                if (id == null) return;
-
-                Map<String, String> metadata = state.metadataFor(id);
-                for (String key : ImageId.IMAGE_SIZES_URLS) {
-                    if (metadata.containsKey(key)) {
-                        image = ImageId.fromUri(metadata.get(key));
-                        break;
-                    }
-                }
-            } else {
-                image = ImageId.biggestImage(group);
+        private void sendImage() {
+            byte[] image;
+            try {
+                image = currentCoverImage();
+            } catch (IOException ex) {
+                LOGGER.warn("Failed downloading image.", ex);
+                return;
             }
 
             if (image == null) {
@@ -824,17 +848,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 return;
             }
 
-            try (Response resp = session.client().newCall(new Request.Builder()
-                    .url("http://open.spotify.com/image/" + image.hexId()).build())
-                    .execute()) {
-                ResponseBody body;
-                if (resp.code() == 200 && (body = resp.body()) != null)
-                    metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, body.bytes());
-                else
-                    LOGGER.warn(String.format("Failed downloading image. {id: %s, code: %d}", image.hexId(), resp.code()));
-            } catch (IOException ex) {
-                LOGGER.warn("Failed downloading image.", ex);
-            }
+            metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, image);
         }
 
         private void sendProgress() {
@@ -939,7 +953,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
 
                 sendProgress();
-                sendImage(track, episode);
+                sendImage();
             }
         }
 
