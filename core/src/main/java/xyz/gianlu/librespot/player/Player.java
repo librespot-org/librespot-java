@@ -28,7 +28,10 @@ import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -781,7 +784,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private static final String CODE_PVOL = "70766f6c";
         private static final String CODE_PRGR = "70726772";
         private static final String CODE_PICT = "50494354";
-        File file;
+        private final File file;
         private FileOutputStream out;
 
         MetadataPipe(@NotNull Configuration conf) {
@@ -804,21 +807,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
         }
 
-        private synchronized void initPipe() {
-            if (out==null && file!=null) {
-                try {
-                    out = new FileOutputStream(file);
-                } catch (FileNotFoundException ex) {
-                    LOGGER.error("Could not open metadataPipe file!",ex);
-                    file=null;
-                    throw new IllegalArgumentException(ex);
-                }
-            }
-        }
-
-        private void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
-            initPipe();
+        private synchronized void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
             if (file == null) return;
+            if (out == null) out = new FileOutputStream(file);
+
             if (payload != null) {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
                         payload.length, new String(Base64.getEncoder().encode(payload), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
@@ -879,7 +871,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
         }
 
-        private void sendTrackInfo(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode) {
+        private void sendTrackInfo() {
+            Metadata.Track track = currentTrack();
+            Metadata.Episode episode = currentEpisode();
+            if (track == null && episode == null) return;
+
             String title = track != null ? track.getName() : episode.getName();
             metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, title);
 
@@ -940,7 +936,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
 
-            if (metadataPipe.enabled()) executorService.execute(() -> sendProgress());
+            if (metadataPipe.enabled()) executorService.execute(this::sendProgress);
         }
 
         void volumeChanged(@Range(from = 0, to = PlayerRunner.VOLUME_MAX) int value) {
@@ -949,9 +945,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onVolumeChanged(volume));
 
-            if (metadataPipe.enabled()) {
-                executorService.execute(() -> sendVolume(value));
-            }
+            if (metadataPipe.enabled()) executorService.execute(() -> sendVolume(value));
         }
 
         void metadataAvailable() {
@@ -965,9 +959,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 executorService.execute(() -> l.onMetadataAvailable(track, episode));
 
             if (metadataPipe.enabled()) {
-                executorService.execute(() -> sendTrackInfo(track, episode));
-                executorService.execute(() -> sendProgress());
-                executorService.execute(() -> sendImage());
+                executorService.execute(() -> {
+                    sendTrackInfo();
+                    sendProgress();
+                    sendImage();
+                });
             }
         }
 
