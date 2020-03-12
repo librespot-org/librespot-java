@@ -2,7 +2,7 @@ language: java
 os: linux
 
 before_install:
-  - chmod +x .travis/*'
+  - chmod +x .travis/*
   - .travis/before_install.sh
 
 script:
