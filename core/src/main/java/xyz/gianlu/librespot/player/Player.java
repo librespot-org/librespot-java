@@ -28,7 +28,10 @@ import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -781,12 +784,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private static final String CODE_PVOL = "70766f6c";
         private static final String CODE_PRGR = "70726772";
         private static final String CODE_PICT = "50494354";
-        private final FileOutputStream out;
+        private final File file;
+        private FileOutputStream out;
 
-        MetadataPipe(@NotNull Configuration conf) throws FileNotFoundException {
-            File file = conf.metadataPipe();
-            if (file != null) out = new FileOutputStream(file);
-            else out = null;
+        MetadataPipe(@NotNull Configuration conf) {
+            file = conf.metadataPipe();
         }
 
         void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
@@ -805,8 +807,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
         }
 
-        private void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
-            if (out == null) return;
+        private synchronized void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
+            if (file == null) return;
+            if (out == null) out = new FileOutputStream(file);
 
             if (payload != null) {
                 out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
@@ -817,7 +820,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         boolean enabled() {
-            return out != null;
+            return file != null;
         }
     }
 
@@ -827,11 +830,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         private final List<EventsListener> listeners = new ArrayList<>();
 
         EventsDispatcher(@NotNull Configuration conf) {
-            try {
-                metadataPipe = new MetadataPipe(conf);
-            } catch (FileNotFoundException ex) {
-                throw new IllegalArgumentException(ex);
-            }
+            metadataPipe = new MetadataPipe(conf);
         }
 
         private void sendImage() {
@@ -870,6 +869,29 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             String data = String.format("1/%.0f/%.0f", state.getPosition() * PlayerRunner.OUTPUT_FORMAT.getSampleRate() / 1000 + 1,
                     duration * PlayerRunner.OUTPUT_FORMAT.getSampleRate() / 1000 + 1);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
+        }
+
+        private void sendTrackInfo() {
+            Metadata.Track track = currentTrack();
+            Metadata.Episode episode = currentEpisode();
+            if (track == null && episode == null) return;
+
+            String title = track != null ? track.getName() : episode.getName();
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, title);
+
+            String album = track != null ? track.getAlbum().getName() : episode.getShow().getName();
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, album);
+
+            String artist = track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
+        }
+
+        private void sendVolume(int value) {
+            float xmlValue;
+            if (value == 0) xmlValue = 144.0f;
+            else xmlValue = (value - PlayerRunner.VOLUME_MAX) * 30.0f / (PlayerRunner.VOLUME_MAX - 1);
+            String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
+            metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
         }
 
         void playbackPaused() {
@@ -914,7 +936,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
 
-            if (metadataPipe.enabled()) sendProgress();
+            if (metadataPipe.enabled()) executorService.execute(this::sendProgress);
         }
 
         void volumeChanged(@Range(from = 0, to = PlayerRunner.VOLUME_MAX) int value) {
@@ -923,13 +945,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onVolumeChanged(volume));
 
-            if (metadataPipe.enabled()) {
-                float xmlValue;
-                if (value == 0) xmlValue = 144.0f;
-                else xmlValue = (value - PlayerRunner.VOLUME_MAX) * 30.0f / (PlayerRunner.VOLUME_MAX - 1);
-                String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
-                metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
-            }
+            if (metadataPipe.enabled()) executorService.execute(() -> sendVolume(value));
         }
 
         void metadataAvailable() {
@@ -943,17 +959,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 executorService.execute(() -> l.onMetadataAvailable(track, episode));
 
             if (metadataPipe.enabled()) {
-                String title = track != null ? track.getName() : episode.getName();
-                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, title);
-
-                String album = track != null ? track.getAlbum().getName() : episode.getShow().getName();
-                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, album);
-
-                String artist = track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
-                metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
-
-                sendProgress();
-                sendImage();
+                executorService.execute(() -> {
+                    sendTrackInfo();
+                    sendProgress();
+                    sendImage();
+                });
             }
         }
 
