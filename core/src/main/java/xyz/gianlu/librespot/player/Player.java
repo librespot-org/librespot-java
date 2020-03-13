@@ -424,14 +424,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             crossfadeHandler = null;
 
             if (trackHandler.isReady()) {
+                state.setState(true, !play, false);
                 updateStateWithHandler();
 
                 try {
                     state.setPosition(trackHandler.time());
                 } catch (Codec.CannotGetTimeException ignored) {
                 }
-
-                state.setState(true, !play, false);
             } else {
                 state.setState(true, !play, true);
             }
@@ -451,17 +450,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 preloadTrackHandler = null;
 
                 if (trackHandler.isReady()) {
+                    state.setState(true, !play, false);
                     updateStateWithHandler();
 
                     trackHandler.seek(state.getPosition());
-                    state.setState(true, !play, false);
                 } else {
                     state.setState(true, !play, true);
                 }
-
             } else {
-                trackHandler = runner.load(id, state.getPosition());
                 state.setState(true, !play, true);
+                trackHandler = runner.load(id, state.getPosition());
             }
 
             state.updated();
@@ -484,9 +482,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void handleResume() {
         if (state.isPaused()) {
+            state.setState(true, false, false);
             if (!trackHandler.isInMixer()) trackHandler.pushToMixer(PushToMixerReason.None);
             runner.playMixer();
-            state.setState(true, false, false);
 
             state.updated();
             events.playbackResumed();
@@ -500,8 +498,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void handlePause() {
         if (state.isPlaying()) {
-            runner.pauseMixer();
             state.setState(true, true, false);
+            runner.pauseMixer();
 
             try {
                 state.setPosition(trackHandler.time());
