@@ -12,6 +12,7 @@ after_script:
   - .travis/after_script.sh
 
 before_deploy:
+  - mvn package -B -U -Prelease
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
   - export project_version=$(mvn help:evaluate -N -Dexpression=project.version|grep -v '\[')
 
