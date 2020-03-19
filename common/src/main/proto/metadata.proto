@@ -114,6 +114,7 @@ message Show {
     }
 
     repeated Availability availability = 78;
+    optional string trailer_uri = 83;
 }
 
 message Episode {
@@ -138,6 +139,13 @@ message Episode {
     optional bool allow_background_playback = 81;
     repeated Availability availability = 82;
     optional string external_url = 83;
+
+    optional .spotify.metadata.proto.Episode.EpisodeType type = 87;
+    enum EpisodeType {
+        FULL = 0;
+        TRAILER = 1;
+        BONUS = 2;
+    }
 }
 
 message Licensor {
@@ -262,6 +270,7 @@ message AudioFile {
         MP3_160_ENC = 7;
         AAC_24 = 8;
         AAC_48 = 9;
+        AAC_24_NORM = 16;
     }
 }
 
