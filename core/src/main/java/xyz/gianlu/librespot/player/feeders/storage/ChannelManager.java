@@ -59,7 +59,7 @@ public class ChannelManager extends PacketsManager {
 
     @Override
     protected void handle(@NotNull Packet packet) {
-        LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length %d", packet.type(), packet.payload.length));
+       throw new UnsupportedOperationException();
     }
 
     @Override
@@ -129,7 +129,7 @@ public class ChannelManager extends PacketsManager {
 
             if (header) {
                 short length;
-                while ((length = payload.getShort()) > 0) {
+                while (payload.remaining() > 0 && (length = payload.getShort()) > 0) {
                     byte headerId = payload.get();
                     byte[] headerData = new byte[length - 1];
                     payload.get(headerData);

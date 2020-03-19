@@ -4,14 +4,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 import javax.sound.sampled.Mixer;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,14 +18,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.PermissionCollection;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.GZIPInputStream;
+import java.util.*;
 
 /**
  * @author Gianlu
@@ -35,22 +29,24 @@ public final class Utils {
     public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = Logger.getLogger(Utils.class);
+    private static final String randomString = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     private Utils() {
     }
 
     @NotNull
-    public static String decodeGZip(@NotNull ByteString bytes) throws IOException {
-        if (bytes.isEmpty()) return "";
+    public static String randomHexString(@NotNull Random random, int length) {
+        byte[] bytes = new byte[length / 2];
+        random.nextBytes(bytes);
+        return bytesToHex(bytes, 0, bytes.length, false, length);
+    }
 
-        try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(bytes.toByteArray()));
-             ByteArrayOutputStream dataOut = new ByteArrayOutputStream(bytes.size() /* At least */)) {
-            byte[] buffer = new byte[4096];
-            int count;
-            while ((count = gzis.read(buffer)) != -1)
-                dataOut.write(buffer, 0, count);
-            return new String(dataOut.toByteArray(), StandardCharsets.UTF_8);
-        }
+    @NotNull
+    public static String randomString(@NotNull Random random, int length) {
+        char[] chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = randomString.charAt(random.nextInt(randomString.length()));
+        return new String(chars);
     }
 
     @NotNull
@@ -70,18 +66,6 @@ public final class Utils {
         }
 
         return buffer.toString();
-    }
-
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    public static <A> A wait(@NotNull AtomicReference<A> ref) throws IOException {
-        synchronized (ref) {
-            try {
-                ref.wait();
-                return ref.get();
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
     }
 
     public static void removeCryptographyRestrictions() {
@@ -188,6 +172,11 @@ public final class Utils {
     @NotNull
     public static String bytesToHex(byte[] bytes) {
         return bytesToHex(bytes, 0, bytes.length, false, -1);
+    }
+
+    @NotNull
+    public static String bytesToHex(byte[] bytes, int off, int len) {
+        return bytesToHex(bytes, off, len, false, -1);
     }
 
     @NotNull
@@ -302,7 +291,12 @@ public final class Utils {
     }
 
     @NotNull
-    public static String removeLineBreaks(@NotNull String str) {
-        return str.replace("\n", "").replace("\r", "");
+    public static String toBase64(@NotNull ByteString bytes) {
+        return Base64.getEncoder().encodeToString(bytes.toByteArray());
+    }
+
+    @NotNull
+    public static ByteString fromBase64(@NotNull String str) {
+        return ByteString.copyFrom(Base64.getDecoder().decode(str.getBytes()));
     }
 }

@@ -1,9 +1,11 @@
 package xyz.gianlu.librespot.player.codecs;
 
+import com.spotify.metadata.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
+
+import java.util.List;
 
 /**
  * @author Gianlu
@@ -17,12 +19,12 @@ public class VorbisOnlyAudioQuality implements AudioQualityPreference {
     }
 
     @Override
-    public @Nullable Metadata.AudioFile getFile(Metadata.@NotNull Track track) {
-        Metadata.AudioFile file = preferred.getFile(track);
+    public @Nullable Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files) {
+        Metadata.AudioFile file = preferred.getFile(files);
         if (file == null) {
-            file = AudioQuality.getAnyVorbisFile(track);
+            file = AudioQuality.getAnyVorbisFile(files);
             if (file == null) {
-                LOGGER.fatal(String.format("Couldn't find any Vorbis file, available: %s", AudioQuality.listFormats(track)));
+                LOGGER.fatal(String.format("Couldn't find any Vorbis file, available: %s", AudioQuality.listFormats(files)));
                 return null;
             } else {
                 LOGGER.warn(String.format("Using %s because preferred %s couldn't be found.", file, preferred));

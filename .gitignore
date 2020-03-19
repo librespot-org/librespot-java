@@ -3,4 +3,11 @@ out/
 target/
 *iml
 config.toml
+credentials.json
 /cache/
+.settings/
+.project
+.DS_Store
+bin/
+.classpath
+.vscode/

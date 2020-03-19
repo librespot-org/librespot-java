@@ -1,22 +1,15 @@
 language: java
+os: linux
 
 before_install:
-  - |
-    if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-      echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
-      echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
-    fi
-
-install:
-  - mvn install -DskipTests=true -Dgpg.skip -Dmaven.javadoc.skip=true -B -V
+  - chmod +x .travis/*
+  - .travis/before_install.sh
 
 script:
-  - |
-    if [[ -z "${TRAVIS_TAG}" ]]; then
-      mvn clean deploy -Dmaven.deploy.skip=true -B -U -Pdebug
-    else
-      mvn clean deploy --settings .maven.xml -B -U -Prelease
-    fi
+  - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
+
+after_script:
+  - .travis/after_script.sh
 
 before_deploy:
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
@@ -36,7 +29,6 @@ deploy:
     - api/target/librespot-api-jar-with-dependencies.jar
     - api/target/librespot-api-javadoc.jar
     - api/target/librespot-api-sources.jar
-    - api-client/target/librespot-api-client-jar-with-dependencies.jar
   on:
     repo: librespot-org/librespot-java
     tags: true

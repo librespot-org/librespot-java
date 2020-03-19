@@ -5,7 +5,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>0.6.1</version>
+        <version>1.3.0</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -19,6 +19,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -28,6 +29,8 @@
                         <configuration>
                             <archive>
                                 <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.api.Main</mainClass>
                                 </manifest>
                             </archive>
@@ -46,6 +49,17 @@
             <groupId>xyz.gianlu.librespot</groupId>
             <artifactId>librespot-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.undertow</groupId>
+            <artifactId>undertow-core</artifactId>
+            <version>2.0.29.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>com.stijndewitt.undertow.cors</groupId>
+            <artifactId>undertow-cors-filter</artifactId>
+            <version>0.4.0</version>
         </dependency>
     </dependencies>
 </project>

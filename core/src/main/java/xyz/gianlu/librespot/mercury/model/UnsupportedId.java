@@ -27,6 +27,7 @@ public final class UnsupportedId implements PlayableId {
         return uri;
     }
 
+    @NotNull
     @Override
     public String toString() {
         return "UnsupportedId{" + toSpotifyUri() + '}';

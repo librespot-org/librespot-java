@@ -1,19 +1,18 @@
 package xyz.gianlu.librespot.mercury;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import org.jetbrains.annotations.Contract;
+import com.spotify.Mercury;
+import com.spotify.context.ContextPageOuterClass;
+import com.spotify.context.ContextTrackOuterClass;
+import com.spotify.metadata.Metadata;
+import com.spotify.playlist4.Playlist4ApiProto;
+import com.spotify.playlist_annotate3.PlaylistAnnotate3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Metadata;
-import xyz.gianlu.librespot.common.proto.Playlist4Changes;
+import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.mercury.model.*;
-import xyz.gianlu.librespot.player.remote.Remote3Page;
-import xyz.gianlu.librespot.player.remote.Remote3Track;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,15 +25,21 @@ public final class MercuryRequests {
     }
 
     @NotNull
-    public static ProtobufMercuryRequest<Playlist4Changes.SelectedListContent> getRootPlaylists(@NotNull String username) {
+    public static ProtobufMercuryRequest<Playlist4ApiProto.SelectedListContent> getRootPlaylists(@NotNull String username) {
         return new ProtobufMercuryRequest<>(RawMercuryRequest.get(String.format("hm://playlist/user/%s/rootlist", username)),
-                Playlist4Changes.SelectedListContent.parser());
+                Playlist4ApiProto.SelectedListContent.parser());
     }
 
     @NotNull
-    public static ProtobufMercuryRequest<Playlist4Changes.SelectedListContent> getPlaylist(@NotNull PlaylistId id) {
-        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri()),
-                Playlist4Changes.SelectedListContent.parser());
+    public static ProtobufMercuryRequest<PlaylistAnnotate3.PlaylistAnnotation> getPlaylistAnnotation(@NotNull PlaylistId id) {
+        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri(true)),
+                PlaylistAnnotate3.PlaylistAnnotation.parser());
+    }
+
+    @NotNull
+    public static ProtobufMercuryRequest<Playlist4ApiProto.SelectedListContent> getPlaylist(@NotNull PlaylistId id) {
+        return new ProtobufMercuryRequest<>(RawMercuryRequest.get(id.toMercuryUri(false)),
+                Playlist4ApiProto.SelectedListContent.parser());
     }
 
     @NotNull
@@ -100,14 +105,7 @@ public final class MercuryRequests {
     @NotNull
     private static String getAsString(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement elm = obj.get(key);
-        if (elm == null) throw new NullPointerException("Unexpected null value for " + key);
-        else return elm.getAsString();
-    }
-
-    @Contract("_, _, !null -> !null")
-    private static String getAsString(@NotNull JsonObject obj, @NotNull String key, @Nullable String fallback) {
-        JsonElement elm = obj.get(key);
-        if (elm == null) return fallback;
+        if (elm == null) throw new IllegalArgumentException("Unexpected null value for " + key);
         else return elm.getAsString();
     }
 
@@ -123,11 +121,8 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public List<Remote3Track> tracks() {
-            JsonArray array = obj.getAsJsonArray("tracks");
-            List<Remote3Track> list = new ArrayList<>(array.size());
-            for (JsonElement elm : array) list.add(new Remote3Track(elm.getAsJsonObject()));
-            return list;
+        public List<ContextTrackOuterClass.ContextTrack> tracks() {
+            return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
         }
     }
 
@@ -138,10 +133,8 @@ public final class MercuryRequests {
         }
 
         @NotNull
-        public List<Remote3Page> pages() {
-            List<Remote3Page> list = Remote3Page.opt(obj.getAsJsonArray("pages"));
-            if (list == null) throw new IllegalArgumentException("Invalid context!");
-            return list;
+        public List<ContextPageOuterClass.ContextPage> pages() {
+            return ProtoUtils.jsonToContextPages(obj.getAsJsonArray("pages"));
         }
 
         @Nullable

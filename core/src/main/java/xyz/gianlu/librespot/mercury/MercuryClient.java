@@ -1,15 +1,17 @@
 package xyz.gianlu.librespot.mercury;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.spotify.Mercury;
+import com.spotify.Pubsub;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Mercury;
-import xyz.gianlu.librespot.common.proto.Pubsub;
 import xyz.gianlu.librespot.core.PacketsManager;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
@@ -19,17 +21,18 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
  */
-public class MercuryClient extends PacketsManager {
+public final class MercuryClient extends PacketsManager {
     private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
+    private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
-    private final Map<Long, Callback> callbacks = new ConcurrentHashMap<>();
+    private final Map<Long, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
+    private final Object removeCallbackLock = new Object();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
     private final Map<Long, BytesArrayList> partials = new HashMap<>();
 
@@ -63,15 +66,14 @@ public class MercuryClient extends PacketsManager {
 
     @NotNull
     public Response sendSync(@NotNull RawMercuryRequest request) throws IOException {
-        AtomicReference<Response> reference = new AtomicReference<>(null);
-        send(request, response -> {
-            synchronized (reference) {
-                reference.set(response);
-                reference.notifyAll();
-            }
-        });
+        SyncCallback callback = new SyncCallback();
+        int seq = send(request, callback);
 
-        return Utils.wait(reference);
+        Response resp = callback.waitResponse();
+        if (resp == null)
+            throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
+
+        return resp;
     }
 
     @NotNull
@@ -119,7 +121,7 @@ public class MercuryClient extends PacketsManager {
         }
     }
 
-    public void send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
+    public int send(@NotNull RawMercuryRequest request, @NotNull Callback callback) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytesOut);
 
@@ -149,6 +151,7 @@ public class MercuryClient extends PacketsManager {
         session.send(cmd, bytesOut.toByteArray());
 
         callbacks.put((long) seq, callback);
+        return seq;
     }
 
     @Override
@@ -203,7 +206,7 @@ public class MercuryClient extends PacketsManager {
             }
 
             if (!dispatched)
-                LOGGER.warn(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), Utils.bytesToHex(resp.payload.get(0))));
+                LOGGER.debug(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex()));
         } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
             if (callback != null) {
@@ -212,8 +215,8 @@ public class MercuryClient extends PacketsManager {
                 LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
             }
 
-            synchronized (callbacks) {
-                callbacks.notifyAll();
+            synchronized (removeCallbackLock) {
+                removeCallbackLock.notifyAll();
             }
         } else {
             LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
@@ -231,10 +234,7 @@ public class MercuryClient extends PacketsManager {
 
     public void notInterested(@NotNull SubListener listener) {
         synchronized (subscriptions) {
-            Iterator<InternalSubListener> iter = subscriptions.iterator();
-            while (iter.hasNext())
-                if (iter.next().listener == listener)
-                    iter.remove();
+            subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
         }
     }
 
@@ -251,19 +251,16 @@ public class MercuryClient extends PacketsManager {
             }
         }
 
-        while (true) {
-            if (callbacks.isEmpty()) {
-                break;
-            } else {
-                synchronized (callbacks) {
-                    try {
-                        callbacks.wait();
-                    } catch (InterruptedException ignored) {
-                    }
+        if (!callbacks.isEmpty()) {
+            synchronized (removeCallbackLock) {
+                try {
+                    removeCallbackLock.wait(MERCURY_REQUEST_TIMEOUT + 100);
+                } catch (InterruptedException ignored) {
                 }
             }
         }
 
+        callbacks.clear();
         super.close();
     }
 
@@ -283,6 +280,30 @@ public class MercuryClient extends PacketsManager {
         void response(@NotNull Response response);
     }
 
+    private static class SyncCallback implements Callback {
+        private final AtomicReference<Response> reference = new AtomicReference<>();
+
+        @Override
+        public void response(@NotNull Response response) {
+            synchronized (reference) {
+                reference.set(response);
+                reference.notifyAll();
+            }
+        }
+
+        @Nullable
+        Response waitResponse() {
+            synchronized (reference) {
+                try {
+                    reference.wait(MERCURY_REQUEST_TIMEOUT);
+                    return reference.get();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+        }
+    }
+
     public static class ProtoWrapperResponse<P extends Message> {
         private final P proto;
         private JsonElement json;
@@ -297,9 +318,9 @@ public class MercuryClient extends PacketsManager {
         }
 
         @NotNull
-        public JsonElement json() {
+        public JsonObject json() {
             if (json == null) json = ProtobufToJson.convert(proto);
-            return json;
+            return json.getAsJsonObject();
         }
     }
 

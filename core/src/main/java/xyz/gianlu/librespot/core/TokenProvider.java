@@ -7,85 +7,64 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 
-import javax.jmdns.impl.util.NamedThreadFactory;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Gianlu
  */
-public class TokenProvider {
+public final class TokenProvider {
     private final static Logger LOGGER = Logger.getLogger(TokenProvider.class);
     private final static int TOKEN_EXPIRE_THRESHOLD = 10;
     private final Session session;
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("token-expire-"));
-    private final Map<String, StoredToken> tokens = new HashMap<>();
+    private final List<StoredToken> tokens = new ArrayList<>();
 
     TokenProvider(@NotNull Session session) {
         this.session = session;
     }
 
+    @Nullable
+    private StoredToken findTokenWithAllScopes(String[] scopes) {
+        for (StoredToken token : tokens)
+            if (token.hasScopes(scopes))
+                return token;
+
+        return null;
+    }
+
     @NotNull
-    public String get(@NotNull String scope, @Nullable ExpireListener expireListener) throws IOException, MercuryClient.MercuryException {
-        if (scope.contains(",")) throw new UnsupportedOperationException("Only single scope tokens are supported.");
+    public StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
+        if (scopes.length == 0) throw new IllegalArgumentException();
 
-        StoredToken token = tokens.get(scope);
-
+        StoredToken token = findTokenWithAllScopes(scopes);
         if (token != null) {
-            if (token.expired()) {
-                token.expireListeners.clear();
-                tokens.remove(scope);
-            } else {
-                if (expireListener != null) token.expireListeners.add(expireListener);
-                return token.accessToken;
-            }
+            if (token.expired()) tokens.remove(token);
+            else return token;
         }
 
-        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scope: %s, token: %s}", scope, token));
-        MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), scope));
+        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scopes: %s, oldToken: %s}", Arrays.asList(scopes), token));
+        MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
         token = new StoredToken(resp);
 
-        tokens.put(scope, token);
+        LOGGER.debug(String.format("Updated token successfully! {scopes: %s, newToken: %s}", Arrays.asList(scopes), token));
+        tokens.add(token);
 
-        if (expireListener != null)
-            token.expireListeners.add(expireListener);
-
-        executorService.schedule(new ExpiredRunnable(token), token.expiresIn - TOKEN_EXPIRE_THRESHOLD, TimeUnit.SECONDS);
-        return token.accessToken;
+        return token;
     }
 
-    public interface ExpireListener {
-        void tokenExpired();
+    @NotNull
+    public String get(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
+        return getToken(scope).accessToken;
     }
 
-    public void removeExpireListener(@NotNull ExpireListener listener) {
-        for (StoredToken token : tokens.values())
-            token.expireListeners.remove(listener);
-    }
-
-    private static class ExpiredRunnable implements Runnable {
-        private final StoredToken token;
-
-        ExpiredRunnable(@NotNull StoredToken token) {
-            this.token = token;
-        }
-
-        @Override
-        public void run() {
-            for (ExpireListener listener : new ArrayList<>(token.expireListeners))
-                listener.tokenExpired();
-        }
-    }
-
-    private static class StoredToken {
-        final int expiresIn;
-        final String accessToken;
-        final String[] scopes;
-        final long timestamp;
-        final Set<ExpireListener> expireListeners = new HashSet<>();
+    public static class StoredToken {
+        public final int expiresIn;
+        public final String accessToken;
+        public final String[] scopes;
+        public final long timestamp;
 
         private StoredToken(@NotNull MercuryRequests.KeymasterToken token) {
             timestamp = TimeProvider.currentTimeMillis();
@@ -98,7 +77,7 @@ public class TokenProvider {
                 scopes[i] = scopesArray.get(i).getAsString();
         }
 
-        private boolean expired() {
+        public boolean expired() {
             return timestamp + (expiresIn - TOKEN_EXPIRE_THRESHOLD) * 1000 < TimeProvider.currentTimeMillis();
         }
 
@@ -110,6 +89,22 @@ public class TokenProvider {
                     ", scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
+        }
+
+        public boolean hasScope(@NotNull String scope) {
+            for (String s : scopes)
+                if (Objects.equals(s, scope))
+                    return true;
+
+            return false;
+        }
+
+        public boolean hasScopes(String[] sc) {
+            for (String s : sc)
+                if (!hasScope(s))
+                    return false;
+
+            return true;
         }
     }
 }

@@ -1,8 +1,10 @@
 package xyz.gianlu.librespot.player.codecs;
 
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.proto.Metadata;
+
+import java.util.List;
 
 /**
  * @author Gianlu
@@ -10,5 +12,5 @@ import xyz.gianlu.librespot.common.proto.Metadata;
 public interface AudioQualityPreference {
 
     @Nullable
-    Metadata.AudioFile getFile(@NotNull Metadata.Track track);
+    Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files);
 }

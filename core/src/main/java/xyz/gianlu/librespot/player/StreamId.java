@@ -1,14 +1,14 @@
 package xyz.gianlu.librespot.player;
 
 import com.google.protobuf.ByteString;
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Metadata;
 
 /**
  * @author Gianlu
  */
-public class StreamId {
+public final class StreamId {
     private final ByteString fileId;
     private final ByteString episodeGid;
 

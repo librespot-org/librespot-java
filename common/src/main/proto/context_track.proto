@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package spotify.player.proto;
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.context";
+
+message ContextTrack {
+    optional string uri = 1;
+    optional string uid = 2;
+    optional bytes gid = 3;
+    map<string, string> metadata = 4;
+}

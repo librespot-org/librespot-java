@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.MapEntry;
 import com.google.protobuf.Message;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,6 +44,12 @@ public final class ProtobufToJson {
         JsonArray array = new JsonArray(list.size());
         for (Boolean b : list) array.add(b);
         return array;
+    }
+
+    private static JsonObject mapOfStrings(List<MapEntry> map) {
+        JsonObject obj = new JsonObject();
+        for (MapEntry entry : map) obj.addProperty(entry.getKey().toString(), entry.getValue().toString());
+        return obj;
     }
 
     private static JsonArray arrayOfStrings(List<String> list) {
@@ -91,9 +98,12 @@ public final class ProtobufToJson {
                 else json.addProperty(key, ((Descriptors.EnumValueDescriptor) obj).getName());
                 break;
             case MESSAGE:
-                if (descriptor.isRepeated()) json.add(key, array((List<? extends Message>) obj));
+                if (descriptor.isMapField()) json.add(key, mapOfStrings((List<MapEntry>) obj));
+                else if (descriptor.isRepeated()) json.add(key, array((List<? extends Message>) obj));
                 else json.add(key, convert((Message) obj));
                 break;
+            default:
+                throw new IllegalStateException("Unknown type: " + descriptor.getJavaType());
         }
     }
 }

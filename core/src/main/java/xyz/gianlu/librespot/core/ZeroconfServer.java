@@ -1,32 +1,36 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonObject;
+import com.spotify.Authentication;
+import okhttp3.HttpUrl;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.common.proto.Authentication;
 import xyz.gianlu.librespot.crypto.DiffieHellman;
-import xyz.gianlu.librespot.spirc.SpotifyIrc;
+import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.zeroconf.Service;
+import xyz.gianlu.zeroconf.Zeroconf;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.jmdns.JmDNS;
-import javax.jmdns.ServiceInfo;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Gianlu
@@ -57,21 +61,29 @@ public class ZeroconfServer implements Closeable {
             new byte[]{(byte) 0x00, (byte) 0x03, (byte) 0xFF}, // Microsoft Virtual PC
             new byte[]{(byte) 0x00, (byte) 0x16, (byte) 0x3E}, // Red Hat Xen, Oracle VM, Xen Source, Novell Xen
             new byte[]{(byte) 0x08, (byte) 0x00, (byte) 0x27}, // VirtualBox
+            new byte[]{(byte) 0x00, (byte) 0x15, (byte) 0x5D}, // Hyper-V
     };
 
     static {
         DEFAULT_GET_INFO_FIELDS.addProperty("status", 101);
-        DEFAULT_GET_INFO_FIELDS.addProperty("statusString", "ERROR-OK");
+        DEFAULT_GET_INFO_FIELDS.addProperty("statusString", "OK");
         DEFAULT_GET_INFO_FIELDS.addProperty("spotifyError", 0);
-        DEFAULT_GET_INFO_FIELDS.addProperty("version", "2.1.0");
-        DEFAULT_GET_INFO_FIELDS.addProperty("libraryVersion", "0.1.0");
+        DEFAULT_GET_INFO_FIELDS.addProperty("version", "2.7.1");
+        DEFAULT_GET_INFO_FIELDS.addProperty("libraryVersion", Version.versionNumber());
         DEFAULT_GET_INFO_FIELDS.addProperty("accountReq", "PREMIUM");
-        DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-java");
-        DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", Version.versionString());
+        DEFAULT_GET_INFO_FIELDS.addProperty("brandDisplayName", "librespot-org");
+        DEFAULT_GET_INFO_FIELDS.addProperty("modelDisplayName", "librespot-java");
+        DEFAULT_GET_INFO_FIELDS.addProperty("voiceSupport", "NO");
+        DEFAULT_GET_INFO_FIELDS.addProperty("availability", "");
+        DEFAULT_GET_INFO_FIELDS.addProperty("productID", 0);
+        DEFAULT_GET_INFO_FIELDS.addProperty("tokenType", "default");
+        DEFAULT_GET_INFO_FIELDS.addProperty("groupStatus", "NONE");
+        DEFAULT_GET_INFO_FIELDS.addProperty("resolverVersion", "0");
+        DEFAULT_GET_INFO_FIELDS.addProperty("scope", "streaming,client-authorization-universal");
 
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("status", 101);
         DEFAULT_SUCCESSFUL_ADD_USER.addProperty("spotifyError", 0);
-        DEFAULT_SUCCESSFUL_ADD_USER.addProperty("statusString", "ERROR-OK");
+        DEFAULT_SUCCESSFUL_ADD_USER.addProperty("statusString", "OK");
 
         Utils.removeCryptographyRestrictions();
     }
@@ -79,12 +91,14 @@ public class ZeroconfServer implements Closeable {
     private final HttpRunner runner;
     private final Session.Inner inner;
     private final DiffieHellman keys;
-    private final JmDNS[] instances;
+    private final List<SessionListener> sessionListeners;
+    private final Zeroconf zeroconf;
     private volatile Session session;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
+        this.sessionListeners = new ArrayList<>();
 
         int port = conf.zeroconfListenPort();
         if (port == -1)
@@ -92,64 +106,58 @@ public class ZeroconfServer implements Closeable {
 
         new Thread(this.runner = new HttpRunner(port), "zeroconf-http-server").start();
 
-        InetAddress[] bound;
+        List<NetworkInterface> nics;
         if (conf.zeroconfListenAll()) {
-            bound = getAllInterfacesAddresses();
+            nics = getAllInterfaces();
         } else {
             String[] interfaces = conf.zeroconfInterfaces();
             if (interfaces == null || interfaces.length == 0) {
-                bound = new InetAddress[]{InetAddress.getLoopbackAddress()};
+                nics = getAllInterfaces();
             } else {
-                List<InetAddress> list = new ArrayList<>();
-                for (String str : interfaces) addAddressForInterfaceName(list, str);
-                bound = list.toArray(new InetAddress[0]);
+                nics = new ArrayList<>();
+                for (String str : interfaces) {
+                    NetworkInterface nif = NetworkInterface.getByName(str);
+                    if (nif == null) {
+                        LOGGER.warn(String.format("Interface %s doesn't exists.", str));
+                        continue;
+                    }
+
+                    checkInterface(nics, nif, true);
+                }
             }
         }
 
-        LOGGER.debug("Registering service on " + Arrays.toString(bound));
+        zeroconf = new Zeroconf();
+        zeroconf.setLocalHostName(getUsefulHostname());
+        zeroconf.setUseIpv4(true).setUseIpv6(false);
+        zeroconf.addNetworkInterfaces(nics);
 
         Map<String, String> txt = new HashMap<>();
         txt.put("CPath", "/");
         txt.put("VERSION", "1.0");
+        txt.put("Stack", "SP");
+        Service service = new Service(inner.deviceName, "spotify-connect", port);
+        service.setText(txt);
 
-        boolean atLeastOne = false;
-        instances = new JmDNS[bound.length];
-        for (int i = 0; i < instances.length; i++) {
-            try {
-                instances[i] = JmDNS.create(bound[i], bound[i].getHostName());
-                ServiceInfo serviceInfo = ServiceInfo.create("_spotify-connect._tcp.local.", "librespot-java-" + i, port, 0, 0, txt);
-                instances[i].registerService(serviceInfo);
-                atLeastOne = true;
-            } catch (SocketException ex) {
-                LOGGER.warn("Failed creating socket for " + bound[i], ex);
-            }
+        zeroconf.announce(service);
+    }
+
+    @NotNull
+    public static String getUsefulHostname() throws UnknownHostException {
+        String host = InetAddress.getLocalHost().getHostName();
+        if (Objects.equals(host, "localhost")) {
+            host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
+            return host;
         }
 
-        if (atLeastOne) LOGGER.info("SpotifyConnect service registered successfully!");
-        else throw new IllegalStateException("Could not register the service anywhere!");
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                System.out.println(this);
-                close();
-            } catch (IOException ignored) {
-            }
-        }));
+        return host;
     }
 
     @NotNull
     public static ZeroconfServer create(@NotNull AbsConfiguration conf) throws IOException {
+        ApResolver.fillPool();
         return new ZeroconfServer(Session.Inner.from(conf), conf);
-    }
-
-    private static void addAddressForInterfaceName(List<InetAddress> list, @NotNull String name) throws SocketException {
-        NetworkInterface nif = NetworkInterface.getByName(name);
-        if (nif == null) {
-            LOGGER.warn(String.format("Interface %s doesn't exists.", name));
-            return;
-        }
-
-        addAddressOfInterface(list, nif, false);
     }
 
     private static boolean isVirtual(@NotNull NetworkInterface nif) throws SocketException {
@@ -169,7 +177,7 @@ public class ZeroconfServer implements Closeable {
         return false;
     }
 
-    private static void addAddressOfInterface(List<InetAddress> list, @NotNull NetworkInterface nif, boolean checkVirtual) throws SocketException {
+    private static void checkInterface(List<NetworkInterface> list, @NotNull NetworkInterface nif, boolean checkVirtual) throws SocketException {
         if (nif.isLoopback()) return;
 
         if (isVirtual(nif)) {
@@ -179,28 +187,33 @@ public class ZeroconfServer implements Closeable {
                 LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
         }
 
-        LOGGER.trace(String.format("Adding addresses of %s (displayName: %s)", nif.getName(), nif.getDisplayName()));
-        Enumeration<InetAddress> ias = nif.getInetAddresses();
-        while (ias.hasMoreElements())
-            list.add(ias.nextElement());
+        list.add(nif);
     }
 
     @NotNull
-    private static InetAddress[] getAllInterfacesAddresses() throws SocketException {
-        List<InetAddress> list = new ArrayList<>();
+    private static List<NetworkInterface> getAllInterfaces() throws SocketException {
+        List<NetworkInterface> list = new ArrayList<>();
         Enumeration<NetworkInterface> is = NetworkInterface.getNetworkInterfaces();
-        while (is.hasMoreElements()) addAddressOfInterface(list, is.nextElement(), true);
-        return list.toArray(new InetAddress[0]);
+        while (is.hasMoreElements()) checkInterface(list, is.nextElement(), true);
+        return list;
+    }
+
+    @NotNull
+    private static Map<String, String> parsePath(@NotNull String path) {
+        HttpUrl url = HttpUrl.get("http://host" + path);
+        Map<String, String> map = new HashMap<>();
+        for (String name : url.queryParameterNames()) map.put(name, url.queryParameter(name));
+        return map;
     }
 
     @Override
     public void close() throws IOException {
-        for (JmDNS instance : instances) {
-            if (instance != null) instance.unregisterAllServices();
-        }
-
-        LOGGER.trace("SpotifyConnect service unregistered successfully.");
+        zeroconf.close();
         runner.close();
+    }
+
+    public void closeSession() throws IOException {
+        if (session != null) session.close();
     }
 
     public boolean hasValidSession() {
@@ -211,11 +224,11 @@ public class ZeroconfServer implements Closeable {
 
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("activeUser", hasValidSession() ? session.apWelcome().getCanonicalUsername() : "");
+        info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
-        info.addProperty("deviceType", inner.deviceType.name.toUpperCase());
+        info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -233,22 +246,31 @@ public class ZeroconfServer implements Closeable {
 
     private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
-        if (username == null) {
+        if (username == null || username.isEmpty()) {
             LOGGER.fatal("Missing userName!");
             return;
         }
 
-        String blobStr = params.get("authBlob");
-        if (blobStr == null) blobStr = params.get("blob");
-        if (blobStr == null) {
-            LOGGER.fatal("Missing authBlob!");
+        String blobStr = params.get("blob");
+        if (blobStr == null || blobStr.isEmpty()) {
+            LOGGER.fatal("Missing blob!");
             return;
         }
 
         String clientKeyStr = params.get("clientKey");
-        if (clientKeyStr == null) {
+        if (clientKeyStr == null || clientKeyStr.isEmpty()) {
             LOGGER.fatal("Missing clientKey!");
             return;
+        }
+
+        if (hasValidSession()) {
+            if (session.username().equals(username)) {
+                LOGGER.debug(String.format("Dropped connection attempt because user is already connected. {username: %s}", session.username()));
+                return;
+            }
+
+            session.close();
+            LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
         }
 
         byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
@@ -302,20 +324,26 @@ public class ZeroconfServer implements Closeable {
 
         try {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
-            if (hasValidSession()) {
-                session.close();
-                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
-            }
 
             session = Session.from(inner);
-            LOGGER.info(String.format("Accepted new user. {deviceId: %s}", session.deviceId()));
+            LOGGER.info(String.format("Accepted new user from %s. {deviceId: %s}", params.get("deviceName"), session.deviceId()));
 
             session.connect();
             session.authenticate(credentials);
-        } catch (Session.SpotifyAuthenticationException | SpotifyIrc.IrcException ex) {
+
+            sessionListeners.forEach(l -> l.sessionChanged(session));
+        } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed handling connection! Going away.", ex);
             close();
         }
+    }
+
+    public void addSessionListener(@NotNull SessionListener listener) {
+        sessionListeners.add(listener);
+    }
+
+    public void removeSessionListener(@NotNull SessionListener listener) {
+        sessionListeners.remove(listener);
     }
 
     public interface Configuration {
@@ -327,9 +355,13 @@ public class ZeroconfServer implements Closeable {
         String[] zeroconfInterfaces();
     }
 
+    public interface SessionListener {
+        void sessionChanged(@NotNull Session session);
+    }
+
     private class HttpRunner implements Runnable, Closeable {
         private final ServerSocket serverSocket;
-        private final ExecutorService executorService = Executors.newCachedThreadPool();
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "zeroconf-client-" + r.hashCode()));
         private volatile boolean shouldStop = false;
 
         HttpRunner(int port) throws IOException {
@@ -351,8 +383,28 @@ public class ZeroconfServer implements Closeable {
                         }
                     });
                 } catch (IOException ex) {
-                    LOGGER.fatal("Failed handling connection!", ex);
+                    if (!shouldStop) LOGGER.fatal("Failed handling connection!", ex);
                 }
+            }
+        }
+
+        private void handleRequest(@NotNull OutputStream out, @NotNull String httpVersion, @NotNull String action, @Nullable Map<String, String> params) {
+            if (Objects.equals(action, "addUser")) {
+                if (params == null) throw new IllegalArgumentException();
+
+                try {
+                    handleAddUser(out, params, httpVersion);
+                } catch (GeneralSecurityException | IOException ex) {
+                    LOGGER.fatal("Failed handling addUser!", ex);
+                }
+            } else if (Objects.equals(action, "getInfo")) {
+                try {
+                    handleGetInfo(out, httpVersion);
+                } catch (IOException ex) {
+                    LOGGER.fatal("Failed handling getInfo!", ex);
+                }
+            } else {
+                LOGGER.warn("Unknown action: " + action);
             }
         }
 
@@ -380,7 +432,8 @@ public class ZeroconfServer implements Closeable {
             if (!hasValidSession())
                 LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
 
-            if (method.equals("POST") && path.equals("/")) {
+            Map<String, String> params;
+            if (Objects.equals(method, "POST")) {
                 String contentType = headers.get("Content-Type");
                 if (!Objects.equals(contentType, "application/x-www-form-urlencoded")) {
                     LOGGER.fatal("Bad Content-Type: " + contentType);
@@ -399,36 +452,23 @@ public class ZeroconfServer implements Closeable {
                 String bodyStr = new String(body);
 
                 String[] pairs = Utils.split(bodyStr, '&');
-                Map<String, String> params = new HashMap<>(pairs.length);
+                params = new HashMap<>(pairs.length);
                 for (String pair : pairs) {
                     String[] split = Utils.split(pair, '=');
-                    params.put(URLDecoder.decode(split[0], "UTF-8"), URLDecoder.decode(split[1], "UTF-8"));
-                }
-
-                String action = params.get("action");
-                if (Objects.equals(action, "addUser")) {
-                    try {
-                        handleAddUser(out, params, httpVersion);
-                    } catch (GeneralSecurityException | IOException ex) {
-                        LOGGER.fatal("Failed handling addUser!", ex);
-                    }
-                } else {
-                    LOGGER.warn("Unknown action: " + action);
-                }
-            } else if (path.startsWith("/?action=")) {
-                String action = path.substring(9);
-                if (action.equals("getInfo")) {
-                    try {
-                        handleGetInfo(out, httpVersion);
-                    } catch (IOException ex) {
-                        LOGGER.fatal("Failed handling getInfo!", ex);
-                    }
-                } else {
-                    LOGGER.warn("Unknown action: " + action);
+                    params.put(URLDecoder.decode(split[0], "UTF-8"),
+                            URLDecoder.decode(split[1], "UTF-8"));
                 }
             } else {
-                LOGGER.warn(String.format("Couldn't handle request: %s %s %s", method, path, httpVersion));
+                params = parsePath(path);
             }
+
+            String action = params.get("action");
+            if (action == null) {
+                LOGGER.debug("Request is missing action.");
+                return;
+            }
+
+            handleRequest(out, httpVersion, action, params);
         }
 
         @Override
