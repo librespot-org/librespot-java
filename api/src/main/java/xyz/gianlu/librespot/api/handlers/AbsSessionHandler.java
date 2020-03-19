@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.api.handlers;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
+import io.undertow.util.HttpString;
 import io.undertow.util.StatusCodes;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.SessionWrapper;
@@ -36,6 +37,10 @@ public abstract class AbsSessionHandler implements HttpHandler {
             exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
             return;
         }
+
+        exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*");
+        exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Methods"), "GET, POST, PUT, DELETE");
+        exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Headers"), "*");
 
         handleRequest(exchange, s);
     }
