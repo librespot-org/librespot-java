@@ -56,10 +56,5 @@
             <artifactId>undertow-core</artifactId>
             <version>2.0.29.Final</version>
         </dependency>
-        <dependency>
-            <groupId>com.stijndewitt.undertow.cors</groupId>
-            <artifactId>undertow-cors-filter</artifactId>
-            <version>0.4.0</version>
-        </dependency>
     </dependencies>
 </project>
