@@ -39,7 +39,6 @@ public abstract class AbsSessionHandler implements HttpHandler {
         }
 
         handleRequest(exchange, s);
-        exchange.getResponseHeaders().add(HttpString.tryFromString("Access-Control-Allow-Origin"), "*");
     }
 
     protected abstract void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception;
