@@ -7,9 +7,6 @@ before_install:
 script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
-after_script:
-  - .travis/after_script.sh
-
 before_deploy:
   - .travis/before_deploy.sh
   - mvn package -B -U -Prelease
