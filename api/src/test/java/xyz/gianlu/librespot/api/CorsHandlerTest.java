@@ -11,12 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CorsHandlerTest {
     private final TestHandler testHandler = new TestHandler();
     private final CorsHandler corsHandler = new CorsHandler(testHandler);
-    private HttpServerExchange dummyExchange = new HttpServerExchange(null, new HeaderMap(), new HeaderMap(), 1000);
+    private final HttpServerExchange dummyExchange = new HttpServerExchange(null, new HeaderMap(), new HeaderMap(), 1000);
 
     @Test
     void shouldDelegate() throws Exception {
         corsHandler.handleRequest(dummyExchange);
-
         assertTrue(testHandler.hasCalled());
     }
 
@@ -24,17 +23,15 @@ class CorsHandlerTest {
     void shouldHaveCorsHeader() throws Exception {
         corsHandler.handleRequest(dummyExchange);
 
-        String firstValue = dummyExchange.getResponseHeaders()
-                                       .get("Access-Control-Allow-Origin")
-                                       .get(0);
-        assertEquals(firstValue, "*");
+        String value = dummyExchange.getResponseHeaders().getFirst("Access-Control-Allow-Origin");
+        assertEquals("*", value);
     }
 
     private static class TestHandler implements HttpHandler {
-        private boolean handledRequest;
+        private boolean handledRequest = false;
 
         @Override
-        public void handleRequest(HttpServerExchange exchange) throws Exception {
+        public void handleRequest(HttpServerExchange exchange) {
             handledRequest = true;
         }
 

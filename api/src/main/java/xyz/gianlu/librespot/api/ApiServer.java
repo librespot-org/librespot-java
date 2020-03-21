@@ -5,11 +5,7 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.RoutingHandler;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.api.handlers.EventsHandler;
-import xyz.gianlu.librespot.api.handlers.MetadataHandler;
-import xyz.gianlu.librespot.api.handlers.PlayerHandler;
-import xyz.gianlu.librespot.api.handlers.SearchHandler;
-import xyz.gianlu.librespot.api.handlers.TokensHandler;
+import xyz.gianlu.librespot.api.handlers.*;
 
 public class ApiServer {
     private static final Logger LOGGER = Logger.getLogger(ApiServer.class);
@@ -25,20 +21,19 @@ public class ApiServer {
         EventsHandler events = new EventsHandler();
         wrapper.setListener(events);
 
-        RoutingHandler routingHandler = new RoutingHandler()
+        handler = new CorsHandler(new RoutingHandler()
                 .post("/player/{cmd}", new PlayerHandler(wrapper))
                 .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper, true))
                 .post("/metadata/{uri}", new MetadataHandler(wrapper, false))
                 .post("/search/{query}", new SearchHandler(wrapper))
                 .post("/token/{scope}", new TokensHandler(wrapper))
-                .get("/events", events);
-        handler = new CorsHandler(routingHandler);
+                .get("/events", events));
     }
 
     public void start() {
         if (undertow != null) throw new IllegalStateException("Already started!");
 
-        undertow = new UndertowBuilder(port, host, handler).build();
+        undertow = Undertow.builder().addHttpListener(port, host, handler).build();
         undertow.start();
         LOGGER.info(String.format("Server started on port %d!", port));
     }

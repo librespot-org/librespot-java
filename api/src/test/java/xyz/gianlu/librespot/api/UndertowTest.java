@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.api;
 
 import io.undertow.Undertow;
-import io.undertow.server.HttpHandler;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -14,35 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
-class UndertowBuilderTest {
-    @Test
-    public void shouldRespondWithCorsHeaders() throws Exception {
-        int port = findFreePort();
-        HttpHandler httpHandler = exchange -> {
-        };
-        HttpHandler corsWrappedHandler = new CorsHandler(httpHandler);
-
-        Undertow undertow = new UndertowBuilder(port, "", corsWrappedHandler).build();
-        try {
-            undertow.start();
-
-            Request request = new Request.Builder().url("http://localhost:" + port + "/test")
-                                                   .get()
-                                                   .build();
-            OkHttpClient client = new OkHttpClient();
-            Response response = client.newCall(request)
-                                      .execute();
-
-            assertTrue(response.isSuccessful());
-            assertEquals(response.header("Access-Control-Allow-Origin"), "*");
-
-        } finally {
-            undertow.stop();
-        }
-    }
-
+class UndertowTest {
     /**
-     * from https://gist.github.com/vorburger/3429822
+     * From https://gist.github.com/vorburger/3429822
      *
      * <p>
      * Returns a free port number on localhost.
@@ -65,6 +38,26 @@ class UndertowBuilderTest {
             return port;
         } catch (IOException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
+    public void shouldRespondWithCorsHeaders() throws Exception {
+        int port = findFreePort();
+        Undertow undertow = Undertow.builder()
+                .addHttpListener(port, "", new CorsHandler(exchange -> {
+                }))
+                .build();
+
+        try {
+            undertow.start();
+            try (Response response = new OkHttpClient().newCall(new Request.Builder()
+                    .url("http://localhost:" + port + "/test").get().build()).execute()) {
+                assertTrue(response.isSuccessful());
+                assertEquals("*", response.header("Access-Control-Allow-Origin"));
+            }
+        } finally {
+            undertow.stop();
         }
     }
 }
