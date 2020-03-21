@@ -33,7 +33,7 @@ deploy:
     on:
       repo: librespot-org/librespot-java
       all_branches: true
-      condition: branch = "master" || branch = "dev"
+      condition: $TRAVIS_BRANCH = "master" || $TRAVIS_BRANCH = "dev"
 
 cache:
   directories:
