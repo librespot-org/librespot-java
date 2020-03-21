@@ -1,14 +1,12 @@
 language: java
 os: linux
 
-before_install:
-  - chmod +x .travis/*
-
 script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
 before_deploy:
-  - .travis/before_deploy.sh
+  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
   - mvn package -B -U -Prelease
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
   - export project_version=$(mvn help:evaluate -N -Dexpression=project.version|grep -v '\[')
@@ -34,6 +32,8 @@ deploy:
     script: mvn deploy --settings .maven.xml -B -U -Prelease
     on:
       repo: librespot-org/librespot-java
+      all_branches: true
+      condition: branch = "master" OR branch = "dev"
 
 cache:
   directories:
