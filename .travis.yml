@@ -1,38 +1,45 @@
 language: java
 os: linux
-
-before_install:
-  - chmod +x .travis/*
+jdk:
+  - openjdk8
+  - openjdk11
+  - openjdk13
 
 script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
-after_script:
-  - .travis/after_script.sh
-
 before_deploy:
-  - .travis/before_install.sh
+  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
   - mvn package -B -U -Prelease
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
   - export project_version=$(mvn help:evaluate -N -Dexpression=project.version|grep -v '\[')
 
 deploy:
-  provider: releases
-  skip_cleanup: true
-  name: $project_version
-  draft: true
-  api_key:
-    secure: qD8WixE5dpxKyiDEEPdrWVchBxMw7NKLrSNeUEJIb+p9Wq/yJ4cf3DScXYJToFJ/SB5JPCjjyj7rudOJ2wUMydJ01UGVJ+vbR/dTIXjtQxRJ7bDuqq4AGeUjZvDeBhigrA6hxWsqkzbRZzPEMcsWPa77Bs5drwiSJVixS2kLWgH3cKzLHZaqRQnlOeX20MHcPLFr/K0buFBg+qKUazx/z56qJuT0hh6+DYbXhdB9qK3bcGgUPE7rEaq6qfK0o3bZibCxtxFpMQR9qNXHnxfV5hUnq/k/YHQUNwFVo8kA3mSniYd9LxycLQ5nlwcbA2EgjKoJmQ3GYg1VLNsXVbWbw4aAl54h/7k7JzlCfpmM4DDrN62hGYzcoU+dD1WkAQob7a20pmmUmZI5LYUOJPIrpS98/DjDQdnkGeU/waCswSmjIYCqWhX2n0F1yYmC8X9nD2tRUCSyAAT3jFotLyRCsbjy1zg5xBFDw/Lgvd2ixgsnlVVKJrAo4q396WWstcL/2oGR/+J5K/Otlh0BBjJ+ND6tlKqOMFVLm6sE8WL0490Y9C2kumf9kDXV3QqganPnGS7/2MqqJBHrqhDXUbSZhkcExYfZwFjMqHA+Fi6yAFUvtNBC5W6nydWi2Nh1k5QiHtxCnukVnGU7iN0o+tT/H5d3UEklT+xIE0tILWcrXII=
-  file:
-    - core/target/librespot-core-jar-with-dependencies.jar
-    - core/target/librespot-core-javadoc.jar
-    - core/target/librespot-core-sources.jar
-    - api/target/librespot-api-jar-with-dependencies.jar
-    - api/target/librespot-api-javadoc.jar
-    - api/target/librespot-api-sources.jar
-  on:
-    repo: librespot-org/librespot-java
-    tags: true
+  - provider: releases
+    skip_cleanup: true
+    name: $project_version
+    draft: true
+    api_key:
+      secure: qD8WixE5dpxKyiDEEPdrWVchBxMw7NKLrSNeUEJIb+p9Wq/yJ4cf3DScXYJToFJ/SB5JPCjjyj7rudOJ2wUMydJ01UGVJ+vbR/dTIXjtQxRJ7bDuqq4AGeUjZvDeBhigrA6hxWsqkzbRZzPEMcsWPa77Bs5drwiSJVixS2kLWgH3cKzLHZaqRQnlOeX20MHcPLFr/K0buFBg+qKUazx/z56qJuT0hh6+DYbXhdB9qK3bcGgUPE7rEaq6qfK0o3bZibCxtxFpMQR9qNXHnxfV5hUnq/k/YHQUNwFVo8kA3mSniYd9LxycLQ5nlwcbA2EgjKoJmQ3GYg1VLNsXVbWbw4aAl54h/7k7JzlCfpmM4DDrN62hGYzcoU+dD1WkAQob7a20pmmUmZI5LYUOJPIrpS98/DjDQdnkGeU/waCswSmjIYCqWhX2n0F1yYmC8X9nD2tRUCSyAAT3jFotLyRCsbjy1zg5xBFDw/Lgvd2ixgsnlVVKJrAo4q396WWstcL/2oGR/+J5K/Otlh0BBjJ+ND6tlKqOMFVLm6sE8WL0490Y9C2kumf9kDXV3QqganPnGS7/2MqqJBHrqhDXUbSZhkcExYfZwFjMqHA+Fi6yAFUvtNBC5W6nydWi2Nh1k5QiHtxCnukVnGU7iN0o+tT/H5d3UEklT+xIE0tILWcrXII=
+    file:
+      - core/target/librespot-core-jar-with-dependencies.jar
+      - core/target/librespot-core-javadoc.jar
+      - core/target/librespot-core-sources.jar
+      - api/target/librespot-api-jar-with-dependencies.jar
+      - api/target/librespot-api-javadoc.jar
+      - api/target/librespot-api-sources.jar
+    on:
+      repo: librespot-org/librespot-java
+      jdk: 'openjdk11'
+      tags: true
+  - provider: script
+    script: mvn deploy --settings .maven.xml -B -U -Prelease
+    on:
+      repo: librespot-org/librespot-java
+      jdk: 'openjdk11'
+      all_branches: true
+      condition: $TRAVIS_BRANCH = "master" || $TRAVIS_BRANCH = "dev"
 
 cache:
   directories:
