@@ -32,7 +32,7 @@ class CacheTest {
                 builder.append(Utils.bytesToHex(buffer, 0, count));
         }
 
-        System.out.println(">> " + (lastContent = builder.toString()));
+        lastContent = builder.toString();
     }
 
     private void assertSequence(int start, String seq) {
