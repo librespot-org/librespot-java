@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package spotify.login5.v3;
+option java_package = "com.spotify.login5v3";
+
+import "spotify/login5/v3/client_info.proto";
+import "spotify/login5/v3/user_info.proto";
+import "spotify/login5/v3/challenges/code.proto";
+import "spotify/login5/v3/challenges/hashcash.proto";
+import "spotify/login5/v3/credentials/credentials.proto";
+import "spotify/login5/v3/identifiers/identifiers.proto";
+
+enum LoginError {
+    UNKNOWN_ERROR = 0;
+    INVALID_CREDENTIALS = 1;
+    BAD_REQUEST = 2;
+    UNSUPPORTED_LOGIN_PROTOCOL = 3;
+    TIMEOUT = 4;
+    UNKNOWN_IDENTIFIER = 5;
+    TOO_MANY_ATTEMPTS = 6;
+    INVALID_PHONENUMBER = 7;
+    TRY_AGAIN_LATER = 8;
+}
+
+message Challenges {
+    repeated .spotify.login5.v3.Challenge challenges = 1;
+}
+
+message Challenge {
+    .spotify.login5.v3.challenges.HashcashChallenge hashcash = 1;
+    .spotify.login5.v3.challenges.CodeChallenge code = 2;
+}
+
+message ChallengeSolutions {
+    repeated .spotify.login5.v3.ChallengeSolution solutions = 1;
+}
+
+message ChallengeSolution {
+    .spotify.login5.v3.challenges.HashcashSolution hashcash = 1;
+    .spotify.login5.v3.challenges.CodeSolution code = 2;
+}
+
+message LoginRequest {
+    .spotify.login5.v3.ClientInfo client_info = 1;
+    bytes login_context = 2;
+    .spotify.login5.v3.ChallengeSolutions challenge_solutions = 3;
+    .spotify.login5.v3.credentials.StoredCredential stored_credential = 100;
+    .spotify.login5.v3.credentials.Password password = 101;
+    .spotify.login5.v3.credentials.FacebookAccessToken facebook_access_token = 102;
+    .spotify.login5.v3.identifiers.PhoneNumber phone_number = 103;
+    .spotify.login5.v3.credentials.OneTimeToken one_time_token = 104;
+    .spotify.login5.v3.credentials.ParentChildCredential parent_child_credential = 105;
+    .spotify.login5.v3.credentials.AppleSignInCredential apple_sign_in_credential = 106;
+}
+
+message LoginOk {
+    string username = 1;
+    string access_token = 2;
+    bytes stored_credential = 3;
+    int32 access_token_expires_in = 4;
+}
+
+message LoginResponse {
+    enum Warnings {
+        UNKNOWN_WARNING = 0;
+        DEPRECATED_PROTOCOL_VERSION = 1;
+    }
+    .spotify.login5.v3.LoginOk ok = 1;
+    .spotify.login5.v3.LoginError error = 2;
+    .spotify.login5.v3.Challenges challenges = 3;
+    repeated .spotify.login5.v3.LoginResponse.Warnings warnings = 4;
+    bytes login_context = 5;
+    string identifier_token = 6;
+    .spotify.login5.v3.UserInfo user_info = 7;
+}

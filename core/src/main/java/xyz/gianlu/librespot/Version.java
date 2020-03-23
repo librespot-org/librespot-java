@@ -53,19 +53,7 @@ public class Version {
                 .setProduct(Product.PRODUCT_CLIENT)
                 .addProductFlags(ProductFlags.PRODUCT_FLAG_NONE)
                 .setPlatform(Version.platform())
-                .setVersion(112200633)
-                .build();
-    }
-
-    /**
-     * @return A {@link BuildInfo} object identifying a mobile (Android) client.
-     */
-    @NotNull
-    public static BuildInfo mobileBuildInfo() {
-        return BuildInfo.newBuilder()
-                .setProduct(Product.PRODUCT_MOBILE)
-                .setPlatform(Platform.PLATFORM_ANDROID_ARM)
-                .setVersion(852700957)
+                .setVersion(112800721)
                 .build();
     }
 }

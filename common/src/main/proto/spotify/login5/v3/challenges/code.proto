@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package spotify.login5.v3.challenges;
+option java_package = "com.spotify.login5v3";
+
+message CodeChallenge {
+    enum Method {
+        UNKNOWN = 0;
+        SMS = 1;
+    }
+    .spotify.login5.v3.challenges.CodeChallenge.Method method = 1;
+    int32 code_length = 2;
+    int32 expires_in = 3;
+    string canonical_phone_number = 4;
+}
+
+message CodeSolution {
+    string code = 1;
+}
