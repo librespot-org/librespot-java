@@ -902,6 +902,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackResumed(trackTime));
+            if (metadataPipe.enabled()) {
+                executorService.execute(() -> {
+                    sendTrackInfo();
+                    sendProgress();
+                    sendImage();
+                });
+            }
         }
 
         void contextChanged() {
