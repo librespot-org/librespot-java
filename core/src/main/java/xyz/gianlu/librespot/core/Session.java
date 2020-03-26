@@ -80,7 +80,7 @@ public final class Session implements Closeable {
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
     private final List<ReconnectionListener> reconnectionListeners = Collections.synchronizedList(new ArrayList<>());
     private ConnectionHolder conn;
-    private CipherPair cipherPair;
+    private volatile CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
@@ -264,13 +264,11 @@ public final class Session implements Closeable {
             conn.socket.setSoTimeout(0);
         }
 
-
-        // Init Shannon cipher
-
-        cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
-                Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
-
         synchronized (authLock) {
+            // Init Shannon cipher
+            cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
+                    Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
+
             authLock.set(true);
         }
 
@@ -413,9 +411,11 @@ public final class Session implements Closeable {
         executorService.shutdown();
         conn.socket.close();
 
-        apWelcome = null;
-        cipherPair = null;
-        closed = true;
+        synchronized (authLock) {
+            apWelcome = null;
+            cipherPair = null;
+            closed = true;
+        }
 
         synchronized (closeListeners) {
             Iterator<CloseListener> i = closeListeners.iterator();
@@ -447,8 +447,19 @@ public final class Session implements Closeable {
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
-        waitAuthLock();
-        sendUnchecked(cmd, payload);
+        if (closed) throw new IllegalStateException("Session is closed!");
+
+        synchronized (authLock) {
+            if (cipherPair == null || authLock.get()) {
+                try {
+                    authLock.wait();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+
+            sendUnchecked(cmd, payload);
+        }
     }
 
     @NotNull
