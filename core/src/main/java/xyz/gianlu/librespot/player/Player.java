@@ -697,7 +697,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return null;
 
         try (Response resp = session.client().newCall(new Request.Builder()
-                .url("http://open.spotify.com/image/" + image.hexId()).build())
+                .url("http://i.scdn.co/image/" + image.hexId()).build())
                 .execute()) {
             ResponseBody body;
             if (resp.code() == 200 && (body = resp.body()) != null)
