@@ -185,11 +185,11 @@ public class VorbisCodec extends Codec {
                 int sampleIndex = i * 2;
                 for (int j = 0; j < range; j++) {
                     int value = (int) (pcmInfo[0][i][pcmIndex[i] + j] * 32767);
+                    value *= normalizationFactor;
+
                     if (value > 32767) value = 32767;
                     else if (value < -32768) value = -32768;
                     else if (value < 0) value = value | 32768;
-
-                    value *= normalizationFactor;
 
                     convertedBuffer[sampleIndex] = (byte) (value);
                     convertedBuffer[sampleIndex + 1] = (byte) (value >>> 8);
