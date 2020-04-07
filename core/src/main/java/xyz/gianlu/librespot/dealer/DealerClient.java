@@ -277,10 +277,13 @@ public class DealerClient implements Closeable {
                 lastScheduledPing = null;
             }
 
-            if (conn.get() == ConnectionHolder.this)
+            ConnectionHolder holder = conn.get();
+            if (holder == null) return;
+
+            if (holder == ConnectionHolder.this)
                 connectionInvalided();
             else
-                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn.get(), ConnectionHolder.this));
+                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", holder, ConnectionHolder.this));
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {

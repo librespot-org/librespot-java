@@ -18,6 +18,7 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.IOException;
@@ -26,7 +27,7 @@ import java.util.*;
 /**
  * @author Gianlu
  */
-public final class DeviceStateHandler implements DealerClient.MessageListener, DealerClient.RequestListener {
+public final class DeviceStateHandler implements DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
     private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
 
     static {
@@ -54,6 +55,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
+        session.mercury().interestedIn("hm://pusher/v1/connections/", this);
     }
 
     @NotNull
@@ -116,14 +118,25 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
-        if (uri.startsWith("hm://pusher/v1/connections/")) {
-            synchronized (this) {
-                connectionId = headers.get("Spotify-Connection-Id");
-            }
+    public void event(@NotNull MercuryClient.Response resp) {
+        if (resp.uri.startsWith("hm://pusher/v1/connections/")) {
+            int index = resp.uri.lastIndexOf('/');
+            updateConnectionId(resp.uri.substring(index + 1));
+        }
+    }
 
+    private synchronized void updateConnectionId(@NotNull String newer) {
+        if (connectionId == null || !connectionId.equals(newer)) {
+            connectionId = newer;
             LOGGER.debug("Updated Spotify-Connection-Id: " + connectionId);
             notifyReady();
+        }
+    }
+
+    @Override
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+        if (uri.startsWith("hm://pusher/v1/connections/")) {
+            updateConnectionId(headers.get("Spotify-Connection-Id"));
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
             synchronized (this) {
