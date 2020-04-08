@@ -42,7 +42,7 @@ public class CdnManager {
     @NotNull
     private InputStream getHead(@NotNull ByteString fileId) throws IOException {
         Response resp = session.client().newCall(new Request.Builder()
-                .get().url("https://heads-fa.spotify.com/head/" + Utils.bytesToHex(fileId).toLowerCase())
+                .get().url(session.getUserAttribute("head-files-url", "https://heads-fa.spotify.com/head/{file_id}").replace("{file_id}", Utils.bytesToHex(fileId).toLowerCase()))
                 .build()).execute();
 
         if (resp.code() != 200)

@@ -697,7 +697,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             return null;
 
         try (Response resp = session.client().newCall(new Request.Builder()
-                .url("http://i.scdn.co/image/" + image.hexId()).build())
+                .url(session.getUserAttribute("image-url", "http://i.scdn.co/image/{file_id}").replace("{file_id}", image.hexId())).build())
                 .execute()) {
             ResponseBody body;
             if (resp.code() == 200 && (body = resp.body()) != null)

@@ -11,6 +11,7 @@ import com.spotify.explicit.ExplicitContentPubsub.UserAttributesUpdate;
 import okhttp3.Authenticator;
 import okhttp3.*;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Document;
@@ -672,6 +673,11 @@ public final class Session implements Closeable, SubListener {
     @Nullable
     public String getUserAttribute(@NotNull String key) {
         return userAttributes.get(key);
+    }
+
+    @Contract("_, !null -> !null")
+    public String getUserAttribute(@NotNull String key, @NotNull String fallback) {
+        return userAttributes.getOrDefault(key, fallback);
     }
 
     @Override
