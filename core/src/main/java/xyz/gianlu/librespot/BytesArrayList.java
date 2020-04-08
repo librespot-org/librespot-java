@@ -33,6 +33,13 @@ public class BytesArrayList implements Iterable<byte[]> {
         return new BytesArrayList(decoded).stream();
     }
 
+    @NotNull
+    public static InputStream stream(@NotNull String[] payloads) {
+        byte[][] bytes = new byte[payloads.length][];
+        for (int i = 0; i < bytes.length; i++) bytes[i] = payloads[i].getBytes();
+        return new BytesArrayList(bytes).stream();
+    }
+
     private void ensureExplicitCapacity(int minCapacity) {
         if (minCapacity - elementData.length > 0)
             grow(minCapacity);

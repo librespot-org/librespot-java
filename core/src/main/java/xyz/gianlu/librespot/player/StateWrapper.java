@@ -74,6 +74,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         device.addListener(this);
         session.dealer().addMessageListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
+        session.dealer().addMessageListener(this, "spotify:user:attributes:update");
     }
 
     @NotNull
@@ -90,8 +91,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 .setIsPlaying(false);
     }
 
-    private static boolean shouldPlay(@NotNull ContextTrack track) {
-        return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
+    private boolean shouldPlay(@NotNull ContextTrack track) {
+        if (!PlayableId.isSupported(track.getUri()) || !PlayableId.shouldPlay(track))
+            return false;
+
+        boolean filterExplicit = Objects.equals(session.getUserAttribute("filter-explicit-content"), "1");
+        if (!filterExplicit) return true;
+
+        return !Boolean.parseBoolean(track.getMetadataOrDefault("is_explicit", "false"));
     }
 
     void setBuffering(boolean buffering) {
