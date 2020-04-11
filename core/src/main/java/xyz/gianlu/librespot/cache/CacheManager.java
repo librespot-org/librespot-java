@@ -27,7 +27,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
-    private static final byte HEADER_TIMESTAMP = (byte) 0b11111111;
+    private static final byte HEADER_TIMESTAMP = (byte) 0b11111110;
     private final File parent;
     private final CacheJournal journal;
     private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
