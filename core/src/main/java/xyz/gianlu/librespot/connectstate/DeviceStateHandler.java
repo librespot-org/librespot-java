@@ -21,13 +21,17 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
  */
-public final class DeviceStateHandler implements DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
+public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
     private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
 
     static {
@@ -42,16 +46,20 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     private final Connect.DeviceInfo.Builder deviceInfo;
     private final List<Listener> listeners = Collections.synchronizedList(new ArrayList<>());
     private final Connect.PutStateRequest.Builder putState;
+    private final Worker worker;
     private volatile String connectionId = null;
 
     public DeviceStateHandler(@NotNull Session session) {
         this.session = session;
         this.deviceInfo = initializeDeviceInfo(session);
+        this.worker = new Worker();
         this.putState = Connect.PutStateRequest.newBuilder()
                 .setMemberType(Connect.MemberType.CONNECT_STATE)
                 .setDevice(Connect.Device.newBuilder()
                         .setDeviceInfo(deviceInfo)
                         .build());
+
+        new Thread(worker).start();
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
@@ -173,14 +181,6 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         return RequestResult.SUCCESS;
     }
 
-    public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
-        try {
-            putState(reason, state);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed updating state!", ex);
-        }
-    }
-
     private synchronized long startedPlayingAt() {
         return putState.getStartedPlayingAt();
     }
@@ -201,7 +201,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         }
     }
 
-    private synchronized void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
+    public synchronized void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
         if (connectionId == null) throw new IllegalStateException();
 
         long playerTime = session.player().time();
@@ -212,8 +212,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
-        session.api().putConnectState(connectionId, putState.build());
-        LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", TimeProvider.currentTimeMillis(), connectionId.substring(0, 6), reason, ProtoUtils.toLogString(putState, LOGGER)));
+        worker.submit(putState.build());
     }
 
     public synchronized int getVolume() {
@@ -227,6 +226,16 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
         notifyVolumeChange();
         LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+    }
+
+    @Override
+    public void close() {
+        session.dealer().removeMessageListener(this);
+        session.dealer().removeRequestListener(this);
+        session.mercury().notInterested(this);
+
+        worker.stop();
+        listeners.clear();
     }
 
     public enum Endpoint {
@@ -418,6 +427,41 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
         public Boolean valueBool() {
             return value == null ? null : Boolean.parseBoolean(value);
+        }
+    }
+
+    private class Worker implements Runnable {
+        private final BlockingQueue<Connect.PutStateRequest> queue = new LinkedBlockingQueue<>();
+        private volatile boolean shouldStop = false;
+
+        void stop() {
+            shouldStop = true;
+        }
+
+        void submit(@NotNull Connect.PutStateRequest request) {
+            queue.add(request);
+        }
+
+        @Override
+        public void run() {
+            while (!shouldStop) {
+                Connect.PutStateRequest req;
+                try {
+                    req = queue.poll(1000, TimeUnit.MILLISECONDS);
+                    if (shouldStop) return;
+                    if (req == null) continue;
+                } catch (InterruptedException ignored) {
+                    continue;
+                }
+
+                try {
+                    session.api().putConnectState(connectionId, req);
+                    LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
+                            req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    LOGGER.error("Failed updating state.", ex);
+                }
+            }
         }
     }
 }

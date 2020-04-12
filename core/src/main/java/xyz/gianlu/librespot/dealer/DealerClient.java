@@ -137,6 +137,9 @@ public class DealerClient implements Closeable {
 
     public void addMessageListener(@NotNull MessageListener listener, @NotNull String... uris) {
         synchronized (msgListeners) {
+            if (msgListeners.containsKey(listener))
+                throw new IllegalArgumentException(String.format("A listener for %s has already been added.", Arrays.toString(uris)));
+
             msgListeners.put(listener, Arrays.asList(uris));
             msgListeners.notifyAll();
         }

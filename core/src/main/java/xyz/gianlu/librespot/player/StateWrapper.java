@@ -39,13 +39,14 @@ import xyz.gianlu.librespot.mercury.model.ImageId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 
 /**
  * @author Gianlu
  */
-public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener {
+public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
 
     static {
@@ -73,8 +74,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
-        session.dealer().addMessageListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
-        session.dealer().addMessageListener(this, "spotify:user:attributes:update");
+        session.dealer().addMessageListener(this, "spotify:user:attributes:update", "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
     }
 
     @NotNull
@@ -670,6 +670,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     public void setContextMetadata(@NotNull String key, @Nullable String value) {
         if (value == null) state.removeContextMetadata(key);
         else state.putContextMetadata(key, value);
+    }
+
+    @Override
+    public void close() {
+        session.dealer().removeMessageListener(this);
+
+        device.removeListener(this);
+        device.close();
     }
 
     public enum PreviousPlayable {

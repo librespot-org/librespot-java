@@ -398,14 +398,14 @@ public final class Session implements Closeable, SubListener {
             receiver = null;
         }
 
-        if (dealer != null) {
-            dealer.close();
-            dealer = null;
-        }
-
         if (player != null) {
             player.close();
             player = null;
+        }
+
+        if (dealer != null) {
+            dealer.close();
+            dealer = null;
         }
 
         if (audioKeyManager != null) {
