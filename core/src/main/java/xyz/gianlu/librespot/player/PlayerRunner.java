@@ -418,7 +418,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
         @Override
         public void run() {
-            LOGGER.debug("PlayerRunner.Looper started");
+            LOGGER.trace("PlayerRunner.Looper started");
             try {
                 boolean shouldBreak = false;
                 while (!shouldBreak) {
@@ -522,7 +522,7 @@ public class PlayerRunner implements Runnable, Closeable {
             } catch (InterruptedException ex) {
                 LOGGER.fatal("Failed handling command!", ex);
             }
-            LOGGER.debug("PlayerRunner.Looper stopped");
+            LOGGER.trace("PlayerRunner.Looper stopped");
         }
     }
 
