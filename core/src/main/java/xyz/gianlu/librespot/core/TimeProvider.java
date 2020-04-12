@@ -114,7 +114,7 @@ public final class TimeProvider {
         if (method != Method.PING) return;
 
         synchronized (offset) {
-            long diff = ByteBuffer.wrap(pingPayload).getInt() * 1000 - System.currentTimeMillis();
+            long diff = ByteBuffer.wrap(pingPayload).getInt() * 1000L - System.currentTimeMillis();
             offset.set(diff);
 
             LOGGER.debug(String.format("Loaded time offset from ping: %dms", diff));

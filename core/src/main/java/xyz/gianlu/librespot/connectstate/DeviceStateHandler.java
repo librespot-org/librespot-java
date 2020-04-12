@@ -10,7 +10,6 @@ import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
@@ -18,15 +17,20 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.PlayerRunner;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
  */
-public final class DeviceStateHandler implements DealerClient.MessageListener, DealerClient.RequestListener {
+public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
     private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
 
     static {
@@ -41,19 +45,24 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     private final Connect.DeviceInfo.Builder deviceInfo;
     private final List<Listener> listeners = Collections.synchronizedList(new ArrayList<>());
     private final Connect.PutStateRequest.Builder putState;
+    private final Worker worker;
     private volatile String connectionId = null;
 
     public DeviceStateHandler(@NotNull Session session) {
         this.session = session;
         this.deviceInfo = initializeDeviceInfo(session);
+        this.worker = new Worker();
         this.putState = Connect.PutStateRequest.newBuilder()
                 .setMemberType(Connect.MemberType.CONNECT_STATE)
                 .setDevice(Connect.Device.newBuilder()
                         .setDeviceInfo(deviceInfo)
                         .build());
 
+        new Thread(worker, "put-state-worker").start();
+
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
+        session.mercury().interestedIn("hm://pusher/v1/connections/", this);
     }
 
     @NotNull
@@ -71,7 +80,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                         .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
                         .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
                         .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
-                        .setSupportsGzipPushes(false).setNeedsFullPlayerState(false)
+                        .setSupportsGzipPushes(true).setNeedsFullPlayerState(false)
                         .addSupportedTypes("audio/episode")
                         .addSupportedTypes("audio/track")
                         .build());
@@ -116,16 +125,27 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
-        if (uri.startsWith("hm://pusher/v1/connections/")) {
-            synchronized (this) {
-                connectionId = headers.get("Spotify-Connection-Id");
-            }
+    public void event(@NotNull MercuryClient.Response resp) {
+        if (resp.uri.startsWith("hm://pusher/v1/connections/")) {
+            int index = resp.uri.lastIndexOf('/');
+            updateConnectionId(resp.uri.substring(index + 1));
+        }
+    }
 
+    private synchronized void updateConnectionId(@NotNull String newer) {
+        if (connectionId == null || !connectionId.equals(newer)) {
+            connectionId = newer;
             LOGGER.debug("Updated Spotify-Connection-Id: " + connectionId);
             notifyReady();
+        }
+    }
+
+    @Override
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
+        if (uri.startsWith("hm://pusher/v1/connections/")) {
+            updateConnectionId(headers.get("Spotify-Connection-Id"));
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
-            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
+            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payload);
             synchronized (this) {
                 deviceInfo.setVolume(cmd.getVolume());
                 if (cmd.hasCommandOptions()) {
@@ -137,7 +157,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
             LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
-            Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
+            Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
             LOGGER.debug(String.format("Received cluster update at %d: %s", now, ProtoUtils.toLogString(update, LOGGER)));
@@ -146,7 +166,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
-            LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
+            LOGGER.warn(String.format("Message left unhandled! {uri: %s}", uri));
         }
     }
 
@@ -158,14 +178,6 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
         notifyCommand(endpoint, new CommandBody(command));
         return RequestResult.SUCCESS;
-    }
-
-    public void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
-        try {
-            putState(reason, state);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed updating state!", ex);
-        }
     }
 
     private synchronized long startedPlayingAt() {
@@ -188,7 +200,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
         }
     }
 
-    private synchronized void putState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) throws IOException, MercuryClient.MercuryException {
+    public synchronized void updateState(@NotNull Connect.PutStateReason reason, @NotNull Player.PlayerState state) {
         if (connectionId == null) throw new IllegalStateException();
 
         long playerTime = session.player().time();
@@ -199,8 +211,7 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
-        session.api().putConnectState(connectionId, putState.build());
-        LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", TimeProvider.currentTimeMillis(), connectionId.substring(0, 6), reason, ProtoUtils.toLogString(putState, LOGGER)));
+        worker.submit(putState.build());
     }
 
     public synchronized int getVolume() {
@@ -214,6 +225,16 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
         notifyVolumeChange();
         LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+    }
+
+    @Override
+    public void close() {
+        session.dealer().removeMessageListener(this);
+        session.dealer().removeRequestListener(this);
+        session.mercury().notInterested(this);
+
+        worker.stop();
+        listeners.clear();
     }
 
     public enum Endpoint {
@@ -405,6 +426,41 @@ public final class DeviceStateHandler implements DealerClient.MessageListener, D
 
         public Boolean valueBool() {
             return value == null ? null : Boolean.parseBoolean(value);
+        }
+    }
+
+    private class Worker implements Runnable {
+        private final BlockingQueue<Connect.PutStateRequest> queue = new LinkedBlockingQueue<>();
+        private volatile boolean shouldStop = false;
+
+        void stop() {
+            shouldStop = true;
+        }
+
+        void submit(@NotNull Connect.PutStateRequest request) {
+            queue.add(request);
+        }
+
+        @Override
+        public void run() {
+            while (!shouldStop) {
+                Connect.PutStateRequest req;
+                try {
+                    req = queue.poll(1000, TimeUnit.MILLISECONDS);
+                    if (shouldStop) return;
+                    if (req == null) continue;
+                } catch (InterruptedException ignored) {
+                    continue;
+                }
+
+                try {
+                    session.api().putConnectState(connectionId, req);
+                    LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
+                            req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+                } catch (IOException | MercuryClient.MercuryException ex) {
+                    LOGGER.error("Failed updating state.", ex);
+                }
+            }
         }
     }
 }

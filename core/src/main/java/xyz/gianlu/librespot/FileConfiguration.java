@@ -305,6 +305,11 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public @Nullable String deviceId() {
+        return config.get("deviceId");
+    }
+
+    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }
@@ -344,6 +349,18 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public Strategy authStrategy() {
         return config.getEnum("auth.strategy", Strategy.class);
+    }
+
+    @Override
+    public boolean storeCredentials() {
+        return config.get("auth.storeCredentials");
+    }
+
+    @Override
+    public @Nullable File credentialsFile() {
+        String path = config.get("auth.credentialsFile");
+        if (path == null || path.isEmpty()) return null;
+        return new File(path);
     }
 
     @Override

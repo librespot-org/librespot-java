@@ -21,7 +21,7 @@ public class Main {
         LogManager.getRootLogger().setLevel(conf.loggingLevel());
 
         SessionWrapper wrapper;
-        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF)
+        if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF && !conf.hasStoredCredentials())
             wrapper = SessionWrapper.fromZeroconf(ZeroconfServer.create(conf));
         else
             wrapper = SessionWrapper.fromSession(new Session.Builder(conf).create());

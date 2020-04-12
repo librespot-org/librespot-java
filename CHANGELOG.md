@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 17-03-2020
+### Added
+- Added `volumeChanged` event (ab76d70ccfcf79053a5ca097783611b55d90fa81)
+- Added support for Shairport-like metadata (#174, #177, #182, #183, #186)
+- Added endpoint to retrieve canvases (ba10370e04f97b11ed30a7f40fb0f0d91eb66d48)
+- Added feature to store credentials after first log in (f07b00ae23735f09804112f72a86c5c7b0b8ce36)
+- Added API endpoint to request metadata without type (#149)
+- Make device ID configurable (#178)
+
+### Changed
+- **!!** Improved playback performance (befe207a21c1cea1ffe4d641bf80394f075bed51)
+- **!!** Rewritten cache system to improve performance (#179, #184)
+- Log big protobuf messages only if log level is `TRACE` (38975e77a3a7b3d0745a60a66aefb89c17d9865e)
+- Improved closing operations (6b6333eaea274b952a4a81120c41112104329157, #176)
+- Improved seeking by clearing buffers (7c7a34f6cfc2e783f96e060c5cd386a0f7833d02)
+
+### Fixed
+- Avoid deadlock when shutting down (6659bfe0417a803f8602f7801e4f11476e56d1c4)
+- Fixed issue when starting (373583e159d938475e274780a260e60efa0d65b4)
+- Fixed issue with transforming (7876c10ac276cf3bb395f5b94107e942c23cb208)
+- Fixed deadlock when seeking with playback paused (#175)
+- Fixed playback not starting when selecting new context (2577329dacb238f430cbd1ff19fbfc65330a9d23)
+
+
 ## [1.2.2] - 03-02-2020
 ### Added
 - Added HTTP and SOCKS proxy support with authentication (#172)

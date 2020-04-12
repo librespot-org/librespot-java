@@ -10,19 +10,17 @@ import okhttp3.WebSocketListener;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.GZIPInputStream;
 
 /**
  * @author Gianlu
@@ -40,6 +38,16 @@ public class DealerClient implements Closeable {
     public DealerClient(@NotNull Session session) {
         this.session = session;
         new Thread(looper, "dealer-looper").start();
+    }
+
+    @NotNull
+    private static Map<String, String> getHeaders(@NotNull JsonObject obj) {
+        JsonObject headers = obj.getAsJsonObject("headers");
+        if (headers == null) return Collections.emptyMap();
+
+        Map<String, String> map = new HashMap<>();
+        for (String key : headers.keySet()) map.put(key, headers.get(key).getAsString());
+        return map;
     }
 
     /**
@@ -66,12 +74,22 @@ public class DealerClient implements Closeable {
         String mid = obj.get("message_ident").getAsString();
         String key = obj.get("key").getAsString();
 
+        Map<String, String> headers = getHeaders(obj);
         JsonObject payload = obj.getAsJsonObject("payload");
+        if ("gzip".equals(headers.get("Transfer-Encoding"))) {
+            byte[] gzip = Base64.getDecoder().decode(payload.get("compressed").getAsString());
+            try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip))) {
+                payload = JsonParser.parseReader(new InputStreamReader(in)).getAsJsonObject();
+            } catch (IOException ex) {
+                LOGGER.warn(String.format("Failed decompressing request! {mid: %s, key: %s}", mid, key), ex);
+                return;
+            }
+        }
+
         int pid = payload.get("message_id").getAsInt();
         String sender = payload.get("sent_by_device_id").getAsString();
 
         JsonObject command = payload.getAsJsonObject("command");
-
         LOGGER.trace(String.format("Received request. {mid: %s, key: %s, pid: %d, sender: %s}", mid, key, pid, sender));
 
         boolean interesting = false;
@@ -95,20 +113,39 @@ public class DealerClient implements Closeable {
     private void handleMessage(@NotNull JsonObject obj) {
         String uri = obj.get("uri").getAsString();
 
+        Map<String, String> headers = getHeaders(obj);
         JsonArray payloads = obj.getAsJsonArray("payloads");
-        String[] decodedPayloads;
+        byte[] decodedPayload;
         if (payloads != null) {
-            decodedPayloads = new String[payloads.size()];
-            for (int i = 0; i < payloads.size(); i++) decodedPayloads[i] = payloads.get(i).getAsString();
-        } else {
-            decodedPayloads = new String[0];
-        }
+            String[] payloadsStr = new String[payloads.size()];
+            for (int i = 0; i < payloads.size(); i++) payloadsStr[i] = payloads.get(i).getAsString();
 
-        JsonObject headers = obj.getAsJsonObject("headers");
-        Map<String, String> parsedHeaders = new HashMap<>();
-        if (headers != null) {
-            for (String key : headers.keySet())
-                parsedHeaders.put(key, headers.get(key).getAsString());
+            InputStream in = BytesArrayList.streamBase64(payloadsStr);
+            if ("gzip".equals(headers.get("Transfer-Encoding"))) {
+                try {
+                    in = new GZIPInputStream(in);
+                } catch (IOException ex) {
+                    LOGGER.warn(String.format("Failed decompressing message! {uri: %s}", uri), ex);
+                    return;
+                }
+            }
+
+            try {
+                ByteArrayOutputStream out = new ByteArrayOutputStream(in.available());
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                decodedPayload = out.toByteArray();
+            } catch (IOException ex) {
+                throw new IllegalStateException(ex);
+            } finally {
+                try {
+                    in.close();
+                } catch (IOException ignored) {
+                }
+            }
+        } else {
+            decodedPayload = new byte[0];
         }
 
         boolean interesting = false;
@@ -121,7 +158,7 @@ public class DealerClient implements Closeable {
                         interesting = true;
                         looper.submit(() -> {
                             try {
-                                listener.onMessage(uri, parsedHeaders, decodedPayloads);
+                                listener.onMessage(uri, headers, decodedPayload);
                             } catch (IOException ex) {
                                 LOGGER.error("Failed dispatching message!", ex);
                             }
@@ -137,6 +174,9 @@ public class DealerClient implements Closeable {
 
     public void addMessageListener(@NotNull MessageListener listener, @NotNull String... uris) {
         synchronized (msgListeners) {
+            if (msgListeners.containsKey(listener))
+                throw new IllegalArgumentException(String.format("A listener for %s has already been added.", Arrays.toString(uris)));
+
             msgListeners.put(listener, Arrays.asList(uris));
             msgListeners.notifyAll();
         }
@@ -216,7 +256,7 @@ public class DealerClient implements Closeable {
     }
 
     public interface MessageListener {
-        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException;
+        void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException;
     }
 
     private static class Looper implements Runnable, Closeable {
@@ -277,10 +317,13 @@ public class DealerClient implements Closeable {
                 lastScheduledPing = null;
             }
 
-            if (conn.get() == ConnectionHolder.this)
+            ConnectionHolder holder = conn.get();
+            if (holder == null) return;
+
+            if (holder == ConnectionHolder.this)
                 connectionInvalided();
             else
-                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn.get(), ConnectionHolder.this));
+                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", holder, ConnectionHolder.this));
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {

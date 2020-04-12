@@ -21,7 +21,6 @@ import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
@@ -39,13 +38,14 @@ import xyz.gianlu.librespot.mercury.model.ImageId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 
 /**
  * @author Gianlu
  */
-public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener {
+public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener, Closeable {
     private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
 
     static {
@@ -73,7 +73,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
-        session.dealer().addMessageListener(this, "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
+        session.dealer().addMessageListener(this, "spotify:user:attributes:update", "hm://playlist/", "hm://collection/collection/" + session.username() + "/json");
     }
 
     @NotNull
@@ -91,10 +91,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 .setIsPlaying(false);
     }
 
-    private static boolean shouldPlay(@NotNull ContextTrack track) {
-        return PlayableId.isSupported(track.getUri()) && PlayableId.shouldPlay(track);
-    }
-
     @NotNull
     private static String generatePlaybackId(@NotNull Random random) {
         byte[] bytes = new byte[16];
@@ -108,6 +104,16 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         byte[] bytes = new byte[16];
         random.nextBytes(bytes);
         return Base64.getEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private boolean shouldPlay(@NotNull ContextTrack track) {
+        if (!PlayableId.isSupported(track.getUri()) || !PlayableId.shouldPlay(track))
+            return false;
+
+        boolean filterExplicit = Objects.equals(session.getUserAttribute("filter-explicit-content"), "1");
+        if (!filterExplicit) return true;
+
+        return !Boolean.parseBoolean(track.getMetadataOrDefault("is_explicit", "false"));
     }
 
     void setBuffering(boolean buffering) {
@@ -603,9 +609,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
         if (uri.startsWith("hm://playlist/")) {
-            PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(BytesArrayList.streamBase64(payloads));
+            PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(payload);
             String modUri = mod.getUri().toStringUtf8();
             if (context != null && Objects.equals(modUri, context.uri())) {
                 for (Playlist4ApiProto.Op op : mod.getOpsList()) {
@@ -649,7 +655,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             List<String> added = null;
             List<String> removed = null;
 
-            JsonArray items = JsonParser.parseString(payloads[0]).getAsJsonObject().getAsJsonArray("items");
+            JsonArray items = JsonParser.parseString(new String(payload)).getAsJsonObject().getAsJsonArray("items");
             for (JsonElement elm : items) {
                 JsonObject obj = elm.getAsJsonObject();
                 String itemUri = "spotify:" + obj.get("type").getAsString() + ":" + obj.get("identifier").getAsString();
@@ -708,6 +714,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     public void renewPlaybackId() {
         state.setPlaybackId(generatePlaybackId(session.random()));
+    }
+
+    @Override
+    public void close() {
+        session.dealer().removeMessageListener(this);
+
+        device.removeListener(this);
+        device.close();
     }
 
     public enum PreviousPlayable {

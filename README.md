@@ -29,7 +29,9 @@ All the configuration you need is inside the `config.toml` file, there you can d
 This is pretty straightforward, but remember that having hardcoded passwords isn't the best thing on earth.
 
 ### Zeroconf
-In this mode `librespot` becomes discoverable with Spotify Connect by devices on the same network. Just open a Spotify client and select `librespot-java` from the available devices list.
+In this mode `librespot` becomes discoverable with Spotify Connect by devices on the same network. Just open a Spotify client and select `librespot-java` from the available devices list. 
+
+If you have a firewall, you need to open the UDP port `5355` for mDNS. Then specify some random port in `zeroconf.listenPort` and open that TCP port too.
 
 ### Facebook
 Authenticate with Facebook. The console will provide a link to visit in order to continue the login process.

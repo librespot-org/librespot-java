@@ -1,14 +1,23 @@
 package xyz.gianlu.librespot.core;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
 import com.spotify.Keyexchange;
 import com.spotify.connectstate.Connect;
+import com.spotify.explicit.ExplicitContentPubsub;
+import com.spotify.explicit.ExplicitContentPubsub.UserAttributesUpdate;
 import okhttp3.Authenticator;
 import okhttp3.*;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 import xyz.gianlu.librespot.AbsConfiguration;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -21,6 +30,7 @@ import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.dealer.ApiClient;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.SubListener;
 import xyz.gianlu.librespot.player.AudioKeyManager;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
@@ -30,6 +40,9 @@ import xyz.gianlu.librespot.player.feeders.storage.ChannelManager;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.*;
@@ -43,7 +56,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author Gianlu
  */
-public final class Session implements Closeable {
+public final class Session implements Closeable, SubListener {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
@@ -77,8 +90,9 @@ public final class Session implements Closeable {
     private final OkHttpClient client;
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
     private final List<ReconnectionListener> reconnectionListeners = Collections.synchronizedList(new ArrayList<>());
+    private final Map<String, String> userAttributes = Collections.synchronizedMap(new HashMap<>());
     private ConnectionHolder conn;
-    private CipherPair cipherPair;
+    private volatile CipherPair cipherPair;
     private Receiver receiver;
     private Authentication.APWelcome apWelcome = null;
     private MercuryClient mercuryClient;
@@ -262,13 +276,11 @@ public final class Session implements Closeable {
             conn.socket.setSoTimeout(0);
         }
 
-
-        // Init Shannon cipher
-
-        cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
-                Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
-
         synchronized (authLock) {
+            // Init Shannon cipher
+            cipherPair = new CipherPair(Arrays.copyOfRange(data.toByteArray(), 0x14, 0x34),
+                    Arrays.copyOfRange(data.toByteArray(), 0x34, 0x54));
+
             authLock.set(true);
         }
 
@@ -306,6 +318,9 @@ public final class Session implements Closeable {
         EventServiceHelper.reportLang(this, conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
+
+
+        mercuryClient.interestedIn("spotify:user:attributes:update", this);
     }
 
     /**
@@ -354,6 +369,22 @@ public final class Session implements Closeable {
                     authLock.notifyAll();
                 }
             }
+
+            if (conf().storeCredentials()) {
+                ByteString reusable = apWelcome.getReusableAuthCredentials();
+                Authentication.AuthenticationType reusableType = apWelcome.getReusableAuthCredentialsType();
+
+                JsonObject obj = new JsonObject();
+                obj.addProperty("username", apWelcome.getCanonicalUsername());
+                obj.addProperty("credentials", Utils.toBase64(reusable));
+                obj.addProperty("type", reusableType.name());
+
+                File storeFile = conf().credentialsFile();
+                if (storeFile == null) throw new IllegalArgumentException();
+                try (FileOutputStream out = new FileOutputStream(storeFile)) {
+                    out.write(obj.toString().getBytes());
+                }
+            }
         } else if (packet.is(Packet.Type.AuthFailure)) {
             throw new SpotifyAuthenticationException(Keyexchange.APLoginFailed.parseFrom(packet.payload));
         } else {
@@ -368,14 +399,14 @@ public final class Session implements Closeable {
             receiver = null;
         }
 
-        if (dealer != null) {
-            dealer.close();
-            dealer = null;
-        }
-
         if (player != null) {
             player.close();
             player = null;
+        }
+
+        if (dealer != null) {
+            dealer.close();
+            dealer = null;
         }
 
         if (audioKeyManager != null) {
@@ -396,9 +427,11 @@ public final class Session implements Closeable {
         executorService.shutdown();
         conn.socket.close();
 
-        apWelcome = null;
-        cipherPair = null;
-        closed = true;
+        synchronized (authLock) {
+            apWelcome = null;
+            cipherPair = null;
+            closed = true;
+        }
 
         synchronized (closeListeners) {
             Iterator<CloseListener> i = closeListeners.iterator();
@@ -430,8 +463,19 @@ public final class Session implements Closeable {
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
-        waitAuthLock();
-        sendUnchecked(cmd, payload);
+        if (closed) throw new IllegalStateException("Session is closed!");
+
+        synchronized (authLock) {
+            if (cipherPair == null || authLock.get()) {
+                try {
+                    authLock.wait();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+
+            sendUnchecked(cmd, payload);
+        }
     }
 
     @NotNull
@@ -608,6 +652,53 @@ public final class Session implements Closeable {
         if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
     }
 
+    private void parseProductInfo(@NotNull InputStream in) throws IOException, SAXException, ParserConfigurationException {
+        DocumentBuilder dBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        Document doc = dBuilder.parse(in);
+
+        Node products = doc.getElementsByTagName("products").item(0);
+        if (products == null) return;
+
+        Node product = products.getChildNodes().item(0);
+        if (product == null) return;
+
+        NodeList properties = product.getChildNodes();
+        for (int i = 0; i < properties.getLength(); i++) {
+            Node node = properties.item(i);
+            userAttributes.put(node.getNodeName(), node.getTextContent());
+        }
+
+        LOGGER.trace("Parsed product info: " + userAttributes);
+    }
+
+    @Nullable
+    public String getUserAttribute(@NotNull String key) {
+        return userAttributes.get(key);
+    }
+
+    @Contract("_, !null -> !null")
+    public String getUserAttribute(@NotNull String key, @NotNull String fallback) {
+        return userAttributes.getOrDefault(key, fallback);
+    }
+
+    @Override
+    public void event(@NotNull MercuryClient.Response resp) {
+        if (resp.uri.equals("spotify:user:attributes:update")) {
+            UserAttributesUpdate attributesUpdate;
+            try {
+                attributesUpdate = UserAttributesUpdate.parseFrom(resp.payload.stream());
+            } catch (IOException ex) {
+                LOGGER.warn("Failed parsing user attributes update.", ex);
+                return;
+            }
+
+            for (ExplicitContentPubsub.KeyValuePair pair : attributesUpdate.getPairsList()) {
+                userAttributes.put(pair.getKey(), pair.getValue());
+                LOGGER.trace(String.format("Updated user attribute: %s -> %s", pair.getKey(), pair.getValue()));
+            }
+        }
+    }
+
     public interface ReconnectionListener {
         void onConnectionDropped();
 
@@ -650,7 +741,10 @@ public final class Session implements Closeable {
             this.deviceName = deviceName;
             this.configuration = configuration;
             this.random = new SecureRandom();
-            this.deviceId = Utils.randomString(random, 40);
+
+            String configuredDeviceId = configuration.deviceId();
+            this.deviceId = (configuredDeviceId == null || configuredDeviceId.isEmpty()) ?
+                    Utils.randomHexString(random, 40).toLowerCase() : configuredDeviceId;
         }
 
         @NotNull
@@ -774,33 +868,41 @@ public final class Session implements Closeable {
          */
         @NotNull
         public Session create() throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
-            if (loginCredentials == null) {
-                if (authConf != null) {
-                    String blob = authConf.authBlob();
-                    String username = authConf.authUsername();
-                    String password = authConf.authPassword();
+            if (authConf.storeCredentials()) {
+                File storeFile = authConf.credentialsFile();
+                if (storeFile != null && storeFile.exists()) {
+                    JsonObject obj = JsonParser.parseReader(new FileReader(storeFile)).getAsJsonObject();
+                    loginCredentials = Authentication.LoginCredentials.newBuilder()
+                            .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
+                            .setUsername(obj.get("username").getAsString())
+                            .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                            .build();
+                }
+            }
 
-                    switch (authConf.authStrategy()) {
-                        case FACEBOOK:
-                            facebook();
-                            break;
-                        case BLOB:
-                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
-                            if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
-                            blob(username, Base64.getDecoder().decode(blob));
-                            break;
-                        case USER_PASS:
-                            if (username == null) throw new IllegalArgumentException("Missing authUsername!");
-                            if (password == null) throw new IllegalArgumentException("Missing authPassword!");
-                            userPass(username, password);
-                            break;
-                        case ZEROCONF:
-                            throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
-                        default:
-                            throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
-                    }
-                } else {
-                    throw new IllegalStateException("Missing credentials!");
+            if (loginCredentials == null) {
+                String blob = authConf.authBlob();
+                String username = authConf.authUsername();
+                String password = authConf.authPassword();
+
+                switch (authConf.authStrategy()) {
+                    case FACEBOOK:
+                        facebook();
+                        break;
+                    case BLOB:
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
+                        blob(username, Base64.getDecoder().decode(blob));
+                        break;
+                    case USER_PASS:
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (password == null) throw new IllegalArgumentException("Missing authPassword!");
+                        userPass(username, password);
+                        break;
+                    case ZEROCONF:
+                        throw new IllegalStateException("Cannot handle ZEROCONF! Use ZeroconfServer.");
+                    default:
+                        throw new IllegalStateException("Unknown auth authStrategy: " + authConf.authStrategy());
                 }
             }
 
@@ -990,6 +1092,13 @@ public final class Session implements Closeable {
                     case ChannelError:
                     case StreamChunkRes:
                         channel().dispatch(packet);
+                        break;
+                    case ProductInfo:
+                        try {
+                            parseProductInfo(new ByteArrayInputStream(packet.payload));
+                        } catch (IOException | ParserConfigurationException | SAXException ex) {
+                            LOGGER.warn("Failed parsing prodcut info!", ex);
+                        }
                         break;
                     default:
                         LOGGER.info("Skipping " + cmd.name());
