@@ -10,7 +10,6 @@ import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
@@ -59,7 +58,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                         .setDeviceInfo(deviceInfo)
                         .build());
 
-        new Thread(worker).start();
+        new Thread(worker, "put-state-worker").start();
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
@@ -81,7 +80,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                         .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
                         .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
                         .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
-                        .setSupportsGzipPushes(false).setNeedsFullPlayerState(false)
+                        .setSupportsGzipPushes(true).setNeedsFullPlayerState(false)
                         .addSupportedTypes("audio/episode")
                         .addSupportedTypes("audio/track")
                         .build());
@@ -142,11 +141,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
         if (uri.startsWith("hm://pusher/v1/connections/")) {
             updateConnectionId(headers.get("Spotify-Connection-Id"));
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
-            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(BytesArrayList.streamBase64(payloads));
+            Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payload);
             synchronized (this) {
                 deviceInfo.setVolume(cmd.getVolume());
                 if (cmd.hasCommandOptions()) {
@@ -158,7 +157,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
-            Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(BytesArrayList.streamBase64(payloads));
+            Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
             LOGGER.debug(String.format("Received cluster update at %d: %s", now, ProtoUtils.toLogString(update, LOGGER)));
@@ -167,7 +166,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
-            LOGGER.warn(String.format("Message left unhandled! {uri: %s, rawPayloads: %s}", uri, Arrays.toString(payloads)));
+            LOGGER.warn(String.format("Message left unhandled! {uri: %s}", uri));
         }
     }
 

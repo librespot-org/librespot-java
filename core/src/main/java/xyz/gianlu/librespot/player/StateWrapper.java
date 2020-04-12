@@ -21,7 +21,6 @@ import okhttp3.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.BytesArrayList;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
@@ -590,9 +589,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull String[] payloads) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
         if (uri.startsWith("hm://playlist/")) {
-            PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(BytesArrayList.streamBase64(payloads));
+            PlaylistModificationInfo mod = PlaylistModificationInfo.parseFrom(payload);
             String modUri = mod.getUri().toStringUtf8();
             if (context != null && Objects.equals(modUri, context.uri())) {
                 for (Playlist4ApiProto.Op op : mod.getOpsList()) {
@@ -636,7 +635,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             List<String> added = null;
             List<String> removed = null;
 
-            JsonArray items = JsonParser.parseString(payloads[0]).getAsJsonObject().getAsJsonArray("items");
+            JsonArray items = JsonParser.parseString(new String(payload)).getAsJsonObject().getAsJsonArray("items");
             for (JsonElement elm : items) {
                 JsonObject obj = elm.getAsJsonObject();
                 String itemUri = "spotify:" + obj.get("type").getAsString() + ":" + obj.get("identifier").getAsString();
