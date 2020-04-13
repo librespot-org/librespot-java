@@ -32,7 +32,7 @@ public class ChannelManager extends PacketsManager {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "channel-queue-" + r.hashCode()));
 
     public ChannelManager(@NotNull Session session) {
-        super(session);
+        super(session, "channels");
     }
 
     void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
@@ -59,7 +59,7 @@ public class ChannelManager extends PacketsManager {
 
     @Override
     protected void handle(@NotNull Packet packet) {
-       throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -29,7 +29,7 @@ public final class AudioKeyManager extends PacketsManager {
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
 
     public AudioKeyManager(@NotNull Session session) {
-        super(session);
+        super(session, "audio-keys");
     }
 
     @NotNull

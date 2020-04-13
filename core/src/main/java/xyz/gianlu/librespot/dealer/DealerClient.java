@@ -11,6 +11,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
+import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
@@ -18,7 +19,10 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
@@ -27,7 +31,7 @@ import java.util.zip.GZIPInputStream;
  */
 public class DealerClient implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
-    private final Looper looper = new Looper();
+    private final AsyncWorker<Runnable> asyncWorker;
     private final Session session;
     private final Map<String, RequestListener> reqListeners = new HashMap<>();
     private final Map<MessageListener, List<String>> msgListeners = new HashMap<>();
@@ -37,7 +41,7 @@ public class DealerClient implements Closeable {
 
     public DealerClient(@NotNull Session session) {
         this.session = session;
-        new Thread(looper, "dealer-looper").start();
+        this.asyncWorker = new AsyncWorker<>("dealer-worker", Runnable::run);
     }
 
     @NotNull
@@ -98,7 +102,7 @@ public class DealerClient implements Closeable {
                 if (mid.startsWith(midPrefix)) {
                     RequestListener listener = reqListeners.get(midPrefix);
                     interesting = true;
-                    looper.submit(() -> {
+                    asyncWorker.submit(() -> {
                         RequestResult result = listener.onRequest(mid, pid, sender, command);
                         conn.get().sendReply(key, result);
                         LOGGER.debug(String.format("Handled request. {key: %s, result: %s}", key, result));
@@ -156,7 +160,7 @@ public class DealerClient implements Closeable {
                 for (String key : keys) {
                     if (uri.startsWith(key) && !dispatched) {
                         interesting = true;
-                        looper.submit(() -> {
+                        asyncWorker.submit(() -> {
                             try {
                                 listener.onMessage(uri, headers, decodedPayload);
                             } catch (IOException ex) {
@@ -217,6 +221,7 @@ public class DealerClient implements Closeable {
             lastScheduledReconnection = null;
         }
 
+        asyncWorker.close();
         scheduler.shutdown();
         msgListeners.clear();
     }
@@ -257,31 +262,6 @@ public class DealerClient implements Closeable {
 
     public interface MessageListener {
         void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException;
-    }
-
-    private static class Looper implements Runnable, Closeable {
-        private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
-        private boolean shouldStop = false;
-
-        void submit(@NotNull Runnable task) {
-            tasks.add(task);
-        }
-
-        @Override
-        public void run() {
-            while (!shouldStop) {
-                try {
-                    tasks.take().run();
-                } catch (InterruptedException ex) {
-                    break;
-                }
-            }
-        }
-
-        @Override
-        public void close() {
-            shouldStop = true;
-        }
     }
 
     private class ConnectionHolder implements Closeable {

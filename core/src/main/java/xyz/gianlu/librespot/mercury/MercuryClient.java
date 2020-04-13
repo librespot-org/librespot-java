@@ -37,7 +37,7 @@ public final class MercuryClient extends PacketsManager {
     private final Map<Long, BytesArrayList> partials = new HashMap<>();
 
     public MercuryClient(@NotNull Session session) {
-        super(session);
+        super(session, "mercury");
     }
 
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
