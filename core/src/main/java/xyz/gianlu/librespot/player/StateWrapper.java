@@ -602,7 +602,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         try {
             if (mov.hasFromIndex() && mov.hasToIndex() && mov.hasLength())
                 tracksKeeper.moveTracks(mov.getFromIndex(), mov.getToIndex(), mov.getLength());
-            else throw new IllegalArgumentException(TextFormat.shortDebugString(mov));
+            else
+                throw new IllegalArgumentException(TextFormat.shortDebugString(mov));
         } finally {
             if (wasShuffled) tracksKeeper.toggleShuffle(true);
         }
@@ -1295,7 +1296,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     shiftCurrentTrackIndex(newTo - curr);
 
                 // Set up for next iteration
-                if (counter > 0 && from > to) {
+                if (from > to) {
                     from++;
                     to++;
                 }
