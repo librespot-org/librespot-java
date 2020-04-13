@@ -1,6 +1,5 @@
 package xyz.gianlu.librespot.core;
 
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.crypto.Packet;
 
@@ -13,7 +12,6 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author Gianlu
  */
 public abstract class PacketsManager implements AutoCloseable {
-    private static final Logger LOGGER = Logger.getLogger(PacketsManager.class);
     protected final Session session;
     private final BlockingQueue<Packet> queue;
     private final Looper looper;
@@ -49,12 +47,9 @@ public abstract class PacketsManager implements AutoCloseable {
 
     private final class Looper implements Runnable {
         private volatile boolean shouldStop = false;
-        private Thread thread;
 
         @Override
         public void run() {
-            LOGGER.trace("PacketsManager.Looper started");
-            this.thread = Thread.currentThread();
             while (!shouldStop) {
                 try {
                     Packet packet = queue.take();
@@ -68,12 +63,10 @@ public abstract class PacketsManager implements AutoCloseable {
                 } catch (InterruptedException ignored) {
                 }
             }
-            LOGGER.trace("PacketsManager.Looper stopped");
         }
 
         void stop() {
             shouldStop = true;
-            thread.interrupt();
         }
     }
 }

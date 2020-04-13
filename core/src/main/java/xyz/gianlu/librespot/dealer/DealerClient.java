@@ -54,14 +54,14 @@ public class DealerClient implements Closeable {
      * Creates a new WebSocket client. <b>Intended for internal use only!</b>
      */
     public void connect() throws IOException, MercuryClient.MercuryException {
-        conn.set(new ConnectionHolder(session,
-                new Request.Builder().url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read"))).build()));
+        conn.set(new ConnectionHolder(session, new Request.Builder()
+                .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
+                .build()));
     }
 
     private void waitForListeners() {
         synchronized (msgListeners) {
-            if (!msgListeners.isEmpty())
-                return;
+            if (!msgListeners.isEmpty()) return;
 
             try {
                 msgListeners.wait();
@@ -107,8 +107,7 @@ public class DealerClient implements Closeable {
             }
         }
 
-        if (!interesting)
-            LOGGER.debug("Couldn't dispatch request: " + mid);
+        if (!interesting) LOGGER.debug("Couldn't dispatch request: " + mid);
     }
 
     private void handleMessage(@NotNull JsonObject obj) {
@@ -207,9 +206,6 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
-        looper.close();
-        scheduler.shutdown();
-
         if (conn.get() != null) {
             ConnectionHolder tmp = conn.get(); // Do not trigger connectionInvalided()
             conn.set(null);
@@ -221,6 +217,7 @@ public class DealerClient implements Closeable {
             lastScheduledReconnection = null;
         }
 
+        scheduler.shutdown();
         msgListeners.clear();
     }
 
@@ -247,11 +244,15 @@ public class DealerClient implements Closeable {
     }
 
     public enum RequestResult {
-        UNKNOWN_SEND_COMMAND_RESULT, SUCCESS, DEVICE_NOT_FOUND, CONTEXT_PLAYER_ERROR, DEVICE_DISAPPEARED, UPSTREAM_ERROR, DEVICE_DOES_NOT_SUPPORT_COMMAND, RATE_LIMITED
+        UNKNOWN_SEND_COMMAND_RESULT, SUCCESS,
+        DEVICE_NOT_FOUND, CONTEXT_PLAYER_ERROR,
+        DEVICE_DISAPPEARED, UPSTREAM_ERROR,
+        DEVICE_DOES_NOT_SUPPORT_COMMAND, RATE_LIMITED
     }
 
     public interface RequestListener {
-        @NotNull RequestResult onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
+        @NotNull
+        RequestResult onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command);
     }
 
     public interface MessageListener {
@@ -261,7 +262,6 @@ public class DealerClient implements Closeable {
     private static class Looper implements Runnable, Closeable {
         private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
         private boolean shouldStop = false;
-        private Thread thread;
 
         void submit(@NotNull Runnable task) {
             tasks.add(task);
@@ -269,8 +269,6 @@ public class DealerClient implements Closeable {
 
         @Override
         public void run() {
-            LOGGER.trace("DealerClient.Looper started");
-            this.thread = Thread.currentThread();
             while (!shouldStop) {
                 try {
                     tasks.take().run();
@@ -278,13 +276,11 @@ public class DealerClient implements Closeable {
                     break;
                 }
             }
-            LOGGER.trace("DealerClient.Looper stopped");
         }
 
         @Override
         public void close() {
             shouldStop = true;
-            thread.interrupt();
         }
     }
 
@@ -345,8 +341,7 @@ public class DealerClient implements Closeable {
                     receivedPong = false;
 
                     scheduler.schedule(() -> {
-                        if (lastScheduledPing == null || lastScheduledPing.isCancelled())
-                            return;
+                        if (lastScheduledPing == null || lastScheduledPing.isCancelled()) return;
 
                         if (!receivedPong) {
                             LOGGER.warn("Did not receive ping in 3 seconds. Reconnecting...");

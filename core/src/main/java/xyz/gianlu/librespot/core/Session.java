@@ -58,26 +58,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class Session implements Closeable, SubListener {
     private static final Logger LOGGER = Logger.getLogger(Session.class);
-    private static final byte[] serverKey = new byte[]{(byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b,
-            (byte) 0xfe, (byte) 0xc3, (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93,
-            (byte) 0xa1, (byte) 0x4f, (byte) 0xb3, (byte) 0xb0, (byte) 0x16, (byte) 0x12, (byte) 0xac, (byte) 0xac, (byte) 0x6a, (byte) 0xf1, (byte) 0x80, (byte) 0xe7, (byte) 0xf6,
-            (byte) 0x14, (byte) 0xd9, (byte) 0x42, (byte) 0x9d, (byte) 0xbe, (byte) 0x2e, (byte) 0x34, (byte) 0x66, (byte) 0x43, (byte) 0xe3, (byte) 0x62, (byte) 0xd2, (byte) 0x32,
-            (byte) 0x7a, (byte) 0x1a, (byte) 0x0d, (byte) 0x92, (byte) 0x3b, (byte) 0xae, (byte) 0xdd, (byte) 0x14, (byte) 0x02, (byte) 0xb1, (byte) 0x81, (byte) 0x55, (byte) 0x05,
-            (byte) 0x61, (byte) 0x04, (byte) 0xd5, (byte) 0x2c, (byte) 0x96, (byte) 0xa4, (byte) 0x4c, (byte) 0x1e, (byte) 0xcc, (byte) 0x02, (byte) 0x4a, (byte) 0xd4, (byte) 0xb2,
-            (byte) 0x0c, (byte) 0x00, (byte) 0x1f, (byte) 0x17, (byte) 0xed, (byte) 0xc2, (byte) 0x2f, (byte) 0xc4, (byte) 0x35, (byte) 0x21, (byte) 0xc8, (byte) 0xf0, (byte) 0xcb,
-            (byte) 0xae, (byte) 0xd2, (byte) 0xad, (byte) 0xd7, (byte) 0x2b, (byte) 0x0f, (byte) 0x9d, (byte) 0xb3, (byte) 0xc5, (byte) 0x32, (byte) 0x1a, (byte) 0x2a, (byte) 0xfe,
-            (byte) 0x59, (byte) 0xf3, (byte) 0x5a, (byte) 0x0d, (byte) 0xac, (byte) 0x68, (byte) 0xf1, (byte) 0xfa, (byte) 0x62, (byte) 0x1e, (byte) 0xfb, (byte) 0x2c, (byte) 0x8d,
-            (byte) 0x0c, (byte) 0xb7, (byte) 0x39, (byte) 0x2d, (byte) 0x92, (byte) 0x47, (byte) 0xe3, (byte) 0xd7, (byte) 0x35, (byte) 0x1a, (byte) 0x6d, (byte) 0xbd, (byte) 0x24,
-            (byte) 0xc2, (byte) 0xae, (byte) 0x25, (byte) 0x5b, (byte) 0x88, (byte) 0xff, (byte) 0xab, (byte) 0x73, (byte) 0x29, (byte) 0x8a, (byte) 0x0b, (byte) 0xcc, (byte) 0xcd,
-            (byte) 0x0c, (byte) 0x58, (byte) 0x67, (byte) 0x31, (byte) 0x89, (byte) 0xe8, (byte) 0xbd, (byte) 0x34, (byte) 0x80, (byte) 0x78, (byte) 0x4a, (byte) 0x5f, (byte) 0xc9,
-            (byte) 0x6b, (byte) 0x89, (byte) 0x9d, (byte) 0x95, (byte) 0x6b, (byte) 0xfc, (byte) 0x86, (byte) 0xd7, (byte) 0x4f, (byte) 0x33, (byte) 0xa6, (byte) 0x78, (byte) 0x17,
-            (byte) 0x96, (byte) 0xc9, (byte) 0xc3, (byte) 0x2d, (byte) 0x0d, (byte) 0x32, (byte) 0xa5, (byte) 0xab, (byte) 0xcd, (byte) 0x05, (byte) 0x27, (byte) 0xe2, (byte) 0xf7,
-            (byte) 0x10, (byte) 0xa3, (byte) 0x96, (byte) 0x13, (byte) 0xc4, (byte) 0x2f, (byte) 0x99, (byte) 0xc0, (byte) 0x27, (byte) 0xbf, (byte) 0xed, (byte) 0x04, (byte) 0x9c,
-            (byte) 0x3c, (byte) 0x27, (byte) 0x58, (byte) 0x04, (byte) 0xb6, (byte) 0xb2, (byte) 0x19, (byte) 0xf9, (byte) 0xc1, (byte) 0x2f, (byte) 0x02, (byte) 0xe9, (byte) 0x48,
-            (byte) 0x63, (byte) 0xec, (byte) 0xa1, (byte) 0xb6, (byte) 0x42, (byte) 0xa0, (byte) 0x9d, (byte) 0x48, (byte) 0x25, (byte) 0xf8, (byte) 0xb3, (byte) 0x9d, (byte) 0xd0,
-            (byte) 0xe8, (byte) 0x6a, (byte) 0xf9, (byte) 0x48, (byte) 0x4d, (byte) 0xa1, (byte) 0xc2, (byte) 0xba, (byte) 0x86, (byte) 0x30, (byte) 0x42, (byte) 0xea, (byte) 0x9d,
-            (byte) 0xb3, (byte) 0x08, (byte) 0x6c, (byte) 0x19, (byte) 0x0e, (byte) 0x48, (byte) 0xb3, (byte) 0x9d, (byte) 0x66, (byte) 0xeb, (byte) 0x00, (byte) 0x06, (byte) 0xa2,
-            (byte) 0x5a, (byte) 0xee, (byte) 0xa1, (byte) 0x1b, (byte) 0x13, (byte) 0x87, (byte) 0x3c, (byte) 0xd7, (byte) 0x19, (byte) 0xe6, (byte) 0x55, (byte) 0xbd};
+    private static final byte[] serverKey = new byte[]{
+            (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
+            (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93, (byte) 0xa1,
+            (byte) 0x4f, (byte) 0xb3, (byte) 0xb0, (byte) 0x16, (byte) 0x12, (byte) 0xac, (byte) 0xac, (byte) 0x6a, (byte) 0xf1, (byte) 0x80, (byte) 0xe7, (byte) 0xf6,
+            (byte) 0x14, (byte) 0xd9, (byte) 0x42, (byte) 0x9d, (byte) 0xbe, (byte) 0x2e, (byte) 0x34, (byte) 0x66, (byte) 0x43, (byte) 0xe3, (byte) 0x62, (byte) 0xd2,
+            (byte) 0x32, (byte) 0x7a, (byte) 0x1a, (byte) 0x0d, (byte) 0x92, (byte) 0x3b, (byte) 0xae, (byte) 0xdd, (byte) 0x14, (byte) 0x02, (byte) 0xb1, (byte) 0x81,
+            (byte) 0x55, (byte) 0x05, (byte) 0x61, (byte) 0x04, (byte) 0xd5, (byte) 0x2c, (byte) 0x96, (byte) 0xa4, (byte) 0x4c, (byte) 0x1e, (byte) 0xcc, (byte) 0x02,
+            (byte) 0x4a, (byte) 0xd4, (byte) 0xb2, (byte) 0x0c, (byte) 0x00, (byte) 0x1f, (byte) 0x17, (byte) 0xed, (byte) 0xc2, (byte) 0x2f, (byte) 0xc4, (byte) 0x35,
+            (byte) 0x21, (byte) 0xc8, (byte) 0xf0, (byte) 0xcb, (byte) 0xae, (byte) 0xd2, (byte) 0xad, (byte) 0xd7, (byte) 0x2b, (byte) 0x0f, (byte) 0x9d, (byte) 0xb3,
+            (byte) 0xc5, (byte) 0x32, (byte) 0x1a, (byte) 0x2a, (byte) 0xfe, (byte) 0x59, (byte) 0xf3, (byte) 0x5a, (byte) 0x0d, (byte) 0xac, (byte) 0x68, (byte) 0xf1,
+            (byte) 0xfa, (byte) 0x62, (byte) 0x1e, (byte) 0xfb, (byte) 0x2c, (byte) 0x8d, (byte) 0x0c, (byte) 0xb7, (byte) 0x39, (byte) 0x2d, (byte) 0x92, (byte) 0x47,
+            (byte) 0xe3, (byte) 0xd7, (byte) 0x35, (byte) 0x1a, (byte) 0x6d, (byte) 0xbd, (byte) 0x24, (byte) 0xc2, (byte) 0xae, (byte) 0x25, (byte) 0x5b, (byte) 0x88,
+            (byte) 0xff, (byte) 0xab, (byte) 0x73, (byte) 0x29, (byte) 0x8a, (byte) 0x0b, (byte) 0xcc, (byte) 0xcd, (byte) 0x0c, (byte) 0x58, (byte) 0x67, (byte) 0x31,
+            (byte) 0x89, (byte) 0xe8, (byte) 0xbd, (byte) 0x34, (byte) 0x80, (byte) 0x78, (byte) 0x4a, (byte) 0x5f, (byte) 0xc9, (byte) 0x6b, (byte) 0x89, (byte) 0x9d,
+            (byte) 0x95, (byte) 0x6b, (byte) 0xfc, (byte) 0x86, (byte) 0xd7, (byte) 0x4f, (byte) 0x33, (byte) 0xa6, (byte) 0x78, (byte) 0x17, (byte) 0x96, (byte) 0xc9,
+            (byte) 0xc3, (byte) 0x2d, (byte) 0x0d, (byte) 0x32, (byte) 0xa5, (byte) 0xab, (byte) 0xcd, (byte) 0x05, (byte) 0x27, (byte) 0xe2, (byte) 0xf7, (byte) 0x10,
+            (byte) 0xa3, (byte) 0x96, (byte) 0x13, (byte) 0xc4, (byte) 0x2f, (byte) 0x99, (byte) 0xc0, (byte) 0x27, (byte) 0xbf, (byte) 0xed, (byte) 0x04, (byte) 0x9c,
+            (byte) 0x3c, (byte) 0x27, (byte) 0x58, (byte) 0x04, (byte) 0xb6, (byte) 0xb2, (byte) 0x19, (byte) 0xf9, (byte) 0xc1, (byte) 0x2f, (byte) 0x02, (byte) 0xe9,
+            (byte) 0x48, (byte) 0x63, (byte) 0xec, (byte) 0xa1, (byte) 0xb6, (byte) 0x42, (byte) 0xa0, (byte) 0x9d, (byte) 0x48, (byte) 0x25, (byte) 0xf8, (byte) 0xb3,
+            (byte) 0x9d, (byte) 0xd0, (byte) 0xe8, (byte) 0x6a, (byte) 0xf9, (byte) 0x48, (byte) 0x4d, (byte) 0xa1, (byte) 0xc2, (byte) 0xba, (byte) 0x86, (byte) 0x30,
+            (byte) 0x42, (byte) 0xea, (byte) 0x9d, (byte) 0xb3, (byte) 0x08, (byte) 0x6c, (byte) 0x19, (byte) 0x0e, (byte) 0x48, (byte) 0xb3, (byte) 0x9d, (byte) 0x66,
+            (byte) 0xeb, (byte) 0x00, (byte) 0x06, (byte) 0xa2, (byte) 0x5a, (byte) 0xee, (byte) 0xa1, (byte) 0x1b, (byte) 0x13, (byte) 0x87, (byte) 0x3c, (byte) 0xd7,
+            (byte) 0x19, (byte) 0xe6, (byte) 0x55, (byte) 0xbd
+    };
     private final DiffieHellman keys;
     private final Inner inner;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
@@ -130,7 +134,9 @@ public final class Session implements Closeable, SubListener {
                     @Override
                     public Request authenticate(Route route, @NotNull Response response) {
                         String credential = Credentials.basic(username, password);
-                        return response.request().newBuilder().header("Proxy-Authorization", credential).build();
+                        return response.request().newBuilder()
+                                .header("Proxy-Authorization", credential)
+                                .build();
                     }
                 });
             }
@@ -141,8 +147,7 @@ public final class Session implements Closeable, SubListener {
 
     private static int readBlobInt(ByteBuffer buffer) {
         int lo = buffer.get();
-        if ((lo & 0x80) == 0)
-            return lo;
+        if ((lo & 0x80) == 0) return lo;
         int hi = buffer.get();
         return lo & 0x7f | hi << 7;
     }
@@ -167,10 +172,18 @@ public final class Session implements Closeable, SubListener {
         byte[] nonce = new byte[0x10];
         inner.random.nextBytes(nonce);
 
-        Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder().setBuildInfo(Version.standardBuildInfo())
-                .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON).setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
-                        .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello.newBuilder().setGc(ByteString.copyFrom(keys.publicKeyArray())).setServerKeysKnown(1).build()).build())
-                .setClientNonce(ByteString.copyFrom(nonce)).setPadding(ByteString.copyFrom(new byte[]{0x1e})).build();
+        Keyexchange.ClientHello clientHello = Keyexchange.ClientHello.newBuilder()
+                .setBuildInfo(Version.standardBuildInfo())
+                .addCryptosuitesSupported(Keyexchange.Cryptosuite.CRYPTO_SUITE_SHANNON)
+                .setLoginCryptoHello(Keyexchange.LoginCryptoHelloUnion.newBuilder()
+                        .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanHello.newBuilder()
+                                .setGc(ByteString.copyFrom(keys.publicKeyArray()))
+                                .setServerKeysKnown(1)
+                                .build())
+                        .build())
+                .setClientNonce(ByteString.copyFrom(nonce))
+                .setPadding(ByteString.copyFrom(new byte[]{0x1e}))
+                .build();
 
         byte[] clientHelloBytes = clientHello.toByteArray();
         int length = 2 + 4 + clientHelloBytes.length;
@@ -185,6 +198,7 @@ public final class Session implements Closeable, SubListener {
         acc.writeInt(length);
         acc.write(clientHelloBytes);
 
+
         // Read APResponseMessage
 
         length = conn.in.readInt();
@@ -197,6 +211,7 @@ public final class Session implements Closeable, SubListener {
         Keyexchange.APResponseMessage apResponseMessage = Keyexchange.APResponseMessage.parseFrom(buffer);
         byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray()));
 
+
         // Check gs_signature
 
         KeyFactory factory = KeyFactory.getInstance("RSA");
@@ -207,6 +222,7 @@ public final class Session implements Closeable, SubListener {
         sig.update(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGs().toByteArray());
         if (!sig.verify(apResponseMessage.getChallenge().getLoginCryptoChallenge().getDiffieHellman().getGsSignature().toByteArray()))
             throw new GeneralSecurityException("Failed signature check!");
+
 
         // Solve challenge
 
@@ -227,9 +243,14 @@ public final class Session implements Closeable, SubListener {
         mac.update(acc.array());
 
         byte[] challenge = mac.doFinal();
-        Keyexchange.ClientResponsePlaintext clientResponsePlaintext = Keyexchange.ClientResponsePlaintext.newBuilder().setLoginCryptoResponse(
-                Keyexchange.LoginCryptoResponseUnion.newBuilder().setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanResponse.newBuilder().setHmac(ByteString.copyFrom(challenge)).build())
-                        .build()).setPowResponse(Keyexchange.PoWResponseUnion.newBuilder().build()).setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder().build()).build();
+        Keyexchange.ClientResponsePlaintext clientResponsePlaintext = Keyexchange.ClientResponsePlaintext.newBuilder()
+                .setLoginCryptoResponse(Keyexchange.LoginCryptoResponseUnion.newBuilder()
+                        .setDiffieHellman(Keyexchange.LoginCryptoDiffieHellmanResponse.newBuilder()
+                                .setHmac(ByteString.copyFrom(challenge)).build())
+                        .build())
+                .setPowResponse(Keyexchange.PoWResponseUnion.newBuilder().build())
+                .setCryptoResponse(Keyexchange.CryptoResponseUnion.newBuilder().build())
+                .build();
 
         byte[] clientResponsePlaintextBytes = clientResponsePlaintext.toByteArray();
         length = 4 + clientResponsePlaintextBytes.length;
@@ -254,7 +275,6 @@ public final class Session implements Closeable, SubListener {
         } finally {
             conn.socket.setSoTimeout(0);
         }
-
 
         synchronized (authLock) {
             // Init Shannon cipher
@@ -310,15 +330,18 @@ public final class Session implements Closeable, SubListener {
      *                   {@code true} for {@link Session#reconnect()}.
      */
     private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials, boolean removeLock) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
-        if (cipherPair == null)
-            throw new IllegalStateException("Connection not established!");
+        if (cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
                 .setLoginCredentials(credentials)
                 .setSystemInfo(Authentication.SystemInfo.newBuilder()
                         .setOs(Authentication.Os.OS_UNKNOWN)
                         .setCpuFamily(Authentication.CpuFamily.CPU_UNKNOWN)
-                        .setSystemInformationString(Version.systemInfoString()).setDeviceId(inner.deviceId).build()).setVersionString(Version.versionString()).build();
+                        .setSystemInformationString(Version.systemInfoString())
+                        .setDeviceId(inner.deviceId)
+                        .build())
+                .setVersionString(Version.versionString())
+                .build();
 
         sendUnchecked(Packet.Type.Login, clientResponseEncrypted.toByteArray());
 
@@ -356,8 +379,7 @@ public final class Session implements Closeable, SubListener {
                 obj.addProperty("type", reusableType.name());
 
                 File storeFile = conf().credentialsFile();
-                if (storeFile == null)
-                    throw new IllegalArgumentException();
+                if (storeFile == null) throw new IllegalArgumentException();
                 try (FileOutputStream out = new FileOutputStream(storeFile)) {
                     out.write(obj.toString().getBytes());
                 }
@@ -371,10 +393,6 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
-        LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
-
-        scheduler.shutdownNow();
-
         if (receiver != null) {
             receiver.stop();
             receiver = null;
@@ -406,11 +424,7 @@ public final class Session implements Closeable, SubListener {
         }
 
         executorService.shutdown();
-
-        if (conn != null) {
-            conn.socket.close();
-            conn = null;
-        }
+        conn.socket.close();
 
         synchronized (authLock) {
             apWelcome = null;
@@ -426,7 +440,7 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s} ", inner.deviceId));
+        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -466,88 +480,77 @@ public final class Session implements Closeable, SubListener {
     @NotNull
     public MercuryClient mercury() {
         waitAuthLock();
-        if (mercuryClient == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
         return mercuryClient;
     }
 
     @NotNull
     public AudioKeyManager audioKey() {
         waitAuthLock();
-        if (audioKeyManager == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (audioKeyManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return audioKeyManager;
     }
 
     @NotNull
     public CacheManager cache() {
         waitAuthLock();
-        if (cacheManager == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (cacheManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return cacheManager;
     }
 
     @NotNull
     public CdnManager cdn() {
         waitAuthLock();
-        if (cdnManager == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (cdnManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return cdnManager;
     }
 
     @NotNull
     public ChannelManager channel() {
         waitAuthLock();
-        if (channelManager == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (channelManager == null) throw new IllegalStateException("Session isn't authenticated!");
         return channelManager;
     }
 
     @NotNull
     public TokenProvider tokens() {
         waitAuthLock();
-        if (tokenProvider == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (tokenProvider == null) throw new IllegalStateException("Session isn't authenticated!");
         return tokenProvider;
     }
 
     @NotNull
     public DealerClient dealer() {
         waitAuthLock();
-        if (dealer == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (dealer == null) throw new IllegalStateException("Session isn't authenticated!");
         return dealer;
     }
 
     @NotNull
     public ApiClient api() {
         waitAuthLock();
-        if (api == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (api == null) throw new IllegalStateException("Session isn't authenticated!");
         return api;
     }
 
     @NotNull
     public PlayableContentFeeder contentFeeder() {
         waitAuthLock();
-        if (contentFeeder == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (contentFeeder == null) throw new IllegalStateException("Session isn't authenticated!");
         return contentFeeder;
     }
 
     @NotNull
     public Player player() {
         waitAuthLock();
-        if (player == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (player == null) throw new IllegalStateException("Session isn't authenticated!");
         return player;
     }
 
     @NotNull
     public SearchManager search() {
         waitAuthLock();
-        if (search == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (search == null) throw new IllegalStateException("Session isn't authenticated!");
         return search;
     }
 
@@ -559,14 +562,12 @@ public final class Session implements Closeable, SubListener {
     @NotNull
     public Authentication.APWelcome apWelcome() {
         waitAuthLock();
-        if (apWelcome == null)
-            throw new IllegalStateException("Session isn't authenticated!");
+        if (apWelcome == null) throw new IllegalStateException("Session isn't authenticated!");
         return apWelcome;
     }
 
     public boolean valid() {
-        if (closed)
-            return false;
+        if (closed) return false;
 
         waitAuthLock();
         return apWelcome != null && conn != null && !conn.socket.isClosed();
@@ -586,7 +587,8 @@ public final class Session implements Closeable, SubListener {
         return inner.deviceType;
     }
 
-    @NotNull ExecutorService executor() {
+    @NotNull
+    ExecutorService executor() {
         return executorService;
     }
 
@@ -613,8 +615,11 @@ public final class Session implements Closeable, SubListener {
 
             conn = ConnectionHolder.create(ApResolver.getRandomAccesspoint(), conf());
             connect();
-            authenticatePartial(Authentication.LoginCredentials.newBuilder().setUsername(apWelcome.getCanonicalUsername()).setTyp(apWelcome.getReusableAuthCredentialsType())
-                    .setAuthData(apWelcome.getReusableAuthCredentials()).build(), true);
+            authenticatePartial(Authentication.LoginCredentials.newBuilder()
+                    .setUsername(apWelcome.getCanonicalUsername())
+                    .setTyp(apWelcome.getReusableAuthCredentialsType())
+                    .setAuthData(apWelcome.getReusableAuthCredentials())
+                    .build(), true);
 
             LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
 
@@ -639,13 +644,11 @@ public final class Session implements Closeable, SubListener {
     }
 
     public void addCloseListener(@NotNull CloseListener listener) {
-        if (!closeListeners.contains(listener))
-            closeListeners.add(listener);
+        if (!closeListeners.contains(listener)) closeListeners.add(listener);
     }
 
     public void addReconnectionListener(@NotNull ReconnectionListener listener) {
-        if (!reconnectionListeners.contains(listener))
-            reconnectionListeners.add(listener);
+        if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
     }
 
     private void parseProductInfo(@NotNull InputStream in) throws IOException, SAXException, ParserConfigurationException {
@@ -704,17 +707,21 @@ public final class Session implements Closeable, SubListener {
     public interface ProxyConfiguration {
         boolean proxyEnabled();
 
-        @NotNull Proxy.Type proxyType();
+        @NotNull
+        Proxy.Type proxyType();
 
-        @NotNull String proxyAddress();
+        @NotNull
+        String proxyAddress();
 
         int proxyPort();
 
         boolean proxyAuth();
 
-        @NotNull String proxyUsername();
+        @NotNull
+        String proxyUsername();
 
-        @NotNull String proxyPassword();
+        @NotNull
+        String proxyPassword();
     }
 
     public interface CloseListener {
@@ -735,7 +742,8 @@ public final class Session implements Closeable, SubListener {
             this.random = new SecureRandom();
 
             String configuredDeviceId = configuration.deviceId();
-            this.deviceId = (configuredDeviceId == null || configuredDeviceId.isEmpty()) ? Utils.randomHexString(random, 40).toLowerCase() : configuredDeviceId;
+            this.deviceId = (configuredDeviceId == null || configuredDeviceId.isEmpty()) ?
+                    Utils.randomHexString(random, 40).toLowerCase() : configuredDeviceId;
         }
 
         @NotNull
@@ -757,7 +765,10 @@ public final class Session implements Closeable, SubListener {
             byte[] secret = MessageDigest.getInstance("SHA-1").digest(deviceId.getBytes());
             byte[] baseKey = PBKDF2.HmacSHA1(secret, username.getBytes(), 0x100, 20);
 
-            byte[] key = ByteBuffer.allocate(24).put(MessageDigest.getInstance("SHA-1").digest(baseKey)).putInt(20).array();
+            byte[] key = ByteBuffer.allocate(24)
+                    .put(MessageDigest.getInstance("SHA-1").digest(baseKey))
+                    .putInt(20)
+                    .array();
 
             Cipher aes = Cipher.getInstance("AES/ECB/NoPadding");
             aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"));
@@ -784,7 +795,11 @@ public final class Session implements Closeable, SubListener {
             byte[] authData = new byte[len];
             blob.get(authData);
 
-            return Authentication.LoginCredentials.newBuilder().setUsername(username).setTyp(type).setAuthData(ByteString.copyFrom(authData)).build();
+            return Authentication.LoginCredentials.newBuilder()
+                    .setUsername(username)
+                    .setTyp(type)
+                    .setAuthData(ByteString.copyFrom(authData))
+                    .build();
         }
     }
 
@@ -839,8 +854,11 @@ public final class Session implements Closeable, SubListener {
          */
         @NotNull
         public Builder userPass(@NotNull String username, @NotNull String password) {
-            loginCredentials = Authentication.LoginCredentials.newBuilder().setUsername(username).setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
-                    .setAuthData(ByteString.copyFromUtf8(password)).build();
+            loginCredentials = Authentication.LoginCredentials.newBuilder()
+                    .setUsername(username)
+                    .setTyp(Authentication.AuthenticationType.AUTHENTICATION_USER_PASS)
+                    .setAuthData(ByteString.copyFromUtf8(password))
+                    .build();
             return this;
         }
 
@@ -853,8 +871,11 @@ public final class Session implements Closeable, SubListener {
                 File storeFile = authConf.credentialsFile();
                 if (storeFile != null && storeFile.exists()) {
                     JsonObject obj = JsonParser.parseReader(new FileReader(storeFile)).getAsJsonObject();
-                    loginCredentials = Authentication.LoginCredentials.newBuilder().setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
-                            .setUsername(obj.get("username").getAsString()).setAuthData(Utils.fromBase64(obj.get("credentials").getAsString())).build();
+                    loginCredentials = Authentication.LoginCredentials.newBuilder()
+                            .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
+                            .setUsername(obj.get("username").getAsString())
+                            .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                            .build();
                 }
             }
 
@@ -868,17 +889,13 @@ public final class Session implements Closeable, SubListener {
                         facebook();
                         break;
                     case BLOB:
-                        if (username == null)
-                            throw new IllegalArgumentException("Missing authUsername!");
-                        if (blob == null)
-                            throw new IllegalArgumentException("Missing authBlob!");
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
                         blob(username, Base64.getDecoder().decode(blob));
                         break;
                     case USER_PASS:
-                        if (username == null)
-                            throw new IllegalArgumentException("Missing authUsername!");
-                        if (password == null)
-                            throw new IllegalArgumentException("Missing authPassword!");
+                        if (username == null) throw new IllegalArgumentException("Missing authUsername!");
+                        if (password == null) throw new IllegalArgumentException("Missing authPassword!");
                         userPass(username, password);
                         break;
                     case ZEROCONF:
@@ -913,7 +930,8 @@ public final class Session implements Closeable, SubListener {
             this.close();
         }
 
-        @NotNull byte[] array() {
+        @NotNull
+        byte[] array() {
             return bytes;
         }
     }
@@ -953,8 +971,7 @@ public final class Session implements Closeable, SubListener {
                     out.flush();
 
                     String sl = Utils.readLine(in);
-                    if (!sl.contains("200"))
-                        throw new IOException("Failed connecting: " + sl);
+                    if (!sl.contains("200")) throw new IOException("Failed connecting: " + sl);
 
                     //noinspection StatementWithEmptyBody
                     while (!Utils.readLine(in).isEmpty()) {
@@ -993,20 +1010,16 @@ public final class Session implements Closeable, SubListener {
 
     private class Receiver implements Runnable {
         private volatile boolean shouldStop = false;
-        private Thread thread;
 
         private Receiver() {
         }
 
         void stop() {
             shouldStop = true;
-            thread.interrupt();
         }
 
         @Override
         public void run() {
-            LOGGER.trace("Session.Receiver started");
-            this.thread = Thread.currentThread();
             while (!shouldStop) {
                 Packet packet;
                 Packet.Type cmd;
@@ -1023,15 +1036,14 @@ public final class Session implements Closeable, SubListener {
                         reconnect();
                     }
 
-                    break;
+                    return;
                 }
 
-                if (shouldStop) break;
+                if (shouldStop) return;
 
                 switch (cmd) {
                     case Ping:
-                        if (scheduledReconnect != null)
-                            scheduledReconnect.cancel(true);
+                        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
                         scheduledReconnect = scheduler.schedule(() -> {
                             LOGGER.warn("Socket timed out. Reconnecting...");
                             reconnect();
@@ -1092,8 +1104,6 @@ public final class Session implements Closeable, SubListener {
                         break;
                 }
             }
-
-            LOGGER.trace("Session.Receiver stopped");
         }
     }
 }

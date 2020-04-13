@@ -59,7 +59,7 @@ public class ChannelManager extends PacketsManager {
 
     @Override
     protected void handle(@NotNull Packet packet) {
-        throw new UnsupportedOperationException();
+       throw new UnsupportedOperationException();
     }
 
     @Override
@@ -160,7 +160,6 @@ public class ChannelManager extends PacketsManager {
 
             @Override
             public void run() {
-                LOGGER.trace("ChannelManager.Handler started");
                 while (true) {
                     try {
                         if (handle(queue.take())) {
@@ -171,7 +170,6 @@ public class ChannelManager extends PacketsManager {
                         LOGGER.fatal("Failed handling packet!", ex);
                     }
                 }
-                LOGGER.trace("ChannelManager.Handler stopped");
             }
         }
     }
