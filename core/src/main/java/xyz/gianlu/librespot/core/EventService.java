@@ -29,32 +29,32 @@ public final class EventService implements Closeable {
         this.session = session;
         this.asyncWorker = new AsyncWorker<>("event-service", eventBuilder -> {
             try {
-                sendEvent(eventBuilder);
+                byte[] body = eventBuilder.toArray();
+                MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
+                        .setUri("hm://event-service/v1/events").setMethod("POST")
+                        .addUserField("Accept-Language", "en")
+                        .addUserField("X-ClientTimeStamp", String.valueOf(TimeProvider.currentTimeMillis()))
+                        .addPayloadPart(body)
+                        .build());
+
+                LOGGER.debug(String.format("Event sent. {body: %s, result: %d}", EventBuilder.toString(body), resp.statusCode));
             } catch (IOException ex) {
                 LOGGER.error("Failed sending event: " + eventBuilder, ex);
             }
         });
     }
 
-    private void sendEvent(@NotNull EventBuilder builder) throws IOException {
-        byte[] body = builder.toArray();
-        MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
-                .setUri("hm://event-service/v1/events").setMethod("POST")
-                .addUserField("Accept-Language", "en")
-                .addUserField("X-ClientTimeStamp", String.valueOf(TimeProvider.currentTimeMillis()))
-                .addPayloadPart(body)
-                .build());
-
-        LOGGER.debug(String.format("Event sent. {body: %s, result: %d}", EventBuilder.toString(body), resp.statusCode));
+    private void sendEvent(@NotNull EventBuilder builder) {
+        asyncWorker.submit(builder);
     }
 
-    public void reportLang(@NotNull String lang) throws IOException {
+    public void reportLang(@NotNull String lang) {
         EventBuilder event = new EventBuilder(Type.LANGUAGE);
         event.append(lang);
         sendEvent(event);
     }
 
-    public void trackTransition(@NotNull StateWrapper state, PlayableId id) throws IOException {
+    public void trackTransition(@NotNull StateWrapper state, @NotNull PlayableId id) {
         EventBuilder event = new EventBuilder(Type.TRACK_TRANSITION);
         event.append("1"); // FIXME: Incremental
         event.append(session.deviceId());
@@ -77,7 +77,7 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void trackPlayed(@NotNull StateWrapper state, @NotNull PlayableId uri, @NotNull PlaybackIntervals intervals) throws IOException {
+    public void trackPlayed(@NotNull StateWrapper state, @NotNull PlayableId uri, @NotNull PlaybackIntervals intervals) {
         trackTransition(state, uri);
 
         EventBuilder event = new EventBuilder(Type.TRACK_PLAYED);
@@ -86,13 +86,13 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void newPlaybackId(@NotNull StateWrapper state) throws IOException {
+    public void newPlaybackId(@NotNull StateWrapper state) {
         EventBuilder event = new EventBuilder(Type.NEW_PLAYBACK_ID);
         event.append(state.getPlaybackId()).append(state.getSessionId()).append(String.valueOf(TimeProvider.currentTimeMillis()));
         sendEvent(event);
     }
 
-    public void newSessionId(@NotNull StateWrapper state) throws IOException {
+    public void newSessionId(@NotNull StateWrapper state) {
         EventBuilder event = new EventBuilder(Type.NEW_SESSION_ID);
         event.append(state.getSessionId());
         String contextUri = state.getContextUri();
@@ -104,7 +104,7 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void fetchedFileId(Metadata.AudioFile file, PlayableId id) throws IOException {
+    public void fetchedFileId(@NotNull Metadata.AudioFile file, @NotNull PlayableId id) {
         EventBuilder event = new EventBuilder(Type.FETCHED_FILE_ID);
         event.append('2').append('2');
         event.append(Utils.bytesToHex(file.getFileId()).toLowerCase());
@@ -113,7 +113,7 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void cdnRequest(Metadata.AudioFile file, int fileLength, HttpUrl url) throws IOException { // FIXME
+    public void cdnRequest(@NotNull Metadata.AudioFile file, int fileLength, @NotNull HttpUrl url) { // FIXME
         EventBuilder event = new EventBuilder(Type.CDN_REQUEST);
         event.append(Utils.bytesToHex(file.getFileId()).toLowerCase());
         event.append("00000000000000000000000000000000");
@@ -159,7 +159,7 @@ public final class EventService implements Closeable {
         private final ByteArrayOutputStream body = new ByteArrayOutputStream(256);
 
         EventBuilder(@NotNull Type type) {
-            append(type.id);
+            appendNoDelimiter(type.id);
             append(type.unknown);
         }
 
@@ -174,6 +174,16 @@ public final class EventService implements Closeable {
             return result.toString();
         }
 
+        private void appendNoDelimiter(@Nullable String str) {
+            if (str == null) str = "";
+
+            try {
+                body.write(str.getBytes(StandardCharsets.UTF_8));
+            } catch (IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
+
         @NotNull
         EventBuilder append(char c) {
             body.write(0x09);
@@ -183,15 +193,8 @@ public final class EventService implements Closeable {
 
         @NotNull
         EventBuilder append(@Nullable String str) {
-            if (str == null) str = "";
-
-            try {
-                body.write(0x09);
-                body.write(str.getBytes(StandardCharsets.UTF_8));
-            } catch (IOException ex) {
-                throw new IllegalStateException(ex);
-            }
-
+            body.write(0x09);
+            appendNoDelimiter(str);
             return this;
         }
 

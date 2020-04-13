@@ -147,12 +147,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         events.contextChanged();
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
 
-        try {
-            session.eventService().newSessionId(state);
-            session.eventService().newPlaybackId(state);
-        } catch (IOException e) {
-            e.printStackTrace(); // FIXME
-        }
+        session.eventService().newSessionId(state);
+        session.eventService().newPlaybackId(state);
     }
 
     private void handleLoad(@NotNull JsonObject obj) {
@@ -305,11 +301,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
-            try {
-                session.eventService().trackPlayed(state, state.getCurrentPlayableOrThrow(), new EventService.PlaybackIntervals());
-            } catch (IOException e) {
-                e.printStackTrace(); // FIXME
-            }
+            session.eventService().trackPlayed(state, state.getCurrentPlayableOrThrow(), new EventService.PlaybackIntervals());
 
             LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
             handleNext(null);
