@@ -5,6 +5,7 @@ import javazoom.jl.decoder.BitstreamException;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
@@ -48,7 +49,7 @@ public class PlayerRunner implements Runnable, Closeable {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-runner-writer-" + r.hashCode()));
     private final Listener listener;
     private final Map<Integer, TrackHandler> loadedTracks = new HashMap<>(3);
-    private final BlockingQueue<CommandBundle> commands = new LinkedBlockingQueue<>();
+    private final AsyncWorker<CommandBundle> asyncWorker;
     private final Object pauseLock = new Object();
     private final Output output;
     private final MixingLine mixing = new MixingLine(OUTPUT_FORMAT);
@@ -94,8 +95,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
         output.setVolume(conf.initialVolume());
 
-        Looper looper;
-        new Thread(looper = new Looper(), "player-runner-looper-" + looper.hashCode()).start();
+        asyncWorker = new AsyncWorker<>("player-runner-looper", this::handleCommand);
     }
 
     /**
@@ -135,7 +135,7 @@ public class PlayerRunner implements Runnable, Closeable {
     }
 
     private void sendCommand(@NotNull Command command, int id, Object... args) {
-        commands.add(new CommandBundle(command, id, args));
+        asyncWorker.submit(new CommandBundle(command, id, args));
     }
 
     @NotNull
@@ -187,7 +187,7 @@ public class PlayerRunner implements Runnable, Closeable {
 
     @Override
     public void close() throws IOException {
-        commands.add(new CommandBundle(Command.TerminateMixer, -1));
+        asyncWorker.submit(new CommandBundle(Command.TerminateMixer, -1));
 
         closed = true;
         synchronized (pauseLock) {
@@ -203,6 +203,7 @@ public class PlayerRunner implements Runnable, Closeable {
         secondHandler = null;
 
         output.close();
+        asyncWorker.close();
         executorService.shutdown();
     }
 
@@ -410,110 +411,99 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
-    private class Looper implements Runnable {
+    private void handleCommand(CommandBundle cmd) {
+        TrackHandler handler;
+        switch (cmd.cmd) {
+            case Load:
+                handler = (TrackHandler) cmd.args[0];
+                loadedTracks.put(cmd.id, handler);
 
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    CommandBundle cmd = commands.take();
-                    TrackHandler handler;
-                    switch (cmd.cmd) {
-                        case Load:
-                            handler = (TrackHandler) cmd.args[0];
-                            loadedTracks.put(cmd.id, handler);
-
-                            try {
-                                handler.load((int) cmd.args[1]);
-                            } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
-                                listener.loadingError(handler, handler.playable, ex);
-                                handler.close();
-                            }
-                            break;
-                        case PushToMixer:
-                            handler = loadedTracks.get(cmd.id);
-                            if (handler == null) break;
-
-                            if (firstHandler == null) {
-                                firstHandler = handler;
-                                firstHandler.setOut(mixing.firstOut());
-                            } else if (secondHandler == null) {
-                                secondHandler = handler;
-                                secondHandler.setOut(mixing.secondOut());
-                            } else {
-                                throw new IllegalStateException();
-                            }
-
-                            executorService.execute(handler);
-                            break;
-                        case RemoveFromMixer:
-                            handler = loadedTracks.get(cmd.id);
-                            if (handler == null) break;
-                            handler.clearOut();
-                            break;
-                        case Stop:
-                            handler = loadedTracks.get(cmd.id);
-                            if (handler != null) handler.close();
-                            break;
-                        case Seek:
-                            handler = loadedTracks.get(cmd.id);
-                            if (handler == null) break;
-
-                            if (!handler.isReady())
-                                handler.waitReady();
-
-                            boolean shouldAbortCrossfade = false;
-                            if (handler == firstHandler && secondHandler != null) {
-                                secondHandler.close();
-                                secondHandler = null;
-                                shouldAbortCrossfade = true;
-                            } else if (handler == secondHandler && firstHandler != null) {
-                                firstHandler.close();
-                                firstHandler = null;
-                                shouldAbortCrossfade = true;
-                            }
-
-                            if (handler.codec != null) {
-                                if (shouldAbortCrossfade) handler.abortCrossfade();
-
-                                output.flush();
-                                if (handler.out != null) handler.out.stream().emptyBuffer();
-                                handler.codec.seek((Integer) cmd.args[0]);
-                            }
-
-                            listener.finishedSeek(handler);
-                            break;
-                        case PlayMixer:
-                            paused = false;
-                            synchronized (pauseLock) {
-                                pauseLock.notifyAll();
-                            }
-                            break;
-                        case PauseMixer:
-                            paused = true;
-                            break;
-                        case StopMixer:
-                            paused = true;
-                            for (TrackHandler h : new ArrayList<>(loadedTracks.values()))
-                                h.close();
-
-                            firstHandler = null;
-                            secondHandler = null;
-                            loadedTracks.clear();
-
-                            synchronized (pauseLock) {
-                                pauseLock.notifyAll();
-                            }
-                            break;
-                        case TerminateMixer:
-                            return;
-                        default:
-                            throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
-                    }
+                try {
+                    handler.load((int) cmd.args[1]);
+                } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                    listener.loadingError(handler, handler.playable, ex);
+                    handler.close();
                 }
-            } catch (InterruptedException ex) {
-                LOGGER.fatal("Failed handling command!", ex);
-            }
+                break;
+            case PushToMixer:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+
+                if (firstHandler == null) {
+                    firstHandler = handler;
+                    firstHandler.setOut(mixing.firstOut());
+                } else if (secondHandler == null) {
+                    secondHandler = handler;
+                    secondHandler.setOut(mixing.secondOut());
+                } else {
+                    throw new IllegalStateException();
+                }
+
+                executorService.execute(handler);
+                break;
+            case RemoveFromMixer:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+                handler.clearOut();
+                break;
+            case Stop:
+                handler = loadedTracks.get(cmd.id);
+                if (handler != null) handler.close();
+                break;
+            case Seek:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+
+                if (!handler.isReady())
+                    handler.waitReady();
+
+                boolean shouldAbortCrossfade = false;
+                if (handler == firstHandler && secondHandler != null) {
+                    secondHandler.close();
+                    secondHandler = null;
+                    shouldAbortCrossfade = true;
+                } else if (handler == secondHandler && firstHandler != null) {
+                    firstHandler.close();
+                    firstHandler = null;
+                    shouldAbortCrossfade = true;
+                }
+
+                if (handler.codec != null) {
+                    if (shouldAbortCrossfade) handler.abortCrossfade();
+
+                    output.flush();
+                    if (handler.out != null) handler.out.stream().emptyBuffer();
+                    handler.codec.seek((Integer) cmd.args[0]);
+                }
+
+                listener.finishedSeek(handler);
+                break;
+            case PlayMixer:
+                paused = false;
+                synchronized (pauseLock) {
+                    pauseLock.notifyAll();
+                }
+                break;
+            case PauseMixer:
+                paused = true;
+                break;
+            case StopMixer:
+                paused = true;
+                for (TrackHandler h : new ArrayList<>(loadedTracks.values()))
+                    h.close();
+
+                firstHandler = null;
+                secondHandler = null;
+                loadedTracks.clear();
+
+                synchronized (pauseLock) {
+                    pauseLock.notifyAll();
+                }
+                break;
+            case TerminateMixer:
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
         }
     }
 
