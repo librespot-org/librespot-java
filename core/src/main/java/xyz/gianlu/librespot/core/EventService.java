@@ -2,8 +2,10 @@ package xyz.gianlu.librespot.core;
 
 import com.spotify.metadata.Metadata;
 import okhttp3.HttpUrl;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
@@ -19,13 +21,22 @@ import java.nio.charset.StandardCharsets;
  * @author Gianlu
  */
 public final class EventService implements Closeable {
+    private final static Logger LOGGER = Logger.getLogger(EventService.class);
     private final Session session;
+    private final AsyncWorker<EventBuilder> asyncWorker;
 
     EventService(@NotNull Session session) {
         this.session = session;
+        this.asyncWorker = new AsyncWorker<>("event-service", eventBuilder -> {
+            try {
+                sendEvent(eventBuilder);
+            } catch (IOException ex) {
+                LOGGER.error("Failed sending event: " + eventBuilder, ex);
+            }
+        });
     }
 
-    private void sendEvent(@NotNull EventBuilder builder) throws IOException { // TODO: Async
+    private void sendEvent(@NotNull EventBuilder builder) throws IOException {
         byte[] body = builder.toArray();
         MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
                 .setUri("hm://event-service/v1/events").setMethod("POST")
@@ -34,7 +45,7 @@ public final class EventService implements Closeable {
                 .addPayloadPart(body)
                 .build());
 
-        System.out.println(EventBuilder.toString(body) + " => " + resp.statusCode); // FIXME
+        LOGGER.debug(String.format("Event sent. {body: %s, result: %d}", EventBuilder.toString(body), resp.statusCode));
     }
 
     public void reportLang(@NotNull String lang) throws IOException {
@@ -126,8 +137,8 @@ public final class EventService implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
-        // TODO
+    public void close() {
+        asyncWorker.close();
     }
 
     private enum Type {
@@ -163,12 +174,14 @@ public final class EventService implements Closeable {
             return result.toString();
         }
 
+        @NotNull
         EventBuilder append(char c) {
             body.write(0x09);
             body.write(c);
             return this;
         }
 
+        @NotNull
         EventBuilder append(@Nullable String str) {
             if (str == null) str = "";
 
@@ -180,6 +193,11 @@ public final class EventService implements Closeable {
             }
 
             return this;
+        }
+
+        @Override
+        public String toString() {
+            return "EventBuilder{" + toString(toArray()) + '}';
         }
 
         @NotNull
