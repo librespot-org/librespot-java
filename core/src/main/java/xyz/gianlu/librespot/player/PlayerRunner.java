@@ -31,7 +31,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -223,6 +225,107 @@ public class PlayerRunner implements Runnable, Closeable {
         output.setVolume(volume);
     }
 
+    /**
+     * Handles a command from {@link PlayerRunner#asyncWorker}, MUST not be called manually.
+     *
+     * @param cmd The command
+     */
+    private void handleCommand(@NotNull CommandBundle cmd) {
+        TrackHandler handler;
+        switch (cmd.cmd) {
+            case Load:
+                handler = (TrackHandler) cmd.args[0];
+                loadedTracks.put(cmd.id, handler);
+
+                try {
+                    handler.load((int) cmd.args[1]);
+                } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
+                    listener.loadingError(handler, handler.playable, ex);
+                    handler.close();
+                }
+                break;
+            case PushToMixer:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+
+                if (firstHandler == null) {
+                    firstHandler = handler;
+                    firstHandler.setOut(mixing.firstOut());
+                } else if (secondHandler == null) {
+                    secondHandler = handler;
+                    secondHandler.setOut(mixing.secondOut());
+                } else {
+                    throw new IllegalStateException();
+                }
+
+                executorService.execute(handler);
+                break;
+            case RemoveFromMixer:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+                handler.clearOut();
+                break;
+            case Stop:
+                handler = loadedTracks.get(cmd.id);
+                if (handler != null) handler.close();
+                break;
+            case Seek:
+                handler = loadedTracks.get(cmd.id);
+                if (handler == null) break;
+
+                if (!handler.isReady())
+                    handler.waitReady();
+
+                boolean shouldAbortCrossfade = false;
+                if (handler == firstHandler && secondHandler != null) {
+                    secondHandler.close();
+                    secondHandler = null;
+                    shouldAbortCrossfade = true;
+                } else if (handler == secondHandler && firstHandler != null) {
+                    firstHandler.close();
+                    firstHandler = null;
+                    shouldAbortCrossfade = true;
+                }
+
+                if (handler.codec != null) {
+                    if (shouldAbortCrossfade) handler.abortCrossfade();
+
+                    output.flush();
+                    if (handler.out != null) handler.out.stream().emptyBuffer();
+                    handler.codec.seek((Integer) cmd.args[0]);
+                }
+
+                listener.finishedSeek(handler);
+                break;
+            case PlayMixer:
+                paused = false;
+                synchronized (pauseLock) {
+                    pauseLock.notifyAll();
+                }
+                break;
+            case PauseMixer:
+                paused = true;
+                break;
+            case StopMixer:
+                paused = true;
+                for (TrackHandler h : new ArrayList<>(loadedTracks.values()))
+                    h.close();
+
+                firstHandler = null;
+                secondHandler = null;
+                loadedTracks.clear();
+
+                synchronized (pauseLock) {
+                    pauseLock.notifyAll();
+                }
+                break;
+            case TerminateMixer:
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
+        }
+    }
+
     public enum Command {
         PlayMixer, PauseMixer, StopMixer, TerminateMixer,
         Load, PushToMixer, Stop, Seek, RemoveFromMixer
@@ -408,102 +511,6 @@ public class PlayerRunner implements Runnable, Closeable {
             this.cmd = cmd;
             this.id = id;
             this.args = args;
-        }
-    }
-
-    private void handleCommand(CommandBundle cmd) {
-        TrackHandler handler;
-        switch (cmd.cmd) {
-            case Load:
-                handler = (TrackHandler) cmd.args[0];
-                loadedTracks.put(cmd.id, handler);
-
-                try {
-                    handler.load((int) cmd.args[1]);
-                } catch (IOException | LineHelper.MixerException | Codec.CodecException | ContentRestrictedException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
-                    listener.loadingError(handler, handler.playable, ex);
-                    handler.close();
-                }
-                break;
-            case PushToMixer:
-                handler = loadedTracks.get(cmd.id);
-                if (handler == null) break;
-
-                if (firstHandler == null) {
-                    firstHandler = handler;
-                    firstHandler.setOut(mixing.firstOut());
-                } else if (secondHandler == null) {
-                    secondHandler = handler;
-                    secondHandler.setOut(mixing.secondOut());
-                } else {
-                    throw new IllegalStateException();
-                }
-
-                executorService.execute(handler);
-                break;
-            case RemoveFromMixer:
-                handler = loadedTracks.get(cmd.id);
-                if (handler == null) break;
-                handler.clearOut();
-                break;
-            case Stop:
-                handler = loadedTracks.get(cmd.id);
-                if (handler != null) handler.close();
-                break;
-            case Seek:
-                handler = loadedTracks.get(cmd.id);
-                if (handler == null) break;
-
-                if (!handler.isReady())
-                    handler.waitReady();
-
-                boolean shouldAbortCrossfade = false;
-                if (handler == firstHandler && secondHandler != null) {
-                    secondHandler.close();
-                    secondHandler = null;
-                    shouldAbortCrossfade = true;
-                } else if (handler == secondHandler && firstHandler != null) {
-                    firstHandler.close();
-                    firstHandler = null;
-                    shouldAbortCrossfade = true;
-                }
-
-                if (handler.codec != null) {
-                    if (shouldAbortCrossfade) handler.abortCrossfade();
-
-                    output.flush();
-                    if (handler.out != null) handler.out.stream().emptyBuffer();
-                    handler.codec.seek((Integer) cmd.args[0]);
-                }
-
-                listener.finishedSeek(handler);
-                break;
-            case PlayMixer:
-                paused = false;
-                synchronized (pauseLock) {
-                    pauseLock.notifyAll();
-                }
-                break;
-            case PauseMixer:
-                paused = true;
-                break;
-            case StopMixer:
-                paused = true;
-                for (TrackHandler h : new ArrayList<>(loadedTracks.values()))
-                    h.close();
-
-                firstHandler = null;
-                secondHandler = null;
-                loadedTracks.clear();
-
-                synchronized (pauseLock) {
-                    pauseLock.notifyAll();
-                }
-                break;
-            case TerminateMixer:
-                return;
-            default:
-                throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
         }
     }
 

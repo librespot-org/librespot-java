@@ -233,6 +233,21 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         listeners.clear();
     }
 
+    /**
+     * Performs the network request related to {@link Connect.PutStateRequest}. This MUST be called only from {@link DeviceStateHandler#putStateWorker}.
+     *
+     * @param req The {@link Connect.PutStateRequest}
+     */
+    private void putConnectState(@NotNull Connect.PutStateRequest req) {
+        try {
+            session.api().putConnectState(connectionId, req);
+            LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
+                    req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed updating state.", ex);
+        }
+    }
+
     public enum Endpoint {
         Play("play"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
         SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),
@@ -422,16 +437,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
         public Boolean valueBool() {
             return value == null ? null : Boolean.parseBoolean(value);
-        }
-    }
-
-    private void putConnectState(Connect.PutStateRequest req) {
-        try {
-            session.api().putConnectState(connectionId, req);
-            LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
-                    req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.error("Failed updating state.", ex);
         }
     }
 
