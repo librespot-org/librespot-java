@@ -59,7 +59,7 @@ public class ChannelManager extends PacketsManager {
 
     @Override
     protected void handle(@NotNull Packet packet) {
-       throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     @Override
