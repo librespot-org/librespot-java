@@ -206,6 +206,8 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
+		looper.close();
+		scheduler.shutdown();
         if (conn.get() != null) {
             ConnectionHolder tmp = conn.get(); // Do not trigger connectionInvalided()
             conn.set(null);
@@ -217,7 +219,6 @@ public class DealerClient implements Closeable {
             lastScheduledReconnection = null;
         }
 
-        scheduler.shutdown();
         msgListeners.clear();
     }
 
@@ -262,6 +263,7 @@ public class DealerClient implements Closeable {
     private static class Looper implements Runnable, Closeable {
         private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
         private boolean shouldStop = false;
+		private Thread thread;
 
         void submit(@NotNull Runnable task) {
             tasks.add(task);
@@ -269,6 +271,8 @@ public class DealerClient implements Closeable {
 
         @Override
         public void run() {
+			LOGGER.trace("DealerClient.Looper started");
+			this.thread = Thread.currentThread();
             while (!shouldStop) {
                 try {
                     tasks.take().run();
@@ -276,11 +280,13 @@ public class DealerClient implements Closeable {
                     break;
                 }
             }
+			LOGGER.trace("DealerClient.Looper stopped");
         }
 
         @Override
         public void close() {
             shouldStop = true;
+			thread.interrupt();
         }
     }
 

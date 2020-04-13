@@ -148,6 +148,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
     @Override
     public void run() {
+        LOGGER.trace("PlayerRunner started");
+
         byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
 
         boolean started = false;
@@ -183,6 +185,8 @@ public class PlayerRunner implements Runnable, Closeable {
             output.close();
         } catch (IOException ignored) {
         }
+
+        LOGGER.trace("PlayerRunner stopped");
     }
 
     @Override
@@ -414,8 +418,10 @@ public class PlayerRunner implements Runnable, Closeable {
 
         @Override
         public void run() {
+            LOGGER.trace("PlayerRunner.Looper started");
             try {
-                while (true) {
+                boolean shouldBreak = false;
+                while (!shouldBreak) {
                     CommandBundle cmd = commands.take();
                     TrackHandler handler;
                     switch (cmd.cmd) {
@@ -506,7 +512,8 @@ public class PlayerRunner implements Runnable, Closeable {
                             }
                             break;
                         case TerminateMixer:
-                            return;
+                            shouldBreak = true;
+                            break;
                         default:
                             throw new IllegalArgumentException("Unknown command: " + cmd.cmd);
                     }
@@ -514,6 +521,7 @@ public class PlayerRunner implements Runnable, Closeable {
             } catch (InterruptedException ex) {
                 LOGGER.fatal("Failed handling command!", ex);
             }
+            LOGGER.trace("PlayerRunner.Looper stopped");
         }
     }
 
@@ -749,6 +757,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
         @Override
         public void run() {
+            LOGGER.trace("TrackHandler started");
+
             waitReady();
 
             int seekTo = -1;
@@ -792,6 +802,8 @@ public class PlayerRunner implements Runnable, Closeable {
             }
 
             close();
+
+            LOGGER.trace("TrackHandler stopped");
         }
 
         boolean isInMixer() {
