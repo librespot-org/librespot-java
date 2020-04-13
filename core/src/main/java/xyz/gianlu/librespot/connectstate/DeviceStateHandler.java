@@ -11,6 +11,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
+import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -23,9 +24,6 @@ import xyz.gianlu.librespot.player.PlayerRunner;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
@@ -45,20 +43,18 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private final Connect.DeviceInfo.Builder deviceInfo;
     private final List<Listener> listeners = Collections.synchronizedList(new ArrayList<>());
     private final Connect.PutStateRequest.Builder putState;
-    private final Worker worker;
+    private final AsyncWorker<Connect.PutStateRequest> putStateWorker;
     private volatile String connectionId = null;
 
     public DeviceStateHandler(@NotNull Session session) {
         this.session = session;
         this.deviceInfo = initializeDeviceInfo(session);
-        this.worker = new Worker();
+        this.putStateWorker = new AsyncWorker<>("put-state-worker", this::putConnectState);
         this.putState = Connect.PutStateRequest.newBuilder()
                 .setMemberType(Connect.MemberType.CONNECT_STATE)
                 .setDevice(Connect.Device.newBuilder()
                         .setDeviceInfo(deviceInfo)
                         .build());
-
-        new Thread(worker, "put-state-worker").start();
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
@@ -211,7 +207,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
-        worker.submit(putState.build());
+        putStateWorker.submit(putState.build());
     }
 
     public synchronized int getVolume() {
@@ -233,8 +229,23 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         session.dealer().removeRequestListener(this);
         session.mercury().notInterested(this);
 
-        worker.stop();
+        putStateWorker.close();
         listeners.clear();
+    }
+
+    /**
+     * Performs the network request related to {@link Connect.PutStateRequest}. This MUST be called only from {@link DeviceStateHandler#putStateWorker}.
+     *
+     * @param req The {@link Connect.PutStateRequest}
+     */
+    private void putConnectState(@NotNull Connect.PutStateRequest req) {
+        try {
+            session.api().putConnectState(connectionId, req);
+            LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
+                    req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed updating state.", ex);
+        }
     }
 
     public enum Endpoint {
@@ -429,38 +440,4 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         }
     }
 
-    private class Worker implements Runnable {
-        private final BlockingQueue<Connect.PutStateRequest> queue = new LinkedBlockingQueue<>();
-        private volatile boolean shouldStop = false;
-
-        void stop() {
-            shouldStop = true;
-        }
-
-        void submit(@NotNull Connect.PutStateRequest request) {
-            queue.add(request);
-        }
-
-        @Override
-        public void run() {
-            while (!shouldStop) {
-                Connect.PutStateRequest req;
-                try {
-                    req = queue.poll(1000, TimeUnit.MILLISECONDS);
-                    if (shouldStop) return;
-                    if (req == null) continue;
-                } catch (InterruptedException ignored) {
-                    continue;
-                }
-
-                try {
-                    session.api().putConnectState(connectionId, req);
-                    LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
-                            req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
-                } catch (IOException | MercuryClient.MercuryException ex) {
-                    LOGGER.error("Failed updating state.", ex);
-                }
-            }
-        }
-    }
 }
