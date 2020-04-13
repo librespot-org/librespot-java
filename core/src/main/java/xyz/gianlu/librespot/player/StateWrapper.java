@@ -588,6 +588,27 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
     }
 
+    /**
+     * Performs the given move operation. This also makes sure that {@link TracksKeeper#tracks} is in a non-shuffled state,
+     * even if {@link StateWrapper#isShufflingContext()} may return {@code true}. Context will be therefore reshuffled.
+     */
+    private synchronized void performMove(@NotNull Playlist4ApiProto.Mov mov) {
+        boolean wasShuffled = false;
+        if (isShufflingContext()) {
+            wasShuffled = true;
+            tracksKeeper.toggleShuffle(false);
+        }
+
+        try {
+            if (mov.hasFromIndex() && mov.hasToIndex() && mov.hasLength())
+                tracksKeeper.moveTracks(mov.getFromIndex(), mov.getToIndex(), mov.getLength());
+            else
+                throw new IllegalArgumentException(TextFormat.shortDebugString(mov));
+        } finally {
+            if (wasShuffled) tracksKeeper.toggleShuffle(true);
+        }
+    }
+
     @Override
     public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
         if (uri.startsWith("hm://playlist/")) {
@@ -603,6 +624,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                             performRemove(op.getRem());
                             break;
                         case MOV:
+                            performMove(op.getMov());
+                            break;
                         case UPDATE_ITEM_ATTRIBUTES:
                         case UPDATE_LIST_ATTRIBUTES:
                             LOGGER.warn("Unsupported operation: " + TextFormat.shortDebugString(op));
@@ -1245,6 +1268,41 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             } else {
                 updatePrevNextTracks();
             }
+        }
+
+        /**
+         * Moves tracks in the current state. {@link TracksKeeper#tracks} MUST be in a
+         * non-shuffled state.
+         */
+        void moveTracks(int from, int to, int length) {
+            if (from == to)
+                return; // nothing to do
+
+            for (int counter = length; counter > 0; counter--) {
+                ContextTrack toMove = tracks.remove(from);
+
+                // To index shifts by one if to > from
+                int newTo = to - (to > from ? 1 : 0);
+
+                tracks.add(newTo, toMove);
+
+                // Fix up the current track index
+                int curr = getCurrentTrackIndex();
+                if (from < curr && newTo >= curr)
+                    shiftCurrentTrackIndex(-1);
+                else if (from > curr && newTo <= curr)
+                    shiftCurrentTrackIndex(1);
+                else if (from == curr)
+                    shiftCurrentTrackIndex(newTo - curr);
+
+                // Set up for next iteration
+                if (from > to) {
+                    from++;
+                    to++;
+                }
+            }
+
+            updatePrevNextTracks();
         }
 
         synchronized void updateMetadataFor(int index, @NotNull String key, @NotNull String value) {
