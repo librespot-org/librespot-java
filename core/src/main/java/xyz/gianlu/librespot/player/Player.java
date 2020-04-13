@@ -16,7 +16,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
-import xyz.gianlu.librespot.core.EventServiceHelper;
+import xyz.gianlu.librespot.core.EventService;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -148,8 +148,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
 
         try {
-            EventServiceHelper.announceNewSessionId(session, state);
-            EventServiceHelper.announceNewPlaybackId(session, state);
+            session.eventService().newSessionId(state);
+            session.eventService().newPlaybackId(state);
         } catch (IOException e) {
             e.printStackTrace(); // FIXME
         }
@@ -306,8 +306,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
             try {
-                EventServiceHelper.reportPlayback(session, state, state.getCurrentPlayableOrThrow().toSpotifyUri(),
-                        new EventServiceHelper.PlaybackIntervals());
+                session.eventService().trackPlayed(state, state.getCurrentPlayableOrThrow(), new EventService.PlaybackIntervals());
             } catch (IOException e) {
                 e.printStackTrace(); // FIXME
             }

@@ -34,6 +34,9 @@ public final class CdnFeedHelper {
     public static @NotNull LoadedStream loadTrack(@NotNull Session session, Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file, @NotNull HttpUrl url, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException {
         byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
         CdnManager.Streamer streamer = session.cdn().streamFile(file, key, url, haltListener);
+
+        session.eventService().cdnRequest(file, streamer.size(), url);
+
         InputStream in = streamer.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
         if (in.skip(0xa7) != 0xa7) throw new IOException("Couldn't skip 0xa7 bytes!");

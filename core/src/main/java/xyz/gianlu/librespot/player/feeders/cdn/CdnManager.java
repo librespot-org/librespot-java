@@ -317,6 +317,10 @@ public class CdnManager {
             }
         }
 
+        public int size() {
+            return size;
+        }
+
         private class InternalStream extends AbsChunkedInputStream {
 
             private InternalStream(Player.@NotNull Configuration conf) {

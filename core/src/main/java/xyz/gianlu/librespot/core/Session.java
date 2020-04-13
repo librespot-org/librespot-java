@@ -106,6 +106,7 @@ public final class Session implements Closeable, SubListener {
     private ApiClient api;
     private SearchManager search;
     private PlayableContentFeeder contentFeeder;
+    private EventService eventService;
     private String countryCode = null;
     private volatile boolean closed = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
@@ -306,6 +307,7 @@ public final class Session implements Closeable, SubListener {
             dealer = new DealerClient(this);
             player = new Player(conf(), this);
             search = new SearchManager(this);
+            eventService = new EventService(this);
 
             authLock.set(false);
             authLock.notifyAll();
@@ -315,7 +317,7 @@ public final class Session implements Closeable, SubListener {
         player.initState();
 
         TimeProvider.init(this);
-        EventServiceHelper.reportLang(this, conf().preferredLocale());
+        eventService.reportLang(conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
 
@@ -417,6 +419,11 @@ public final class Session implements Closeable, SubListener {
         if (channelManager != null) {
             channelManager.close();
             channelManager = null;
+        }
+
+        if (eventService != null) {
+            eventService.close();
+            eventService = null;
         }
 
         if (mercuryClient != null) {
@@ -553,6 +560,13 @@ public final class Session implements Closeable, SubListener {
         waitAuthLock();
         if (search == null) throw new IllegalStateException("Session isn't authenticated!");
         return search;
+    }
+
+    @NotNull
+    public EventService eventService() {
+        waitAuthLock();
+        if (eventService == null) throw new IllegalStateException("Session isn't authenticated!");
+        return eventService;
     }
 
     @NotNull

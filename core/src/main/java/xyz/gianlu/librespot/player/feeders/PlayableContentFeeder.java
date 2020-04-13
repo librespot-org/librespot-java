@@ -7,6 +7,7 @@ import okhttp3.HttpUrl;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -89,29 +90,33 @@ public final class PlayableContentFeeder {
     }
 
     @NotNull
+    @Contract("_, null, null, _, _ -> fail")
     private LoadedStream loadCdnStream(@NotNull Metadata.AudioFile file, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode, @NotNull String urlStr, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException {
+        if (track == null && episode == null)
+            throw new IllegalStateException();
+
         HttpUrl url = HttpUrl.get(urlStr);
         if (track != null) return CdnFeedHelper.loadTrack(session, track, file, url, haltListener);
-        else if (episode != null) return CdnFeedHelper.loadEpisode(session, episode, file, url, haltListener);
-        else throw new IllegalStateException();
+        else return CdnFeedHelper.loadEpisode(session, episode, file, url, haltListener);
     }
 
     @NotNull
+    @Contract("_, null, null, _ -> fail")
     private LoadedStream loadStream(@NotNull Metadata.AudioFile file, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+        if (track == null && episode == null)
+            throw new IllegalStateException();
+
+        session.eventService().fetchedFileId(file, track != null ? PlayableId.from(track) : PlayableId.from(episode));
+
         StorageResolveResponse resp = resolveStorageInteractive(file.getFileId());
         switch (resp.getResult()) {
             case CDN:
                 if (track != null) return CdnFeedHelper.loadTrack(session, track, file, resp, haltListener);
-                else if (episode != null) return CdnFeedHelper.loadEpisode(session, episode, file, resp, haltListener);
-                else throw new IllegalStateException();
+                else return CdnFeedHelper.loadEpisode(session, episode, file, resp, haltListener);
             case STORAGE:
                 try {
-                    if (track != null)
-                        return StorageFeedHelper.loadTrack(session, track, file, haltListener);
-                    else if (episode != null)
-                        return StorageFeedHelper.loadEpisode(session, episode, file, haltListener);
-                    else
-                        throw new IllegalStateException();
+                    if (track != null) return StorageFeedHelper.loadTrack(session, track, file, haltListener);
+                    else return StorageFeedHelper.loadEpisode(session, episode, file, haltListener);
                 } catch (AudioFileFetch.StorageNotAvailable ex) {
                     LOGGER.info("Storage is not available. Going CDN: " + ex.cdnUrl);
                     return loadCdnStream(file, track, episode, ex.cdnUrl, haltListener);
