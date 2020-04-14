@@ -16,7 +16,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
-import xyz.gianlu.librespot.core.EventService;
+import xyz.gianlu.librespot.core.EventService.PlaybackDescriptor;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -55,6 +55,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private TrackHandler crossfadeHandler;
     private TrackHandler preloadTrackHandler;
     private ScheduledFuture<?> releaseLineFuture = null;
+    private PlaybackDescriptor playbackDescriptor = null;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -105,7 +106,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     public void next() {
-        handleNext(null);
+        handleNext(null, TransitionInfo.skippedNext(state));
     }
 
     public void previous() {
@@ -126,7 +127,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.contextChanged();
-        loadTrack(play, PushToMixerReason.None);
+        loadTrack(play, PushToMixerReason.None, TransitionInfo.contextChange(state, true));
     }
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
@@ -145,7 +146,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.contextChanged();
-        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None);
+        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None, TransitionInfo.contextChange(state, true));
 
         session.eventService().newSessionId(state);
         session.eventService().newPlaybackId(state);
@@ -170,7 +171,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
         if (paused == null) paused = true;
-        loadTrack(!paused, PushToMixerReason.None);
+        loadTrack(!paused, PushToMixerReason.None, TransitionInfo.contextChange(state, PlayCommandHelper.willSkipToSomething(obj)));
     }
 
     @Override
@@ -183,7 +184,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         switch (endpoint) {
             case Play:
-                System.out.println(data.obj());
                 handleLoad(data.obj());
                 break;
             case Transfer:
@@ -199,7 +199,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 handleSeek(data.valueInt());
                 break;
             case SkipNext:
-                handleNext(data.obj());
+                handleNext(data.obj(), TransitionInfo.skippedNext(state));
                 break;
             case SkipPrev:
                 handlePrev();
@@ -258,6 +258,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
         else LOGGER.warn("Couldn't update metadata!");
 
+        if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id))
+            playbackDescriptor.update(trackHandler);
+
         events.metadataAvailable();
     }
 
@@ -286,7 +289,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (handler == trackHandler) {
             if (ex instanceof ContentRestrictedException) {
                 LOGGER.fatal(String.format("Can't load track (content restricted), gid: %s", Utils.bytesToHex(id.getGid())), ex);
-                handleNext(null);
+                handleNext(null, TransitionInfo.nextError(state));
                 return;
             }
 
@@ -301,10 +304,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
         if (handler == trackHandler) {
-            session.eventService().trackPlayed(state, state.getCurrentPlayableOrThrow(), new EventService.PlaybackIntervals());
-
             LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
-            handleNext(null);
+            handleNext(null, TransitionInfo.next(state));
 
             PlayableId curr;
             if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
@@ -341,7 +342,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
             crossfadeHandler.waitReady();
             LOGGER.info("Crossfading to next track.");
-            crossfadeHandler.pushToMixer(PushToMixerReason.Fade);
+            crossfadeHandler.pushToMixer(PushToMixerReason.FadeNext);
         }
     }
 
@@ -406,6 +407,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     }
 
     private void handleSeek(int pos) {
+        if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
+            playbackDescriptor.endInterval(state.getPosition());
+            playbackDescriptor.startInterval(pos);
+        }
+
         state.setPosition(pos);
         if (trackHandler != null) trackHandler.seek(pos);
         events.seeked(pos);
@@ -417,7 +423,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.updated();
     }
 
-    private void loadTrack(boolean play, @NotNull PushToMixerReason reason) {
+    private void loadTrack(boolean play, @NotNull PushToMixerReason reason, @NotNull TransitionInfo trans) {
+        if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
+            playbackDescriptor.endedHow(trans.endedHow);
+            playbackDescriptor.endInterval(trans.endedWhen);
+            session.eventService().trackPlayed(state, playbackDescriptor);
+            playbackDescriptor = null;
+        }
+
         if (trackHandler != null) {
             trackHandler.stop();
             trackHandler = null;
@@ -426,6 +439,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.renewPlaybackId();
 
         PlayableId id = state.getCurrentPlayableOrThrow();
+        playbackDescriptor = new PlaybackDescriptor(id);
         if (crossfadeHandler != null && crossfadeHandler.isPlayable(id)) {
             trackHandler = crossfadeHandler;
             if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
@@ -486,6 +500,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             releaseLineFuture.cancel(true);
             releaseLineFuture = null;
         }
+
+        playbackDescriptor.startedHow(trans.startedHow);
+        playbackDescriptor.startInterval(state.getPosition());
     }
 
     private void handleResume() {
@@ -544,13 +561,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.updated();
     }
 
-    private void handleNext(@Nullable JsonObject obj) {
+    private void handleNext(@Nullable JsonObject obj, @NotNull TransitionInfo trans) {
         ContextTrack track = null;
         if (obj != null) track = PlayCommandHelper.getTrack(obj);
 
         if (track != null) {
             state.skipTo(track);
-            loadTrack(true, PushToMixerReason.Next);
+            loadTrack(true, PushToMixerReason.Next, TransitionInfo.skipTo(state));
             return;
         }
 
@@ -561,8 +578,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         if (next.isOk()) {
+            trans.endedWhen = state.getPosition();
+
             state.setPosition(0);
-            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next);
+            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next, trans);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
             panicState();
@@ -587,7 +606,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, PushToMixerReason.None);
+                loadTrack(true, PushToMixerReason.None, TransitionInfo.contextChange(state, false));
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
@@ -596,7 +615,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, PushToMixerReason.None);
+                loadTrack(true, PushToMixerReason.None, TransitionInfo.contextChange(state, false));
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
@@ -620,7 +639,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
                 state.setPosition(0);
-                loadTrack(true, PushToMixerReason.Prev);
+                loadTrack(true, PushToMixerReason.Prev, TransitionInfo.skippedPrev(state));
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
                 panicState();
@@ -780,6 +799,91 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void onInactiveSession(boolean timeout);
 
         void onVolumeChanged(@Range(from = 0, to = 1) float volume);
+    }
+
+    /**
+     * Stores information about the transition between two tracks.
+     */
+    private static class TransitionInfo {
+        /**
+         * How the <bold>next</bold> track started
+         */
+        final PlaybackDescriptor.How startedHow;
+
+        /**
+         * How the <bold>previous</bold> track ended
+         */
+        final PlaybackDescriptor.How endedHow;
+
+        /**
+         * When the <bold>previous</bold> track ended
+         */
+        int endedWhen = -1;
+
+        private TransitionInfo(@NotNull PlaybackDescriptor.How endedHow, @NotNull PlaybackDescriptor.How startedHow) {
+            this.startedHow = startedHow;
+            this.endedHow = endedHow;
+        }
+
+        /**
+         * Context changed.
+         */
+        @NotNull
+        static TransitionInfo contextChange(@NotNull StateWrapper state, boolean withSkip) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.END_PLAY, withSkip ? PlaybackDescriptor.How.CLICK_ROW : PlaybackDescriptor.How.PLAY_BTN);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
+
+        /**
+         * Skipping to another track in the same context.
+         */
+        @NotNull
+        static TransitionInfo skipTo(@NotNull StateWrapper state) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.END_PLAY, PlaybackDescriptor.How.CLICK_ROW);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
+
+        /**
+         * Skipping to previous track.
+         */
+        @NotNull
+        static TransitionInfo skippedPrev(@NotNull StateWrapper state) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.BACK_BTN, PlaybackDescriptor.How.BACK_BTN);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
+
+        /**
+         * Proceeding to the next track without user intervention.
+         */
+        @NotNull
+        static TransitionInfo next(@NotNull StateWrapper state) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.TRACK_DONE, PlaybackDescriptor.How.TRACK_DONE);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
+
+        /**
+         * Skipping to next track.
+         */
+        @NotNull
+        static TransitionInfo skippedNext(@NotNull StateWrapper state) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.FORWARD_BTN, PlaybackDescriptor.How.FORWARD_BTN);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
+
+        /**
+         * Skipping to next track due to an error.
+         */
+        @NotNull
+        static TransitionInfo nextError(@NotNull StateWrapper state) {
+            TransitionInfo trans = new TransitionInfo(PlaybackDescriptor.How.TRACK_ERROR, PlaybackDescriptor.How.TRACK_ERROR);
+            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
+            return trans;
+        }
     }
 
     private static class MetadataPipe {

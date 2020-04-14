@@ -332,8 +332,7 @@ public class PlayerRunner implements Runnable, Closeable {
     }
 
     public enum PushToMixerReason {
-        None, Next,
-        Prev, Fade
+        None, Next, Prev, FadeNext
     }
 
     public interface Listener {
@@ -749,9 +748,8 @@ public class PlayerRunner implements Runnable, Closeable {
             waitReady();
 
             int seekTo = -1;
-            if (pushReason == PushToMixerReason.Fade) {
+            if (pushReason == PushToMixerReason.FadeNext)
                 seekTo = crossfade.fadeInStartTime();
-            }
 
             if (seekTo != -1) codec.seek(seekTo);
 
@@ -793,6 +791,17 @@ public class PlayerRunner implements Runnable, Closeable {
 
         boolean isInMixer() {
             return firstHandler == this || secondHandler == this;
+        }
+
+        public int duration() {
+            return codec == null ? 0 : codec.duration();
+        }
+
+        @Nullable
+        public String encoding() {
+            if (codec instanceof VorbisCodec) return "vorbis";
+            else if (codec instanceof Mp3Codec) return "mp3"; // TODO
+            else return null;
         }
     }
 }

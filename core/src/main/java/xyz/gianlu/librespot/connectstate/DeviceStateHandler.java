@@ -319,6 +319,16 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             return obj.getAsJsonObject("options").getAsJsonObject("player_options_override");
         }
 
+        public static boolean willSkipToSomething(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return false;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return false;
+
+            return parent.has("track_uid") || parent.has("track_uri") || parent.has("track_index");
+        }
+
         @Nullable
         public static String getSkipToUid(@NotNull JsonObject obj) {
             JsonObject parent = obj.getAsJsonObject("options");
@@ -389,17 +399,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             JsonElement elm;
             if ((elm = options.get("seek_to")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
             else return null;
-        }
-
-        @NotNull
-        public static JsonArray getPages(@NotNull JsonObject obj) {
-            JsonObject context = getContext(obj);
-            return context.getAsJsonArray("pages");
-        }
-
-        @NotNull
-        public static JsonObject getMetadata(@NotNull JsonObject obj) {
-            return getContext(obj).getAsJsonObject("metadata");
         }
     }
 

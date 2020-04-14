@@ -173,6 +173,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return state.getContextUri();
     }
 
+    @Nullable
+    public String getContextUrl() {
+        return state.getContextUrl();
+    }
+
     private void loadTransforming() {
         if (tracksKeeper == null) throw new IllegalStateException();
 
@@ -510,7 +515,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @Nullable
-    PlayableId getCurrentPlayable() {
+    public PlayableId getCurrentPlayable() {
         return tracksKeeper == null ? null : PlayableId.from(tracksKeeper.getCurrentTrack());
     }
 
@@ -721,6 +726,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         else state.putContextMetadata(key, value);
     }
 
+    @NotNull
+    public PlayOrigin getPlayOrigin() {
+        return state.getPlayOrigin();
+    }
+
     @Nullable
     public String getPlaybackId() {
         return state.getPlaybackId();
@@ -731,11 +741,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return state.getSessionId();
     }
 
-    public void renewSessionId() {
+    private void renewSessionId() {
         state.setSessionId(generateSessionId(session.random()));
     }
 
-    public void renewPlaybackId() {
+    void renewPlaybackId() {
         state.setPlaybackId(generatePlaybackId(session.random()));
     }
 
