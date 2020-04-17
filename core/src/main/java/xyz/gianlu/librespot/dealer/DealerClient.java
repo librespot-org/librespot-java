@@ -23,7 +23,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -36,7 +35,7 @@ public class DealerClient implements Closeable {
     private final Map<String, RequestListener> reqListeners = new HashMap<>();
     private final Map<MessageListener, List<String>> msgListeners = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "dealer-scheduler-" + r.hashCode()));
-    private final AtomicReference<ConnectionHolder> conn = new AtomicReference<>();
+    private volatile ConnectionHolder conn = null;
     private ScheduledFuture<?> lastScheduledReconnection;
 
     public DealerClient(@NotNull Session session) {
@@ -57,10 +56,10 @@ public class DealerClient implements Closeable {
     /**
      * Creates a new WebSocket client. <b>Intended for internal use only!</b>
      */
-    public void connect() throws IOException, MercuryClient.MercuryException {
-        conn.set(new ConnectionHolder(session, new Request.Builder()
+    public synchronized void connect() throws IOException, MercuryClient.MercuryException {
+        conn = new ConnectionHolder(session, new Request.Builder()
                 .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
-                .build()));
+                .build());
     }
 
     private void waitForListeners() {
@@ -104,7 +103,7 @@ public class DealerClient implements Closeable {
                     interesting = true;
                     asyncWorker.submit(() -> {
                         RequestResult result = listener.onRequest(mid, pid, sender, command);
-                        conn.get().sendReply(key, result);
+                        if (conn != null) conn.sendReply(key, result);
                         LOGGER.debug(String.format("Handled request. {key: %s, result: %s}", key, result));
                     });
                 }
@@ -210,9 +209,9 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
-        if (conn.get() != null) {
-            ConnectionHolder tmp = conn.get(); // Do not trigger connectionInvalided()
-            conn.set(null);
+        if (conn != null) {
+            ConnectionHolder tmp = conn; // Do not trigger connectionInvalided()
+            conn = null;
             tmp.close();
         }
 
@@ -229,11 +228,11 @@ public class DealerClient implements Closeable {
     /**
      * Called when the {@link ConnectionHolder} has been closed and cannot be used no more for a connection.
      */
-    private void connectionInvalided() {
+    private synchronized void connectionInvalided() {
         if (lastScheduledReconnection != null && !lastScheduledReconnection.isDone())
             throw new IllegalStateException();
 
-        conn.set(null);
+        conn = null;
 
         LOGGER.trace("Scheduled reconnection attempt in 10 seconds...");
         lastScheduledReconnection = scheduler.schedule(() -> {
@@ -297,13 +296,10 @@ public class DealerClient implements Closeable {
                 lastScheduledPing = null;
             }
 
-            ConnectionHolder holder = conn.get();
-            if (holder == null) return;
-
-            if (holder == ConnectionHolder.this)
+            if (conn == ConnectionHolder.this)
                 connectionInvalided();
             else
-                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", holder, ConnectionHolder.this));
+                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn, ConnectionHolder.this));
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {
@@ -343,10 +339,18 @@ public class DealerClient implements Closeable {
                 MessageType type = MessageType.parse(obj.get("type").getAsString());
                 switch (type) {
                     case MESSAGE:
-                        handleMessage(obj);
+                        try {
+                            handleMessage(obj);
+                        } catch (Exception ex) {
+                            LOGGER.warn("Failed handling message: " + obj, ex);
+                        }
                         break;
                     case REQUEST:
-                        handleRequest(obj);
+                        try {
+                            handleRequest(obj);
+                        } catch (Exception ex) {
+                            LOGGER.warn("Failed handling request: " + obj, ex);
+                        }
                         break;
                     case PONG:
                         receivedPong = true;
