@@ -393,6 +393,10 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
+		LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
+
+		scheduler.shutdownNow();
+
         if (receiver != null) {
             receiver.stop();
             receiver = null;
@@ -424,7 +428,11 @@ public final class Session implements Closeable, SubListener {
         }
 
         executorService.shutdown();
+
+		if (conn != null) {
         conn.socket.close();
+            conn = null;
+		}
 
         synchronized (authLock) {
             apWelcome = null;
@@ -440,7 +448,7 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
+		LOGGER.info(String.format("Closed session. {deviceId: %s} ", inner.deviceId));
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -629,7 +637,11 @@ public final class Session implements Closeable, SubListener {
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
             conn = null;
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
-            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            try {
+                scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            } catch (RejectedExecutionException e){
+                LOGGER.info("Scheduler already shutdown, stopping reconnection", ex);
+            }
         }
     }
 
@@ -1010,16 +1022,20 @@ public final class Session implements Closeable, SubListener {
 
     private class Receiver implements Runnable {
         private volatile boolean shouldStop = false;
+		private Thread thread;
 
         private Receiver() {
         }
 
         void stop() {
             shouldStop = true;
+            thread.interrupt();
         }
 
         @Override
         public void run() {
+            LOGGER.trace("Session.Receiver started");
+            this.thread = Thread.currentThread();
             while (!shouldStop) {
                 Packet packet;
                 Packet.Type cmd;
@@ -1036,10 +1052,10 @@ public final class Session implements Closeable, SubListener {
                         reconnect();
                     }
 
-                    return;
+                    break;
                 }
 
-                if (shouldStop) return;
+                if (shouldStop) break;
 
                 switch (cmd) {
                     case Ping:
@@ -1104,6 +1120,8 @@ public final class Session implements Closeable, SubListener {
                         break;
                 }
             }
+
+            LOGGER.trace("Session.Receiver stopped");
         }
     }
 }

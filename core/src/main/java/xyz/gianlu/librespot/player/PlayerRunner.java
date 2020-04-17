@@ -150,6 +150,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
     @Override
     public void run() {
+        LOGGER.trace("PlayerRunner is starting");
+
         byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
 
         boolean started = false;
@@ -185,6 +187,8 @@ public class PlayerRunner implements Runnable, Closeable {
             output.close();
         } catch (IOException ignored) {
         }
+
+        LOGGER.trace("PlayerRunner is shutting down");
     }
 
     @Override
@@ -746,6 +750,8 @@ public class PlayerRunner implements Runnable, Closeable {
 
         @Override
         public void run() {
+            LOGGER.trace("PlayerRunner.TrackHandler is starting");
+
             waitReady();
 
             int seekTo = -1;
@@ -789,6 +795,8 @@ public class PlayerRunner implements Runnable, Closeable {
             }
 
             close();
+
+            LOGGER.trace("PlayerRunner.TrackHandler is shutting down");
         }
 
         boolean isInMixer() {

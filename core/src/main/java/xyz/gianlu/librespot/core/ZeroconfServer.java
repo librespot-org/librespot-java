@@ -475,6 +475,7 @@ public class ZeroconfServer implements Closeable {
         public void close() throws IOException {
             shouldStop = true;
             serverSocket.close();
+            executorService.shutdown();
         }
     }
 }

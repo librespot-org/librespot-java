@@ -160,7 +160,10 @@ public class ChannelManager extends PacketsManager {
 
             @Override
             public void run() {
+                LOGGER.trace("ChannelManager.Handler is starting");
                 while (true) {
+                    // TODO Check if loop breaks at Session.close()
+					// TODO ExecutorService should be shutdown on Session.close() to avoid zombie threads
                     try {
                         if (handle(queue.take())) {
                             channels.remove(id);
@@ -170,6 +173,7 @@ public class ChannelManager extends PacketsManager {
                         LOGGER.fatal("Failed handling packet!", ex);
                     }
                 }
+                LOGGER.trace("ChannelManager.Handler is shutting down");
             }
         }
     }
