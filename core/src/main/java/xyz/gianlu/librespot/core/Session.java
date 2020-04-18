@@ -429,11 +429,6 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
-        if (receiver != null) {
-            receiver.stop();
-            receiver = null;
-        }
-
         if (player != null) {
             player.close();
             player = null;
@@ -462,6 +457,11 @@ public final class Session implements Closeable, SubListener {
         if (mercuryClient != null) {
             mercuryClient.close();
             mercuryClient = null;
+        }
+
+        if (receiver != null) {
+            receiver.stop();
+            receiver = null;
         }
 
         executorService.shutdown();

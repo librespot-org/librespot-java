@@ -16,6 +16,7 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
+import xyz.gianlu.librespot.core.EventService;
 import xyz.gianlu.librespot.core.EventService.PlaybackDescriptor;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -118,11 +119,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             state.loadContext(uri);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
-            panicState();
+            panicState(null);
             return;
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState();
+            panicState(null);
             return;
         }
 
@@ -137,11 +138,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             state.transfer(cmd);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
-            panicState();
+            panicState(null);
             return;
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState();
+            panicState(null);
             return;
         }
 
@@ -159,11 +160,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             state.load(obj);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
-            panicState();
+            panicState(null);
             return;
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState();
+            panicState(null);
             return;
         }
 
@@ -281,7 +282,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void mixerError(@NotNull Exception ex) {
         LOGGER.fatal("Mixer error!", ex);
-        panicState();
+        panicState(PlaybackDescriptor.How.TRACK_ERROR);
     }
 
     @Override
@@ -294,7 +295,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
 
             LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
-            panicState();
+            panicState(PlaybackDescriptor.How.TRACK_ERROR);
         } else if (handler == preloadTrackHandler) {
             LOGGER.warn("Preloaded track loading failed!", ex);
             preloadTrackHandler = null;
@@ -374,7 +375,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             else
                 LOGGER.fatal("Playback error!", ex);
 
-            panicState();
+            panicState(PlaybackDescriptor.How.TRACK_ERROR);
         } else if (handler == preloadTrackHandler) {
             LOGGER.warn("Preloaded track loading failed!", ex);
             preloadTrackHandler = null;
@@ -417,10 +418,17 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         events.seeked(pos);
     }
 
-    private void panicState() {
+    private void panicState(@Nullable EventService.PlaybackDescriptor.How how) {
         runner.stopMixer();
         state.setState(false, false, false);
         state.updated();
+
+        if (how != null && playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
+            playbackDescriptor.endedHow(how);
+            playbackDescriptor.endInterval(state.getPosition());
+            session.eventService().trackPlayed(state, playbackDescriptor);
+            playbackDescriptor = null;
+        }
     }
 
     private void loadTrack(boolean play, @NotNull PushToMixerReason reason, @NotNull TransitionInfo trans) {
@@ -584,7 +592,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next, trans);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
-            panicState();
+            panicState(PlaybackDescriptor.How.END_PLAY);
         }
     }
 
@@ -592,7 +600,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         String context = state.getContextUri();
         if (context == null) {
             LOGGER.fatal("Cannot load autoplay with null context!");
-            panicState();
+            panicState(null);
             return;
         }
 
@@ -627,10 +635,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading autoplay station!", ex);
-            panicState();
+            panicState(null);
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState();
+            panicState(null);
         }
     }
 
@@ -642,7 +650,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 loadTrack(true, PushToMixerReason.Prev, TransitionInfo.skippedPrev(state));
             } else {
                 LOGGER.fatal("Failed loading previous song: " + prev);
-                panicState();
+                panicState(null);
             }
         } else {
             state.setPosition(0);
@@ -653,6 +661,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Override
     public void close() throws IOException {
+        if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
+            playbackDescriptor.endedHow(PlaybackDescriptor.How.LOGOUT);
+            playbackDescriptor.endInterval(state.getPosition());
+            session.eventService().trackPlayed(state, playbackDescriptor);
+            playbackDescriptor = null;
+        }
+
         if (trackHandler != null) {
             trackHandler.close();
             trackHandler = null;

@@ -282,7 +282,7 @@ public final class EventService implements Closeable {
 
         public enum How {
             TRACK_DONE("trackdone"), TRACK_ERROR("trackerror"), FORWARD_BTN("fwdbtn"), BACK_BTN("backbtn"),
-            END_PLAY("endplay"), PLAY_BTN("playbtn"), CLICK_ROW("clickrow"), LOGOUT("logout" /* TODO: Use me */), APP_LOAD("appload");
+            END_PLAY("endplay"), PLAY_BTN("playbtn"), CLICK_ROW("clickrow"), LOGOUT("logout"), APP_LOAD("appload");
 
             final String val;
 
