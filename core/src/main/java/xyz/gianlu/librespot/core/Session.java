@@ -10,6 +10,9 @@ import com.spotify.explicit.ExplicitContentPubsub;
 import com.spotify.explicit.ExplicitContentPubsub.UserAttributesUpdate;
 import okhttp3.Authenticator;
 import okhttp3.*;
+import okio.BufferedSink;
+import okio.GzipSink;
+import okio.Okio;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -142,6 +145,36 @@ public final class Session implements Closeable, SubListener {
                 });
             }
         }
+
+        builder.addInterceptor(chain -> {
+            Request original = chain.request();
+            RequestBody body;
+            if ((body = original.body()) == null || original.header("Content-Encoding") != null)
+                return chain.proceed(original);
+
+            Request compressedRequest = original.newBuilder()
+                    .header("Content-Encoding", "gzip")
+                    .method(original.method(), new RequestBody() {
+                        @Override
+                        public MediaType contentType() {
+                            return body.contentType();
+                        }
+
+                        @Override
+                        public long contentLength() {
+                            return -1;
+                        }
+
+                        @Override
+                        public void writeTo(@NotNull BufferedSink sink) throws IOException {
+                            try (BufferedSink gzipSink = Okio.buffer(new GzipSink(sink))) {
+                                body.writeTo(gzipSink);
+                            }
+                        }
+                    }).build();
+
+            return chain.proceed(compressedRequest);
+        });
 
         return builder.build();
     }
