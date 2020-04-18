@@ -339,7 +339,7 @@ public class CdnManager {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

@@ -68,14 +68,14 @@ public final class EventService implements Closeable {
         event.append(state.getPlaybackId()).append("00000000000000000000000000000000");
         event.append(playOrigin.getFeatureIdentifier()).append(desc.startedHow());
         event.append(playOrigin.getFeatureIdentifier()).append(desc.endedHow());
-        event.append('0').append('0'); // FIXME
+        event.append(String.valueOf(desc.size) /* TODO: Could be less than that */).append(String.valueOf(desc.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(desc.duration));
         event.append('0').append('0').append('0').append('0').append('0'); // FIXME
         event.append(String.valueOf(desc.firstValue()));
         event.append('0').append("-1").append("context").append("-1").append('0').append('0').append('0').append('0').append('0'); // FIXME
         event.append(String.valueOf(when)).append(String.valueOf(when));
-        event.append('0').append("160000");
+        event.append('0').append(String.valueOf(desc.bitrate));
         event.append(state.getContextUri()).append(desc.encoding);
         event.append(desc.id.hexId()).append("");
         event.append('0').append(String.valueOf(TimeProvider.currentTimeMillis())).append('0');
@@ -198,6 +198,8 @@ public final class EventService implements Closeable {
     public static class PlaybackDescriptor {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
+        int size;
+        int bitrate;
         int duration = 0;
         String encoding = null;
         Interval lastInterval = null;
@@ -274,6 +276,8 @@ public final class EventService implements Closeable {
         public void update(@NotNull PlayerRunner.TrackHandler trackHandler) {
             duration = trackHandler.duration();
             encoding = trackHandler.encoding();
+            bitrate = trackHandler.bitrate();
+            size = trackHandler.size();
         }
 
         public enum How {

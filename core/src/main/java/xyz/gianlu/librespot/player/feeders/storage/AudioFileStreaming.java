@@ -207,7 +207,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

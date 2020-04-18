@@ -800,8 +800,18 @@ public class PlayerRunner implements Runnable, Closeable {
         @Nullable
         public String encoding() {
             if (codec instanceof VorbisCodec) return "vorbis";
-            else if (codec instanceof Mp3Codec) return "mp3"; // TODO
+            else if (codec instanceof Mp3Codec) return "mp3";
             else return null;
+        }
+
+        public int bitrate() {
+            AudioFormat format = codec == null ? null : codec.getAudioFormat();
+            if (format == null) return 0;
+            else return (int) (format.getSampleRate() * format.getSampleSizeInBits());
+        }
+
+        public int size() {
+            return codec == null ? 0 : codec.size();
         }
     }
 }

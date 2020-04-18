@@ -34,7 +34,7 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
 
     protected abstract byte[][] buffer();
 
-    protected abstract int size();
+    public abstract int size();
 
     @Override
     public void close() {
