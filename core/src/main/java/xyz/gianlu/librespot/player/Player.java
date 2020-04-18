@@ -648,7 +648,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         if (state != null) state.removeListener(this);
 
         scheduler.shutdown();
-
         events.close();
     }
 

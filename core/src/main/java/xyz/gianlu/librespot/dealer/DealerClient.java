@@ -209,7 +209,6 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
-
         asyncWorker.close();
         scheduler.shutdown();
 
