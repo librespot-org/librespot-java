@@ -646,6 +646,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         runner.close();
         if (state != null) state.removeListener(this);
+
+        scheduler.shutdown();
+        events.close();
     }
 
     @Nullable
@@ -982,6 +985,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         void inactiveSession(boolean timeout) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onInactiveSession(timeout));
+        }
+
+        public void close() {
+            executorService.shutdown();
         }
     }
 }

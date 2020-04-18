@@ -93,6 +93,12 @@ public class ChannelManager extends PacketsManager {
         LOGGER.fatal("Failed handling packet!", ex);
     }
 
+    @Override
+    public void close() {
+        executorService.shutdown();
+        super.close();
+    }
+
     public class Channel {
         public final short id;
         private final BlockingQueue<ByteBuffer> queue = new LinkedBlockingQueue<>();
@@ -160,16 +166,22 @@ public class ChannelManager extends PacketsManager {
 
             @Override
             public void run() {
+                LOGGER.trace("ChannelManager.Handler is starting");
+
                 while (true) {
                     try {
                         if (handle(queue.take())) {
                             channels.remove(id);
                             break;
                         }
-                    } catch (InterruptedException | IOException ex) {
+                    } catch (IOException ex) {
                         LOGGER.fatal("Failed handling packet!", ex);
+                    } catch (InterruptedException ex) {
+                        break;
                     }
                 }
+
+                LOGGER.trace("ChannelManager.Handler is shutting down");
             }
         }
     }

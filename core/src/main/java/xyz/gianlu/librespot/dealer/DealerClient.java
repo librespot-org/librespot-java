@@ -209,6 +209,9 @@ public class DealerClient implements Closeable {
 
     @Override
     public void close() {
+        asyncWorker.close();
+        scheduler.shutdown();
+
         if (conn != null) {
             ConnectionHolder tmp = conn; // Do not trigger connectionInvalided()
             conn = null;
@@ -220,8 +223,6 @@ public class DealerClient implements Closeable {
             lastScheduledReconnection = null;
         }
 
-        asyncWorker.close();
-        scheduler.shutdown();
         msgListeners.clear();
     }
 
