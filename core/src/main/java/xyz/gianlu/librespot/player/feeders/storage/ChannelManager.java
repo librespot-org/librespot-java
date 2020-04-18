@@ -169,8 +169,6 @@ public class ChannelManager extends PacketsManager {
                 LOGGER.trace("ChannelManager.Handler is starting");
 
                 while (true) {
-                    // TODO Check if loop breaks at Session.close()
-
                     try {
                         if (handle(queue.take())) {
                             channels.remove(id);
