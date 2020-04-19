@@ -22,6 +22,7 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
     private int pos = 0;
     private int mark = 0;
     private volatile boolean closed = false;
+    private int decodedLength = 0;
 
     protected AbsChunkedInputStream(@NotNull Player.Configuration conf) {
         this.retries = new int[chunks()];
@@ -219,6 +220,7 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
 
     public final void notifyChunkAvailable(int index) {
         availableChunks()[index] = true;
+        decodedLength += buffer()[index].length;
 
         synchronized (waitLock) {
             if (index == waitForChunk && !closed) {
@@ -240,6 +242,10 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
                 waitLock.notifyAll();
             }
         }
+    }
+
+    public int decodedLength() {
+        return decodedLength;
     }
 
     public static class ChunkException extends IOException {

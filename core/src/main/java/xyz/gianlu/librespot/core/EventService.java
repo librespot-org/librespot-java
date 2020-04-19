@@ -66,9 +66,9 @@ public final class EventService implements Closeable {
         event.append(String.valueOf(trackTransitionIncremental++));
         event.append(session.deviceId());
         event.append(state.getPlaybackId()).append("00000000000000000000000000000000");
-        event.append(playOrigin.getFeatureIdentifier()).append(desc.startedHow());
-        event.append(playOrigin.getFeatureIdentifier()).append(desc.endedHow());
-        event.append(String.valueOf(desc.size) /* TODO: Could be less than that */).append(String.valueOf(desc.size));
+        event.append(desc.startedOrigin).append(desc.startedHow());
+        event.append(desc.endedOrigin).append(desc.endedHow());
+        event.append(String.valueOf(desc.decodedLength)).append(String.valueOf(desc.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(desc.duration));
         event.append('0').append('0').append('0').append('0').append('0'); // FIXME
@@ -198,13 +198,16 @@ public final class EventService implements Closeable {
     public static class PlaybackDescriptor {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
+        int decodedLength;
         int size;
         int bitrate;
         int duration = 0;
         String encoding = null;
         Interval lastInterval = null;
         How startedHow = null;
+        String startedOrigin = null;
         How endedHow = null;
+        String endedOrigin = null;
 
         public PlaybackDescriptor(@NotNull PlayableId id) {
             this.id = id;
@@ -255,12 +258,14 @@ public final class EventService implements Closeable {
             lastInterval = null;
         }
 
-        public void startedHow(@NotNull How how) {
+        public void startedHow(@NotNull How how, @Nullable String origin) {
             startedHow = how;
+            startedOrigin = origin == null ? "unknown" : origin;
         }
 
-        public void endedHow(@NotNull How how) {
+        public void endedHow(@NotNull How how, @Nullable String origin) {
             endedHow = how;
+            endedOrigin = origin == null ? "unknown" : origin;
         }
 
         @Nullable
@@ -278,6 +283,7 @@ public final class EventService implements Closeable {
             encoding = trackHandler.encoding();
             bitrate = trackHandler.bitrate();
             size = trackHandler.size();
+            decodedLength = trackHandler.decodedLength();
         }
 
         public enum How {

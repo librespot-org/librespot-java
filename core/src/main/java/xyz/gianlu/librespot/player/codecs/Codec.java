@@ -105,6 +105,10 @@ public abstract class Codec implements Closeable {
         return audioIn.size();
     }
 
+    public int decodedLength() {
+        return audioIn.decodedLength();
+    }
+
     public static class CannotGetTimeException extends Exception {
         CannotGetTimeException() {
         }

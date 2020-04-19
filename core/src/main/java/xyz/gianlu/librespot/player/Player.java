@@ -424,7 +424,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         state.updated();
 
         if (how != null && playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
-            playbackDescriptor.endedHow(how);
+            playbackDescriptor.endedHow(how, null);
             playbackDescriptor.endInterval(state.getPosition());
             session.eventService().trackPlayed(state, playbackDescriptor);
             playbackDescriptor = null;
@@ -433,7 +433,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     private void loadTrack(boolean play, @NotNull PushToMixerReason reason, @NotNull TransitionInfo trans) {
         if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
-            playbackDescriptor.endedHow(trans.endedHow);
+            playbackDescriptor.endedHow(trans.endedHow, state.getPlayOrigin().getFeatureIdentifier());
             playbackDescriptor.endInterval(trans.endedWhen);
             session.eventService().trackPlayed(state, playbackDescriptor);
             playbackDescriptor = null;
@@ -509,7 +509,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             releaseLineFuture = null;
         }
 
-        playbackDescriptor.startedHow(trans.startedHow);
+        playbackDescriptor.startedHow(trans.startedHow, state.getPlayOrigin().getFeatureIdentifier());
         playbackDescriptor.startInterval(state.getPosition());
     }
 
@@ -662,7 +662,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     @Override
     public void close() throws IOException {
         if (playbackDescriptor != null && trackHandler.isPlayable(playbackDescriptor.id)) {
-            playbackDescriptor.endedHow(PlaybackDescriptor.How.LOGOUT);
+            playbackDescriptor.endedHow(PlaybackDescriptor.How.LOGOUT, null);
             playbackDescriptor.endInterval(state.getPosition());
             session.eventService().trackPlayed(state, playbackDescriptor);
             playbackDescriptor = null;

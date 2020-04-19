@@ -813,5 +813,9 @@ public class PlayerRunner implements Runnable, Closeable {
         public int size() {
             return codec == null ? 0 : codec.size();
         }
+
+        public int decodedLength() {
+            return codec == null ? 0 : codec.decodedLength();
+        }
     }
 }
