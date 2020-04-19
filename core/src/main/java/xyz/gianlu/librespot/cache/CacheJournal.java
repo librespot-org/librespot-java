@@ -4,7 +4,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -29,8 +32,11 @@ class CacheJournal implements Closeable {
     private final RandomAccessFile io;
     private final Map<String, Entry> entries = Collections.synchronizedMap(new HashMap<>(1024));
 
-    CacheJournal(@NotNull File parent) throws FileNotFoundException {
+    CacheJournal(@NotNull File parent) throws IOException {
         File file = new File(parent, "journal.dat");
+        if (!file.exists() && !file.createNewFile())
+            throw new IOException("Failed creating empty cache journal.");
+
         io = new RandomAccessFile(file, "rwd");
     }
 
