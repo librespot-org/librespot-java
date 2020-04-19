@@ -10,25 +10,25 @@ All the endpoints will respond with `200` if successful or:
 - `503`, if the session is reconnecting (`Retry-After` is always 10 seconds)
 
 ### Player
-- `POST \player\load` Load a track from a given URI. The request body should contain two parameters: `uri` and `play`.
-- `POST \player\pause` Pause playback.
-- `POST \player\resume` Resume playback.
-- `POST \player\next` Skip to next track.
-- `POST \player\prev` Skip to previous track.
-- `POST \player\set-volume` Set volume to a given `volume` value from 0 to 65536.
-- `POST \player\volume-up` Up the volume a little bit.
-- `POST \player\volume-down` Lower the volume a little bit.
-- `POST \player\current` Retrieve information about the current track (metadata and time).
+- `POST /player/load` Load a track from a given URI. The request body should contain two parameters: `uri` and `play`.
+- `POST /player/pause` Pause playback.
+- `POST /player/resume` Resume playback.
+- `POST /player/next` Skip to next track.
+- `POST /player/prev` Skip to previous track.
+- `POST /player/set-volume` Set volume to a given `volume` value from 0 to 65536.
+- `POST /player/volume-up` Up the volume a little bit.
+- `POST /player/volume-down` Lower the volume a little bit.
+- `POST /player/current` Retrieve information about the current track (metadata and time).
 
 ### Metadata
-- `POST \metadata\{type}\{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.
-- `POST \metadata\{uri}` Retrieve metadata. `uri` is the standard Spotify uri, the type will be guessed based on the provided uri.
+- `POST /metadata/{type}/{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.
+- `POST /metadata/{uri}` Retrieve metadata. `uri` is the standard Spotify uri, the type will be guessed based on the provided uri.
 
 ### Search
-- `POST \search\{query}` Make a search.
+- `POST /search/{query}` Make a search.
 
 ### Tokens
-- `POST \token\{scope}` Request an access token for a specific scope (or a comma separated list of scopes).
+- `POST /token/{scope}` Request an access token for a specific scope (or a comma separated list of scopes).
 
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.
