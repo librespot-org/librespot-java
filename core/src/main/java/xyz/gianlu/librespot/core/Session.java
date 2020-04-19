@@ -346,12 +346,9 @@ public final class Session implements Closeable, SubListener {
 
         dealer.connect();
         player.initState();
-
         TimeProvider.init(this);
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
-
-
         mercuryClient.interestedIn("spotify:user:attributes:update", this);
     }
 
@@ -402,7 +399,7 @@ public final class Session implements Closeable, SubListener {
                 }
             }
 
-            if (conf().storeCredentials()) {
+            if (conf().authStrategy() != AuthConfiguration.Strategy.ZEROCONF && conf().storeCredentials()) {
                 ByteString reusable = apWelcome.getReusableAuthCredentials();
                 Authentication.AuthenticationType reusableType = apWelcome.getReusableAuthCredentialsType();
 
