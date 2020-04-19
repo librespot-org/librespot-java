@@ -722,6 +722,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
     }
 
+    /**
+     * @return Whether the player is active
+     */
+    public boolean isActive() {
+        return state.isActive();
+    }
+
     public interface Configuration {
         @NotNull
         AudioQuality preferredQuality();

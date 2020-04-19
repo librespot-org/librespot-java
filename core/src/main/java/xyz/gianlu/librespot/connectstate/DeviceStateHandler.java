@@ -180,7 +180,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         return putState.getStartedPlayingAt();
     }
 
-    private synchronized boolean isActive() {
+    public synchronized boolean isActive() {
         return putState.getIsActive();
     }
 

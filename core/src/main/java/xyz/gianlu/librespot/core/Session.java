@@ -603,7 +603,11 @@ public final class Session implements Closeable, SubListener {
         return apWelcome;
     }
 
-    public boolean valid() {
+    public boolean isActive() {
+        return player().isActive();
+    }
+
+    public boolean isValid() {
         if (closed) return false;
 
         waitAuthLock();
