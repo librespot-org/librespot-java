@@ -513,6 +513,28 @@ public class PlayerRunner implements Runnable, Closeable {
         }
     }
 
+    public static class PlayerMetrics {
+        public int decodedLength = 0;
+        public int size = 0;
+        public int bitrate = 0;
+        public int duration = 0;
+        public String encoding = null;
+
+        private PlayerMetrics(@Nullable Codec codec) {
+            if (codec == null) return;
+
+            size = codec.size();
+            duration = codec.duration();
+            decodedLength = codec.decodedLength();
+
+            AudioFormat format = codec.getAudioFormat();
+            bitrate = (int) (format.getSampleRate() * format.getSampleSizeInBits());
+
+            if (codec instanceof VorbisCodec) encoding = "vorbis";
+            else if (codec instanceof Mp3Codec) encoding = "mp3";
+        }
+    }
+
     public class TrackHandler implements HaltListener, Closeable, Runnable {
         private final int id;
         private final PlayableId playable;
@@ -793,29 +815,9 @@ public class PlayerRunner implements Runnable, Closeable {
             return firstHandler == this || secondHandler == this;
         }
 
-        public int duration() {
-            return codec == null ? 0 : codec.duration();
-        }
-
-        @Nullable
-        public String encoding() {
-            if (codec instanceof VorbisCodec) return "vorbis";
-            else if (codec instanceof Mp3Codec) return "mp3";
-            else return null;
-        }
-
-        public int bitrate() {
-            AudioFormat format = codec == null ? null : codec.getAudioFormat();
-            if (format == null) return 0;
-            else return (int) (format.getSampleRate() * format.getSampleSizeInBits());
-        }
-
-        public int size() {
-            return codec == null ? 0 : codec.size();
-        }
-
-        public int decodedLength() {
-            return codec == null ? 0 : codec.decodedLength();
+        @NotNull
+        public PlayerMetrics metrics() {
+            return new PlayerMetrics(codec);
         }
     }
 }

@@ -58,41 +58,42 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void trackTransition(@NotNull StateWrapper state, @NotNull PlaybackDescriptor desc) {
+    public void trackTransition(@NotNull StateWrapper state, @NotNull EventService.PlaybackMetrics metrics) {
         Player.PlayOrigin playOrigin = state.getPlayOrigin();
-        int when = desc.lastValue();
+        int when = metrics.lastValue();
 
         EventBuilder event = new EventBuilder(Type.TRACK_TRANSITION);
         event.append(String.valueOf(trackTransitionIncremental++));
         event.append(session.deviceId());
         event.append(state.getPlaybackId()).append("00000000000000000000000000000000");
-        event.append(desc.startedOrigin).append(desc.startedHow());
-        event.append(desc.endedOrigin).append(desc.endedHow());
-        event.append(String.valueOf(desc.decodedLength)).append(String.valueOf(desc.size));
+        event.append(metrics.sourceStart).append(metrics.startedHow());
+        event.append(metrics.sourceEnd).append(metrics.endedHow());
+        event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
-        event.append(String.valueOf(desc.duration));
-        event.append('0').append('0').append('0').append('0').append('0'); // FIXME
-        event.append(String.valueOf(desc.firstValue()));
-        event.append('0').append("-1").append("context").append("-1").append('0').append('0').append('0').append('0').append('0'); // FIXME
+        event.append(String.valueOf(metrics.player.duration));
+        event.append('0' /* TODO: Encrypt latency */).append('0' /* TODO: Total fade */).append('0' /* FIXME */).append('0');
+        event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
+        event.append('0' /* TODO: Play latency */).append("-1" /* FIXME */).append("context");
+        event.append("-1" /* TODO: Audio key sync time */).append('0').append('0' /* TODO: Prefetched audio key */).append('0').append('0' /* FIXME */).append('0');
         event.append(String.valueOf(when)).append(String.valueOf(when));
-        event.append('0').append(String.valueOf(desc.bitrate));
-        event.append(state.getContextUri()).append(desc.encoding);
-        event.append(desc.id.hexId()).append("");
+        event.append('0').append(String.valueOf(metrics.player.bitrate));
+        event.append(state.getContextUri()).append(metrics.player.encoding);
+        event.append(metrics.id.hexId()).append("");
         event.append('0').append(String.valueOf(TimeProvider.currentTimeMillis())).append('0');
         event.append("context").append(playOrigin.getReferrerIdentifier()).append(playOrigin.getFeatureVersion());
-        event.append("com.spotify").append("none").append("none").append("local").append("na").append("none");
+        event.append("com.spotify").append("none" /* TODO: Transition */).append("none").append("local").append("na").append("none");
         sendEvent(event);
     }
 
-    public void trackPlayed(@NotNull StateWrapper state, @NotNull EventService.PlaybackDescriptor desc) {
-        if (desc.duration == 0 || desc.encoding == null)
+    public void trackPlayed(@NotNull StateWrapper state, @NotNull EventService.PlaybackMetrics metrics) {
+        if (metrics.player == null)
             return;
 
-        trackTransition(state, desc);
+        trackTransition(state, metrics);
 
         EventBuilder event = new EventBuilder(Type.TRACK_PLAYED);
-        event.append(state.getPlaybackId()).append(desc.id.toSpotifyUri());
-        event.append('0').append(desc.intervalsToSend());
+        event.append(state.getPlaybackId()).append(metrics.id.toSpotifyUri());
+        event.append('0').append(metrics.intervalsToSend());
         sendEvent(event);
     }
 
@@ -195,21 +196,17 @@ public final class EventService implements Closeable {
         }
     }
 
-    public static class PlaybackDescriptor {
+    public static class PlaybackMetrics {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
-        int decodedLength;
-        int size;
-        int bitrate;
-        int duration = 0;
-        String encoding = null;
+        PlayerRunner.PlayerMetrics player = null;
         Interval lastInterval = null;
-        How startedHow = null;
-        String startedOrigin = null;
-        How endedHow = null;
-        String endedOrigin = null;
+        Reason reasonStart = null;
+        String sourceStart = null;
+        Reason reasonEnd = null;
+        String sourceEnd = null;
 
-        public PlaybackDescriptor(@NotNull PlayableId id) {
+        public PlaybackMetrics(@NotNull PlayableId id) {
             this.id = id;
         }
 
@@ -238,7 +235,7 @@ public final class EventService implements Closeable {
         }
 
         int lastValue() {
-            if (intervals.isEmpty()) return duration;
+            if (intervals.isEmpty()) return player == null ? 0 : player.duration;
             else return intervals.get(intervals.size() - 1).end;
         }
 
@@ -258,41 +255,37 @@ public final class EventService implements Closeable {
             lastInterval = null;
         }
 
-        public void startedHow(@NotNull How how, @Nullable String origin) {
-            startedHow = how;
-            startedOrigin = origin == null ? "unknown" : origin;
+        public void startedHow(@NotNull EventService.PlaybackMetrics.Reason reason, @Nullable String origin) {
+            reasonStart = reason;
+            sourceStart = origin == null ? "unknown" : origin;
         }
 
-        public void endedHow(@NotNull How how, @Nullable String origin) {
-            endedHow = how;
-            endedOrigin = origin == null ? "unknown" : origin;
+        public void endedHow(@NotNull EventService.PlaybackMetrics.Reason reason, @Nullable String origin) {
+            reasonEnd = reason;
+            sourceEnd = origin == null ? "unknown" : origin;
         }
 
         @Nullable
         String startedHow() {
-            return startedHow == null ? null : startedHow.val;
+            return reasonStart == null ? null : reasonStart.val;
         }
 
         @Nullable
         String endedHow() {
-            return endedHow == null ? null : endedHow.val;
+            return reasonEnd == null ? null : reasonEnd.val;
         }
 
-        public void update(@NotNull PlayerRunner.TrackHandler trackHandler) {
-            duration = trackHandler.duration();
-            encoding = trackHandler.encoding();
-            bitrate = trackHandler.bitrate();
-            size = trackHandler.size();
-            decodedLength = trackHandler.decodedLength();
+        public void update(@NotNull PlayerRunner.PlayerMetrics playerMetrics) {
+            player = playerMetrics;
         }
 
-        public enum How {
+        public enum Reason {
             TRACK_DONE("trackdone"), TRACK_ERROR("trackerror"), FORWARD_BTN("fwdbtn"), BACK_BTN("backbtn"),
             END_PLAY("endplay"), PLAY_BTN("playbtn"), CLICK_ROW("clickrow"), LOGOUT("logout"), APP_LOAD("appload");
 
             final String val;
 
-            How(@NotNull String val) {
+            Reason(@NotNull String val) {
                 this.val = val;
             }
         }
