@@ -275,6 +275,7 @@ public class ZeroconfServer implements Closeable {
         if (hasActiveSession() && System.currentTimeMillis() - connectionTime > TimeUnit.SECONDS.toMillis(60)) {
             if (session.username().equals(username)) {
                 LOGGER.debug(String.format("Dropped connection attempt because user is already connected. {username: %s}", session.username()));
+                return;
             } else {
                 session.close();
                 LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
