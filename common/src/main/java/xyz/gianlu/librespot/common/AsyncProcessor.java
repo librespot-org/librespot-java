@@ -29,6 +29,7 @@ public class AsyncProcessor<REQ, RES> implements Closeable {
         this.name = name;
         this.processor = processor;
         running = true;
+        LOGGER.trace(String.format("AsyncProcessor %s has started", name));
     }
 
     public Future<RES> submit(@NotNull REQ task) {
