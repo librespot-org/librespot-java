@@ -207,6 +207,7 @@ public class CdnManager {
             this.haltListener = haltListener;
             this.cacheHandler = cache != null ? cache.getHandler(streamId) : null;
 
+            boolean fromCache;
             byte[] firstChunk;
             byte[] sizeHeader;
             if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
@@ -220,6 +221,7 @@ public class CdnManager {
                 chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
                 firstChunk = resp.buffer;
+                fromCache = false;
 
                 if (cacheHandler != null)
                     cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
@@ -228,6 +230,7 @@ public class CdnManager {
                 chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
                 firstChunk = cacheHandler.readChunk(0);
+                fromCache = true;
             }
 
             available = new boolean[chunks];
@@ -237,7 +240,7 @@ public class CdnManager {
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
             this.internalStream = new InternalStream(session.conf());
-            writeChunk(firstChunk, 0, false);
+            writeChunk(firstChunk, 0, fromCache);
         }
 
         @Override

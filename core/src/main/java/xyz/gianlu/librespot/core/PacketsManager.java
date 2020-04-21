@@ -4,13 +4,14 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.crypto.Packet;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
 /**
  * @author Gianlu
  */
-public abstract class PacketsManager implements AutoCloseable {
+public abstract class PacketsManager implements Closeable {
     protected final Session session;
     private final ExecutorService executorService;
     private final AsyncWorker<Packet> asyncWorker;

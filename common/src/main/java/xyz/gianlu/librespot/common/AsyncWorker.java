@@ -37,6 +37,8 @@ public class AsyncWorker<T> implements Closeable, Runnable {
 
     @Override
     public void run() {
+        LOGGER.trace(String.format("AsyncWorker{%s} is starting", name));
+
         while (running) {
             try {
                 T polled = internalQueue.take();

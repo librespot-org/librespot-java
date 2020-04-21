@@ -116,6 +116,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return !Boolean.parseBoolean(track.getMetadataOrDefault("is_explicit", "false"));
     }
 
+    boolean isActive() {
+        return device.isActive();
+    }
+
     void setBuffering(boolean buffering) {
         setState(state.getIsPlaying(), state.getIsPaused(), buffering);
     }

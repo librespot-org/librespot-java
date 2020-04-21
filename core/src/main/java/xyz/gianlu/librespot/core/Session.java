@@ -348,13 +348,10 @@ public final class Session implements Closeable, SubListener {
 
         dealer.connect();
         player.initState();
-
         TimeProvider.init(this);
         eventService.reportLang(conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
-
-
         mercuryClient.interestedIn("spotify:user:attributes:update", this);
     }
 
@@ -386,7 +383,7 @@ public final class Session implements Closeable, SubListener {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
 
             receiver = new Receiver();
-            new Thread(receiver, "session-packet-receiver").start();
+
 
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
@@ -405,7 +402,7 @@ public final class Session implements Closeable, SubListener {
                 }
             }
 
-            if (conf().storeCredentials()) {
+            if (conf().authStrategy() != AuthConfiguration.Strategy.ZEROCONF && conf().storeCredentials()) {
                 ByteString reusable = apWelcome.getReusableAuthCredentials();
                 Authentication.AuthenticationType reusableType = apWelcome.getReusableAuthCredentialsType();
 
@@ -429,6 +426,9 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
+        LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
+        scheduler.shutdownNow();
+
         if (player != null) {
             player.close();
             player = null;
@@ -465,7 +465,11 @@ public final class Session implements Closeable, SubListener {
         }
 
         executorService.shutdown();
-        conn.socket.close();
+
+        if (conn != null) {
+            conn.socket.close();
+            conn = null;
+        }
 
         synchronized (authLock) {
             apWelcome = null;
@@ -481,7 +485,7 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s, ap: %s} ", inner.deviceId, conn.socket.getInetAddress()));
+        LOGGER.info(String.format("Closed session. {deviceId: %s} ", inner.deviceId));
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -614,7 +618,11 @@ public final class Session implements Closeable, SubListener {
         return apWelcome;
     }
 
-    public boolean valid() {
+    public boolean isActive() {
+        return player().isActive();
+    }
+
+    public boolean isValid() {
         if (closed) return false;
 
         waitAuthLock();
@@ -677,7 +685,12 @@ public final class Session implements Closeable, SubListener {
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
             conn = null;
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
-            scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+
+            try {
+                scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+            } catch (RejectedExecutionException exx) {
+                LOGGER.info("Scheduler already shutdown, stopping reconnection", exx);
+            }
         }
     }
 
@@ -1057,18 +1070,24 @@ public final class Session implements Closeable, SubListener {
     }
 
     private class Receiver implements Runnable {
-        private volatile boolean shouldStop = false;
+        private final Thread thread;
+        private volatile boolean running = true;
 
         private Receiver() {
+            thread = new Thread(this, "session-packet-receiver");
+            thread.start();
         }
 
         void stop() {
-            shouldStop = true;
+            running = false;
+            thread.interrupt();
         }
 
         @Override
         public void run() {
-            while (!shouldStop) {
+            LOGGER.trace("Session.Receiver started");
+
+            while (running) {
                 Packet packet;
                 Packet.Type cmd;
                 try {
@@ -1079,15 +1098,15 @@ public final class Session implements Closeable, SubListener {
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
-                    if (!shouldStop) {
+                    if (running) {
                         LOGGER.fatal("Failed reading packet!", ex);
                         reconnect();
                     }
 
-                    return;
+                    break;
                 }
 
-                if (shouldStop) return;
+                if (!running) break;
 
                 switch (cmd) {
                     case Ping:
@@ -1152,6 +1171,8 @@ public final class Session implements Closeable, SubListener {
                         break;
                 }
             }
+
+            LOGGER.trace("Session.Receiver stopped");
         }
     }
 }

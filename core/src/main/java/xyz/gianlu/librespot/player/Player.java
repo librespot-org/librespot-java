@@ -84,12 +84,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
 
     public void volumeUp() {
         if (state == null) return;
-        setVolume(Math.min(VOLUME_MAX, state.getVolume() + VOLUME_ONE_STEP));
+        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + oneVolumeStep()));
     }
 
     public void volumeDown() {
         if (state == null) return;
-        setVolume(Math.max(0, state.getVolume() - VOLUME_ONE_STEP));
+        setVolume(Math.max(0, state.getVolume() - oneVolumeStep()));
+    }
+
+    private int oneVolumeStep() {
+        return PlayerRunner.VOLUME_MAX / conf.volumeSteps();
     }
 
     public void setVolume(int val) {
@@ -607,6 +611,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     // =========== Getters ============ //
     // ================================ //
 
+    /**
+     * @return Whether the player is active
+     */
+    public boolean isActive() {
+        return state.isActive();
+    }
+
     @Nullable
     public TrackOrEpisode currentMetadata() {
         return queue.currentMetadata();
@@ -664,7 +675,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         }
     }
 
-
     // ================================ //
     // ============ Close! ============ //
     // ================================ //
@@ -683,6 +693,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
 
         queue.close();
         if (state != null) state.removeListener(this);
+
+        scheduler.shutdown();
+        events.close();
     }
 
     public interface Configuration {
@@ -710,6 +723,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         boolean logAvailableMixers();
 
         int initialVolume();
+
+        int volumeSteps();
 
         boolean autoplayEnabled();
 
@@ -1003,6 +1018,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         void inactiveSession(boolean timeout) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onInactiveSession(timeout));
+        }
+
+        public void close() {
+            executorService.shutdown();
         }
     }
 }
