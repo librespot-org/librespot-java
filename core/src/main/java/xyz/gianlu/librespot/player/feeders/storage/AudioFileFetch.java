@@ -36,7 +36,7 @@ public class AudioFileFetch implements AudioFile {
     }
 
     @Override
-    public synchronized void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException {
+    public synchronized void writeHeader(int id, byte[] bytes, boolean cached) throws IOException {
         if (closed) return;
 
         if (!cached && cache != null) {
@@ -44,7 +44,7 @@ public class AudioFileFetch implements AudioFile {
                 cache.setHeader(id, bytes);
             } catch (IOException ex) {
                 if (id == HEADER_SIZE) throw new IOException(ex);
-                else LOGGER.warn(String.format("Failed writing header to cache! {id: %s}", Utils.byteToHex(id)));
+                else LOGGER.warn(String.format("Failed writing header to cache! {id: %s}", Utils.byteToHex((byte) id)));
             }
         }
 

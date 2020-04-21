@@ -89,7 +89,7 @@ class CacheJournal implements Closeable {
     }
 
     @Nullable
-    JournalHeader getHeader(@NotNull String streamId, byte id) throws IOException {
+    JournalHeader getHeader(@NotNull String streamId, int id) throws IOException {
         Entry entry = find(streamId);
         if (entry == null) throw new JournalException("Couldn't find entry on journal: " + streamId);
 
@@ -98,7 +98,7 @@ class CacheJournal implements Closeable {
         }
     }
 
-    void setHeader(@NotNull String streamId, byte headerId, byte[] value) throws IOException {
+    void setHeader(@NotNull String streamId, int headerId, byte[] value) throws IOException {
         String strValue = Utils.bytesToHex(value);
 
         if (strValue.length() > MAX_HEADER_LENGTH) throw new IllegalArgumentException();
@@ -250,17 +250,17 @@ class CacheJournal implements Closeable {
             io.write(0);
         }
 
-        private int findHeader(byte headerId) throws IOException {
+        private int findHeader(int headerId) throws IOException {
             for (int i = 0; i < MAX_HEADERS; i++) {
                 io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + i * (MAX_HEADER_LENGTH + 1));
-                if (io.read() == headerId)
+                if ((io.read() & 0xFF) == headerId)
                     return i;
             }
 
             return -1;
         }
 
-        void setHeader(byte id, @NotNull String value) throws IOException {
+        void setHeader(int id, @NotNull String value) throws IOException {
             int index = findHeader(id);
             if (index == -1) {
                 for (int i = 0; i < MAX_HEADERS; i++) {
@@ -298,7 +298,7 @@ class CacheJournal implements Closeable {
         }
 
         @Nullable
-        JournalHeader getHeader(byte id) throws IOException {
+        JournalHeader getHeader(int id) throws IOException {
             int index = findHeader(id);
             if (index == -1) return null;
 

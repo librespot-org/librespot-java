@@ -65,4 +65,17 @@ public final class EpisodeId implements SpotifyId, PlayableId {
     public String toString() {
         return "EpisodeId{" + toSpotifyUri() + '}';
     }
+
+    @Override
+    public int hashCode() {
+        return hexId.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        EpisodeId episodeId = (EpisodeId) o;
+        return hexId.equals(episodeId.hexId);
+    }
 }

@@ -19,7 +19,6 @@ import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.SubListener;
-import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -75,7 +74,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                         .setCanBePlayer(true).setGaiaEqConnectId(true).setSupportsLogout(true)
                         .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
                         .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
-                        .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
+                        .setSupportsCommandRequest(true).setVolumeSteps(xyz.gianlu.librespot.player.Player.VOLUME_STEPS)
                         .setSupportsGzipPushes(true).setNeedsFullPlayerState(false)
                         .addSupportedTypes("audio/episode")
                         .addSupportedTypes("audio/track")
@@ -150,7 +149,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 }
             }
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
+            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX));
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
@@ -220,7 +219,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         }
 
         notifyVolumeChange();
-        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, xyz.gianlu.librespot.player.Player.VOLUME_MAX));
     }
 
     @Override

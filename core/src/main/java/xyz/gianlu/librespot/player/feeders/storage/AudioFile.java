@@ -11,7 +11,7 @@ import java.io.IOException;
 public interface AudioFile extends Closeable, GeneralWritableStream {
     void writeChunk(byte[] chunk, int chunkIndex, boolean cached) throws IOException;
 
-    void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException;
+    void writeHeader(int id, byte[] bytes, boolean cached) throws IOException;
 
     void streamError(int chunkIndex, short code);
 }

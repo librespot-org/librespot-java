@@ -65,4 +65,17 @@ public final class TrackId implements SpotifyId, PlayableId {
     public String toString() {
         return "TrackId{" + toSpotifyUri() + '}';
     }
+
+    @Override
+    public int hashCode() {
+        return hexId.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TrackId trackId = (TrackId) o;
+        return hexId.equals(trackId.hexId);
+    }
 }

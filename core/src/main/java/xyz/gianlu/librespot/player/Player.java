@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.common.NameThreadFactory;
-import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
 import xyz.gianlu.librespot.core.EventService;
@@ -23,12 +22,12 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.model.ImageId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.PlayerRunner.PushToMixerReason;
-import xyz.gianlu.librespot.player.PlayerRunner.TrackHandler;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
+import xyz.gianlu.librespot.player.mixing.AudioSink;
+import xyz.gianlu.librespot.player.queue.PlayerQueue;
 
 import java.io.Closeable;
 import java.io.File;
@@ -44,17 +43,17 @@ import java.util.concurrent.*;
 /**
  * @author Gianlu
  */
-public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRunner.Listener {
+public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQueue.Listener { // TODO: Reduce calls to state update
+    public static final int VOLUME_STEPS = 64;
+    public static final int VOLUME_MAX = 65536;
+    public static final int VOLUME_ONE_STEP = VOLUME_MAX / VOLUME_STEPS;
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
     private final Configuration conf;
-    private final PlayerRunner runner;
+    private final PlayerQueue queue;
     private final EventsDispatcher events;
     private StateWrapper state;
-    private TrackHandler trackHandler;
-    private TrackHandler crossfadeHandler;
-    private TrackHandler preloadTrackHandler;
     private ScheduledFuture<?> releaseLineFuture = null;
     private PlaybackMetrics playbackMetrics = null;
 
@@ -62,7 +61,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         this.conf = conf;
         this.session = session;
         this.events = new EventsDispatcher(conf);
-        new Thread(runner = new PlayerRunner(session, conf, this), "player-runner-" + runner.hashCode()).start();
+        this.queue = new PlayerQueue(session, conf, this);
     }
 
     public void addEventsListener(@NotNull EventsListener listener) {
@@ -73,6 +72,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         events.listeners.remove(listener);
     }
 
+
+    // ================================ //
+    // =========== Commands =========== //
+    // ================================ //
+
     public void initState() {
         this.state = new StateWrapper(session);
         state.addListener(this);
@@ -80,16 +84,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     public void volumeUp() {
         if (state == null) return;
-        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + PlayerRunner.VOLUME_ONE_STEP));
+        setVolume(Math.min(VOLUME_MAX, state.getVolume() + VOLUME_ONE_STEP));
     }
 
     public void volumeDown() {
         if (state == null) return;
-        setVolume(Math.max(0, state.getVolume() - PlayerRunner.VOLUME_ONE_STEP));
+        setVolume(Math.max(0, state.getVolume() - VOLUME_ONE_STEP));
     }
 
     public void setVolume(int val) {
-        if (val < 0 || val > PlayerRunner.VOLUME_MAX)
+        if (val < 0 || val > VOLUME_MAX)
             throw new IllegalArgumentException(String.valueOf(val));
 
         events.volumeChanged(val);
@@ -128,8 +132,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.contextChanged();
-        loadTrack(play, PushToMixerReason.None, TransitionInfo.contextChange(state, true));
+        loadTrack(play, TransitionInfo.contextChange(state, true));
     }
+
+
+    // ================================ //
+    // ======== Internal state ======== //
+    // ================================ //
 
     private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
         LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
@@ -147,7 +156,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         events.contextChanged();
-        loadTrack(!cmd.getPlayback().getIsPaused(), PushToMixerReason.None, TransitionInfo.contextChange(state, true));
+        loadTrack(!cmd.getPlayback().getIsPaused(), TransitionInfo.contextChange(state, true));
 
         session.eventService().newSessionId(state);
         session.eventService().newPlaybackId(state);
@@ -172,7 +181,20 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
         if (paused == null) paused = true;
-        loadTrack(!paused, PushToMixerReason.None, TransitionInfo.contextChange(state, PlayCommandHelper.willSkipToSomething(obj)));
+        loadTrack(!paused, TransitionInfo.contextChange(state, PlayCommandHelper.willSkipToSomething(obj)));
+    }
+
+    private void panicState(@Nullable EventService.PlaybackMetrics.Reason reason) {
+        queue.pause(true);
+        state.setState(false, false, false);
+        state.updated();
+
+        if (reason != null && playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
+            playbackMetrics.endedHow(reason, null);
+            playbackMetrics.endInterval(state.getPosition());
+            session.eventService().trackPlayed(state, playbackMetrics);
+            playbackMetrics = null;
+        }
     }
 
     @Override
@@ -235,289 +257,41 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Override
     public void volumeChanged() {
-        runner.setVolume(state.getVolume());
+        queue.setVolume(state.getVolume());
     }
 
     @Override
     public void notActive() {
         events.inactiveSession(false);
-        if (runner.stopAndRelease()) LOGGER.debug("Released line due to inactivity.");
+        queue.pause(true);
     }
 
-    @Override
-    public void startedLoading(@NotNull TrackHandler handler) {
-        if (handler == trackHandler) {
-            state.setBuffering(true);
-            state.updated();
-        }
-    }
+    private void entryIsReady() {
+        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id))
+            playbackMetrics.update(queue.currentMetrics());
 
-    private void updateStateWithHandler() {
-        Metadata.Episode episode;
-        Metadata.Track track;
-        if ((track = trackHandler.track()) != null) state.enrichWithMetadata(track);
-        else if ((episode = trackHandler.episode()) != null) state.enrichWithMetadata(episode);
-        else LOGGER.warn("Couldn't update metadata!");
-
-        if (playbackMetrics != null && trackHandler.isPlayable(playbackMetrics.id))
-            playbackMetrics.update(trackHandler.metrics());
-
-        events.metadataAvailable();
-    }
-
-    @Override
-    public void finishedLoading(@NotNull TrackHandler handler, int pos) {
-        if (handler == trackHandler) {
-            state.setBuffering(false);
-
-            updateStateWithHandler();
-
-            state.setPosition(pos);
-            state.updated();
-        } else if (handler == preloadTrackHandler) {
-            LOGGER.trace("Preloaded track is ready.");
-        }
-    }
-
-    @Override
-    public void mixerError(@NotNull Exception ex) {
-        LOGGER.fatal("Mixer error!", ex);
-        panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-    }
-
-    @Override
-    public void loadingError(@NotNull TrackHandler handler, @NotNull PlayableId id, @NotNull Exception ex) {
-        if (handler == trackHandler) {
-            if (ex instanceof ContentRestrictedException) {
-                LOGGER.fatal(String.format("Can't load track (content restricted), gid: %s", Utils.bytesToHex(id.getGid())), ex);
-                handleNext(null, TransitionInfo.nextError(state));
-                return;
-            }
-
-            LOGGER.fatal(String.format("Failed loading track, gid: %s", Utils.bytesToHex(id.getGid())), ex);
-            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-        } else if (handler == preloadTrackHandler) {
-            LOGGER.warn("Preloaded track loading failed!", ex);
-            preloadTrackHandler = null;
-        }
-    }
-
-    @Override
-    public void endOfTrack(@NotNull TrackHandler handler, @Nullable String uri, boolean fadeOut) {
-        if (handler == trackHandler) {
-            LOGGER.trace(String.format("End of track. Proceeding with next. {fadeOut: %b}", fadeOut));
-            handleNext(null, TransitionInfo.next(state));
-
-            PlayableId curr;
-            if (uri != null && (curr = state.getCurrentPlayable()) != null && !curr.toSpotifyUri().equals(uri))
-                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", curr, uri));
-        }
-    }
-
-    @Override
-    public void preloadNextTrack(@NotNull TrackHandler handler) {
-        if (handler == trackHandler) {
-            PlayableId next = state.nextPlayableDoNotSet();
-            if (next != null) {
-                preloadTrackHandler = runner.load(next, 0);
-                LOGGER.trace("Started next track preload, gid: " + Utils.bytesToHex(next.getGid()));
-            }
-        }
-    }
-
-    @Override
-    public void crossfadeNextTrack(@NotNull TrackHandler handler, @Nullable String uri) {
-        if (handler == trackHandler) {
-            PlayableId next = state.nextPlayableDoNotSet();
-            if (next == null) return;
-
-            if (uri != null && !next.toSpotifyUri().equals(uri))
-                LOGGER.warn(String.format("Fade out track URI is different from next track URI! {next: %s, crossfade: %s}", next, uri));
-
-            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(next)) {
-                crossfadeHandler = preloadTrackHandler;
-            } else {
-                LOGGER.warn("Did not preload crossfade track. That's bad.");
-                crossfadeHandler = runner.load(next, 0);
-            }
-
-            crossfadeHandler.waitReady();
-            LOGGER.info("Crossfading to next track.");
-            crossfadeHandler.pushToMixer(PushToMixerReason.FadeNext);
-        }
-    }
-
-    @Override
-    public void abortedCrossfade(@NotNull TrackHandler handler) {
-        if (handler == trackHandler) {
-            if (crossfadeHandler == preloadTrackHandler) preloadTrackHandler = null;
-            crossfadeHandler = null;
-
-            LOGGER.trace("Aborted crossfade.");
-        }
-    }
-
-    @Override
-    public @NotNull Map<String, String> metadataFor(@NotNull PlayableId id) {
-        return state.metadataFor(id);
-    }
-
-    @Override
-    public void finishedSeek(@NotNull TrackHandler handler) {
-        if (handler == trackHandler) state.updated();
-    }
-
-    @Override
-    public void playbackError(@NotNull TrackHandler handler, @NotNull Exception ex) {
-        if (handler == trackHandler) {
-            if (ex instanceof AbsChunkedInputStream.ChunkException)
-                LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
-            else
-                LOGGER.fatal("Playback error!", ex);
-
-            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-        } else if (handler == preloadTrackHandler) {
-            LOGGER.warn("Preloaded track loading failed!", ex);
-            preloadTrackHandler = null;
-        }
-    }
-
-    @Override
-    public void playbackHalted(@NotNull TrackHandler handler, int chunk) {
-        if (handler == trackHandler) {
-            LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
-
-            state.setBuffering(true);
-            state.updated();
-
-            events.playbackHaltStateChanged(true);
-        }
-    }
-
-    @Override
-    public void playbackResumedFromHalt(@NotNull TrackHandler handler, int chunk, long diff) {
-        if (handler == trackHandler) {
-            LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
-
-            state.setPosition(state.getPosition() - diff);
-            state.setBuffering(false);
-            state.updated();
-
-            events.playbackHaltStateChanged(false);
+        TrackOrEpisode metadata = currentMetadata();
+        if (metadata != null) {
+            state.enrichWithMetadata(metadata);
+            events.metadataAvailable();
         }
     }
 
     private void handleSeek(int pos) {
-        if (playbackMetrics != null && trackHandler.isPlayable(playbackMetrics.id)) {
+        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
             playbackMetrics.endInterval(state.getPosition());
             playbackMetrics.startInterval(pos);
         }
 
         state.setPosition(pos);
-        if (trackHandler != null) trackHandler.seek(pos);
+        queue.seekCurrent(pos);
         events.seeked(pos);
-    }
-
-    private void panicState(@Nullable EventService.PlaybackMetrics.Reason reason) {
-        runner.stopMixer();
-        state.setState(false, false, false);
-        state.updated();
-
-        if (reason != null && playbackMetrics != null && trackHandler.isPlayable(playbackMetrics.id)) {
-            playbackMetrics.endedHow(reason, null);
-            playbackMetrics.endInterval(state.getPosition());
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
-        }
-    }
-
-    private void loadTrack(boolean play, @NotNull PushToMixerReason reason, @NotNull TransitionInfo trans) {
-        if (playbackMetrics != null && trackHandler.isPlayable(playbackMetrics.id)) {
-            playbackMetrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
-            playbackMetrics.endInterval(trans.endedWhen);
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
-        }
-
-        if (trackHandler != null) {
-            trackHandler.stop();
-            trackHandler = null;
-        }
-
-        state.renewPlaybackId();
-
-        PlayableId id = state.getCurrentPlayableOrThrow();
-        playbackMetrics = new PlaybackMetrics(id);
-        if (crossfadeHandler != null && crossfadeHandler.isPlayable(id)) {
-            trackHandler = crossfadeHandler;
-            if (preloadTrackHandler == crossfadeHandler) preloadTrackHandler = null;
-            crossfadeHandler = null;
-
-            if (trackHandler.isReady()) {
-                state.setState(true, !play, false);
-                updateStateWithHandler();
-
-                try {
-                    state.setPosition(trackHandler.time());
-                } catch (Codec.CannotGetTimeException ignored) {
-                }
-            } else {
-                state.setState(true, !play, true);
-            }
-
-            state.updated();
-            events.trackChanged();
-
-            if (!play) {
-                runner.pauseMixer();
-                events.playbackPaused();
-            } else {
-                events.playbackResumed();
-            }
-        } else {
-            if (preloadTrackHandler != null && preloadTrackHandler.isPlayable(id)) {
-                trackHandler = preloadTrackHandler;
-                preloadTrackHandler = null;
-
-                if (trackHandler.isReady()) {
-                    state.setState(true, !play, false);
-                    updateStateWithHandler();
-
-                    trackHandler.seek(state.getPosition());
-                } else {
-                    state.setState(true, !play, true);
-                }
-            } else {
-                state.setState(true, !play, true);
-                trackHandler = runner.load(id, state.getPosition());
-            }
-
-            state.updated();
-            events.trackChanged();
-
-            if (play) {
-                trackHandler.pushToMixer(reason);
-                runner.playMixer();
-                events.playbackResumed();
-            } else {
-                events.playbackPaused();
-            }
-        }
-
-        if (releaseLineFuture != null) {
-            releaseLineFuture.cancel(true);
-            releaseLineFuture = null;
-        }
-
-        playbackMetrics.startedHow(trans.startedReason, state.getPlayOrigin().getFeatureIdentifier());
-        playbackMetrics.startInterval(state.getPosition());
     }
 
     private void handleResume() {
         if (state.isPaused()) {
             state.setState(true, false, false);
-            if (!trackHandler.isInMixer()) trackHandler.pushToMixer(PushToMixerReason.None);
-            runner.playMixer();
+            queue.resume();
 
             state.updated();
             events.playbackResumed();
@@ -532,10 +306,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     private void handlePause() {
         if (state.isPlaying()) {
             state.setState(true, true, false);
-            runner.pauseMixer();
+            queue.pause(false);
 
             try {
-                state.setPosition(trackHandler.time());
+                state.setPosition(queue.currentTime());
             } catch (Codec.CannotGetTimeException ignored) {
             }
 
@@ -547,9 +321,57 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 if (!state.isPaused()) return;
 
                 events.inactiveSession(true);
-                if (runner.pauseAndRelease()) LOGGER.debug("Released line after a period of inactivity.");
+                queue.pause(true);
             }, conf.releaseLineDelay(), TimeUnit.SECONDS);
         }
+    }
+
+    private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
+        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
+            playbackMetrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
+            playbackMetrics.endInterval(trans.endedWhen);
+            session.eventService().trackPlayed(state, playbackMetrics);
+            playbackMetrics = null;
+        }
+
+        state.renewPlaybackId();
+
+        PlayableId playable = state.getCurrentPlayableOrThrow();
+        playbackMetrics = new PlaybackMetrics(playable);
+        if (!queue.isCurrent(playable)) {
+            queue.clear();
+
+            state.setState(true, !play, true);
+            int id = queue.load(playable);
+            queue.follows(id);
+            queue.seek(id, state.getPosition());
+
+            state.updated();
+            events.trackChanged();
+
+            if (play) {
+                queue.resume();
+                events.playbackResumed();
+            } else {
+                queue.pause(false);
+                events.playbackPaused();
+            }
+        } else {
+            entryIsReady();
+
+            state.updated();
+            events.trackChanged();
+
+            if (!play) queue.pause(false);
+        }
+
+        if (releaseLineFuture != null) {
+            releaseLineFuture.cancel(true);
+            releaseLineFuture = null;
+        }
+
+        playbackMetrics.startedHow(trans.startedReason, state.getPlayOrigin().getFeatureIdentifier());
+        playbackMetrics.startInterval(state.getPosition());
     }
 
     private void setQueue(@NotNull JsonObject obj) {
@@ -575,7 +397,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         if (track != null) {
             state.skipTo(track);
-            loadTrack(true, PushToMixerReason.Next, TransitionInfo.skipTo(state));
+            loadTrack(true, TransitionInfo.skipTo(state));
             return;
         }
 
@@ -589,10 +411,27 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             trans.endedWhen = state.getPosition();
 
             state.setPosition(0);
-            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, PushToMixerReason.Next, trans);
+            loadTrack(next == NextPlayable.OK_PLAY || next == NextPlayable.OK_REPEAT, trans);
         } else {
             LOGGER.fatal("Failed loading next song: " + next);
             panicState(PlaybackMetrics.Reason.END_PLAY);
+        }
+    }
+
+    private void handlePrev() {
+        if (state.getPosition() < 3000) {
+            StateWrapper.PreviousPlayable prev = state.previousPlayable();
+            if (prev.isOk()) {
+                state.setPosition(0);
+                loadTrack(true, TransitionInfo.skippedPrev(state));
+            } else {
+                LOGGER.fatal("Failed loading previous song: " + prev);
+                panicState(null);
+            }
+        } else {
+            state.setPosition(0);
+            queue.seekCurrent(0);
+            state.updated();
         }
     }
 
@@ -614,7 +453,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, PushToMixerReason.None, TransitionInfo.contextChange(state, false));
+                loadTrack(true, TransitionInfo.contextChange(state, false));
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
@@ -623,7 +462,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, PushToMixerReason.None, TransitionInfo.contextChange(state, false));
+                loadTrack(true, TransitionInfo.contextChange(state, false));
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
@@ -642,62 +481,135 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
     }
 
-    private void handlePrev() {
-        if (state.getPosition() < 3000) {
-            StateWrapper.PreviousPlayable prev = state.previousPlayable();
-            if (prev.isOk()) {
-                state.setPosition(0);
-                loadTrack(true, PushToMixerReason.Prev, TransitionInfo.skippedPrev(state));
-            } else {
-                LOGGER.fatal("Failed loading previous song: " + prev);
-                panicState(null);
+
+    // ================================ //
+    // ======== Player events ========= //
+    // ================================ //
+
+    @Override
+    public void startedLoading(int id) {
+        if (queue.isCurrent(id)) {
+            if (!state.isBuffering()) {
+                state.setBuffering(true);
+                state.updated();
             }
-        } else {
-            state.setPosition(0);
-            if (trackHandler != null) trackHandler.seek(0);
+        }
+    }
+
+    @Override
+    public void finishedLoading(int id) {
+        if (queue.isCurrent(id)) {
+            state.setBuffering(false);
+            entryIsReady();
+            state.updated();
+        } else if (queue.isNext(id)) {
+            LOGGER.trace("Preloaded track is ready.");
+        }
+    }
+
+    @Override
+    public void sinkError(@NotNull Exception ex) {
+        LOGGER.fatal("Sink error!", ex);
+        panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+    }
+
+    @Override
+    public void loadingError(int id, @NotNull PlayableId playable, @NotNull Exception ex) {
+        if (queue.isCurrent(id)) {
+            if (ex instanceof ContentRestrictedException) {
+                LOGGER.fatal(String.format("Can't load track (content restricted). {uri: %s}", playable.toSpotifyUri()), ex);
+                handleNext(null, TransitionInfo.nextError(state));
+                return;
+            }
+
+            LOGGER.fatal(String.format("Failed loading track. {uri: %s}", playable.toSpotifyUri()), ex);
+            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+        }
+    }
+
+    @Override
+    public void endOfPlayback(int id) {
+        if (queue.isCurrent(id)) {
+            LOGGER.trace(String.format("End of track. {id: %d}", id));
+            handleNext(null, TransitionInfo.next(state));
+        }
+    }
+
+    @Override
+    public void startedNextTrack(int id, int next) {
+        if (queue.isCurrent(next)) {
+            LOGGER.trace(String.format("Playing next track. {id: %d}", next));
+            handleNext(null, TransitionInfo.next(state));
+        }
+    }
+
+    @Override
+    public void preloadNextTrack(int id) {
+        if (queue.isCurrent(id)) {
+            PlayableId next = state.nextPlayableDoNotSet();
+            if (next != null) {
+                int nextId = queue.load(next);
+                queue.follows(nextId);
+                LOGGER.trace("Started next track preload, uri: " + next.toSpotifyUri());
+            }
+        }
+    }
+
+    @Override
+    public void finishedSeek(int id, int pos) {
+        if (queue.isCurrent(id)) {
+            state.setPosition(pos);
             state.updated();
         }
     }
 
     @Override
-    public void close() throws IOException {
-        if (playbackMetrics != null && trackHandler.isPlayable(playbackMetrics.id)) {
-            playbackMetrics.endedHow(PlaybackMetrics.Reason.LOGOUT, null);
-            playbackMetrics.endInterval(state.getPosition());
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
+    public void playbackError(int id, @NotNull Exception ex) {
+        if (queue.isCurrent(id)) {
+            if (ex instanceof AbsChunkedInputStream.ChunkException)
+                LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
+            else
+                LOGGER.fatal("Playback error!", ex);
+
+            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+        } else if (queue.isNext(id)) {
+            LOGGER.warn("Preloaded track loading failed!", ex);
         }
-
-        if (trackHandler != null) {
-            trackHandler.close();
-            trackHandler = null;
-        }
-
-        if (crossfadeHandler != null) {
-            crossfadeHandler.close();
-            crossfadeHandler = null;
-        }
-
-        if (preloadTrackHandler != null) {
-            preloadTrackHandler.close();
-            preloadTrackHandler = null;
-        }
-
-        state.close();
-        events.listeners.clear();
-
-        runner.close();
-        if (state != null) state.removeListener(this);
     }
 
-    @Nullable
-    public Metadata.Track currentTrack() {
-        return trackHandler == null ? null : trackHandler.track();
+    @Override
+    public void playbackHalted(int id, int chunk) {
+        if (queue.isCurrent(id)) {
+            LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
+
+            state.setBuffering(true);
+            state.updated();
+
+            events.playbackHaltStateChanged(true);
+        }
     }
 
+    @Override
+    public void playbackResumedFromHalt(int id, int chunk, long diff) {
+        if (queue.isCurrent(id)) {
+            LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
+
+            state.setPosition(state.getPosition() - diff);
+            state.setBuffering(false);
+            state.updated();
+
+            events.playbackHaltStateChanged(false);
+        }
+    }
+
+
+    // ================================ //
+    // =========== Getters ============ //
+    // ================================ //
+
     @Nullable
-    public Metadata.Episode currentEpisode() {
-        return trackHandler == null ? null : trackHandler.episode();
+    public TrackOrEpisode currentMetadata() {
+        return queue.currentMetadata();
     }
 
     @Nullable
@@ -707,28 +619,19 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     @Nullable
     public byte[] currentCoverImage() throws IOException {
-        Metadata.Track track = currentTrack();
-        Metadata.Episode episode = currentEpisode();
-        Metadata.ImageGroup group = null;
-        if (track != null) {
-            if (track.hasAlbum() && track.getAlbum().hasCoverGroup())
-                group = track.getAlbum().getCoverGroup();
-        } else if (episode != null) {
-            if (episode.hasCoverImage())
-                group = episode.getCoverImage();
-        } else {
-            throw new IllegalStateException();
-        }
+        TrackOrEpisode metadata = currentMetadata();
+        if (metadata == null) return null;
 
         ImageId image = null;
+        Metadata.ImageGroup group = metadata.getCoverImage();
         if (group == null) {
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return null;
 
-            Map<String, String> metadata = state.metadataFor(id);
+            Map<String, String> map = state.metadataFor(id);
             for (String key : ImageId.IMAGE_SIZES_URLS) {
-                if (metadata.containsKey(key)) {
-                    image = ImageId.fromUri(metadata.get(key));
+                if (map.containsKey(key)) {
+                    image = ImageId.fromUri(map.get(key));
                     break;
                 }
             }
@@ -755,10 +658,31 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
      */
     public long time() {
         try {
-            return trackHandler == null ? 0 : trackHandler.time();
+            return queue.currentTime();
         } catch (Codec.CannotGetTimeException ex) {
             return -1;
         }
+    }
+
+
+    // ================================ //
+    // ============ Close! ============ //
+    // ================================ //
+
+    @Override
+    public void close() {
+        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
+            playbackMetrics.endedHow(PlaybackMetrics.Reason.LOGOUT, null);
+            playbackMetrics.endInterval(state.getPosition());
+            session.eventService().trackPlayed(state, playbackMetrics);
+            playbackMetrics = null;
+        }
+
+        state.close();
+        events.listeners.clear();
+
+        queue.close();
+        if (state != null) state.removeListener(this);
     }
 
     public interface Configuration {
@@ -799,7 +723,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
     public interface EventsListener {
         void onContextChanged(@NotNull String newUri);
 
-        void onTrackChanged(@NotNull PlayableId id, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
+        void onTrackChanged(@NotNull PlayableId id, @Nullable TrackOrEpisode metadata);
 
         void onPlaybackPaused(long trackTime);
 
@@ -807,7 +731,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
         void onTrackSeeked(long trackTime);
 
-        void onMetadataAvailable(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode);
+        void onMetadataAvailable(@NotNull TrackOrEpisode metadata);
 
         void onPlaybackHaltStateChanged(boolean halted, long trackTime);
 
@@ -977,45 +901,27 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         private void sendProgress() {
-            PlayableId id = state.getCurrentPlayable();
-            if (id == null || trackHandler == null || !trackHandler.isPlayable(id)) return;
+            TrackOrEpisode metadata = currentMetadata();
+            if (metadata == null) return;
 
-            Metadata.Track track;
-            Metadata.Episode episode;
-            int duration = -1;
-            if ((track = trackHandler.track()) != null) {
-                if (track.hasDuration()) duration = track.getDuration();
-            } else if ((episode = trackHandler.episode()) != null) {
-                if (episode.hasDuration()) duration = episode.getDuration();
-            }
-
-            if (duration == -1)
-                return;
-
-            String data = String.format("1/%.0f/%.0f", state.getPosition() * PlayerRunner.OUTPUT_FORMAT.getSampleRate() / 1000 + 1,
-                    duration * PlayerRunner.OUTPUT_FORMAT.getSampleRate() / 1000 + 1);
+            String data = String.format("1/%.0f/%.0f", state.getPosition() * AudioSink.OUTPUT_FORMAT.getSampleRate() / 1000 + 1,
+                    metadata.duration() * AudioSink.OUTPUT_FORMAT.getSampleRate() / 1000 + 1);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
         }
 
         private void sendTrackInfo() {
-            Metadata.Track track = currentTrack();
-            Metadata.Episode episode = currentEpisode();
-            if (track == null && episode == null) return;
+            TrackOrEpisode metadata = currentMetadata();
+            if (metadata == null) return;
 
-            String title = track != null ? track.getName() : episode.getName();
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, title);
-
-            String album = track != null ? track.getAlbum().getName() : episode.getShow().getName();
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, album);
-
-            String artist = track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, artist);
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, metadata.getName());
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, metadata.getAlbumName());
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, metadata.getArtist());
         }
 
         private void sendVolume(int value) {
             float xmlValue;
             if (value == 0) xmlValue = 144.0f;
-            else xmlValue = (value - PlayerRunner.VOLUME_MAX) * 30.0f / (PlayerRunner.VOLUME_MAX - 1);
+            else xmlValue = (value - Player.VOLUME_MAX) * 30.0f / (Player.VOLUME_MAX - 1);
             String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
         }
@@ -1051,18 +957,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return;
 
-            Metadata.Track track;
-            Metadata.Episode episode;
-            if (trackHandler != null && trackHandler.isPlayable(id)) {
-                track = trackHandler.track();
-                episode = trackHandler.episode();
-            } else {
-                track = null;
-                episode = null;
-            }
-
+            TrackOrEpisode metadata = currentMetadata();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onTrackChanged(id, track, episode));
+                executorService.execute(() -> l.onTrackChanged(id, metadata));
         }
 
         void seeked(int pos) {
@@ -1072,8 +969,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
             if (metadataPipe.enabled()) executorService.execute(this::sendProgress);
         }
 
-        void volumeChanged(@Range(from = 0, to = PlayerRunner.VOLUME_MAX) int value) {
-            float volume = (float) value / PlayerRunner.VOLUME_MAX;
+        void volumeChanged(@Range(from = 0, to = Player.VOLUME_MAX) int value) {
+            float volume = (float) value / Player.VOLUME_MAX;
 
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onVolumeChanged(volume));
@@ -1082,14 +979,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         }
 
         void metadataAvailable() {
-            if (trackHandler == null) return;
-
-            Metadata.Track track = trackHandler.track();
-            Metadata.Episode episode = trackHandler.episode();
-            if (track == null && episode == null) return;
+            TrackOrEpisode metadata = currentMetadata();
+            if (metadata == null) return;
 
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onMetadataAvailable(track, episode));
+                executorService.execute(() -> l.onMetadataAvailable(metadata));
 
             if (metadataPipe.enabled()) {
                 executorService.execute(() -> {

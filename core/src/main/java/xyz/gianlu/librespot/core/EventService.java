@@ -10,8 +10,8 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.PlayerRunner;
 import xyz.gianlu.librespot.player.StateWrapper;
+import xyz.gianlu.librespot.player.queue.PlayerQueue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -31,7 +31,7 @@ public final class EventService implements Closeable {
 
     EventService(@NotNull Session session) {
         this.session = session;
-        this.asyncWorker = new AsyncWorker<>("event-service", eventBuilder -> {
+        this.asyncWorker = new AsyncWorker<>("event-service-sender", eventBuilder -> {
             try {
                 byte[] body = eventBuilder.toArray();
                 MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
@@ -199,7 +199,7 @@ public final class EventService implements Closeable {
     public static class PlaybackMetrics {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
-        PlayerRunner.PlayerMetrics player = null;
+        PlayerQueue.PlayerMetrics player = null;
         Interval lastInterval = null;
         Reason reasonStart = null;
         String sourceStart = null;
@@ -275,7 +275,7 @@ public final class EventService implements Closeable {
             return reasonEnd == null ? null : reasonEnd.val;
         }
 
-        public void update(@NotNull PlayerRunner.PlayerMetrics playerMetrics) {
+        public void update(@NotNull PlayerQueue.PlayerMetrics playerMetrics) {
             player = playerMetrics;
         }
 

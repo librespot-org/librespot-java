@@ -138,7 +138,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @Override
-    public void writeHeader(byte id, byte[] bytes, boolean cached) {
+    public void writeHeader(int id, byte[] bytes, boolean cached) {
         // Not interested
     }
 

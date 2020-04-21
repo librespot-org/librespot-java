@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.player.mixing;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
 import javax.sound.sampled.AudioFormat;
@@ -12,7 +13,7 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public class MixingLine extends InputStream {
+public final class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final AudioFormat format;
     private GainAwareCircularBuffer fcb;
@@ -56,6 +57,13 @@ public class MixingLine extends InputStream {
         }
 
         return len;
+    }
+
+    @Nullable
+    public MixingOutput someOut() {
+        if (fout == null) return firstOut();
+        else if (sout == null) return secondOut();
+        else return null;
     }
 
     @NotNull

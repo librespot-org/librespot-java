@@ -135,6 +135,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return state.getIsPlaying() && state.getIsPaused();
     }
 
+    boolean isBuffering() {
+        return state.getIsPlaying() && state.getIsBuffering();
+    }
+
     private boolean isShufflingContext() {
         return state.getOptions().getShufflingContext();
     }
@@ -316,7 +320,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         device.setVolume(val);
     }
 
-    synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
+    void enrichWithMetadata(@NotNull TrackOrEpisode metadata) {
+        if (metadata.isTrack()) enrichWithMetadata(metadata.track);
+        else if (metadata.isEpisode()) enrichWithMetadata(metadata.episode);
+    }
+
+    private synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
         if (state.getTrack() == null) throw new IllegalStateException();
         if (!state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri())) {
             LOGGER.warn(String.format("Failed updating metadata: tracks do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(track).toSpotifyUri()));
@@ -377,7 +386,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.setTrack(builder.build());
     }
 
-    synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
+    private synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
         if (state.getTrack() == null) throw new IllegalStateException();
         if (!state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri())) {
             LOGGER.warn(String.format("Failed updating metadata: episodes do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(episode).toSpotifyUri()));

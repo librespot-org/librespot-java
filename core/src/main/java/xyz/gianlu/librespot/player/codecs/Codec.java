@@ -38,7 +38,7 @@ public abstract class Codec implements Closeable {
             this.normalizationFactor = 1;
     }
 
-    public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+    public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
         if (converter == null) return readInternal(out);
 
         int written = readInternal(converter);
