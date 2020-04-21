@@ -25,6 +25,8 @@ import xyz.gianlu.librespot.player.mixing.MixingLine;
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.TreeMap;
 
 /**
  * @author devgianlu
@@ -35,12 +37,12 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
     private final int id;
     private final Listener listener;
     private final Object playbackLock = new Object();
+    private final TreeMap<Integer, Integer> notifyInstants = new TreeMap<>(Comparator.comparingInt(o -> o));
     private Codec codec;
     private TrackOrEpisode metadata;
     private volatile boolean closed = false;
     private volatile MixingLine.MixingOutput output;
     private long playbackHaltedAt = 0;
-    private int notifyInstant = -1;
     private ContentRestrictedException contentRestricted = null;
 
     QueueEntry(int id, @NotNull PlayableId playable, @NotNull Listener listener) {
@@ -172,17 +174,20 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
      *
      * @param when The time in milliseconds
      */
-    void notifyInstant(int when) {
+    void notifyInstant(int callbackId, int when) {
         if (codec != null) {
             try {
                 int time = codec.time();
-                if (time >= when) listener.instantReached(id, time);
+                if (time >= when) {
+                    listener.instantReached(id, callbackId, time);
+                    return;
+                }
             } catch (Codec.CannotGetTimeException ex) {
                 return;
             }
         }
 
-        notifyInstant = when;
+        notifyInstants.put(when, callbackId);
     }
 
     @Override
@@ -207,13 +212,10 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
                 }
             }
 
-            if (canGetTime && notifyInstant != -1) {
+            if (canGetTime && !notifyInstants.isEmpty()) {
                 try {
                     int time = codec.time();
-                    if (time >= notifyInstant) {
-                        notifyInstant = -1;
-                        listener.instantReached(id, time);
-                    }
+                    checkInstants(time);
                 } catch (Codec.CannotGetTimeException ex) {
                     canGetTime = false;
                 }
@@ -226,9 +228,17 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
                 }
             } catch (IOException | Codec.CodecException ex) {
                 if (closed) break;
-
                 listener.playbackException(id, ex);
             }
+        }
+    }
+
+    private void checkInstants(int time) {
+        int key = notifyInstants.firstKey();
+        if (time >= key) {
+            int callbackId = notifyInstants.remove(key);
+            listener.instantReached(id, callbackId, time);
+            if (!notifyInstants.isEmpty()) checkInstants(time);
         }
     }
 
@@ -253,18 +263,59 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
     }
 
     interface Listener {
+        /**
+         * An error occurred during playback.
+         *
+         * @param id The entry ID
+         * @param ex The exception thrown
+         */
         void playbackException(int id, @NotNull Exception ex);
 
+        /**
+         * The playback of the current entry ended.
+         *
+         * @param id The entry ID
+         */
         void playbackEnded(int id);
 
+        /**
+         * The playback halted while trying to receive a chunk.
+         *
+         * @param id    The entry ID
+         * @param chunk The chunk that is being retrieved
+         */
         void playbackHalted(int id, int chunk);
 
-        void playbackResumed(int id, int chunk, int duration);
+        /**
+         * The playback resumed from halt.
+         *
+         * @param id    The entry ID
+         * @param chunk The chunk that was being retrieved
+         * @param diff  The time taken to retrieve the chunk
+         */
+        void playbackResumed(int id, int chunk, int diff);
 
-        void instantReached(int id, int exact);
+        /**
+         * Notify that a previously request instant has been reached. This is called from the runner, be careful.
+         *
+         * @param entryId    The entry ID
+         * @param callbackId The callback ID for the instant
+         * @param exactTime  The exact time the instant was reached
+         */
+        void instantReached(int entryId, int callbackId, int exactTime);
 
+        /**
+         * The track started loading.
+         *
+         * @param id The entry ID
+         */
         void startedLoading(int id);
 
+        /**
+         * The track finished loading.
+         *
+         * @param id The entry ID
+         */
         void finishedLoading(int id);
     }
 }

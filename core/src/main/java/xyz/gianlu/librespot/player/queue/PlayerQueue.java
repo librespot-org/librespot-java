@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
     private static final Logger LOGGER = Logger.getLogger(PlayerQueue.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);
+    private static final int INSTANT_PRELOAD = 1;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "player-queue-worker-" + r.hashCode()));
     private final Session session;
     private final Player.Configuration conf;
@@ -217,14 +218,6 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
     }
 
     /**
-     * @param id The entry ID
-     * @return Whether the given ID is the next entry ID.
-     */
-    public boolean isNext(int id) {
-        return id == nextEntryId;
-    }
-
-    /**
      * Close the queue by closing all entries and the sink.
      */
     @Override
@@ -283,8 +276,9 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
     }
 
     @Override
-    public void instantReached(int id, int exact) { // TODO: Preload, crossfade
-        listener.preloadNextTrack(id);
+    public void instantReached(int entryId, int callbackId, int exact) {
+        if (callbackId == INSTANT_PRELOAD)
+            executorService.execute(() -> listener.preloadNextTrack(entryId));
     }
 
     @Override
@@ -298,7 +292,9 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
 
         if (conf.preloadEnabled()) {
             QueueEntry entry = entries.get(id);
-            entry.notifyInstant((int) (entry.metadata().duration() - TimeUnit.SECONDS.toMillis(20))); // FIXME
+            TrackOrEpisode metadata = entry.metadata();
+            if (metadata != null)
+                entry.notifyInstant(INSTANT_PRELOAD, (int) (metadata.duration() - TimeUnit.SECONDS.toMillis(20)));
         }
     }
 

@@ -44,9 +44,7 @@ import java.util.concurrent.*;
  * @author Gianlu
  */
 public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQueue.Listener { // TODO: Reduce calls to state update
-    public static final int VOLUME_STEPS = 64;
     public static final int VOLUME_MAX = 65536;
-    public static final int VOLUME_ONE_STEP = VOLUME_MAX / VOLUME_STEPS;
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
@@ -506,8 +504,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
             state.setBuffering(false);
             entryIsReady();
             state.updated();
-        } else if (queue.isNext(id)) {
-            LOGGER.trace("Preloaded track is ready.");
         }
     }
 
@@ -554,7 +550,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
             if (next != null) {
                 int nextId = queue.load(next);
                 queue.follows(nextId);
-                LOGGER.trace("Started next track preload, uri: " + next.toSpotifyUri());
+                LOGGER.trace(String.format("Started next track preload. {uri: %s}", next.toSpotifyUri()));
             }
         }
     }
@@ -576,8 +572,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 LOGGER.fatal("Playback error!", ex);
 
             panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-        } else if (queue.isNext(id)) {
-            LOGGER.warn("Preloaded track loading failed!", ex);
         }
     }
 
