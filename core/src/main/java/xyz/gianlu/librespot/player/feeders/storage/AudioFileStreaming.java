@@ -176,10 +176,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
 
-            if (chunk.length != buffer[chunkIndex].length) {
-                System.out.println(Utils.bytesToHex(chunk));
+            if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
-            }
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);

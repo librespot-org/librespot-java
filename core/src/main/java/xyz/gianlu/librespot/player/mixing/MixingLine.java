@@ -50,13 +50,13 @@ public final class MixingLine extends InputStream {
             return willRead;
         } else if (fe && fcb != null) {
             fcb.readGain(b, off, len, gg * fg);
+            return len;
         } else if (se && scb != null) {
             scb.readGain(b, off, len, gg * sg);
+            return len;
         } else {
-            for (int i = off; i < len - off; i++) b[i] = 0;
+            return 0;
         }
-
-        return len;
     }
 
     @Nullable

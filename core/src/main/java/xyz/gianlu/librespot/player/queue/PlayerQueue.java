@@ -31,9 +31,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Gianlu
  */
 public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
+    static final int INSTANT_START_NEXT = 2;
+    static final int INSTANT_END_NOW = 3;
+    private static final int INSTANT_PRELOAD = 1;
     private static final Logger LOGGER = Logger.getLogger(PlayerQueue.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);
-    private static final int INSTANT_PRELOAD = 1;
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "player-queue-worker-" + r.hashCode()));
     private final Session session;
     private final Player.Configuration conf;
@@ -94,12 +96,13 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
      * @param playable The content this entry will play.
      * @return The entry ID
      */
-    public int load(@NotNull PlayableId playable) {
+    public int load(@NotNull PlayableId playable, @NotNull Map<String, String> metadata, int pos) {
         int id = IDS.getAndIncrement();
-        QueueEntry entry = new QueueEntry(id, playable, this);
+        QueueEntry entry = new QueueEntry(id, playable, metadata, this);
+        executorService.execute(entry);
         executorService.execute(() -> {
             try {
-                entry.load(session, conf, sink.getFormat());
+                entry.load(session, conf, sink.getFormat(), pos);
                 LOGGER.debug(String.format("Preloaded entry. {id: %d}", id));
             } catch (IOException | Codec.CodecException | MercuryClient.MercuryException | CdnManager.CdnException ex) {
                 LOGGER.error(String.format("Failed preloading entry. {id: %d}", id), ex);
@@ -227,20 +230,24 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
     }
 
     private void start(int id) {
+        QueueEntry entry = entries.get(id);
+        if (entry == null) throw new IllegalStateException();
+        if (entry.hasOutput()) {
+            entry.toggleOutput(true);
+            return;
+        }
+
         MixingLine.MixingOutput out = sink.someOutput();
         if (out == null) throw new IllegalStateException();
 
-        QueueEntry entry = entries.get(id);
-        if (entry == null) throw new IllegalStateException();
-
         try {
-            entry.load(session, conf, sink.getFormat());
+            entry.load(session, conf, sink.getFormat(), -1);
         } catch (CdnManager.CdnException | IOException | MercuryClient.MercuryException | Codec.CodecException | ContentRestrictedException ex) {
             listener.loadingError(id, entry.playable, ex);
         }
 
         entry.setOutput(out);
-        executorService.execute(entry);
+        entry.toggleOutput(true);
     }
 
     @Override
@@ -277,8 +284,20 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
 
     @Override
     public void instantReached(int entryId, int callbackId, int exact) {
-        if (callbackId == INSTANT_PRELOAD)
-            executorService.execute(() -> listener.preloadNextTrack(entryId));
+        switch (callbackId) {
+            case INSTANT_PRELOAD:
+                if (entryId == currentEntryId)
+                    executorService.execute(() -> listener.preloadNextTrack(entryId));
+                break;
+            case INSTANT_START_NEXT:
+                if (entryId == currentEntryId && nextEntryId != -1)
+                    start(nextEntryId);
+                break;
+            case INSTANT_END_NOW:
+                QueueEntry entry = entries.remove(entryId);
+                if (entry != null) entry.close();
+                break;
+        }
     }
 
     @Override
@@ -290,12 +309,9 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
     public void finishedLoading(int id) {
         listener.finishedLoading(id);
 
-        if (conf.preloadEnabled()) {
-            QueueEntry entry = entries.get(id);
-            TrackOrEpisode metadata = entry.metadata();
-            if (metadata != null)
-                entry.notifyInstant(INSTANT_PRELOAD, (int) (metadata.duration() - TimeUnit.SECONDS.toMillis(20)));
-        }
+        QueueEntry entry = entries.get(id);
+        if (conf.preloadEnabled() || entry.crossfadeController.fadeInEnabled())
+            entry.notifyInstantFromEnd(INSTANT_PRELOAD, (int) TimeUnit.SECONDS.toMillis(20) + entry.crossfadeController.fadeOutStartTimeFromEnd());
     }
 
     public interface Listener extends AudioSink.Listener {

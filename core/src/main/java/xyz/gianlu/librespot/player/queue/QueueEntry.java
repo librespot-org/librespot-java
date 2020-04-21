@@ -18,6 +18,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
+import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
 import xyz.gianlu.librespot.player.mixing.MixingLine;
@@ -26,6 +27,7 @@ import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -37,7 +39,9 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
     private final int id;
     private final Listener listener;
     private final Object playbackLock = new Object();
+    private final Map<String, String> stateMetadata;
     private final TreeMap<Integer, Integer> notifyInstants = new TreeMap<>(Comparator.comparingInt(o -> o));
+    CrossfadeController crossfadeController;
     private Codec codec;
     private TrackOrEpisode metadata;
     private volatile boolean closed = false;
@@ -45,9 +49,10 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
     private long playbackHaltedAt = 0;
     private ContentRestrictedException contentRestricted = null;
 
-    QueueEntry(int id, @NotNull PlayableId playable, @NotNull Listener listener) {
+    QueueEntry(int id, @NotNull PlayableId playable, @NotNull Map<String, String> stateMetadata, @NotNull Listener listener) {
         this.id = id;
         this.playable = playable;
+        this.stateMetadata = stateMetadata;
         this.listener = listener;
     }
 
@@ -56,9 +61,16 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
         return metadata;
     }
 
-    synchronized void load(@NotNull Session session, @NotNull Player.Configuration conf, @NotNull AudioFormat format) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+    synchronized void load(@NotNull Session session, @NotNull Player.Configuration conf, @NotNull AudioFormat format, int pos) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
         if (contentRestricted != null) throw contentRestricted;
         if (codec != null) {
+            if (pos != -1) {
+                if (pos == 0 && crossfadeController.fadeInEnabled())
+                    pos = crossfadeController.fadeInStartTime();
+
+                codec.seek(pos);
+            }
+
             notifyAll();
             return;
         }
@@ -75,6 +87,12 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
                     Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), id));
         }
 
+        crossfadeController = new CrossfadeController(metadata.duration(), stateMetadata, conf);
+        if (crossfadeController.fadeOutEnabled()) {
+            notifyInstant(PlayerQueue.INSTANT_START_NEXT, crossfadeController.fadeOutStartTime());
+            notifyInstant(PlayerQueue.INSTANT_END_NOW, crossfadeController.fadeOutEndTime());
+        }
+
         switch (stream.in.codec()) {
             case VORBIS:
                 codec = new VorbisCodec(format, stream.in, stream.normalizationData, conf, metadata.duration());
@@ -89,6 +107,11 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
             default:
                 throw new IllegalArgumentException("Unknown codec: " + stream.in.codec());
         }
+
+        if (pos == 0 && crossfadeController.fadeInEnabled())
+            pos = crossfadeController.fadeInStartTime();
+
+        if (pos != -1) codec.seek(pos);
 
         contentRestricted = null;
         LOGGER.trace(String.format("Loaded %s codec. {fileId: %s, format: %s, id: %d}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), id));
@@ -142,22 +165,27 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
         codec.seek(pos);
     }
 
+    void toggleOutput(boolean enabled) {
+        if (output == null) throw new IllegalStateException();
+        output.toggle(enabled);
+    }
+
     /**
-     * Set the output.
+     * Set the output. As soon as this method returns the entry will start playing.
      */
     void setOutput(@NotNull MixingLine.MixingOutput output) {
+        if (this.output != null) throw new IllegalStateException();
+
         synchronized (playbackLock) {
             this.output = output;
             playbackLock.notifyAll();
         }
-
-        this.output.toggle(true);
     }
 
     /**
-     * Remove the output.
+     * Remove the output. As soon as this method is called the entry will stop playing.
      */
-    void clearOutput() {
+    private void clearOutput() {
         if (output != null) {
             output.toggle(false);
             output.clear();
@@ -170,9 +198,21 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
     }
 
     /**
+     * Instructs to notify when this time from the end is reached.
+     *
+     * @param callbackId The callback ID
+     * @param when       The time in milliseconds from the end
+     */
+    void notifyInstantFromEnd(int callbackId, int when) {
+        if (metadata == null) throw new IllegalStateException();
+        notifyInstant(callbackId, metadata.duration() - when);
+    }
+
+    /**
      * Instructs to notify when this time instant is reached.
      *
-     * @param when The time in milliseconds
+     * @param callbackId The callback ID
+     * @param when       The time in milliseconds
      */
     void notifyInstant(int callbackId, int when) {
         if (codec != null) {
@@ -210,27 +250,40 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
                         break;
                     }
                 }
+
+                if (output == null) continue;
             }
 
-            if (canGetTime && !notifyInstants.isEmpty()) {
+            if (closed) return;
+
+            if (canGetTime) {
                 try {
                     int time = codec.time();
-                    checkInstants(time);
+                    if (!notifyInstants.isEmpty()) checkInstants(time);
+                    if (output == null)
+                        continue;
+
+                    output.gain(crossfadeController.getGain(time));
                 } catch (Codec.CannotGetTimeException ex) {
                     canGetTime = false;
                 }
             }
 
             try {
-                if (codec.writeSomeTo(output.stream()) == -1) {
-                    listener.playbackEnded(id);
+                if (codec.writeSomeTo(output.stream()) == -1)
                     break;
-                }
             } catch (IOException | Codec.CodecException ex) {
-                if (closed) break;
-                listener.playbackException(id, ex);
+                if (!closed) {
+                    listener.playbackException(id, ex);
+                    close();
+                }
+
+                return;
             }
         }
+
+        listener.playbackEnded(id);
+        close();
     }
 
     private void checkInstants(int time) {
@@ -260,6 +313,10 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
 
         int duration = (int) (time - playbackHaltedAt);
         listener.playbackResumed(id, chunk, duration);
+    }
+
+    boolean hasOutput() {
+        return output != null;
     }
 
     interface Listener {

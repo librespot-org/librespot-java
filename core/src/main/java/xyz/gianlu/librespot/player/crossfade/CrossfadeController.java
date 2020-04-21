@@ -13,75 +13,47 @@ import java.util.Map;
 public class CrossfadeController {
     private static final Logger LOGGER = Logger.getLogger(CrossfadeController.class);
     private final int trackDuration;
-    private final int defaultFadeDuration;
-    private final int fadeInDuration;
-    private final int fadeInStartTime;
-    private final int fadeOutDuration;
-    private final int fadeOutStartTime;
     private final String fadeOutUri;
-    private final FadeInterval startInterval;
-    private final FadeInterval endInterval;
+    private final FadeInterval fadeInInterval;
+    private final FadeInterval fadeOutInterval;
+    private final int defaultFadeDuration;
     private FadeInterval activeInterval = null;
     private float lastGain = 1;
-
-    public CrossfadeController(int duration, @NotNull Player.Configuration conf) {
-        trackDuration = duration;
-        defaultFadeDuration = conf.crossfadeDuration();
-
-        fadeInDuration = -1;
-        fadeInStartTime = -1;
-
-        fadeOutUri = null;
-        fadeOutDuration = -1;
-        fadeOutStartTime = -1;
-
-        if (defaultFadeDuration > 0)
-            startInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
-        else
-            startInterval = null;
-
-        if (defaultFadeDuration > 0)
-            endInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
-        else
-            endInterval = null;
-
-        LOGGER.debug(String.format("Loaded default intervals. {start: %s, end: %s}", startInterval, endInterval));
-    }
 
     public CrossfadeController(int duration, @NotNull Map<String, String> metadata, @NotNull Player.Configuration conf) {
         trackDuration = duration;
         defaultFadeDuration = conf.crossfadeDuration();
 
-        fadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_in_duration", "-1"));
-        fadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_in_start_time", "-1"));
+        int fadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_in_duration", "-1"));
+        int fadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_in_start_time", "-1"));
         JsonArray fadeInCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_in_curves", "[]")).getAsJsonArray();
         if (fadeInCurves.size() > 1) throw new UnsupportedOperationException(fadeInCurves.toString());
 
         fadeOutUri = metadata.get("audio.fade_out_uri");
-        fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
-        fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
+        int fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
+        int fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
         JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
         if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
 
         if (fadeInDuration == 0)
-            startInterval = null;
+            fadeInInterval = null;
         else if (fadeInCurves.size() > 0)
-            startInterval = new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves)));
+            fadeInInterval = new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves)));
         else if (defaultFadeDuration > 0)
-            startInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
+            fadeInInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
         else
-            startInterval = null;
+            fadeInInterval = null;
 
         if (fadeOutDuration == 0)
-            endInterval = null;
+            fadeOutInterval = null;
         else if (fadeOutCurves.size() > 0)
-            endInterval = new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves)));
+            fadeOutInterval = new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves)));
         else if (defaultFadeDuration > 0)
-            endInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
+            fadeOutInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
         else
-            endInterval = null;
+            fadeOutInterval = null;
 
-        LOGGER.debug(String.format("Loaded intervals. {start: %s, end: %s}", startInterval, endInterval));
+        LOGGER.debug(String.format("Loaded crossfade intervals. {start: %s, end: %s}", fadeInInterval, fadeOutInterval));
     }
 
     @NotNull
@@ -93,14 +65,6 @@ public class CrossfadeController {
         return curve.getAsJsonArray("fade_curve");
     }
 
-    public boolean shouldStartNextTrack(int pos) {
-        return fadeOutEnabled() && endInterval != null && pos >= endInterval.start;
-    }
-
-    public boolean shouldStop(int pos) {
-        return endInterval != null && pos >= endInterval.end();
-    }
-
     public float getGain(int pos) {
         if (activeInterval != null && activeInterval.end() <= pos) {
             lastGain = activeInterval.interpolator.last();
@@ -108,10 +72,10 @@ public class CrossfadeController {
         }
 
         if (activeInterval == null) {
-            if (startInterval != null && pos >= startInterval.start && startInterval.end() >= pos)
-                activeInterval = startInterval;
-            else if (endInterval != null && pos >= endInterval.start && endInterval.end() >= pos)
-                activeInterval = endInterval;
+            if (fadeInInterval != null && pos >= fadeInInterval.start && fadeInInterval.end() >= pos)
+                activeInterval = fadeInInterval;
+            else if (fadeOutInterval != null && pos >= fadeOutInterval.start && fadeOutInterval.end() >= pos)
+                activeInterval = fadeOutInterval;
         }
 
         if (activeInterval == null) return lastGain;
@@ -119,22 +83,37 @@ public class CrossfadeController {
         return lastGain = activeInterval.interpolate(pos);
     }
 
+    public boolean fadeInEnabled() {
+        return fadeInInterval != null;
+    }
+
     public int fadeInStartTime() {
-        if (fadeInStartTime != -1) return fadeInStartTime;
+        if (fadeInInterval != null) return fadeInInterval.start;
         else return 0;
     }
 
-    public int fadeOutStartTime() {
-        if (fadeOutStartTime != -1) return fadeOutStartTime;
-        else return trackDuration - defaultFadeDuration;
-    }
-
-    public boolean fadeInEnabled() {
-        return fadeInDuration != -1 || defaultFadeDuration > 0;
+    public int fadeInEndTime() {
+        if (fadeInInterval != null) return fadeInInterval.end();
+        else return defaultFadeDuration;
     }
 
     public boolean fadeOutEnabled() {
-        return fadeOutDuration != -1 || defaultFadeDuration > 0;
+        return fadeOutInterval != null;
+    }
+
+    public int fadeOutStartTime() {
+        if (fadeOutInterval != null) return fadeOutInterval.start;
+        else return trackDuration - defaultFadeDuration;
+    }
+
+    public int fadeOutEndTime() {
+        if (fadeOutInterval != null) return fadeOutInterval.end();
+        else return trackDuration;
+    }
+
+    public int fadeOutStartTimeFromEnd() {
+        if (fadeOutInterval != null) return trackDuration - fadeOutInterval.start;
+        else return defaultFadeDuration;
     }
 
     @Nullable

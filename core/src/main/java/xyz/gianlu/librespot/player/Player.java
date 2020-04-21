@@ -344,9 +344,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
             queue.clear();
 
             state.setState(true, !play, true);
-            int id = queue.load(playable);
-            queue.follows(id);
-            queue.seek(id, state.getPosition());
+            queue.follows(queue.load(playable, state.metadataFor(playable), state.getPosition()));
 
             state.updated();
             events.trackChanged();
@@ -359,6 +357,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 events.playbackPaused();
             }
         } else {
+            try {
+                state.setPosition(queue.currentTime());
+            } catch (Codec.CannotGetTimeException ignored) {
+            }
+
             entryIsReady();
 
             state.updated();
@@ -538,7 +541,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     @Override
     public void startedNextTrack(int id, int next) {
         if (queue.isCurrent(next)) {
-            LOGGER.trace(String.format("Playing next track. {id: %d}", next));
+            LOGGER.trace(String.format("Playing next track. {next: %d}", next));
             handleNext(null, TransitionInfo.next(state));
         }
     }
@@ -548,9 +551,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         if (queue.isCurrent(id)) {
             PlayableId next = state.nextPlayableDoNotSet();
             if (next != null) {
-                int nextId = queue.load(next);
+                int nextId = queue.load(next, state.metadataFor(next), 0);
                 queue.follows(nextId);
-                LOGGER.trace(String.format("Started next track preload. {uri: %s}", next.toSpotifyUri()));
+                LOGGER.trace(String.format("Started next track preload. {uri: %s, next: %d}", next.toSpotifyUri(), nextId));
             }
         }
     }

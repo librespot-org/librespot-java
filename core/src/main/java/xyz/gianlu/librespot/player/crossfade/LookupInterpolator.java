@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.player.crossfade;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Range;
 
 import java.util.Arrays;
 
@@ -35,9 +36,17 @@ class LookupInterpolator implements GainInterpolator {
     }
 
     @Override
-    public float interpolate(float ix) {
-        if (ix > tx[tx.length - 1]) return ty[tx.length - 1];
-        else if (ix < tx[0]) return ty[0];
+    public String toString() {
+        return "LookupInterpolator{" +
+                "tx=" + Arrays.toString(tx) +
+                ", ty=" + Arrays.toString(ty) +
+                '}';
+    }
+
+    @Override
+    public float interpolate(@Range(from = 0, to = 1) float ix) {
+        if (ix >= tx[tx.length - 1]) return ty[tx.length - 1];
+        else if (ix <= tx[0]) return ty[0];
 
         for (int i = 0; i < tx.length - 1; i++) {
             if (ix >= tx[i] && ix <= tx[i + 1]) {
@@ -47,7 +56,7 @@ class LookupInterpolator implements GainInterpolator {
                 float o_delta = ty[i + 1] - ty[i]; // Spread between the two adjacent table output values
 
                 if (o_delta == 0) return o_low;
-                else return o_low + ((ix - i_low) * (long) o_delta) / i_delta;
+                else return o_low + ((ix - i_low) * o_delta) / i_delta;
             }
         }
 
