@@ -40,9 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Gianlu
  */
 public class PlayerRunner implements Runnable, Closeable {
-    public static final int VOLUME_STEPS = 64;
     public static final int VOLUME_MAX = 65536;
-    public static final int VOLUME_ONE_STEP = VOLUME_MAX / VOLUME_STEPS;
     public static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
     private static final Logger LOGGER = Logger.getLogger(PlayerRunner.class);
     private static final AtomicInteger IDS = new AtomicInteger(0);

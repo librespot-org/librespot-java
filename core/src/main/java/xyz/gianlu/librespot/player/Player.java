@@ -77,12 +77,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
 
     public void volumeUp() {
         if (state == null) return;
-        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + PlayerRunner.VOLUME_ONE_STEP));
+        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + oneVolumeStep()));
     }
 
     public void volumeDown() {
         if (state == null) return;
-        setVolume(Math.max(0, state.getVolume() - PlayerRunner.VOLUME_ONE_STEP));
+        setVolume(Math.max(0, state.getVolume() - oneVolumeStep()));
+    }
+
+    private int oneVolumeStep() {
+        return PlayerRunner.VOLUME_MAX / conf.volumeSteps();
     }
 
     public void setVolume(int val) {
@@ -754,6 +758,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerRun
         boolean logAvailableMixers();
 
         int initialVolume();
+
+        int volumeSteps();
 
         boolean autoplayEnabled();
 

@@ -285,6 +285,15 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @Override
+    public int volumeSteps() {
+        int volumeSteps = config.get("player.volumeSteps");
+        if (volumeSteps < 0 || volumeSteps > PlayerRunner.VOLUME_MAX)
+            throw new IllegalArgumentException("Invalid volume steps: " + volumeSteps);
+
+        return volumeSteps;
+    }
+
+    @Override
     public boolean autoplayEnabled() {
         return config.get("player.autoplayEnabled");
     }

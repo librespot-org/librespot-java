@@ -75,7 +75,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                         .setCanBePlayer(true).setGaiaEqConnectId(true).setSupportsLogout(true)
                         .setIsObservable(true).setCommandAcks(true).setSupportsRename(false)
                         .setSupportsPlaylistV2(true).setIsControllable(true).setSupportsTransferCommand(true)
-                        .setSupportsCommandRequest(true).setVolumeSteps(PlayerRunner.VOLUME_STEPS)
+                        .setSupportsCommandRequest(true).setVolumeSteps(session.conf().volumeSteps())
                         .setSupportsGzipPushes(true).setNeedsFullPlayerState(false)
                         .addSupportedTypes("audio/episode")
                         .addSupportedTypes("audio/track")
