@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class AsyncProcessorTest {
@@ -49,8 +50,6 @@ public class AsyncProcessorTest {
 
         asyncProcessor.close();
 
-        IllegalStateException underlyingException = Assertions.assertThrows(IllegalStateException.class, () -> asyncProcessor.submit(1));
-        Assertions.assertEquals("AsyncProcessor test-processor-3 has already been shutdown", underlyingException.getMessage());
+        Assertions.assertThrows(RejectedExecutionException.class, () -> asyncProcessor.submit(1));
     }
-
 }
