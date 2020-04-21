@@ -400,8 +400,10 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
         public int bitrate = 0;
         public int duration = 0;
         public String encoding = null;
+        public int totalFade = 0;
+        public String transition = "none";
 
-        PlayerMetrics(@Nullable Codec codec) {
+        PlayerMetrics(@NotNull QueueEntry entry, @Nullable Codec codec) {
             if (codec == null) return;
 
             size = codec.size();
@@ -413,6 +415,11 @@ public class PlayerQueue implements Closeable, QueueEntry.@NotNull Listener {
 
             if (codec instanceof VorbisCodec) encoding = "vorbis";
             else if (codec instanceof Mp3Codec) encoding = "mp3";
+
+            if (entry.crossfadeController.fadeInEnabled() || entry.crossfadeController.fadeOutEnabled()) {
+                transition = "crossfade";
+                totalFade = entry.crossfadeController.fadeInDuration() + entry.crossfadeController.fadeOutDuration();
+            }
         }
     }
 }

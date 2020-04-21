@@ -71,7 +71,7 @@ public final class EventService implements Closeable {
         event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(metrics.player.duration));
-        event.append('0' /* TODO: Encrypt latency */).append('0' /* TODO: Total fade */).append('0' /* FIXME */).append('0');
+        event.append('0' /* TODO: Encrypt latency */).append(String.valueOf(metrics.player.totalFade)).append('0' /* FIXME */).append('0');
         event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
         event.append('0' /* TODO: Play latency */).append("-1" /* FIXME */).append("context");
         event.append("-1" /* TODO: Audio key sync time */).append('0').append('0' /* TODO: Prefetched audio key */).append('0').append('0' /* FIXME */).append('0');
@@ -81,7 +81,7 @@ public final class EventService implements Closeable {
         event.append(metrics.id.hexId()).append("");
         event.append('0').append(String.valueOf(TimeProvider.currentTimeMillis())).append('0');
         event.append("context").append(playOrigin.getReferrerIdentifier()).append(playOrigin.getFeatureVersion());
-        event.append("com.spotify").append("none" /* TODO: Transition */).append("none").append("local").append("na").append("none");
+        event.append("com.spotify").append(metrics.player.transition).append("none").append("local").append("na").append("none");
         sendEvent(event);
     }
 

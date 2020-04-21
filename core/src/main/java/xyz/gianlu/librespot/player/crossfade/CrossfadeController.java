@@ -97,6 +97,11 @@ public class CrossfadeController {
         else return defaultFadeDuration;
     }
 
+    public int fadeInDuration() {
+        if (fadeInInterval != null) return fadeInInterval.duration;
+        else return 0;
+    }
+
     public boolean fadeOutEnabled() {
         return fadeOutInterval != null;
     }
@@ -114,6 +119,11 @@ public class CrossfadeController {
     public int fadeOutStartTimeFromEnd() {
         if (fadeOutInterval != null) return trackDuration - fadeOutInterval.start;
         else return defaultFadeDuration;
+    }
+
+    public int fadeOutDuration() {
+        if (fadeOutInterval != null) return fadeOutInterval.duration;
+        else return 0;
     }
 
     @Nullable
