@@ -84,7 +84,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
 
     public void volumeUp() {
         if (state == null) return;
-        setVolume(Math.min(PlayerRunner.VOLUME_MAX, state.getVolume() + oneVolumeStep()));
+        setVolume(Math.min(Player.VOLUME_MAX, state.getVolume() + oneVolumeStep()));
     }
 
     public void volumeDown() {
@@ -93,7 +93,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     }
 
     private int oneVolumeStep() {
-        return PlayerRunner.VOLUME_MAX / conf.volumeSteps();
+        return Player.VOLUME_MAX / conf.volumeSteps();
     }
 
     public void setVolume(int val) {
