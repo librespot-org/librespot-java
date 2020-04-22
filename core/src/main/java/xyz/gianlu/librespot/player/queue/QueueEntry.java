@@ -136,7 +136,7 @@ class QueueEntry implements Closeable, Runnable, @Nullable HaltListener {
      */
     @NotNull
     PlayerQueue.PlayerMetrics metrics() {
-        return new PlayerQueue.PlayerMetrics(codec);
+        return new PlayerQueue.PlayerMetrics(this, codec);
     }
 
     /**

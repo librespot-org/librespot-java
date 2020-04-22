@@ -62,7 +62,7 @@ public class CacheManager implements Closeable {
                         JournalHeader header = journal.getHeader(id, HEADER_TIMESTAMP);
                         if (header == null) continue;
 
-                        long timestamp = new BigInteger(header.value).longValue();
+                        long timestamp = new BigInteger(header.value).longValue() * 1000;
                         if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
                             remove(id);
                     }
