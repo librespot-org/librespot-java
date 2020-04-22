@@ -221,8 +221,8 @@ public class ZeroconfServer implements Closeable {
         connectionTime = 0;
     }
 
-    private boolean hasActiveSession() {
-        boolean valid = session != null && session.isValid() && session.isActive();
+    private boolean hasValidSession() {
+        boolean valid = session != null && session.isValid();
         if (!valid) {
             session = null;
             connectionTime = 0;
@@ -231,9 +231,13 @@ public class ZeroconfServer implements Closeable {
         return valid;
     }
 
+    private boolean hasActiveSession() {
+        return hasValidSession() && session.isActive();
+    }
+
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("activeUser", hasActiveSession() ? session.username() : "");
+        info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
