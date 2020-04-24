@@ -349,7 +349,7 @@ public final class Session implements Closeable, SubListener {
         dealer.connect();
         player.initState();
         TimeProvider.init(this);
-        eventService.reportLang(conf().preferredLocale());
+        eventService.language(conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
         mercuryClient.interestedIn("spotify:user:attributes:update", this);

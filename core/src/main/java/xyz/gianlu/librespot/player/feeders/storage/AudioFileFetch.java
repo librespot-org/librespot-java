@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

@@ -1,6 +1,5 @@
 package xyz.gianlu.librespot.core;
 
-import com.spotify.connectstate.Player;
 import com.spotify.metadata.Metadata;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -11,7 +10,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper;
-import xyz.gianlu.librespot.player.queue.PlayerQueue;
+import xyz.gianlu.librespot.player.playback.PlayerMetrics;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -52,61 +51,78 @@ public final class EventService implements Closeable {
         asyncWorker.submit(builder);
     }
 
-    public void reportLang(@NotNull String lang) {
+    /**
+     * Reports our language.
+     *
+     * @param lang The language (2 letters code)
+     */
+    public void language(@NotNull String lang) {
         EventBuilder event = new EventBuilder(Type.LANGUAGE);
         event.append(lang);
         sendEvent(event);
     }
 
-    public void trackTransition(@NotNull StateWrapper state, @NotNull EventService.PlaybackMetrics metrics) {
-        Player.PlayOrigin playOrigin = state.getPlayOrigin();
+    private void trackTransition(@NotNull EventService.PlaybackMetrics metrics) {
         int when = metrics.lastValue();
 
         EventBuilder event = new EventBuilder(Type.TRACK_TRANSITION);
         event.append(String.valueOf(trackTransitionIncremental++));
         event.append(session.deviceId());
-        event.append(state.getPlaybackId()).append("00000000000000000000000000000000");
+        event.append(metrics.playbackId).append("00000000000000000000000000000000");
         event.append(metrics.sourceStart).append(metrics.startedHow());
         event.append(metrics.sourceEnd).append(metrics.endedHow());
         event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(metrics.player.duration));
-        event.append('0' /* TODO: Encrypt latency */).append(String.valueOf(metrics.player.totalFade)).append('0' /* FIXME */).append('0');
+        event.append('0' /* TODO: Encrypt latency */).append(String.valueOf(metrics.player.fadeOverlap)).append('0' /* FIXME */).append('0');
         event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
         event.append('0' /* TODO: Play latency */).append("-1" /* FIXME */).append("context");
         event.append("-1" /* TODO: Audio key sync time */).append('0').append('0' /* TODO: Prefetched audio key */).append('0').append('0' /* FIXME */).append('0');
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append('0').append(String.valueOf(metrics.player.bitrate));
-        event.append(state.getContextUri()).append(metrics.player.encoding);
+        event.append(metrics.contextUri).append(metrics.player.encoding);
         event.append(metrics.id.hexId()).append("");
         event.append('0').append(String.valueOf(TimeProvider.currentTimeMillis())).append('0');
-        event.append("context").append(playOrigin.getReferrerIdentifier()).append(playOrigin.getFeatureVersion());
+        event.append("context").append(metrics.referrerIdentifier).append(metrics.featureVersion);
         event.append("com.spotify").append(metrics.player.transition).append("none").append("local").append("na").append("none");
         sendEvent(event);
     }
 
-    public void trackPlayed(@NotNull StateWrapper state, @NotNull EventService.PlaybackMetrics metrics) {
+    public void trackPlayed(@NotNull EventService.PlaybackMetrics metrics) {
         if (metrics.player == null)
             return;
 
-        trackTransition(state, metrics);
+        trackTransition(metrics);
 
         EventBuilder event = new EventBuilder(Type.TRACK_PLAYED);
-        event.append(state.getPlaybackId()).append(metrics.id.toSpotifyUri());
+        event.append(metrics.playbackId).append(metrics.id.toSpotifyUri());
         event.append('0').append(metrics.intervalsToSend());
         sendEvent(event);
     }
 
-    public void newPlaybackId(@NotNull StateWrapper state) {
+    /**
+     * Reports that a new playback ID is being used.
+     *
+     * @param state      The current player state
+     * @param playbackId The new playback ID
+     */
+    public void newPlaybackId(@NotNull StateWrapper state, @NotNull String playbackId) {
         EventBuilder event = new EventBuilder(Type.NEW_PLAYBACK_ID);
-        event.append(state.getPlaybackId()).append(state.getSessionId()).append(String.valueOf(TimeProvider.currentTimeMillis()));
+        event.append(playbackId).append(state.getSessionId()).append(String.valueOf(TimeProvider.currentTimeMillis()));
         sendEvent(event);
     }
 
-    public void newSessionId(@NotNull StateWrapper state) {
-        EventBuilder event = new EventBuilder(Type.NEW_SESSION_ID);
-        event.append(state.getSessionId());
+    /**
+     * Reports that a new session ID is being used.
+     *
+     * @param sessionId The session ID
+     * @param state     The current player state
+     */
+    public void newSessionId(@NotNull String sessionId, @NotNull StateWrapper state) {
         String contextUri = state.getContextUri();
+
+        EventBuilder event = new EventBuilder(Type.NEW_SESSION_ID);
+        event.append(sessionId);
         event.append(contextUri);
         event.append(contextUri);
         event.append(String.valueOf(TimeProvider.currentTimeMillis()));
@@ -115,7 +131,13 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    public void fetchedFileId(@NotNull Metadata.AudioFile file, @NotNull PlayableId id) {
+    /**
+     * Reports that a file ID has been fetched for some content.
+     *
+     * @param id   The content {@link PlayableId}
+     * @param file The {@link com.spotify.metadata.Metadata.AudioFile} for this content
+     */
+    public void fetchedFileId(@NotNull PlayableId id, @NotNull Metadata.AudioFile file) {
         EventBuilder event = new EventBuilder(Type.FETCHED_FILE_ID);
         event.append('2').append('2');
         event.append(Utils.bytesToHex(file.getFileId()).toLowerCase());
@@ -199,15 +221,20 @@ public final class EventService implements Closeable {
     public static class PlaybackMetrics {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
-        PlayerQueue.PlayerMetrics player = null;
+        final String playbackId;
+        String featureVersion = null;
+        String referrerIdentifier = null;
+        String contextUri = null;
+        PlayerMetrics player = null;
         Interval lastInterval = null;
         Reason reasonStart = null;
         String sourceStart = null;
         Reason reasonEnd = null;
         String sourceEnd = null;
 
-        public PlaybackMetrics(@NotNull PlayableId id) {
+        public PlaybackMetrics(@NotNull PlayableId id, @NotNull String playbackId) {
             this.id = id;
+            this.playbackId = playbackId;
         }
 
         @NotNull
@@ -275,7 +302,7 @@ public final class EventService implements Closeable {
             return reasonEnd == null ? null : reasonEnd.val;
         }
 
-        public void update(@NotNull PlayerQueue.PlayerMetrics playerMetrics) {
+        public void update(@NotNull PlayerMetrics playerMetrics) {
             player = playerMetrics;
         }
 

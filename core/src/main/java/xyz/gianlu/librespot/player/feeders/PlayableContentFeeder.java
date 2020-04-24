@@ -17,11 +17,9 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.ContentRestrictedException;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.HaltListener;
-import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.AudioQualityPreference;
+import xyz.gianlu.librespot.player.codecs.NormalizationData;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnFeedHelper;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
 import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
@@ -106,7 +104,7 @@ public final class PlayableContentFeeder {
         if (track == null && episode == null)
             throw new IllegalStateException();
 
-        session.eventService().fetchedFileId(file, track != null ? PlayableId.from(track) : PlayableId.from(episode));
+        session.eventService().fetchedFileId(track != null ? PlayableId.from(track) : PlayableId.from(episode), file);
 
         StorageResolveResponse resp = resolveStorageInteractive(file.getFileId());
         switch (resp.getResult()) {

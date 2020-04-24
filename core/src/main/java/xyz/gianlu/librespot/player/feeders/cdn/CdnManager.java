@@ -12,11 +12,12 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.*;
 import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
 
 import java.io.IOException;

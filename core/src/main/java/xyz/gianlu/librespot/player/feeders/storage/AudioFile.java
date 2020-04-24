@@ -1,6 +1,6 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
-import xyz.gianlu.librespot.player.GeneralWritableStream;
+import xyz.gianlu.librespot.player.feeders.GeneralWritableStream;
 
 import java.io.Closeable;
 import java.io.IOException;

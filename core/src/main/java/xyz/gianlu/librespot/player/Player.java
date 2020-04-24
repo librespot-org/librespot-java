@@ -26,8 +26,9 @@ import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
-import xyz.gianlu.librespot.player.queue.PlayerQueue;
+import xyz.gianlu.librespot.player.playback.PlayerSession;
 
 import java.io.Closeable;
 import java.io.File;
@@ -43,23 +44,23 @@ import java.util.concurrent.*;
 /**
  * @author Gianlu
  */
-public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQueue.Listener { // TODO: Reduce calls to state update
+public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSession.Listener, AudioSink.Listener { // TODO: Metrics
     public static final int VOLUME_MAX = 65536;
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
     private final Configuration conf;
-    private final PlayerQueue queue;
     private final EventsDispatcher events;
+    private final AudioSink sink;
     private StateWrapper state;
+    private PlayerSession playerSession;
     private ScheduledFuture<?> releaseLineFuture = null;
-    private PlaybackMetrics playbackMetrics = null;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.events = new EventsDispatcher(conf);
-        this.queue = new PlayerQueue(session, conf, this);
+        this.sink = new AudioSink(conf, this);
     }
 
     public void addEventsListener(@NotNull EventsListener listener) {
@@ -113,28 +114,26 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     }
 
     public void next() {
-        handleNext(null, TransitionInfo.skippedNext(state));
+        handleSkipNext(null, TransitionInfo.skippedNext(state));
     }
 
     public void previous() {
-        handlePrev();
+        handleSkipPrev();
     }
 
     public void load(@NotNull String uri, boolean play) {
         try {
-            state.loadContext(uri);
+            String sessionId = state.loadContext(uri);
+            events.contextChanged();
+
+            loadSession(sessionId, play, true);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
             panicState(null);
-            return;
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState(null);
-            return;
         }
-
-        events.contextChanged();
-        loadTrack(play, TransitionInfo.contextChange(state, true));
     }
 
 
@@ -142,60 +141,61 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     // ======== Internal state ======== //
     // ================================ //
 
-    private void transferState(TransferStateOuterClass.@NotNull TransferState cmd) {
-        LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
-
-        try {
-            state.transfer(cmd);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed loading context!", ex);
-            panicState(null);
-            return;
-        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState(null);
-            return;
-        }
-
-        events.contextChanged();
-        loadTrack(!cmd.getPlayback().getIsPaused(), TransitionInfo.contextChange(state, true));
-
-        session.eventService().newSessionId(state);
-        session.eventService().newPlaybackId(state);
-    }
-
-    private void handleLoad(@NotNull JsonObject obj) {
-        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandHelper.getContextUri(obj)));
-
-        try {
-            state.load(obj);
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed loading context!", ex);
-            panicState(null);
-            return;
-        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.fatal("Cannot play local tracks!", ex);
-            panicState(null);
-            return;
-        }
-
-        events.contextChanged();
-
-        Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
-        if (paused == null) paused = true;
-        loadTrack(!paused, TransitionInfo.contextChange(state, PlayCommandHelper.willSkipToSomething(obj)));
-    }
-
+    /**
+     * Enter a "panic" state where everything is stopped.
+     *
+     * @param reason Why we entered this state
+     */
     private void panicState(@Nullable EventService.PlaybackMetrics.Reason reason) {
-        queue.pause(true);
+        sink.pause(true);
         state.setState(false, false, false);
         state.updated();
+    }
 
-        if (reason != null && playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
-            playbackMetrics.endedHow(reason, null);
-            playbackMetrics.endInterval(state.getPosition());
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
+    /**
+     * Loads a new session by creating a new {@link PlayerSession}. Will also trigger {@link Player#loadTrack(boolean, TransitionInfo)}.
+     *
+     * @param sessionId The new session ID
+     * @param play      Whether the playback should start immediately
+     */
+    private void loadSession(@NotNull String sessionId, boolean play, boolean withSkip) {
+        if (playerSession != null) {
+            playerSession.close();
+            playerSession = null;
+        }
+
+        playerSession = new PlayerSession(session, sink, sessionId, this);
+        session.eventService().newSessionId(sessionId, state);
+
+        loadTrack(play, TransitionInfo.contextChange(state, withSkip));
+    }
+
+    /**
+     * Loads a new track and pauses/resumes the sink accordingly.
+     *
+     * <b>This is called only to change track due to an external command (user interaction).</b>
+     *
+     * @param play  Whether the playback should start immediately
+     * @param trans A {@link TransitionInfo} object containing information about this track change
+     */
+    private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
+        String playbackId = playerSession.play(state.getCurrentPlayableOrThrow(), state.getPosition(), trans.startedReason);
+        state.setPlaybackId(playbackId);
+        session.eventService().newPlaybackId(state, playbackId);
+
+        if (play) sink.resume();
+        else sink.pause(false);
+
+        state.setState(true, !play, true);
+        state.updated();
+
+        events.trackChanged();
+        if (play) events.playbackResumed();
+        else events.playbackPaused();
+
+        if (releaseLineFuture != null) {
+            releaseLineFuture.cancel(true);
+            releaseLineFuture = null;
         }
     }
 
@@ -204,15 +204,26 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     }
 
     @Override
+    public void volumeChanged() {
+        sink.setVolume(state.getVolume());
+    }
+
+    @Override
+    public void notActive() {
+        events.inactiveSession(false);
+        sink.pause(true);
+    }
+
+    @Override
     public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) throws InvalidProtocolBufferException {
         LOGGER.debug("Received command: " + endpoint);
 
         switch (endpoint) {
             case Play:
-                handleLoad(data.obj());
+                handlePlay(data.obj());
                 break;
             case Transfer:
-                transferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
+                handleTransferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
                 break;
             case Resume:
                 handleResume();
@@ -224,10 +235,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 handleSeek(data.valueInt());
                 break;
             case SkipNext:
-                handleNext(data.obj(), TransitionInfo.skippedNext(state));
+                handleSkipNext(data.obj(), TransitionInfo.skippedNext(state));
                 break;
             case SkipPrev:
-                handlePrev();
+                handleSkipPrev();
                 break;
             case SetRepeatingContext:
                 state.setRepeatingContext(data.valueBool());
@@ -242,10 +253,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 state.updated();
                 break;
             case AddToQueue:
-                addToQueue(data.obj());
+                handleAddToQueue(data.obj());
                 break;
             case SetQueue:
-                setQueue(data.obj());
+                handleSetQueue(data.obj());
                 break;
             case UpdateContext:
                 state.updateContext(PlayCommandHelper.getContext(data.obj()));
@@ -257,43 +268,51 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         }
     }
 
-    @Override
-    public void volumeChanged() {
-        queue.setVolume(state.getVolume());
+    private void handlePlay(@NotNull JsonObject obj) {
+        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandHelper.getContextUri(obj)));
+
+        try {
+            String sessionId = state.load(obj);
+            events.contextChanged();
+
+            Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
+            if (paused == null) paused = true;
+            loadSession(sessionId, !paused, PlayCommandHelper.willSkipToSomething(obj));
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState(null);
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState(null);
+        }
     }
 
-    @Override
-    public void notActive() {
-        events.inactiveSession(false);
-        queue.pause(true);
-    }
+    private void handleTransferState(@NotNull TransferStateOuterClass.TransferState cmd) {
+        LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
 
-    private void entryIsReady() {
-        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id))
-            playbackMetrics.update(queue.currentMetrics());
-
-        TrackOrEpisode metadata = currentMetadata();
-        if (metadata != null) {
-            state.enrichWithMetadata(metadata);
-            events.metadataAvailable();
+        try {
+            String sessionId = state.transfer(cmd);
+            events.contextChanged();
+            loadSession(sessionId, !cmd.getPlayback().getIsPaused(), true);
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.fatal("Failed loading context!", ex);
+            panicState(null);
+        } catch (AbsSpotifyContext.UnsupportedContextException ex) {
+            LOGGER.fatal("Cannot play local tracks!", ex);
+            panicState(null);
         }
     }
 
     private void handleSeek(int pos) {
-        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
-            playbackMetrics.endInterval(state.getPosition());
-            playbackMetrics.startInterval(pos);
-        }
-
+        playerSession.seekCurrent(pos);
         state.setPosition(pos);
-        queue.seekCurrent(pos);
         events.seeked(pos);
     }
 
     private void handleResume() {
         if (state.isPaused()) {
             state.setState(true, false, false);
-            queue.resume();
+            sink.resume();
 
             state.updated();
             events.playbackResumed();
@@ -308,10 +327,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     private void handlePause() {
         if (state.isPlaying()) {
             state.setState(true, true, false);
-            queue.pause(false);
+            sink.pause(false);
 
             try {
-                state.setPosition(queue.currentTime());
+                if (playerSession != null)
+                    state.setPosition(playerSession.currentTime());
             } catch (Codec.CannotGetTimeException ignored) {
             }
 
@@ -323,63 +343,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 if (!state.isPaused()) return;
 
                 events.inactiveSession(true);
-                queue.pause(true);
+                sink.pause(true);
             }, conf.releaseLineDelay(), TimeUnit.SECONDS);
         }
     }
 
-    private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
-        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
-            playbackMetrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
-            playbackMetrics.endInterval(trans.endedWhen);
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
-        }
-
-        state.renewPlaybackId();
-
-        PlayableId playable = state.getCurrentPlayableOrThrow();
-        playbackMetrics = new PlaybackMetrics(playable);
-        if (!queue.isCurrent(playable)) {
-            queue.clear();
-
-            state.setState(true, !play, true);
-            queue.follows(queue.load(playable, state.metadataFor(playable), state.getPosition()));
-
-            state.updated();
-            events.trackChanged();
-
-            if (play) {
-                queue.resume();
-                events.playbackResumed();
-            } else {
-                queue.pause(false);
-                events.playbackPaused();
-            }
-        } else {
-            try {
-                state.setPosition(queue.currentTime());
-            } catch (Codec.CannotGetTimeException ignored) {
-            }
-
-            entryIsReady();
-
-            state.updated();
-            events.trackChanged();
-
-            if (!play) queue.pause(false);
-        }
-
-        if (releaseLineFuture != null) {
-            releaseLineFuture.cancel(true);
-            releaseLineFuture = null;
-        }
-
-        playbackMetrics.startedHow(trans.startedReason, state.getPlayOrigin().getFeatureIdentifier());
-        playbackMetrics.startInterval(state.getPosition());
-    }
-
-    private void setQueue(@NotNull JsonObject obj) {
+    private void handleSetQueue(@NotNull JsonObject obj) {
         List<ContextTrack> prevTracks = PlayCommandHelper.getPrevTracks(obj);
         List<ContextTrack> nextTracks = PlayCommandHelper.getNextTracks(obj);
         if (prevTracks == null && nextTracks == null) throw new IllegalArgumentException();
@@ -388,7 +357,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         state.updated();
     }
 
-    private void addToQueue(@NotNull JsonObject obj) {
+    private void handleAddToQueue(@NotNull JsonObject obj) {
         ContextTrack track = PlayCommandHelper.getTrack(obj);
         if (track == null) throw new IllegalArgumentException();
 
@@ -396,7 +365,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         state.updated();
     }
 
-    private void handleNext(@Nullable JsonObject obj, @NotNull TransitionInfo trans) {
+    private void handleSkipNext(@Nullable JsonObject obj, @NotNull TransitionInfo trans) {
         ContextTrack track = null;
         if (obj != null) track = PlayCommandHelper.getTrack(obj);
 
@@ -423,7 +392,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         }
     }
 
-    private void handlePrev() {
+    private void handleSkipPrev() {
         if (state.getPosition() < 3000) {
             StateWrapper.PreviousPlayable prev = state.previousPlayable();
             if (prev.isOk()) {
@@ -434,12 +403,15 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
                 panicState(null);
             }
         } else {
+            playerSession.seekCurrent(0);
             state.setPosition(0);
-            queue.seekCurrent(0);
             state.updated();
         }
     }
 
+    /**
+     * Tries to load some additional content to play and starts playing if successful.
+     */
     private void loadAutoplay() {
         String context = state.getContextUri();
         if (context == null) {
@@ -454,20 +426,20 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
             MercuryClient.Response resp = session.mercury().sendSync(MercuryRequests.autoplayQuery(context));
             if (resp.statusCode == 200) {
                 String newContext = resp.payload.readIntoString(0);
-                state.loadContext(newContext);
+                String sessionId = state.loadContext(newContext);
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, TransitionInfo.contextChange(state, false));
+                loadSession(sessionId, true, false);
 
                 LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
-                state.loadContextWithTracks(station.uri(), station.tracks());
+                String sessionId = state.loadContextWithTracks(station.uri(), station.tracks());
                 state.setContextMetadata("context_description", contextDesc);
 
                 events.contextChanged();
-                loadTrack(true, TransitionInfo.contextChange(state, false));
+                loadSession(sessionId, true, false);
 
                 LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
             } else {
@@ -492,22 +464,20 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     // ================================ //
 
     @Override
-    public void startedLoading(int id) {
-        if (queue.isCurrent(id)) {
-            if (!state.isBuffering()) {
-                state.setBuffering(true);
-                state.updated();
-            }
+    public void startedLoading() {
+        if (state.isPlaying()) {
+            state.setBuffering(true);
+            state.updated();
         }
     }
 
     @Override
-    public void finishedLoading(int id) {
-        if (queue.isCurrent(id)) {
-            state.setBuffering(false);
-            entryIsReady();
-            state.updated();
-        }
+    public void finishedLoading(@NotNull TrackOrEpisode metadata) {
+        state.enrichWithMetadata(metadata);
+        state.setBuffering(false);
+        state.updated();
+
+        events.metadataAvailable();
     }
 
     @Override
@@ -517,90 +487,54 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     }
 
     @Override
-    public void loadingError(int id, @NotNull PlayableId playable, @NotNull Exception ex) {
-        if (queue.isCurrent(id)) {
-            if (ex instanceof ContentRestrictedException) {
-                LOGGER.fatal(String.format("Can't load track (content restricted). {uri: %s}", playable.toSpotifyUri()), ex);
-                handleNext(null, TransitionInfo.nextError(state));
-                return;
-            }
-
-            LOGGER.fatal(String.format("Failed loading track. {uri: %s}", playable.toSpotifyUri()), ex);
+    public void loadingError(@NotNull Exception ex) {
+        if (ex instanceof ContentRestrictedException) {
+            LOGGER.error("Can't load track (content restricted).", ex);
+        } else {
+            LOGGER.fatal("Failed loading track.", ex);
             panicState(PlaybackMetrics.Reason.TRACK_ERROR);
         }
     }
 
     @Override
-    public void endOfPlayback(int id) {
-        if (queue.isCurrent(id)) {
-            LOGGER.trace(String.format("End of track. {id: %d}", id));
-            handleNext(null, TransitionInfo.next(state));
-        }
+    public void playbackError(@NotNull Exception ex) {
+        if (ex instanceof AbsChunkedInputStream.ChunkException)
+            LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
+        else
+            LOGGER.fatal("Playback error!", ex);
+
+        panicState(PlaybackMetrics.Reason.TRACK_ERROR);
     }
 
     @Override
-    public void startedNextTrack(int id, int next) {
-        if (queue.isCurrent(next)) {
-            LOGGER.trace(String.format("Playing next track. {next: %d}", next));
-            handleNext(null, TransitionInfo.next(state));
-        }
+    public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos) {
+        session.eventService().newPlaybackId(state, playbackId);
+
+        if (metadata != null) state.enrichWithMetadata(metadata);
+        state.setPlaybackId(playbackId);
+        state.setPosition(pos);
+        state.updated();
+
+        events.trackChanged();
     }
 
     @Override
-    public void preloadNextTrack(int id) {
-        if (queue.isCurrent(id)) {
-            PlayableId next = state.nextPlayableDoNotSet();
-            if (next != null) {
-                int nextId = queue.load(next, state.metadataFor(next), 0);
-                queue.follows(nextId);
-                LOGGER.trace(String.format("Started next track preload. {uri: %s, next: %d}", next.toSpotifyUri(), nextId));
-            }
-        }
+    public void playbackHalted(int chunk) {
+        LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
+        state.setBuffering(true);
+        state.updated();
+
+        events.playbackHaltStateChanged(true);
     }
 
     @Override
-    public void finishedSeek(int id, int pos) {
-        if (queue.isCurrent(id)) {
-            state.setPosition(pos);
-            state.updated();
-        }
-    }
+    public void playbackResumedFromHalt(int chunk, long diff) {
+        LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
+        state.setPosition(state.getPosition() - diff);
+        state.setBuffering(false);
+        state.updated();
 
-    @Override
-    public void playbackError(int id, @NotNull Exception ex) {
-        if (queue.isCurrent(id)) {
-            if (ex instanceof AbsChunkedInputStream.ChunkException)
-                LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
-            else
-                LOGGER.fatal("Playback error!", ex);
-
-            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-        }
-    }
-
-    @Override
-    public void playbackHalted(int id, int chunk) {
-        if (queue.isCurrent(id)) {
-            LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
-
-            state.setBuffering(true);
-            state.updated();
-
-            events.playbackHaltStateChanged(true);
-        }
-    }
-
-    @Override
-    public void playbackResumedFromHalt(int id, int chunk, long diff) {
-        if (queue.isCurrent(id)) {
-            LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
-
-            state.setPosition(state.getPosition() - diff);
-            state.setBuffering(false);
-            state.updated();
-
-            events.playbackHaltStateChanged(false);
-        }
+        events.playbackHaltStateChanged(false);
     }
 
 
@@ -615,16 +549,18 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
         return state.isActive();
     }
 
+    /**
+     * @return The metadata for the current entry or {@code null} if not available.
+     */
     @Nullable
     public TrackOrEpisode currentMetadata() {
-        return queue.currentMetadata();
+        return playerSession == null ? null : playerSession.currentMetadata();
     }
 
-    @Nullable
-    public PlayableId currentPlayableId() {
-        return state.getCurrentPlayable();
-    }
-
+    /**
+     * @return The cover image bytes for the current entry or {@code null} if not available.
+     * @throws IOException If an error occurred while downloading the image
+     */
     @Nullable
     public byte[] currentCoverImage() throws IOException {
         TrackOrEpisode metadata = currentMetadata();
@@ -662,15 +598,64 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
     }
 
     /**
+     * @return The current content in the state or {@code null} if not set.
+     */
+    @Override
+    public @NotNull PlayableId currentPlayable() {
+        return state.getCurrentPlayableOrThrow();
+    }
+
+    /**
+     * MUST not be called manually. This is used internally by {@link PlayerSession}.
+     */
+    @Override
+    public @Nullable PlayableId nextPlayable() {
+        NextPlayable next = state.nextPlayable(conf);
+        if (next == NextPlayable.AUTOPLAY) {
+            loadAutoplay();
+            return null;
+        }
+
+        if (next.isOk()) {
+            if (next != NextPlayable.OK_PLAY && next != NextPlayable.OK_REPEAT)
+                sink.pause(false);
+
+            return state.getCurrentPlayableOrThrow();
+        } else {
+            LOGGER.fatal("Failed loading next song: " + next);
+            panicState(PlaybackMetrics.Reason.END_PLAY);
+            return null;
+        }
+    }
+
+    /**
+     * @return The next content that will be played.
+     */
+    @Override
+    public @Nullable PlayableId nextPlayableDoNotSet() {
+        return state.nextPlayableDoNotSet();
+    }
+
+    /**
+     * @param playable The content
+     * @return A map containing the metadata associated with this content
+     */
+    @Override
+    public @NotNull Map<String, String> metadataFor(@NotNull PlayableId playable) {
+        return state.metadataFor(playable);
+    }
+
+    /**
      * @return The current position of the player or {@code -1} if unavailable (most likely if it's playing an episode).
      */
     public long time() {
         try {
-            return queue.currentTime();
+            return playerSession == null ? -1 : playerSession.currentTime();
         } catch (Codec.CannotGetTimeException ex) {
             return -1;
         }
     }
+
 
     // ================================ //
     // ============ Close! ============ //
@@ -678,17 +663,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerQue
 
     @Override
     public void close() {
-        if (playbackMetrics != null && queue.isCurrent(playbackMetrics.id)) {
-            playbackMetrics.endedHow(PlaybackMetrics.Reason.LOGOUT, null);
-            playbackMetrics.endInterval(state.getPosition());
-            session.eventService().trackPlayed(state, playbackMetrics);
-            playbackMetrics = null;
-        }
-
         state.close();
         events.listeners.clear();
 
-        queue.close();
+        sink.close();
         if (state != null) state.removeListener(this);
 
         scheduler.shutdown();

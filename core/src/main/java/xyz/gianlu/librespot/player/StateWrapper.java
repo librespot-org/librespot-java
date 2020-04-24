@@ -92,7 +92,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
-    private static String generatePlaybackId(@NotNull Random random) {
+    public static String generatePlaybackId(@NotNull Random random) {
         byte[] bytes = new byte[16];
         random.nextBytes(bytes);
         bytes[0] = 1;
@@ -120,10 +120,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return device.isActive();
     }
 
-    void setBuffering(boolean buffering) {
-        setState(state.getIsPlaying(), state.getIsPaused(), buffering);
-    }
-
     synchronized void setState(boolean playing, boolean paused, boolean buffering) {
         if (paused && !playing) throw new IllegalStateException();
         else if (buffering && !playing) throw new IllegalStateException();
@@ -139,8 +135,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return state.getIsPlaying() && state.getIsPaused();
     }
 
-    boolean isBuffering() {
-        return state.getIsPlaying() && state.getIsBuffering();
+    void setBuffering(boolean buffering) {
+        setState(state.getIsPlaying(), state.getIsPaused(), buffering);
     }
 
     private boolean isShufflingContext() {
@@ -217,7 +213,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
     }
 
-    private void setContext(@NotNull String uri) {
+    @NotNull
+    private String setContext(@NotNull String uri) {
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
 
@@ -236,10 +233,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         this.device.setIsActive(true);
 
-        renewSessionId();
+        return renewSessionId();
     }
 
-    private void setContext(@NotNull Context ctx) {
+    @NotNull
+    private String setContext(@NotNull Context ctx) {
         String uri = ctx.getUri();
         this.context = AbsSpotifyContext.from(uri);
         this.state.setContextUri(uri);
@@ -260,7 +258,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         this.device.setIsActive(true);
 
-        renewSessionId();
+        return renewSessionId();
     }
 
     private void updateRestrictions() {
@@ -431,35 +429,40 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.clearPosition();
     }
 
-    void loadContextWithTracks(@NotNull String uri, @NotNull List<ContextTrack> tracks) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+    @NotNull
+    String loadContextWithTracks(@NotNull String uri, @NotNull List<ContextTrack> tracks) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
         state.setPlayOrigin(PlayOrigin.newBuilder().build());
         state.setOptions(ContextPlayerOptions.newBuilder().build());
 
-        setContext(uri);
+        String sessionId = setContext(uri);
         pages.putFirstPage(tracks);
         tracksKeeper.initializeStart();
         setPosition(0);
 
         loadTransforming();
+        return sessionId;
     }
 
-    void loadContext(@NotNull String uri) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
+    @NotNull
+    String loadContext(@NotNull String uri) throws MercuryClient.MercuryException, IOException, AbsSpotifyContext.UnsupportedContextException {
         state.setPlayOrigin(PlayOrigin.newBuilder().build());
         state.setOptions(ContextPlayerOptions.newBuilder().build());
 
-        setContext(uri);
+        String sessionId = setContext(uri);
         tracksKeeper.initializeStart();
         setPosition(0);
 
         loadTransforming();
+        return sessionId;
     }
 
-    void transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
+    @NotNull
+    String transfer(@NotNull TransferStateOuterClass.TransferState cmd) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
         SessionOuterClass.Session ps = cmd.getCurrentSession();
 
         state.setPlayOrigin(ProtoUtils.convertPlayOrigin(ps.getPlayOrigin()));
         state.setOptions(ProtoUtils.convertPlayerOptions(cmd.getOptions()));
-        setContext(ps.getContext());
+        String sessionId = setContext(ps.getContext());
 
         PlaybackOuterClass.Playback pb = cmd.getPlayback();
         tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
@@ -469,12 +472,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         else state.setTimestamp(pb.getTimestamp());
 
         loadTransforming();
+        return sessionId;
     }
 
-    void load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
+    @NotNull
+    String load(@NotNull JsonObject obj) throws AbsSpotifyContext.UnsupportedContextException, IOException, MercuryClient.MercuryException {
         state.setPlayOrigin(ProtoUtils.jsonToPlayOrigin(PlayCommandHelper.getPlayOrigin(obj)));
         state.setOptions(ProtoUtils.jsonToPlayerOptions(PlayCommandHelper.getPlayerOptionsOverride(obj), state.getOptions()));
-        setContext(ProtoUtils.jsonToContext(PlayCommandHelper.getContext(obj)));
+        String sessionId = setContext(ProtoUtils.jsonToContext(PlayCommandHelper.getContext(obj)));
 
         String trackUid = PlayCommandHelper.getSkipToUid(obj);
         String trackUri = PlayCommandHelper.getSkipToUri(obj);
@@ -498,6 +503,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         else setPosition(0);
 
         loadTransforming();
+        return sessionId;
     }
 
     synchronized void updateContext(@NotNull JsonObject obj) {
@@ -514,17 +520,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     void skipTo(@NotNull ContextTrack track) {
         tracksKeeper.skipTo(track);
         setPosition(0);
-    }
-
-    @Nullable
-    PlayableId nextPlayableDoNotSet() {
-        try {
-            PlayableIdWithIndex id = tracksKeeper.nextPlayableDoNotSet();
-            return id == null ? null : id.id;
-        } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.error("Failed fetching next playable.", ex);
-            return null;
-        }
     }
 
     @Nullable
@@ -548,6 +543,17 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed fetching next playable.", ex);
             return NextPlayable.MISSING_TRACKS;
+        }
+    }
+
+    @Nullable
+    PlayableId nextPlayableDoNotSet() {
+        try {
+            PlayableIdWithIndex id = tracksKeeper.nextPlayableDoNotSet();
+            return id == null ? null : id.id;
+        } catch (IOException | MercuryClient.MercuryException ex) {
+            LOGGER.error("Failed fetching next playable.", ex);
+            return null;
         }
     }
 
@@ -740,26 +746,19 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
-    public PlayOrigin getPlayOrigin() {
-        return state.getPlayOrigin();
+    private String renewSessionId() {
+        String sessionId = generateSessionId(session.random());
+        state.setSessionId(sessionId);
+        return sessionId;
     }
 
-    @Nullable
-    public String getPlaybackId() {
-        return state.getPlaybackId();
-    }
-
-    @Nullable
+    @NotNull
     public String getSessionId() {
         return state.getSessionId();
     }
 
-    private void renewSessionId() {
-        state.setSessionId(generateSessionId(session.random()));
-    }
-
-    void renewPlaybackId() {
-        state.setPlaybackId(generatePlaybackId(session.random()));
+    public void setPlaybackId(@NotNull String playbackId) {
+        state.setPlaybackId(playbackId);
     }
 
     @Override

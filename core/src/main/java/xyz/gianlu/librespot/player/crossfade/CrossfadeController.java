@@ -6,54 +6,36 @@ import com.google.gson.JsonParser;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.core.EventService.PlaybackMetrics.Reason;
 import xyz.gianlu.librespot.player.Player;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class CrossfadeController {
     private static final Logger LOGGER = Logger.getLogger(CrossfadeController.class);
+    private final String playbackId;
     private final int trackDuration;
     private final String fadeOutUri;
-    private final FadeInterval fadeInInterval;
-    private final FadeInterval fadeOutInterval;
+    private final Map<Reason, FadeInterval> fadeOutMap = new HashMap<>(8);
+    private final Map<Reason, FadeInterval> fadeInMap = new HashMap<>(8);
     private final int defaultFadeDuration;
+    private FadeInterval fadeIn = null;
+    private FadeInterval fadeOut = null;
     private FadeInterval activeInterval = null;
     private float lastGain = 1;
+    private int fadeOverlap = 0;
 
-    public CrossfadeController(int duration, @NotNull Map<String, String> metadata, @NotNull Player.Configuration conf) {
+    public CrossfadeController(@NotNull String playbackId, int duration, @NotNull Map<String, String> metadata, @NotNull Player.Configuration conf) {
+        this.playbackId = playbackId;
         trackDuration = duration;
         defaultFadeDuration = conf.crossfadeDuration();
-
-        int fadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_in_duration", "-1"));
-        int fadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_in_start_time", "-1"));
-        JsonArray fadeInCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_in_curves", "[]")).getAsJsonArray();
-        if (fadeInCurves.size() > 1) throw new UnsupportedOperationException(fadeInCurves.toString());
-
         fadeOutUri = metadata.get("audio.fade_out_uri");
-        int fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
-        int fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
-        JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
-        if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
 
-        if (fadeInDuration == 0)
-            fadeInInterval = null;
-        else if (fadeInCurves.size() > 0)
-            fadeInInterval = new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves)));
-        else if (defaultFadeDuration > 0)
-            fadeInInterval = new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator());
-        else
-            fadeInInterval = null;
+        populateFadeIn(metadata);
+        populateFadeOut(metadata);
 
-        if (fadeOutDuration == 0)
-            fadeOutInterval = null;
-        else if (fadeOutCurves.size() > 0)
-            fadeOutInterval = new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves)));
-        else if (defaultFadeDuration > 0)
-            fadeOutInterval = new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator());
-        else
-            fadeOutInterval = null;
-
-        LOGGER.debug(String.format("Loaded crossfade intervals. {start: %s, end: %s}", fadeInInterval, fadeOutInterval));
+        LOGGER.debug(String.format("Loaded crossfade intervals {id: %s, in: %s, out: %s}", playbackId, fadeInMap, fadeOutMap));
     }
 
     @NotNull
@@ -65,17 +47,90 @@ public class CrossfadeController {
         return curve.getAsJsonArray("fade_curve");
     }
 
+    private void populateFadeIn(@NotNull Map<String, String> metadata) {
+        int fadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_in_duration", "-1"));
+        int fadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_in_start_time", "-1"));
+        JsonArray fadeInCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_in_curves", "[]")).getAsJsonArray();
+        if (fadeInCurves.size() > 1) throw new UnsupportedOperationException(fadeInCurves.toString());
+
+        if (fadeInDuration != 0 && fadeInCurves.size() > 0)
+            fadeInMap.put(Reason.TRACK_DONE, new FadeInterval(fadeInStartTime, fadeInDuration, LookupInterpolator.fromJson(getFadeCurve(fadeInCurves))));
+        else if (defaultFadeDuration > 0)
+            fadeInMap.put(Reason.TRACK_DONE, new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator()));
+
+
+        int fwdFadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_in_start_time", "-1"));
+        int fwdFadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_in_duration", "-1"));
+        if (fwdFadeInDuration > 0)
+            fadeInMap.put(Reason.FORWARD_BTN, new FadeInterval(fwdFadeInStartTime, fwdFadeInDuration, new LinearIncreasingInterpolator()));
+        else if (defaultFadeDuration > 0)
+            fadeInMap.put(Reason.FORWARD_BTN, new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator()));
+
+        int backFadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_in_start_time", "-1"));
+        int backFadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_in_duration", "-1"));
+        if (backFadeInDuration > 0)
+            fadeInMap.put(Reason.BACK_BTN, new FadeInterval(backFadeInStartTime, backFadeInDuration, new LinearIncreasingInterpolator()));
+        else if (defaultFadeDuration > 0)
+            fadeInMap.put(Reason.BACK_BTN, new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator()));
+    }
+
+    private void populateFadeOut(@NotNull Map<String, String> metadata) {
+        int fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
+        int fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
+        JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
+        if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
+
+        if (fadeOutDuration != 0 && fadeOutCurves.size() > 0)
+            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves))));
+        else if (defaultFadeDuration > 0)
+            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator()));
+
+
+        int backFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_out_duration", "-1"));
+        if (backFadeOutDuration > 0)
+            fadeOutMap.put(Reason.BACK_BTN, new PartialFadeInterval(backFadeOutDuration, new LinearDecreasingInterpolator()));
+        else if (defaultFadeDuration > 0)
+            fadeOutMap.put(Reason.BACK_BTN, new PartialFadeInterval(defaultFadeDuration, new LinearDecreasingInterpolator()));
+
+        int fwdFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_out_duration", "-1"));
+        if (fwdFadeOutDuration > 0)
+            fadeOutMap.put(Reason.FORWARD_BTN, new PartialFadeInterval(fwdFadeOutDuration, new LinearDecreasingInterpolator()));
+        else if (defaultFadeDuration > 0)
+            fadeOutMap.put(Reason.FORWARD_BTN, new PartialFadeInterval(defaultFadeDuration, new LinearDecreasingInterpolator()));
+    }
+
+    /**
+     * Get the gain at this specified position, switching out intervals if needed.
+     *
+     * @param pos The time in milliseconds
+     * @return The gain value from 0 to 1
+     */
     public float getGain(int pos) {
+        if (activeInterval == null && fadeIn == null && fadeOut == null)
+            return lastGain;
+
         if (activeInterval != null && activeInterval.end() <= pos) {
             lastGain = activeInterval.interpolator.last();
+
+            if (activeInterval == fadeIn) {
+                fadeIn = null;
+                LOGGER.debug(String.format("Cleared fade in. {id: %s}", playbackId));
+            } else if (activeInterval == fadeOut) {
+                fadeOut = null;
+                LOGGER.debug(String.format("Cleared fade out. {id: %s}", playbackId));
+            }
+
             activeInterval = null;
         }
 
         if (activeInterval == null) {
-            if (fadeInInterval != null && pos >= fadeInInterval.start && fadeInInterval.end() >= pos)
-                activeInterval = fadeInInterval;
-            else if (fadeOutInterval != null && pos >= fadeOutInterval.start && fadeOutInterval.end() >= pos)
-                activeInterval = fadeOutInterval;
+            if (fadeIn != null && pos >= fadeIn.start && fadeIn.end() >= pos) {
+                activeInterval = fadeIn;
+                fadeOverlap += fadeIn.duration;
+            } else if (fadeOut != null && pos >= fadeOut.start && fadeOut.end() >= pos) {
+                activeInterval = fadeOut;
+                fadeOverlap += fadeOut.duration;
+            }
         }
 
         if (activeInterval == null) return lastGain;
@@ -83,55 +138,112 @@ public class CrossfadeController {
         return lastGain = activeInterval.interpolate(pos);
     }
 
-    public boolean fadeInEnabled() {
-        return fadeInInterval != null;
+    /**
+     * Select the next fade in interval. This field will be cleared once the interval has started and then left.
+     *
+     * @param reason The reason behind this change, used to get the correct interval
+     * @return The interval that has just been selected
+     */
+    @Nullable
+    public FadeInterval selectFadeIn(@NotNull Reason reason) {
+        fadeIn = fadeInMap.get(reason);
+        activeInterval = null;
+        LOGGER.debug(String.format("Changed fade in. {curr: %s, why: %s, id: %s}", fadeIn, reason, playbackId));
+        return fadeIn;
     }
 
-    public int fadeInStartTime() {
-        if (fadeInInterval != null) return fadeInInterval.start;
-        else return 0;
-    }
-
-    public int fadeInEndTime() {
-        if (fadeInInterval != null) return fadeInInterval.end();
-        else return defaultFadeDuration;
-    }
-
-    public int fadeInDuration() {
-        if (fadeInInterval != null) return fadeInInterval.duration;
-        else return 0;
-    }
-
-    public boolean fadeOutEnabled() {
-        return fadeOutInterval != null;
-    }
-
-    public int fadeOutStartTime() {
-        if (fadeOutInterval != null) return fadeOutInterval.start;
-        else return trackDuration - defaultFadeDuration;
-    }
-
-    public int fadeOutEndTime() {
-        if (fadeOutInterval != null) return fadeOutInterval.end();
-        else return trackDuration;
-    }
-
-    public int fadeOutStartTimeFromEnd() {
-        if (fadeOutInterval != null) return trackDuration - fadeOutInterval.start;
-        else return defaultFadeDuration;
-    }
-
-    public int fadeOutDuration() {
-        if (fadeOutInterval != null) return fadeOutInterval.duration;
-        else return 0;
+    /**
+     * Select the next fade out interval. This field will be cleared once the interval has started and then left.
+     *
+     * @param reason The reason behind this change, used to get the correct interval
+     * @return The interval that has just been selected
+     */
+    @Nullable
+    public FadeInterval selectFadeOut(@NotNull Reason reason) {
+        fadeOut = fadeOutMap.get(reason);
+        activeInterval = null;
+        LOGGER.debug(String.format("Changed fade out. {curr: %s, why: %s, id: %s}", fadeOut, reason, playbackId));
+        return fadeOut;
     }
 
     @Nullable
     public String fadeOutUri() {
-        return fadeOutUri;
+        return fadeOutUri; // TODO: Is this useful?
     }
 
-    private static class FadeInterval {
+    /**
+     * @return The first (scheduled) fade out start time.
+     */
+    public int fadeOutStartTimeMin() {
+        int fadeOutStartTime = -1;
+        for (FadeInterval interval : fadeOutMap.values()) {
+            if (interval instanceof PartialFadeInterval) continue;
+
+            if (fadeOutStartTime == -1 || fadeOutStartTime > interval.start)
+                fadeOutStartTime = interval.start;
+        }
+
+        if (fadeOutStartTime == -1) return trackDuration;
+        else return fadeOutStartTime;
+    }
+
+    /**
+     * @return Whether there is any possibility of a fade out.
+     */
+    public boolean hasAnyFadeOut() {
+        return !fadeOutMap.isEmpty();
+    }
+
+    /**
+     * @return The amount of fade overlap accumulated during playback.
+     */
+    public int fadeOverlap() {
+        return fadeOverlap;
+    }
+
+    /**
+     * An interval without a start. Used when crossfading due to an user interaction.
+     */
+    public static class PartialFadeInterval extends FadeInterval {
+        private int partialStart = -1;
+
+        PartialFadeInterval(int duration, @NotNull GainInterpolator interpolator) {
+            super(-1, duration, interpolator);
+        }
+
+        @Override
+        public int start() {
+            if (partialStart == -1) throw new IllegalStateException();
+            return partialStart;
+        }
+
+        public int end(int now) {
+            partialStart = now;
+            return end();
+        }
+
+        @Override
+        public int end() {
+            if (partialStart == -1) throw new IllegalStateException();
+            return partialStart + duration;
+        }
+
+        @Override
+        float interpolate(int trackPos) {
+            if (partialStart == -1) throw new IllegalStateException();
+            return super.interpolate(trackPos - 1 - partialStart);
+        }
+
+        @Override
+        public String toString() {
+            return "PartialFadeInterval{duration=" + duration + ", interpolator=" + interpolator + '}';
+        }
+    }
+
+    /**
+     * An interval representing when the fade should start, end, how much should last and how should behave.
+     */
+    public static class FadeInterval {
         final int start;
         final int duration;
         final GainInterpolator interpolator;
@@ -142,8 +254,16 @@ public class CrossfadeController {
             this.interpolator = interpolator;
         }
 
-        int end() {
+        public int end() {
             return start + duration;
+        }
+
+        public int duration() {
+            return duration;
+        }
+
+        public int start() {
+            return start;
         }
 
         float interpolate(int trackPos) {

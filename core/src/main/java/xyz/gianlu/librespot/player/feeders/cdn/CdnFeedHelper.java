@@ -10,8 +10,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.HaltListener;
-import xyz.gianlu.librespot.player.NormalizationData;
+import xyz.gianlu.librespot.player.codecs.NormalizationData;
+import xyz.gianlu.librespot.player.feeders.HaltListener;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder.LoadedStream;
 
 import java.io.IOException;

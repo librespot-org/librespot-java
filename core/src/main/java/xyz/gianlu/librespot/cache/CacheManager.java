@@ -3,8 +3,8 @@ package xyz.gianlu.librespot.cache;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.GeneralWritableStream;
-import xyz.gianlu.librespot.player.StreamId;
+import xyz.gianlu.librespot.player.feeders.GeneralWritableStream;
+import xyz.gianlu.librespot.player.feeders.StreamId;
 
 import java.io.Closeable;
 import java.io.File;

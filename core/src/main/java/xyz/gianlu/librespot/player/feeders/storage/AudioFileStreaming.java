@@ -10,13 +10,13 @@ import xyz.gianlu.librespot.cache.JournalHeader;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.HaltListener;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.player.feeders.HaltListener;
 
 import java.io.Closeable;
 import java.io.IOException;

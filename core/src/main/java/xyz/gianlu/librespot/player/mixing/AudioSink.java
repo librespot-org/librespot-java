@@ -121,6 +121,8 @@ public final class AudioSink implements Runnable, Closeable {
     public void close() {
         closed = true;
         thread.interrupt();
+
+        clearOutputs();
     }
 
     @Override
