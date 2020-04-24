@@ -149,6 +149,10 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     public void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull TrackOrEpisode metadata) {
         LOGGER.trace(String.format("%s finished loading.", entry));
         if (entry == queue.head()) listener.finishedLoading(metadata);
+
+        CrossfadeController.FadeInterval fadeOut;
+        if (entry.crossfade != null && (fadeOut = entry.crossfade.selectFadeOut(Reason.TRACK_DONE)) != null)
+            entry.notifyInstant(PlayerQueueEntry.INSTANT_START_NEXT, fadeOut.start());
     }
 
     @Override
@@ -215,11 +219,6 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         MixingLine.MixingOutput out = sink.someOutput();
         if (out == null)
             throw new IllegalStateException("No output is available for " + head);
-
-        CrossfadeController.FadeInterval fadeOut;
-        if (head.crossfade != null && (fadeOut = head.crossfade.selectFadeOut(Reason.TRACK_DONE)) != null) {
-            head.notifyInstant(PlayerQueueEntry.INSTANT_START_NEXT, fadeOut.start());
-        }
 
         CrossfadeController.FadeInterval fadeIn;
         if (head.crossfade != null && (fadeIn = head.crossfade.selectFadeIn(reason)) != null) {

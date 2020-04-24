@@ -113,7 +113,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                 throw new UnsupportedEncodingException(stream.in.codec().toString());
         }
 
-        LOGGER.trace(String.format("Loaded %s codec. {fileId: %s, format: %s, id: %s}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId));
+        LOGGER.trace(String.format("Loaded %s codec. {of: %s, format: %s, playbackId: %s}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId));
     }
 
     /**
@@ -157,13 +157,15 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     }
 
     /**
-     * Sets the output. As soon as this method returns the entry will start playing.
+     * Sets the output to {@param output}. As soon as this method returns the entry will start playing.
+     *
+     * @throws IllegalStateException If the output is already set. Will also clear {@param output}.
      */
     void setOutput(@NotNull MixingLine.MixingOutput output) {
-        if (closed) return;
-
-        if (this.output != null)
-            throw new IllegalStateException("Output is already set for " + this);
+        if (closed || this.output != null) {
+            output.clear();
+            throw new IllegalStateException("Cannot set output for " + this);
+        }
 
         synchronized (playbackLock) {
             this.output = output;

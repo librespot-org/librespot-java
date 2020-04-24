@@ -66,7 +66,7 @@ final class PlayerQueue implements Closeable {
     }
 
     /**
-     * Swap two entries, closing the once that gets removed.
+     * Swap two entries, closing the old one in any case.
      *
      * @param oldEntry The old entry
      * @param newEntry The new entry
@@ -84,8 +84,8 @@ final class PlayerQueue implements Closeable {
             swapped = head.swap(oldEntry, newEntry);
         }
 
+        oldEntry.close();
         if (swapped) {
-            oldEntry.close();
             executorService.execute(newEntry);
             LOGGER.trace(String.format("%s swapped with %s.", oldEntry, newEntry));
         }

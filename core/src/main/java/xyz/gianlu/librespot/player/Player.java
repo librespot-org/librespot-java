@@ -598,7 +598,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     /**
-     * @return The current content in the state or {@code null} if not set.
+     * @return The current content in the state
+     * @throws IllegalStateException If there is no current content set
      */
     @Override
     public @NotNull PlayableId currentPlayable() {

@@ -122,11 +122,6 @@ public class CdnManager {
             this.setUrl(url);
         }
 
-        @Nullable
-        String host() {
-            return url == null ? null : url.host();
-        }
-
         @NotNull
         HttpUrl url() throws CdnException {
             if (expiration == -1) return url;
@@ -256,7 +251,7 @@ public class CdnManager {
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, stream: %s", chunkIndex, chunks, cdnUrl.host(), cached, describe()));
+            LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, stream: %s", chunkIndex, chunks, cached, describe()));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);

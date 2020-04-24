@@ -1073,7 +1073,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         @Nullable
         synchronized PlayableIdWithIndex nextPlayableDoNotSet() throws IOException, MercuryClient.MercuryException {
             if (isRepeatingTrack())
-                return null;
+                return new PlayableIdWithIndex(PlayableId.from(tracks.get(getCurrentTrackIndex())), getCurrentTrackIndex());
 
             if (!queue.isEmpty())
                 return new PlayableIdWithIndex(PlayableId.from(queue.peek()), -1);

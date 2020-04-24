@@ -56,7 +56,12 @@ public final class PlayerHandler extends AbsSessionHandler {
     }
 
     private void current(HttpServerExchange exchange, Session session) {
-        PlayableId id = session.player().currentPlayableId();
+        PlayableId id;
+        try {
+            id = session.player().currentPlayable();
+        } catch (IllegalStateException ex) {
+            id = null;
+        }
 
         JsonObject obj = new JsonObject();
         if (id != null) obj.addProperty("current", id.toSpotifyUri());
