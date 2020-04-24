@@ -45,6 +45,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private static final Logger LOGGER = Logger.getLogger(PlayerQueueEntry.class);
     final PlayableId playable;
     final String playbackId;
+    private final boolean preloaded;
     private final Listener listener;
     private final Object playbackLock = new Object();
     private final TreeMap<Integer, Integer> notifyInstants = new TreeMap<>(Comparator.comparingInt(o -> o));
@@ -58,22 +59,24 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private long playbackHaltedAt = 0;
     private volatile int seekTime = -1;
     private boolean retried = false;
+    private PlayableContentFeeder.Metrics contentMetrics;
 
-    PlayerQueueEntry(@NotNull Session session, @NotNull AudioFormat format, @NotNull PlayableId playable, @NotNull Listener listener) {
+    PlayerQueueEntry(@NotNull Session session, @NotNull AudioFormat format, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
         this.session = session;
         this.format = format;
         this.playbackId = StateWrapper.generatePlaybackId(session.random());
         this.playable = playable;
+        this.preloaded = preloaded;
         this.listener = listener;
 
         LOGGER.trace(String.format("Created new %s.", this));
     }
 
     @NotNull
-    PlayerQueueEntry retrySelf() {
+    PlayerQueueEntry retrySelf(boolean preloaded) {
         if (retried) throw new IllegalStateException();
 
-        PlayerQueueEntry retry = new PlayerQueueEntry(session, format, playable, listener);
+        PlayerQueueEntry retry = new PlayerQueueEntry(session, format, playable, preloaded, listener);
         retry.retried = true;
         return retry;
     }
@@ -83,9 +86,10 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      *
      * @throws ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
      */
-    private void load() throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(session.conf().preferredQuality()), this);
+    private void load(boolean preload) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
+        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(session.conf().preferredQuality()), preload, this);
         metadata = new TrackOrEpisode(stream.track, stream.episode);
+        contentMetrics = stream.metrics;
 
         if (playable instanceof EpisodeId && stream.episode != null) {
             LOGGER.info(String.format("Loaded episode. {name: '%s', uri: %s, id: %s}", stream.episode.getName(), playable.toSpotifyUri(), playbackId));
@@ -133,7 +137,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      */
     @NotNull
     PlayerMetrics metrics() {
-        return new PlayerMetrics(crossfade, codec);
+        return new PlayerMetrics(contentMetrics, crossfade, codec);
     }
 
     /**
@@ -221,7 +225,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         listener.startedLoading(this);
 
         try {
-            load();
+            load(preloaded);
         } catch (IOException | ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
             close();
             listener.loadingError(this, ex, retried);
@@ -250,7 +254,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                 if (output == null) continue;
             }
 
-            if (closed) return;
+            if (closed) break;
 
             if (seekTime != -1) {
                 codec.seek(seekTime);
@@ -283,7 +287,6 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
         }
 
-        close();
         listener.playbackEnded(this);
         LOGGER.trace(String.format("%s terminated.", this));
     }

@@ -16,7 +16,6 @@ public class CrossfadeController {
     private static final Logger LOGGER = Logger.getLogger(CrossfadeController.class);
     private final String playbackId;
     private final int trackDuration;
-    private final String fadeOutUri;
     private final Map<Reason, FadeInterval> fadeOutMap = new HashMap<>(8);
     private final Map<Reason, FadeInterval> fadeInMap = new HashMap<>(8);
     private final int defaultFadeDuration;
@@ -30,7 +29,7 @@ public class CrossfadeController {
         this.playbackId = playbackId;
         trackDuration = duration;
         defaultFadeDuration = conf.crossfadeDuration();
-        fadeOutUri = metadata.get("audio.fade_out_uri");
+        // Didn't ever find an use for "audio.fade_out_uri"
 
         populateFadeIn(metadata);
         populateFadeOut(metadata);
@@ -164,11 +163,6 @@ public class CrossfadeController {
         activeInterval = null;
         LOGGER.debug(String.format("Changed fade out. {curr: %s, why: %s, id: %s}", fadeOut, reason, playbackId));
         return fadeOut;
-    }
-
-    @Nullable
-    public String fadeOutUri() {
-        return fadeOutUri; // TODO: Is this useful?
     }
 
     /**

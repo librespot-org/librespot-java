@@ -761,6 +761,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.setPlaybackId(playbackId);
     }
 
+    @NotNull
+    public PlayOrigin getPlayOrigin() {
+        return state.getPlayOrigin();
+    }
+
     @Override
     public void close() {
         session.dealer().removeMessageListener(this);

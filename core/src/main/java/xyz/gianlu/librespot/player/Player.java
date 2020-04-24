@@ -15,7 +15,6 @@ import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
-import xyz.gianlu.librespot.core.EventService;
 import xyz.gianlu.librespot.core.EventService.PlaybackMetrics;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -28,6 +27,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
+import xyz.gianlu.librespot.player.playback.PlayerMetrics;
 import xyz.gianlu.librespot.player.playback.PlayerSession;
 
 import java.io.Closeable;
@@ -44,7 +44,7 @@ import java.util.concurrent.*;
 /**
  * @author Gianlu
  */
-public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSession.Listener, AudioSink.Listener { // TODO: Metrics
+public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSession.Listener, AudioSink.Listener {
     public static final int VOLUME_MAX = 65536;
     private static final Logger LOGGER = Logger.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
@@ -55,6 +55,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private StateWrapper state;
     private PlayerSession playerSession;
     private ScheduledFuture<?> releaseLineFuture = null;
+    private PlaybackMetrics metrics = null;
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -146,10 +147,20 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      *
      * @param reason Why we entered this state
      */
-    private void panicState(@Nullable EventService.PlaybackMetrics.Reason reason) {
+    private void panicState(@Nullable PlaybackMetrics.Reason reason) {
         sink.pause(true);
         state.setState(false, false, false);
         state.updated();
+
+        if (reason == null) {
+            metrics = null;
+        } else if (metrics != null) {
+            metrics.endedHow(reason, null);
+            metrics.endInterval(state.getPosition());
+            metrics.update(playerSession != null ? playerSession.currentMetrics() : null);
+            session.eventService().trackPlayed(metrics);
+            metrics = null;
+        }
     }
 
     /**
@@ -159,7 +170,17 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @param play      Whether the playback should start immediately
      */
     private void loadSession(@NotNull String sessionId, boolean play, boolean withSkip) {
+        TransitionInfo trans = TransitionInfo.contextChange(state, withSkip);
+
         if (playerSession != null) {
+            if (metrics != null) {
+                metrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
+                metrics.endInterval(trans.endedWhen);
+                metrics.update(playerSession.currentMetrics());
+                session.eventService().trackPlayed(metrics);
+                metrics = null;
+            }
+
             playerSession.close();
             playerSession = null;
         }
@@ -167,7 +188,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         playerSession = new PlayerSession(session, sink, sessionId, this);
         session.eventService().newSessionId(sessionId, state);
 
-        loadTrack(play, TransitionInfo.contextChange(state, withSkip));
+        loadTrack(play, trans);
     }
 
     /**
@@ -179,6 +200,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @param trans A {@link TransitionInfo} object containing information about this track change
      */
     private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
+        if (metrics != null) {
+            metrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
+            metrics.endInterval(trans.endedWhen);
+            metrics.update(playerSession.currentMetrics());
+            session.eventService().trackPlayed(metrics);
+            metrics = null;
+        }
+
         String playbackId = playerSession.play(state.getCurrentPlayableOrThrow(), state.getPosition(), trans.startedReason);
         state.setPlaybackId(playbackId);
         session.eventService().newPlaybackId(state, playbackId);
@@ -192,6 +221,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         events.trackChanged();
         if (play) events.playbackResumed();
         else events.playbackPaused();
+
+        metrics = new PlaybackMetrics(state.getCurrentPlayableOrThrow(), playbackId, state);
+        metrics.startedHow(trans.startedReason, state.getPlayOrigin().getFeatureIdentifier());
+        metrics.startInterval(state.getPosition());
 
         if (releaseLineFuture != null) {
             releaseLineFuture.cancel(true);
@@ -307,6 +340,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         playerSession.seekCurrent(pos);
         state.setPosition(pos);
         events.seeked(pos);
+
+        if (metrics != null) {
+            metrics.endInterval(state.getPosition());
+            metrics.startInterval(pos);
+        }
     }
 
     private void handleResume() {
@@ -507,15 +545,29 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     @Override
-    public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos) {
-        session.eventService().newPlaybackId(state, playbackId);
-
+    public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull PlaybackMetrics.Reason startedReason) {
         if (metadata != null) state.enrichWithMetadata(metadata);
         state.setPlaybackId(playbackId);
         state.setPosition(pos);
         state.updated();
 
         events.trackChanged();
+
+        session.eventService().newPlaybackId(state, playbackId);
+        metrics = new PlaybackMetrics(state.getCurrentPlayableOrThrow(), playbackId, state);
+        metrics.startedHow(startedReason, state.getPlayOrigin().getFeatureIdentifier());
+        metrics.startInterval(pos);
+    }
+
+    @Override
+    public void trackPlayed(@NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int willEndAt) {
+        if (metrics != null) {
+            metrics.endedHow(endReason, state.getPlayOrigin().getFeatureIdentifier());
+            metrics.endInterval(willEndAt);
+            metrics.update(playerMetrics);
+            session.eventService().trackPlayed(metrics);
+            metrics = null;
+        }
     }
 
     @Override
@@ -664,6 +716,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void close() {
+        if (metrics != null && playerSession != null) {
+            metrics.endedHow(PlaybackMetrics.Reason.LOGOUT, state.getPlayOrigin().getFeatureIdentifier());
+            metrics.endInterval(state.getPosition());
+            metrics.update(playerSession.currentMetrics());
+            session.eventService().trackPlayed(metrics);
+            metrics = null;
+        }
+
         state.close();
         events.listeners.clear();
 
@@ -750,7 +810,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
          */
         int endedWhen = -1;
 
-        private TransitionInfo(@NotNull EventService.PlaybackMetrics.Reason endedReason, @NotNull EventService.PlaybackMetrics.Reason startedReason) {
+        private TransitionInfo(@NotNull PlaybackMetrics.Reason endedReason, @NotNull PlaybackMetrics.Reason startedReason) {
             this.startedReason = startedReason;
             this.endedReason = endedReason;
         }
@@ -786,31 +846,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
 
         /**
-         * Proceeding to the next track without user intervention.
-         */
-        @NotNull
-        static TransitionInfo next(@NotNull StateWrapper state) {
-            TransitionInfo trans = new TransitionInfo(PlaybackMetrics.Reason.TRACK_DONE, PlaybackMetrics.Reason.TRACK_DONE);
-            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
-            return trans;
-        }
-
-        /**
          * Skipping to next track.
          */
         @NotNull
         static TransitionInfo skippedNext(@NotNull StateWrapper state) {
             TransitionInfo trans = new TransitionInfo(PlaybackMetrics.Reason.FORWARD_BTN, PlaybackMetrics.Reason.FORWARD_BTN);
-            if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
-            return trans;
-        }
-
-        /**
-         * Skipping to next track due to an error.
-         */
-        @NotNull
-        static TransitionInfo nextError(@NotNull StateWrapper state) {
-            TransitionInfo trans = new TransitionInfo(PlaybackMetrics.Reason.TRACK_ERROR, PlaybackMetrics.Reason.TRACK_ERROR);
             if (state.getCurrentPlayable() != null) trans.endedWhen = state.getPosition();
             return trans;
         }

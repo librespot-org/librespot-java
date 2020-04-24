@@ -62,7 +62,7 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    private void trackTransition(@NotNull EventService.PlaybackMetrics metrics) {
+    private void trackTransition(@NotNull PlaybackMetrics metrics) {
         int when = metrics.lastValue();
 
         EventBuilder event = new EventBuilder(Type.TRACK_TRANSITION);
@@ -77,20 +77,23 @@ public final class EventService implements Closeable {
         event.append('0' /* TODO: Encrypt latency */).append(String.valueOf(metrics.player.fadeOverlap)).append('0' /* FIXME */).append('0');
         event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
         event.append('0' /* TODO: Play latency */).append("-1" /* FIXME */).append("context");
-        event.append("-1" /* TODO: Audio key sync time */).append('0').append('0' /* TODO: Prefetched audio key */).append('0').append('0' /* FIXME */).append('0');
+        event.append(String.valueOf(metrics.player.contentMetrics.audioKeyTime)).append('0');
+        event.append(metrics.player.contentMetrics.preloadedAudioKey ? '1' : '0').append('0').append('0' /* FIXME */).append('0');
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append('0').append(String.valueOf(metrics.player.bitrate));
         event.append(metrics.contextUri).append(metrics.player.encoding);
         event.append(metrics.id.hexId()).append("");
-        event.append('0').append(String.valueOf(TimeProvider.currentTimeMillis())).append('0');
+        event.append('0').append(String.valueOf(metrics.timestamp)).append('0');
         event.append("context").append(metrics.referrerIdentifier).append(metrics.featureVersion);
         event.append("com.spotify").append(metrics.player.transition).append("none").append("local").append("na").append("none");
         sendEvent(event);
     }
 
-    public void trackPlayed(@NotNull EventService.PlaybackMetrics metrics) {
-        if (metrics.player == null)
+    public void trackPlayed(@NotNull PlaybackMetrics metrics) {
+        if (metrics.player == null || metrics.player.contentMetrics == null) {
+            LOGGER.warn("Did not send event because of missing metrics: " + metrics.playbackId);
             return;
+        }
 
         trackTransition(metrics);
 
@@ -222,19 +225,24 @@ public final class EventService implements Closeable {
         public final PlayableId id;
         final List<Interval> intervals = new ArrayList<>(10);
         final String playbackId;
-        String featureVersion = null;
-        String referrerIdentifier = null;
-        String contextUri = null;
+        final String featureVersion;
+        final String referrerIdentifier;
+        final String contextUri;
+        final long timestamp;
         PlayerMetrics player = null;
-        Interval lastInterval = null;
         Reason reasonStart = null;
         String sourceStart = null;
         Reason reasonEnd = null;
         String sourceEnd = null;
+        Interval lastInterval = null;
 
-        public PlaybackMetrics(@NotNull PlayableId id, @NotNull String playbackId) {
+        public PlaybackMetrics(@NotNull PlayableId id, @NotNull String playbackId, @NotNull StateWrapper state) {
             this.id = id;
             this.playbackId = playbackId;
+            this.contextUri = state.getContextUri();
+            this.featureVersion = state.getPlayOrigin().getFeatureVersion();
+            this.referrerIdentifier = state.getPlayOrigin().getReferrerIdentifier();
+            this.timestamp = TimeProvider.currentTimeMillis();
         }
 
         @NotNull
@@ -302,7 +310,7 @@ public final class EventService implements Closeable {
             return reasonEnd == null ? null : reasonEnd.val;
         }
 
-        public void update(@NotNull PlayerMetrics playerMetrics) {
+        public void update(@Nullable PlayerMetrics playerMetrics) {
             player = playerMetrics;
         }
 

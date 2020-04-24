@@ -34,6 +34,8 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private final String sessionId;
     private final Listener listener;
     private final PlayerQueue queue;
+    private int lastPlayPos = 0;
+    private Reason lastPlayReason = null;
 
     public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull String sessionId, @NotNull Listener listener) {
         this.session = session;
@@ -44,7 +46,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         LOGGER.info(String.format("Created new session. {id: %s}", sessionId));
 
         sink.clearOutputs();
-        add(listener.currentPlayable());
+        add(listener.currentPlayable(), false);
     }
 
     /**
@@ -52,8 +54,8 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      *
      * @param playable The content for the new entry
      */
-    private void add(@NotNull PlayableId playable) {
-        queue.add(new PlayerQueueEntry(session, sink.getFormat(), playable, this));
+    private void add(@NotNull PlayableId playable, boolean preloaded) {
+        queue.add(new PlayerQueueEntry(session, sink.getFormat(), playable, preloaded, this));
     }
 
     /**
@@ -61,7 +63,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      */
     private void addNext() {
         PlayableId playable = listener.nextPlayableDoNotSet();
-        if (playable != null) add(playable);
+        if (playable != null) add(playable, true);
     }
 
     /**
@@ -83,12 +85,14 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * Gets the next content and tries to advance, notifying if successful.
      */
     private void advance(@NotNull Reason reason) {
+        // TODO: Call #trackPlayed somewhere!!
+
         PlayableId next = listener.nextPlayable();
         if (next == null)
             return;
 
         EntryWithPos entry = playInternal(next, 0, reason);
-        listener.trackChanged(entry.entry.playbackId, entry.entry.metadata(), entry.pos);
+        listener.trackChanged(entry.entry.playbackId, entry.entry.metadata(), entry.pos, reason);
     }
 
     @Override
@@ -125,10 +129,10 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
             if (ex instanceof ContentRestrictedException) {
                 advance(Reason.TRACK_ERROR);
             } else if (!retried) {
-                PlayerQueueEntry newEntry = entry.retrySelf();
+                PlayerQueueEntry newEntry = entry.retrySelf(false);
                 executorService.execute(() -> {
                     queue.swap(entry, newEntry);
-                    playInternal(newEntry.playable, 0, Reason.TRACK_ERROR); // FIXME: Use correct values
+                    playInternal(newEntry.playable, lastPlayPos, lastPlayReason == null ? Reason.TRACK_ERROR : lastPlayReason);
                 });
                 return;
             }
@@ -136,7 +140,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
             listener.loadingError(ex);
         } else if (entry == queue.next()) {
             if (!(ex instanceof ContentRestrictedException) && !retried) {
-                PlayerQueueEntry newEntry = entry.retrySelf();
+                PlayerQueueEntry newEntry = entry.retrySelf(true);
                 executorService.execute(() -> queue.swap(entry, newEntry));
                 return;
             }
@@ -176,6 +180,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         if (entry == queue.head()) listener.playbackResumedFromHalt(chunk, diff);
     }
 
+
     // ================================ //
     // =========== Playback =========== //
     // ================================ //
@@ -189,8 +194,11 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      */
     @Contract("_, _, _ -> new")
     private @NotNull EntryWithPos playInternal(@NotNull PlayableId playable, int pos, @NotNull Reason reason) {
+        lastPlayPos = pos;
+        lastPlayReason = reason;
+
         if (!advanceTo(playable)) {
-            add(playable);
+            add(playable, false);
             queue.advance();
         }
 
@@ -264,6 +272,15 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     // ================================ //
     // =========== Getters ============ //
     // ================================ //
+
+    /**
+     * @return The {@link PlayerMetrics} for the current entry or {@code null} if not available.
+     */
+    @Nullable
+    public PlayerMetrics currentMetrics() {
+        if (queue.head() == null) return null;
+        else return queue.head().metrics();
+    }
 
     /**
      * @return The metadata for the current head or {@code null} if not available.
@@ -354,11 +371,20 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         /**
          * The current track changed. Not called if {@link PlayerSession#playInternal(PlayableId, int, Reason)} is called directly.
          *
-         * @param playbackId The new playback ID
-         * @param metadata   The metadata for the new track
-         * @param pos        The position at which playback started
+         * @param playbackId    The new playback ID
+         * @param metadata      The metadata for the new track
+         * @param pos           The position at which playback started
+         * @param startedReason The reason why the current track changed
          */
-        void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos);
+        void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull Reason startedReason);
+
+        /**
+         * The current entry has finished playing.
+         *
+         * @param endReason     The reason why this track ended
+         * @param playerMetrics The {@link PlayerMetrics} for this entry
+         */
+        void trackPlayed(@NotNull Reason endReason, @NotNull PlayerMetrics playerMetrics, int endedAt);
     }
 
     private static class EntryWithPos {
