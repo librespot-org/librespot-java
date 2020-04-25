@@ -116,8 +116,8 @@ public final class PlayableContentFeeder {
                 else return CdnFeedHelper.loadEpisode(session, episode, file, resp, haltListener);
             case STORAGE:
                 try {
-                    if (track != null) return StorageFeedHelper.loadTrack(session, track, file, haltListener);
-                    else return StorageFeedHelper.loadEpisode(session, episode, file, haltListener);
+                    if (track != null) return StorageFeedHelper.loadTrack(session, track, file, preload, haltListener);
+                    else return StorageFeedHelper.loadEpisode(session, episode, file, preload, haltListener);
                 } catch (AudioFileFetch.StorageNotAvailable ex) {
                     LOGGER.info("Storage is not available. Going CDN: " + ex.cdnUrl);
                     return loadCdnStream(file, track, episode, ex.cdnUrl, preload, haltListener);
