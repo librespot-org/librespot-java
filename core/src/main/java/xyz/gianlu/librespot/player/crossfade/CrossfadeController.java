@@ -62,15 +62,11 @@ public class CrossfadeController {
         int fwdFadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_in_duration", "-1"));
         if (fwdFadeInDuration > 0)
             fadeInMap.put(Reason.FORWARD_BTN, new FadeInterval(fwdFadeInStartTime, fwdFadeInDuration, new LinearIncreasingInterpolator()));
-        else if (defaultFadeDuration > 0)
-            fadeInMap.put(Reason.FORWARD_BTN, new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator()));
 
         int backFadeInStartTime = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_in_start_time", "-1"));
         int backFadeInDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_in_duration", "-1"));
         if (backFadeInDuration > 0)
             fadeInMap.put(Reason.BACK_BTN, new FadeInterval(backFadeInStartTime, backFadeInDuration, new LinearIncreasingInterpolator()));
-        else if (defaultFadeDuration > 0)
-            fadeInMap.put(Reason.BACK_BTN, new FadeInterval(0, defaultFadeDuration, new LinearIncreasingInterpolator()));
     }
 
     private void populateFadeOut(@NotNull Map<String, String> metadata) {
@@ -81,21 +77,15 @@ public class CrossfadeController {
 
         if (fadeOutDuration != 0 && fadeOutCurves.size() > 0)
             fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves))));
-        else if (defaultFadeDuration > 0)
-            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator()));
 
 
         int backFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_out_duration", "-1"));
         if (backFadeOutDuration > 0)
             fadeOutMap.put(Reason.BACK_BTN, new PartialFadeInterval(backFadeOutDuration, new LinearDecreasingInterpolator()));
-        else if (defaultFadeDuration > 0)
-            fadeOutMap.put(Reason.BACK_BTN, new PartialFadeInterval(defaultFadeDuration, new LinearDecreasingInterpolator()));
 
         int fwdFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_out_duration", "-1"));
         if (fwdFadeOutDuration > 0)
             fadeOutMap.put(Reason.FORWARD_BTN, new PartialFadeInterval(fwdFadeOutDuration, new LinearDecreasingInterpolator()));
-        else if (defaultFadeDuration > 0)
-            fadeOutMap.put(Reason.FORWARD_BTN, new PartialFadeInterval(defaultFadeDuration, new LinearDecreasingInterpolator()));
     }
 
     /**
