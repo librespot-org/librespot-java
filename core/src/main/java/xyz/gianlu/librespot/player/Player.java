@@ -35,10 +35,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -55,7 +52,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private StateWrapper state;
     private PlayerSession playerSession;
     private ScheduledFuture<?> releaseLineFuture = null;
-    private PlaybackMetrics metrics = null;
+    private Map<String, PlaybackMetrics> metrics = new HashMap<>(5);
 
     public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
         this.conf = conf;
@@ -154,12 +151,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
         if (reason == null) {
             metrics = null;
-        } else if (metrics != null) {
-            metrics.endedHow(reason, null);
-            metrics.endInterval(state.getPosition());
-            metrics.update(playerSession != null ? playerSession.currentMetrics() : null);
-            session.eventService().trackPlayed(metrics);
-            metrics = null;
+        } else if (playerSession != null) {
+            endMetrics(playerSession.currentPlaybackId(), reason, playerSession.currentMetrics(), state.getPosition());
         }
     }
 
@@ -173,13 +166,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         TransitionInfo trans = TransitionInfo.contextChange(state, withSkip);
 
         if (playerSession != null) {
-            if (metrics != null) {
-                metrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
-                metrics.endInterval(trans.endedWhen);
-                metrics.update(playerSession.currentMetrics());
-                session.eventService().trackPlayed(metrics);
-                metrics = null;
-            }
+            endMetrics(playerSession.currentPlaybackId(), trans.endedReason, playerSession.currentMetrics(), trans.endedWhen);
 
             playerSession.close();
             playerSession = null;
@@ -200,13 +187,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @param trans A {@link TransitionInfo} object containing information about this track change
      */
     private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
-        if (metrics != null) {
-            metrics.endedHow(trans.endedReason, state.getPlayOrigin().getFeatureIdentifier());
-            metrics.endInterval(trans.endedWhen);
-            metrics.update(playerSession.currentMetrics());
-            session.eventService().trackPlayed(metrics);
-            metrics = null;
-        }
+        endMetrics(playerSession.currentPlaybackId(), trans.endedReason, playerSession.currentMetrics(), trans.endedWhen);
 
         String playbackId = playerSession.play(state.getCurrentPlayableOrThrow(), state.getPosition(), trans.startedReason);
         state.setPlaybackId(playbackId);
@@ -222,9 +203,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         if (play) events.playbackResumed();
         else events.playbackPaused();
 
-        metrics = new PlaybackMetrics(state.getCurrentPlayableOrThrow(), playbackId, state);
-        metrics.startedHow(trans.startedReason, state.getPlayOrigin().getFeatureIdentifier());
-        metrics.startInterval(state.getPosition());
+        startMetrics(playbackId, trans.startedReason, state.getPosition());
 
         if (releaseLineFuture != null) {
             releaseLineFuture.cancel(true);
@@ -341,9 +320,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         state.setPosition(pos);
         events.seeked(pos);
 
-        if (metrics != null) {
-            metrics.endInterval(state.getPosition());
-            metrics.startInterval(pos);
+        PlaybackMetrics pm = metrics.get(playerSession.currentPlaybackId());
+        if (pm != null) {
+            pm.endInterval(state.getPosition());
+            pm.startInterval(pos);
         }
     }
 
@@ -498,6 +478,30 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
 
     // ================================ //
+    // =========== Metrics ============ //
+    // ================================ //
+
+    private void startMetrics(String playbackId, @NotNull PlaybackMetrics.Reason reason, int pos) {
+        PlaybackMetrics pm = new PlaybackMetrics(state.getCurrentPlayableOrThrow(), playbackId, state);
+        pm.startedHow(reason, state.getPlayOrigin().getFeatureIdentifier());
+        pm.startInterval(pos);
+        metrics.put(playbackId, pm);
+    }
+
+    private void endMetrics(String playbackId, @NotNull PlaybackMetrics.Reason reason, @Nullable PlayerMetrics playerMetrics, int when) {
+        if (playbackId == null) return;
+
+        PlaybackMetrics pm = metrics.remove(playbackId);
+        if (pm == null) return;
+
+        pm.endedHow(reason, state.getPlayOrigin().getFeatureIdentifier());
+        pm.endInterval(when);
+        pm.update(playerMetrics);
+        session.eventService().trackPlayed(pm);
+    }
+
+
+    // ================================ //
     // ======== Player events ========= //
     // ================================ //
 
@@ -554,20 +558,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         events.trackChanged();
 
         session.eventService().newPlaybackId(state, playbackId);
-        metrics = new PlaybackMetrics(state.getCurrentPlayableOrThrow(), playbackId, state);
-        metrics.startedHow(startedReason, state.getPlayOrigin().getFeatureIdentifier());
-        metrics.startInterval(pos);
+        startMetrics(playbackId, startedReason, pos);
     }
 
     @Override
-    public void trackPlayed(@NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int willEndAt) {
-        if (metrics != null) {
-            metrics.endedHow(endReason, state.getPlayOrigin().getFeatureIdentifier());
-            metrics.endInterval(willEndAt);
-            metrics.update(playerMetrics);
-            session.eventService().trackPlayed(metrics);
-            metrics = null;
-        }
+    public void trackPlayed(@NotNull String playbackId, @NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int when) {
+        endMetrics(playbackId, endReason, playerMetrics, when);
     }
 
     @Override
@@ -716,13 +712,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void close() {
-        if (metrics != null && playerSession != null) {
-            metrics.endedHow(PlaybackMetrics.Reason.LOGOUT, state.getPlayOrigin().getFeatureIdentifier());
-            metrics.endInterval(state.getPosition());
-            metrics.update(playerSession.currentMetrics());
-            session.eventService().trackPlayed(metrics);
-            metrics = null;
-        }
+        if (playerSession != null)
+            endMetrics(playerSession.currentPlaybackId(), PlaybackMetrics.Reason.LOGOUT, playerSession.currentMetrics(), state.getPosition());
 
         state.close();
         events.listeners.clear();

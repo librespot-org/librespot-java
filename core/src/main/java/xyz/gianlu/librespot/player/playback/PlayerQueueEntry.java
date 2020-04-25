@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.core.EventService.PlaybackMetrics;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
@@ -52,6 +53,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private final Session session;
     private final AudioFormat format;
     CrossfadeController crossfade;
+    PlaybackMetrics.Reason endReason = PlaybackMetrics.Reason.END_PLAY;
     private Codec codec;
     private TrackOrEpisode metadata;
     private volatile boolean closed = false;
@@ -151,6 +153,20 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     }
 
     /**
+     * Returns the current position.
+     *
+     * @return The current position of the player or {@code -1} if not available.
+     * @see PlayerQueueEntry#getTime()
+     */
+    int getTimeNoThrow() {
+        try {
+            return getTime();
+        } catch (Codec.CannotGetTimeException e) {
+            return -1;
+        }
+    }
+
+    /**
      * Seeks to the specified position.
      *
      * @param pos The time in milliseconds
@@ -229,7 +245,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         } catch (IOException | ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
             close();
             listener.loadingError(this, ex, retried);
-            LOGGER.trace(String.format("%s terminated at loading.", this));
+            LOGGER.trace(String.format("%s terminated at loading.", this), ex);
             return;
         }
 
@@ -275,15 +291,24 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
 
             try {
-                if (codec.writeSomeTo(output.stream()) == -1)
+                if (codec.writeSomeTo(output.stream()) == -1) {
+                    try {
+                        int time = codec.time();
+                        LOGGER.debug(String.format("Player time offset is %d. {id: %s}", metadata.duration() - time, playbackId));
+                    } catch (Codec.CannotGetTimeException ignored) {
+                    }
+
+                    close();
                     break;
+                }
             } catch (IOException | Codec.CodecException ex) {
                 if (!closed) {
                     close();
                     listener.playbackError(this, ex);
+                    return;
                 }
 
-                return;
+                break;
             }
         }
 

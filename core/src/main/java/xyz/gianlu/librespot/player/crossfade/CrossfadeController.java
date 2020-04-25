@@ -77,6 +77,8 @@ public class CrossfadeController {
 
         if (fadeOutDuration != 0 && fadeOutCurves.size() > 0)
             fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves))));
+        else if (defaultFadeDuration > 0)
+            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator()));
 
 
         int backFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_out_duration", "-1"));

@@ -33,7 +33,7 @@ import java.io.IOException;
 public final class PlayableContentFeeder {
     private static final Logger LOGGER = Logger.getLogger(PlayableContentFeeder.class);
     private static final String STORAGE_RESOLVE_INTERACTIVE = "/storage-resolve/files/audio/interactive/%s";
-    private static final String STORAGE_RESOLVE_INTERACTIVE_PREFETCH = "/storage-resolve/files/audio/interactive-prefetch/%s";
+    private static final String STORAGE_RESOLVE_INTERACTIVE_PREFETCH = "/storage-resolve/files/audio/interactive_prefetch/%s";
     protected final Session session;
 
     public PlayableContentFeeder(@NotNull Session session) {
@@ -58,10 +58,12 @@ public final class PlayableContentFeeder {
 
     @NotNull
     public final LoadedStream load(@NotNull PlayableId id, @NotNull AudioQualityPreference audioQualityPreference, boolean preload, @Nullable HaltListener haltListener) throws CdnManager.CdnException, ContentRestrictedException, MercuryClient.MercuryException, IOException {
-        if (id instanceof TrackId) return loadTrack((TrackId) id, audioQualityPreference, preload, haltListener);
+        if (id instanceof TrackId)
+            return loadTrack((TrackId) id, audioQualityPreference, preload, haltListener);
         else if (id instanceof EpisodeId)
             return loadEpisode((EpisodeId) id, audioQualityPreference, preload, haltListener);
-        else throw new IllegalArgumentException("Unknown PlayableId: " + id);
+        else
+            throw new IllegalArgumentException("Unknown content: " + id);
     }
 
     @NotNull
@@ -83,7 +85,7 @@ public final class PlayableContentFeeder {
             String country = session.countryCode();
             if (country != null) ContentRestrictedException.checkRestrictions(country, original.getRestrictionList());
 
-            LOGGER.fatal("Couldn't find playable track: " + Utils.bytesToHex(id.getGid()));
+            LOGGER.fatal("Couldn't find playable track: " + id.toSpotifyUri());
             throw new FeederException();
         }
 
@@ -187,7 +189,7 @@ public final class PlayableContentFeeder {
         public final boolean preloadedAudioKey;
         public final int audioKeyTime;
 
-        public Metrics(boolean preloadedAudioKey, int audioKeyTime) { // TODO: Check values
+        public Metrics(boolean preloadedAudioKey, int audioKeyTime) {
             this.preloadedAudioKey = preloadedAudioKey;
             this.audioKeyTime = audioKeyTime;
 

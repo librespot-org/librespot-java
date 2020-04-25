@@ -36,6 +36,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private final PlayerQueue queue;
     private int lastPlayPos = 0;
     private Reason lastPlayReason = null;
+    private volatile boolean closed = false;
 
     public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull String sessionId, @NotNull Listener listener) {
         this.session = session;
@@ -85,7 +86,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * Gets the next content and tries to advance, notifying if successful.
      */
     private void advance(@NotNull Reason reason) {
-        // TODO: Call #trackPlayed somewhere!!
+        if (closed) return;
 
         PlayableId next = listener.nextPlayable();
         if (next == null)
@@ -114,7 +115,10 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
     @Override
     public void playbackEnded(@NotNull PlayerQueueEntry entry) {
-        if (entry == queue.head()) advance(Reason.TRACK_DONE);
+        listener.trackPlayed(entry.playbackId, entry.endReason, entry.metrics(), entry.getTimeNoThrow());
+
+        if (entry == queue.head())
+            advance(Reason.TRACK_DONE);
     }
 
     @Override
@@ -207,6 +211,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
             throw new IllegalStateException();
 
         if (head.prev != null) {
+            head.prev.endReason = reason;
             CrossfadeController.FadeInterval fadeOut;
             if (head.prev.crossfade == null || (fadeOut = head.prev.crossfade.selectFadeOut(reason)) == null) {
                 head.prev.close();
@@ -300,11 +305,18 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         else return queue.head().getTime();
     }
 
+    @Nullable
+    public String currentPlaybackId() {
+        if (queue.head() == null) return null;
+        else return queue.head().playbackId;
+    }
+
     /**
      * Close the session by clearing the queue which will close all entries.
      */
     @Override
     public void close() {
+        closed = true;
         queue.close();
     }
 
@@ -381,10 +393,12 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         /**
          * The current entry has finished playing.
          *
+         * @param playbackId    The playback ID of this entry
          * @param endReason     The reason why this track ended
          * @param playerMetrics The {@link PlayerMetrics} for this entry
+         * @param endedAt       The time this entry ended
          */
-        void trackPlayed(@NotNull Reason endReason, @NotNull PlayerMetrics playerMetrics, int endedAt);
+        void trackPlayed(@NotNull String playbackId, @NotNull Reason endReason, @NotNull PlayerMetrics playerMetrics, int endedAt);
     }
 
     private static class EntryWithPos {
