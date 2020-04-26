@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
@@ -152,6 +153,11 @@ public final class EventService implements Closeable {
     @Override
     public void close() {
         asyncWorker.close();
+
+        try {
+            asyncWorker.awaitTermination(1, TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+        }
     }
 
     private enum Type {
