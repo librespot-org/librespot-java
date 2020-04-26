@@ -122,7 +122,8 @@ final class PlayerQueue implements Closeable {
             return false;
 
         PlayerQueueEntry tmp = head.next;
-        head.next = null; // Avoid garbage collection issues
+        head.next = null;
+        head.prev = null;
         if (!head.closeIfUseless()) tmp.prev = head;
         head = tmp;
         return true;
@@ -180,11 +181,13 @@ final class PlayerQueue implements Closeable {
             if (prev != null) {
                 prev.clear();
                 prev.close();
+                prev = null;
             }
 
             if (next != null) {
                 next.clear();
                 next.close();
+                next = null;
             }
 
             ((PlayerQueueEntry) this).close();
