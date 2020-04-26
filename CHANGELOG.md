@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 26-04-2020
+### Added
+- Added explicit content filter (#200)
+- Added support for GZip requests (8fc4ae99954dcc6982462a860cf643b8373cc425)
+- Compress all outgoing HTTP requests (e74e43c2919228dbb0db93b18035f00d4c2e2f2b)
+- Support moving tracks inside playlist (#203)
+- Added `player.volumeSteps` to configuration (#214)
+
+### Changed
+- Allow any origin for API (#188)
+- Default pregain value is now 3dB (#199)
+- Changed image download endpoint (8f232bcaab2ea671c8f0c45ecdb03dd0eeae1bb5)
+- Handle PUT state requests asynchronously (#197)
+- Include milliseconds in logs (#205)
+- Fixed general issues in Websocket client (3039da7bbd4377c1c7816872b22f2d38653db6bc)
+- Report active user for Zeroconf correctly (#210)
+- Fixed issue with not being able to reconnect with Zeroconf (#210)
+- Refactored loopers and queues (#206, #212)
+
+### Fixed 
+- Resend Shairport metadata when resuming (#195)
+- Fixed NPE when reconnecting (f5071197785053dea641e75bdf7f1ca5005bae79)
+- Fixed device disappearing due to concurrent reconnection (a3edb34a504d668c57ef28b58541768017d052c2)
+- Fixed cache not working after replaying the same track 8 times (#201)
+- Fixed issue with time synchronization PING (#202)
+- Close all threads properly when shutting down (#209)
+
+
 ## [1.3.0] - 17-03-2020
 ### Added
 - Added `volumeChanged` event (ab76d70ccfcf79053a5ca097783611b55d90fa81)
