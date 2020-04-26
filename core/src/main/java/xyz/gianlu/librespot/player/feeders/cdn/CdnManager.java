@@ -206,7 +206,22 @@ public class CdnManager {
             boolean fromCache;
             byte[] firstChunk;
             byte[] sizeHeader;
-            if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
+
+            if (cacheHandler != null && (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) != null) {
+                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
+                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                try {
+                    firstChunk = cacheHandler.readChunk(0);
+                    fromCache = true;
+                } catch (IOException ex) {
+                    LOGGER.error("Failed getting first chunk from cache.", ex);
+
+                    InternalResponse resp = request(0, CHUNK_SIZE - 1);
+                    firstChunk = resp.buffer;
+                    fromCache = false;
+                }
+            } else {
                 InternalResponse resp = request(0, CHUNK_SIZE - 1);
                 String contentRange = resp.headers.get("Content-Range");
                 if (contentRange == null)
@@ -216,17 +231,11 @@ public class CdnManager {
                 size = Integer.parseInt(split[1]);
                 chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-                firstChunk = resp.buffer;
-                fromCache = false;
-
                 if (cacheHandler != null)
                     cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
-            } else {
-                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
-                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-                firstChunk = cacheHandler.readChunk(0);
-                fromCache = true;
+                firstChunk = resp.buffer;
+                fromCache = false;
             }
 
             available = new boolean[chunks];
