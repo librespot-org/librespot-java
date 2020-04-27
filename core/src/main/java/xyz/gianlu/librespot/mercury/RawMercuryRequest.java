@@ -86,7 +86,7 @@ public class RawMercuryRequest {
             return this;
         }
 
-        public Builder addProtobufPayload(@NotNull AbstractMessageLite msg) {
+        public Builder addProtobufPayload(@NotNull AbstractMessageLite<?, ?> msg) {
             return addPayloadPart(msg.toByteArray());
         }
 

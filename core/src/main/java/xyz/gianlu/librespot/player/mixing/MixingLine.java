@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -39,7 +38,7 @@ public final class MixingLine extends InputStream {
     }
 
     @Override
-    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public synchronized int read(@NotNull byte[] b, int off, int len) {
         if (fe && fcb != null && se && scb != null) {
             int willRead = Math.min(fcb.available(), scb.available());
             willRead = Math.min(willRead, len);
@@ -95,7 +94,7 @@ public final class MixingLine extends InputStream {
 
         void gain(float gain);
 
-        void write(byte[] buffer, int off, int len) throws IOException;
+        void write(byte[] buffer, int off, int len);
 
         void clear();
 
@@ -116,7 +115,7 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        public final void write(@NotNull byte[] b, int off, int len) throws IOException {
+        public final void write(@NotNull byte[] b, int off, int len) {
             buffer.write(b, off, len);
         }
 

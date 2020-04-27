@@ -84,11 +84,11 @@ public final class EventService implements Closeable {
         event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(metrics.player.duration));
-        event.append('0' /* TODO: Encrypt latency */).append(String.valueOf(metrics.player.fadeOverlap)).append('0' /* FIXME */).append('0');
+        event.append('0').append(String.valueOf(metrics.player.fadeOverlap)).append('0').append('0');
         event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
-        event.append('0' /* TODO: Play latency */).append("-1" /* FIXME */).append("context");
+        event.append('0').append("-1").append("context");
         event.append(String.valueOf(metrics.player.contentMetrics.audioKeyTime)).append('0');
-        event.append(metrics.player.contentMetrics.preloadedAudioKey ? '1' : '0').append('0').append('0' /* FIXME */).append('0');
+        event.append(metrics.player.contentMetrics.preloadedAudioKey ? '1' : '0').append('0').append('0').append('0');
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append('0').append(String.valueOf(metrics.player.bitrate));
         event.append(metrics.contextUri).append(metrics.player.encoding);
@@ -170,7 +170,7 @@ public final class EventService implements Closeable {
         event.append('2').append('2');
         event.append(Utils.bytesToHex(file.getFileId()).toLowerCase());
         event.append(id.toSpotifyUri());
-        event.append('1').append('2').append('2'); // FIXME
+        event.append('1').append('2').append('2');
         sendEvent(event);
     }
 
