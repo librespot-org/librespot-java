@@ -69,6 +69,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
     /**
      * Tries to advance to the given content. This is a destructive operation as it will close every entry that passes by.
+     * Also checks if the next entry has the same content, in that case it advances (repeating track fix).
      *
      * @param id The target content
      * @return Whether the operation was successful
@@ -77,7 +78,11 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         do {
             PlayerQueueEntry entry = queue.head();
             if (entry == null) return false;
-            if (entry.playable.equals(id)) return true;
+            if (entry.playable.equals(id)) {
+                PlayerQueueEntry next = queue.next();
+                if (next == null || !next.playable.equals(id))
+                    return true;
+            }
         } while (queue.advance());
         return false;
     }

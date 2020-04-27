@@ -514,7 +514,7 @@ public final class Session implements Closeable, SubListener {
                 try {
                     authLock.wait();
                 } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
+                    return;
                 }
             }
 

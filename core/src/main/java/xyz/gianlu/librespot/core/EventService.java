@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
@@ -15,6 +16,7 @@ import xyz.gianlu.librespot.player.playback.PlayerMetrics;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +67,12 @@ public final class EventService implements Closeable {
 
     private void trackTransition(@NotNull PlaybackMetrics metrics) {
         int when = metrics.lastValue();
+
+        try {
+            session.send(Packet.Type.TrackEndedTime, ByteBuffer.allocate(5).put((byte) 1).putInt(when).array());
+        } catch (IOException ex) {
+            LOGGER.error("Failed sending TrackEndedTime packet.", ex);
+        }
 
         EventBuilder event = new EventBuilder(Type.TRACK_TRANSITION);
         event.append(String.valueOf(trackTransitionIncremental++));
