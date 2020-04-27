@@ -186,10 +186,12 @@ public final class PlayableContentFeeder {
     }
 
     public static class Metrics {
+        public final String fileId;
         public final boolean preloadedAudioKey;
         public final int audioKeyTime;
 
-        public Metrics(boolean preloadedAudioKey, int audioKeyTime) {
+        public Metrics(@Nullable ByteString fileId, boolean preloadedAudioKey, int audioKeyTime) {
+            this.fileId = fileId == null ? null : Utils.bytesToHex(fileId).toLowerCase();
             this.preloadedAudioKey = preloadedAudioKey;
             this.audioKeyTime = audioKeyTime;
 

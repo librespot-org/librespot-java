@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
 import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
@@ -65,7 +66,7 @@ public final class EventService implements Closeable {
         sendEvent(event);
     }
 
-    private void trackTransition(@NotNull PlaybackMetrics metrics) {
+    private void trackTransition(@NotNull PlaybackMetrics metrics, @NotNull DeviceStateHandler device) {
         int when = metrics.lastValue();
 
         try {
@@ -94,22 +95,37 @@ public final class EventService implements Closeable {
         event.append(metrics.id.hexId()).append("");
         event.append('0').append(String.valueOf(metrics.timestamp)).append('0');
         event.append("context").append(metrics.referrerIdentifier).append(metrics.featureVersion);
-        event.append("com.spotify").append(metrics.player.transition).append("none").append("local").append("na").append("none");
+        event.append("com.spotify").append(metrics.player.transition).append("none");
+        event.append(device.getLastCommandSentByDeviceId()).append("na").append("none");
         sendEvent(event);
     }
 
-    public void trackPlayed(@NotNull PlaybackMetrics metrics) {
+    public void trackPlayed(@NotNull PlaybackMetrics metrics, @NotNull DeviceStateHandler device) {
         if (metrics.player == null || metrics.player.contentMetrics == null) {
             LOGGER.warn("Did not send event because of missing metrics: " + metrics.playbackId);
             return;
         }
 
-        trackTransition(metrics);
+        trackTransition(metrics, device);
 
-        EventBuilder event = new EventBuilder(Type.TRACK_PLAYED);
-        event.append(metrics.playbackId).append(metrics.id.toSpotifyUri());
-        event.append('0').append(metrics.intervalsToSend());
+
+        EventBuilder event = new EventBuilder(Type.CDN_REQUEST);
+        event.append(metrics.player.contentMetrics.fileId).append(metrics.playbackId);
+        event.append('0').append('0').append('0').append('0').append('0').append('0');
+        event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
+        event.append("music").append("-1").append("-1").append("-1").append("-1.000000");
+        event.append("-1").append("-1.000000").append("-1").append("-1").append("-1").append("-1.000000");
+        event.append("-1").append("-1").append("-1").append("-1").append("-1.000000").append("-1");
+        event.append("0.000000").append("-1.000000").append("").append("").append("unknown");
+        event.append('0').append('0').append('0').append('0').append('0');
+        event.append("interactive").append('0').append(String.valueOf(metrics.player.bitrate)).append('0').append('0');
         sendEvent(event);
+
+
+        EventBuilder anotherEvent = new EventBuilder(Type.TRACK_PLAYED);
+        anotherEvent.append(metrics.playbackId).append(metrics.id.toSpotifyUri());
+        anotherEvent.append('0').append(metrics.intervalsToSend());
+        sendEvent(anotherEvent);
     }
 
     /**
@@ -170,7 +186,8 @@ public final class EventService implements Closeable {
 
     private enum Type {
         LANGUAGE("812", "1"), FETCHED_FILE_ID("274", "3"), NEW_SESSION_ID("557", "3"),
-        NEW_PLAYBACK_ID("558", "1"), TRACK_PLAYED("372", "1"), TRACK_TRANSITION("12", "37");
+        NEW_PLAYBACK_ID("558", "1"), TRACK_PLAYED("372", "1"), TRACK_TRANSITION("12", "37"),
+        CDN_REQUEST("10", "20");
 
         private final String id;
         private final String unknown;
@@ -329,8 +346,10 @@ public final class EventService implements Closeable {
         }
 
         public enum Reason {
-            TRACK_DONE("trackdone"), TRACK_ERROR("trackerror"), FORWARD_BTN("fwdbtn"), BACK_BTN("backbtn"),
-            END_PLAY("endplay"), PLAY_BTN("playbtn"), CLICK_ROW("clickrow"), LOGOUT("logout"), APP_LOAD("appload");
+            TRACK_DONE("trackdone"), TRACK_ERROR("trackerror"),
+            FORWARD_BTN("fwdbtn"), BACK_BTN("backbtn"),
+            END_PLAY("endplay"), PLAY_BTN("playbtn"), CLICK_ROW("clickrow"),
+            LOGOUT("logout"), APP_LOAD("appload"), REMOTE("remote");
 
             final String val;
 

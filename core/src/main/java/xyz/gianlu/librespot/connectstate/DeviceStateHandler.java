@@ -175,6 +175,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         return RequestResult.SUCCESS;
     }
 
+    @Nullable
+    public synchronized String getLastCommandSentByDeviceId() {
+        return putState.getLastCommandSentByDeviceId();
+    }
+
     private synchronized long startedPlayingAt() {
         return putState.getStartedPlayingAt();
     }

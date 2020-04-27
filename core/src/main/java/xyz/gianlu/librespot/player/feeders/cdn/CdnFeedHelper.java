@@ -42,7 +42,7 @@ public final class CdnFeedHelper {
         InputStream in = streamer.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
         if (in.skip(0xa7) != 0xa7) throw new IOException("Couldn't skip 0xa7 bytes!");
-        return new LoadedStream(track, streamer, normalizationData, new PlayableContentFeeder.Metrics(preload, preload ? -1 : audioKeyTime));
+        return new LoadedStream(track, streamer, normalizationData, new PlayableContentFeeder.Metrics(file.getFileId(), preload, preload ? -1 : audioKeyTime));
     }
 
     public static @NotNull LoadedStream loadTrack(@NotNull Session session, Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file,
@@ -61,7 +61,7 @@ public final class CdnFeedHelper {
             LOGGER.debug(String.format("Fetched external url for %s: %s", Utils.bytesToHex(episode.getGid()), url));
 
             CdnManager.Streamer streamer = session.cdn().streamExternalEpisode(episode, url, haltListener);
-            return new LoadedStream(episode, streamer, null, new PlayableContentFeeder.Metrics(false, -1));
+            return new LoadedStream(episode, streamer, null, new PlayableContentFeeder.Metrics(null, false, -1));
         }
     }
 
@@ -74,7 +74,7 @@ public final class CdnFeedHelper {
         InputStream in = streamer.stream();
         NormalizationData normalizationData = NormalizationData.read(in);
         if (in.skip(0xa7) != 0xa7) throw new IOException("Couldn't skip 0xa7 bytes!");
-        return new LoadedStream(episode, streamer, normalizationData, new PlayableContentFeeder.Metrics(false, audioKeyTime));
+        return new LoadedStream(episode, streamer, normalizationData, new PlayableContentFeeder.Metrics(file.getFileId(), false, audioKeyTime));
     }
 
     public static @NotNull LoadedStream loadEpisode(@NotNull Session session, Metadata.@NotNull Episode episode, @NotNull Metadata.AudioFile file, @NotNull StorageResolveResponse storage, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException {

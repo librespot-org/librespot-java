@@ -172,6 +172,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.getOptionsBuilder().setRepeatingTrack(value && context.restrictions.can(Action.REPEAT_TRACK));
     }
 
+    @NotNull
+    public DeviceStateHandler device() {
+        return device;
+    }
+
     @Nullable
     public String getContextUri() {
         return state.getContextUri();

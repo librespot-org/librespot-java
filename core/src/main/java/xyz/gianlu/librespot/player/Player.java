@@ -497,7 +497,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         pm.endedHow(reason, state.getPlayOrigin().getFeatureIdentifier());
         pm.endInterval(when);
         pm.update(playerMetrics);
-        session.eventService().trackPlayed(pm);
+        session.eventService().trackPlayed(pm, state.device());
     }
 
 
