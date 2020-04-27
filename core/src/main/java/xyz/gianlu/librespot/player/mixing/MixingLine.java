@@ -133,21 +133,21 @@ public final class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == fe) return;
-            if (enabled && fout != this) throw new IllegalArgumentException();
+            if (enabled && fout != null && fout != this) throw new IllegalArgumentException();
             fe = enabled;
             LOGGER.trace("Toggle first channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (fout != this) throw new IllegalArgumentException();
+            if (fout != null && fout != this) throw new IllegalArgumentException();
             fg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (fout != this) throw new IllegalArgumentException();
+            if (fout != null && fout != this) throw new IllegalArgumentException();
 
             fg = 1;
             fe = false;
@@ -176,21 +176,21 @@ public final class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == se) return;
-            if (enabled && sout != this) throw new IllegalArgumentException();
+            if (enabled && sout != null && sout != this) throw new IllegalArgumentException();
             se = enabled;
             LOGGER.trace("Toggle second channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (sout != this) throw new IllegalArgumentException();
+            if (sout != null && sout != this) throw new IllegalArgumentException();
             sg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (sout != this) throw new IllegalArgumentException();
+            if (sout != null && sout != this) throw new IllegalArgumentException();
 
             sg = 1;
             se = false;
