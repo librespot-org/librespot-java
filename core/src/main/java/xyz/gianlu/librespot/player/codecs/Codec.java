@@ -3,10 +3,9 @@ package xyz.gianlu.librespot.player.codecs;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
@@ -38,7 +37,7 @@ public abstract class Codec implements Closeable {
             this.normalizationFactor = 1;
     }
 
-    public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+    public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
         if (converter == null) return readInternal(out);
 
         int written = readInternal(converter);
@@ -99,6 +98,14 @@ public abstract class Codec implements Closeable {
 
     public final int duration() {
         return duration;
+    }
+
+    public int size() {
+        return audioIn.size();
+    }
+
+    public int decodedLength() {
+        return audioIn.decodedLength();
     }
 
     public static class CannotGetTimeException extends Exception {

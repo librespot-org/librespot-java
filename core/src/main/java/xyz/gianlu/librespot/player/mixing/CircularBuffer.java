@@ -5,7 +5,6 @@ import org.jetbrains.annotations.TestOnly;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -39,8 +38,8 @@ public class CircularBuffer implements Closeable {
             awaitData.await(100, TimeUnit.MILLISECONDS);
     }
 
-    public void write(byte[] b, int off, int len) throws IOException {
-        if (closed) throw new IOException("Buffer is closed!");
+    public void write(byte[] b, int off, int len) {
+        if (closed) throw new IllegalStateException("Buffer is closed!");
 
         lock.lock();
 
@@ -55,16 +54,15 @@ public class CircularBuffer implements Closeable {
             }
 
             awaitData.signal();
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
         } finally {
             lock.unlock();
         }
     }
 
     @TestOnly
-    public void write(byte value) throws IOException {
-        if (closed) throw new IOException("Buffer is closed!");
+    public void write(byte value) {
+        if (closed) throw new IllegalStateException("Buffer is closed!");
 
         lock.lock();
 
@@ -77,14 +75,13 @@ public class CircularBuffer implements Closeable {
                 tail = 0;
 
             awaitData.signal();
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
         } finally {
             lock.unlock();
         }
     }
 
-    public int read(byte[] b, int off, int len) throws IOException {
+    public int read(byte[] b, int off, int len) {
         if (closed) return -1;
 
         lock.lock();
@@ -101,8 +98,9 @@ public class CircularBuffer implements Closeable {
 
             awaitSpace.signal();
             return dest - off;
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
+            if (closed) return -1;
+            else return 0;
         } finally {
             lock.unlock();
         }
@@ -122,7 +120,7 @@ public class CircularBuffer implements Closeable {
      * @return a byte from the buffer.
      */
     @TestOnly
-    public int read() throws IOException {
+    public int read() {
         if (closed) return -1;
 
         lock.lock();
@@ -134,8 +132,8 @@ public class CircularBuffer implements Closeable {
             int value = readInternal();
             awaitSpace.signal();
             return value;
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
+            return -1;
         } finally {
             lock.unlock();
         }

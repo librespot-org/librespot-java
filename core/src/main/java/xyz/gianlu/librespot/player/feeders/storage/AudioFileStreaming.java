@@ -10,13 +10,13 @@ import xyz.gianlu.librespot.cache.JournalHeader;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.HaltListener;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.player.feeders.HaltListener;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -138,7 +138,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
     }
 
     @Override
-    public void writeHeader(byte id, byte[] bytes, boolean cached) {
+    public void writeHeader(int id, byte[] bytes, boolean cached) {
         // Not interested
     }
 
@@ -176,10 +176,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
 
-            if (chunk.length != buffer[chunkIndex].length) {
-                System.out.println(Utils.bytesToHex(chunk));
+            if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
-            }
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -207,7 +205,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

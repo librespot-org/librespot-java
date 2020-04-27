@@ -12,11 +12,12 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.*;
 import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
 
 import java.io.IOException;
@@ -121,11 +122,6 @@ public class CdnManager {
             this.setUrl(url);
         }
 
-        @Nullable
-        String host() {
-            return url == null ? null : url.host();
-        }
-
         @NotNull
         HttpUrl url() throws CdnException {
             if (expiration == -1) return url;
@@ -210,7 +206,22 @@ public class CdnManager {
             boolean fromCache;
             byte[] firstChunk;
             byte[] sizeHeader;
-            if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
+
+            if (cacheHandler != null && (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) != null) {
+                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
+                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                try {
+                    firstChunk = cacheHandler.readChunk(0);
+                    fromCache = true;
+                } catch (IOException ex) {
+                    LOGGER.error("Failed getting first chunk from cache.", ex);
+
+                    InternalResponse resp = request(0, CHUNK_SIZE - 1);
+                    firstChunk = resp.buffer;
+                    fromCache = false;
+                }
+            } else {
                 InternalResponse resp = request(0, CHUNK_SIZE - 1);
                 String contentRange = resp.headers.get("Content-Range");
                 if (contentRange == null)
@@ -220,17 +231,11 @@ public class CdnManager {
                 size = Integer.parseInt(split[1]);
                 chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-                firstChunk = resp.buffer;
-                fromCache = false;
-
                 if (cacheHandler != null)
                     cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
-            } else {
-                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
-                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-                firstChunk = cacheHandler.readChunk(0);
-                fromCache = true;
+                firstChunk = resp.buffer;
+                fromCache = false;
             }
 
             available = new boolean[chunks];
@@ -255,7 +260,7 @@ public class CdnManager {
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, stream: %s", chunkIndex, chunks, cdnUrl.host(), cached, describe()));
+            LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, stream: %s", chunkIndex, chunks, cached, describe()));
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -320,6 +325,10 @@ public class CdnManager {
             }
         }
 
+        public int size() {
+            return size;
+        }
+
         private class InternalStream extends AbsChunkedInputStream {
 
             private InternalStream(Player.@NotNull Configuration conf) {
@@ -338,7 +347,7 @@ public class CdnManager {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

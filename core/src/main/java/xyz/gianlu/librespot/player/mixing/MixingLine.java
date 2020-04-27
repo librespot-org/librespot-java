@@ -2,17 +2,17 @@ package xyz.gianlu.librespot.player.mixing;
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
  * @author Gianlu
  */
-public class MixingLine extends InputStream {
+public final class MixingLine extends InputStream {
     private static final Logger LOGGER = Logger.getLogger(MixingLine.class);
     private final AudioFormat format;
     private GainAwareCircularBuffer fcb;
@@ -38,7 +38,7 @@ public class MixingLine extends InputStream {
     }
 
     @Override
-    public synchronized int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public synchronized int read(@NotNull byte[] b, int off, int len) {
         if (fe && fcb != null && se && scb != null) {
             int willRead = Math.min(fcb.available(), scb.available());
             willRead = Math.min(willRead, len);
@@ -49,13 +49,20 @@ public class MixingLine extends InputStream {
             return willRead;
         } else if (fe && fcb != null) {
             fcb.readGain(b, off, len, gg * fg);
+            return len;
         } else if (se && scb != null) {
             scb.readGain(b, off, len, gg * sg);
+            return len;
         } else {
-            for (int i = off; i < len - off; i++) b[i] = 0;
+            return 0;
         }
+    }
 
-        return len;
+    @Nullable
+    public MixingOutput someOut() {
+        if (fout == null) return firstOut();
+        else if (sout == null) return secondOut();
+        else return null;
     }
 
     @NotNull
@@ -87,7 +94,7 @@ public class MixingLine extends InputStream {
 
         void gain(float gain);
 
-        void write(byte[] buffer, int off, int len) throws IOException;
+        void write(byte[] buffer, int off, int len);
 
         void clear();
 
@@ -108,7 +115,7 @@ public class MixingLine extends InputStream {
         }
 
         @Override
-        public final void write(@NotNull byte[] b, int off, int len) throws IOException {
+        public final void write(@NotNull byte[] b, int off, int len) {
             buffer.write(b, off, len);
         }
 
@@ -125,21 +132,21 @@ public class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == fe) return;
-            if (enabled && fout != this) throw new IllegalArgumentException();
+            if (enabled && fout != null && fout != this) throw new IllegalArgumentException();
             fe = enabled;
             LOGGER.trace("Toggle first channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (fout != this) throw new IllegalArgumentException();
+            if (fout != null && fout != this) throw new IllegalArgumentException();
             fg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (fout != this) throw new IllegalArgumentException();
+            if (fout != null && fout != this) throw new IllegalArgumentException();
 
             fg = 1;
             fe = false;
@@ -168,21 +175,21 @@ public class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == se) return;
-            if (enabled && sout != this) throw new IllegalArgumentException();
+            if (enabled && sout != null && sout != this) throw new IllegalArgumentException();
             se = enabled;
             LOGGER.trace("Toggle second channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (sout != this) throw new IllegalArgumentException();
+            if (sout != null && sout != this) throw new IllegalArgumentException();
             sg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (sout != this) throw new IllegalArgumentException();
+            if (sout != null && sout != this) throw new IllegalArgumentException();
 
             sg = 1;
             se = false;

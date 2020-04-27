@@ -19,7 +19,6 @@ import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.SubListener;
-import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -150,7 +149,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 }
             }
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
+            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX));
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
@@ -174,6 +173,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
         notifyCommand(endpoint, new CommandBody(command));
         return RequestResult.SUCCESS;
+    }
+
+    @Nullable
+    public synchronized String getLastCommandSentByDeviceId() {
+        return putState.getLastCommandSentByDeviceId();
     }
 
     private synchronized long startedPlayingAt() {
@@ -220,7 +224,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         }
 
         notifyVolumeChange();
-        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, xyz.gianlu.librespot.player.Player.VOLUME_MAX));
     }
 
     @Override
@@ -319,6 +323,16 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             return obj.getAsJsonObject("options").getAsJsonObject("player_options_override");
         }
 
+        public static boolean willSkipToSomething(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return false;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return false;
+
+            return parent.has("track_uid") || parent.has("track_uri") || parent.has("track_index");
+        }
+
         @Nullable
         public static String getSkipToUid(@NotNull JsonObject obj) {
             JsonObject parent = obj.getAsJsonObject("options");
@@ -389,17 +403,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             JsonElement elm;
             if ((elm = options.get("seek_to")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
             else return null;
-        }
-
-        @NotNull
-        public static JsonArray getPages(@NotNull JsonObject obj) {
-            JsonObject context = getContext(obj);
-            return context.getAsJsonArray("pages");
-        }
-
-        @NotNull
-        public static JsonObject getMetadata(@NotNull JsonObject obj) {
-            return getContext(obj).getAsJsonObject("metadata");
         }
     }
 

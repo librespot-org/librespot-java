@@ -69,11 +69,15 @@ public final class MercuryClient extends PacketsManager {
         SyncCallback callback = new SyncCallback();
         int seq = send(request, callback);
 
-        Response resp = callback.waitResponse();
-        if (resp == null)
-            throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
+        try {
+            Response resp = callback.waitResponse();
+            if (resp == null)
+                throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
 
-        return resp;
+            return resp;
+        } catch (InterruptedException ex) {
+            throw new IOException(ex); // Wrapping to avoid having to dispatch yet another exception down the call stack
+        }
     }
 
     @NotNull
@@ -245,7 +249,7 @@ public final class MercuryClient extends PacketsManager {
                 try {
                     if (listener.isSub) unsubscribe(listener.uri);
                     else notInterested(listener.listener);
-                } catch (IOException | PubSubException ex) {
+                } catch (IOException | MercuryException ex) {
                     LOGGER.debug("Failed unsubscribing.", ex);
                 }
             }
@@ -292,14 +296,10 @@ public final class MercuryClient extends PacketsManager {
         }
 
         @Nullable
-        Response waitResponse() {
+        Response waitResponse() throws InterruptedException {
             synchronized (reference) {
-                try {
-                    reference.wait(MERCURY_REQUEST_TIMEOUT);
-                    return reference.get();
-                } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
-                }
+                reference.wait(MERCURY_REQUEST_TIMEOUT);
+                return reference.get();
             }
         }
     }

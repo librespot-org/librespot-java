@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
-import com.spotify.metadata.Metadata;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -12,7 +11,8 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.PlayerRunner;
+import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 import java.util.Deque;
 import java.util.Map;
@@ -38,8 +38,8 @@ public final class PlayerHandler extends AbsSessionHandler {
             return;
         }
 
-        if (val < 0 || val > PlayerRunner.VOLUME_MAX) {
-            Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + PlayerRunner.VOLUME_MAX);
+        if (val < 0 || val > Player.VOLUME_MAX) {
+            Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + Player.VOLUME_MAX);
             return;
         }
 
@@ -56,7 +56,12 @@ public final class PlayerHandler extends AbsSessionHandler {
     }
 
     private void current(HttpServerExchange exchange, Session session) {
-        PlayableId id = session.player().currentPlayableId();
+        PlayableId id;
+        try {
+            id = session.player().currentPlayable();
+        } catch (IllegalStateException ex) {
+            id = null;
+        }
 
         JsonObject obj = new JsonObject();
         if (id != null) obj.addProperty("current", id.toSpotifyUri());
@@ -64,22 +69,21 @@ public final class PlayerHandler extends AbsSessionHandler {
         long time = session.player().time();
         obj.addProperty("trackTime", time);
 
+        TrackOrEpisode metadata = session.player().currentMetadata();
         if (id instanceof TrackId) {
-            Metadata.Track track = session.player().currentTrack();
-            if (track == null) {
+            if (metadata == null || metadata.track == null) {
                 Utils.internalError(exchange, "Missing track metadata. Try again.");
                 return;
             }
 
-            obj.add("track", ProtobufToJson.convert(track));
+            obj.add("track", ProtobufToJson.convert(metadata.track));
         } else if (id instanceof EpisodeId) {
-            Metadata.Episode episode = session.player().currentEpisode();
-            if (episode == null) {
+            if (metadata == null || metadata.episode == null) {
                 Utils.internalError(exchange, "Missing episode metadata. Try again.");
                 return;
             }
 
-            obj.add("episode", ProtobufToJson.convert(episode));
+            obj.add("episode", ProtobufToJson.convert(metadata.episode));
         } else {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;

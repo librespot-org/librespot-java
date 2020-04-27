@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;

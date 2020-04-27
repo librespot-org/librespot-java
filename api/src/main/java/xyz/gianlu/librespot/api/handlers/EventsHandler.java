@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
-import com.spotify.metadata.Metadata;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
 import io.undertow.websockets.core.WebSocketChannel;
@@ -15,6 +14,7 @@ import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener, Session.ReconnectionListener {
     private static final Logger LOGGER = Logger.getLogger(EventsHandler.class);
@@ -37,12 +37,15 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onTrackChanged(@NotNull PlayableId id, Metadata.@Nullable Track track, Metadata.@Nullable Episode episode) {
+    public void onTrackChanged(@NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackChanged");
         obj.addProperty("uri", id.toSpotifyUri());
-        if (track != null) obj.add("track", ProtobufToJson.convert(track));
-        if (episode != null) obj.add("episode", ProtobufToJson.convert(episode));
+        if (metadata != null) {
+            if (metadata.track != null) obj.add("track", ProtobufToJson.convert(metadata.track));
+            else if (metadata.episode != null) obj.add("episode", ProtobufToJson.convert(metadata.episode));
+        }
+
         dispatch(obj);
     }
 
@@ -71,11 +74,11 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onMetadataAvailable(Metadata.@Nullable Track track, Metadata.@Nullable Episode episode) {
+    public void onMetadataAvailable(@NotNull TrackOrEpisode metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "metadataAvailable");
-        if (track != null) obj.add("track", ProtobufToJson.convert(track));
-        if (episode != null) obj.add("episode", ProtobufToJson.convert(episode));
+        if (metadata.track != null) obj.add("track", ProtobufToJson.convert(metadata.track));
+        else if (metadata.episode != null) obj.add("episode", ProtobufToJson.convert(metadata.episode));
         dispatch(obj);
     }
 

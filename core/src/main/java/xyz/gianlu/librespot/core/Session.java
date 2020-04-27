@@ -109,6 +109,7 @@ public final class Session implements Closeable, SubListener {
     private ApiClient api;
     private SearchManager search;
     private PlayableContentFeeder contentFeeder;
+    private EventService eventService;
     private String countryCode = null;
     private volatile boolean closed = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
@@ -335,10 +336,11 @@ public final class Session implements Closeable, SubListener {
             api = new ApiClient(this);
             cdnManager = new CdnManager(this);
             contentFeeder = new PlayableContentFeeder(this);
-            cacheManager = new CacheManager(inner.configuration);
+            cacheManager = new CacheManager(conf());
             dealer = new DealerClient(this);
-            player = new Player(inner.configuration, this);
+            player = new Player(conf(), this);
             search = new SearchManager(this);
+            eventService = new EventService(this);
 
             authLock.set(false);
             authLock.notifyAll();
@@ -347,6 +349,7 @@ public final class Session implements Closeable, SubListener {
         dealer.connect();
         player.initState();
         TimeProvider.init(this);
+        eventService.language(conf().preferredLocale());
 
         LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
         mercuryClient.interestedIn("spotify:user:attributes:update", this);
@@ -389,7 +392,7 @@ public final class Session implements Closeable, SubListener {
             ByteBuffer preferredLocale = ByteBuffer.allocate(18 + 5);
             preferredLocale.put((byte) 0x0).put((byte) 0x0).put((byte) 0x10).put((byte) 0x0).put((byte) 0x02);
             preferredLocale.put("preferred-locale".getBytes());
-            preferredLocale.put(inner.configuration.preferredLocale().getBytes());
+            preferredLocale.put(conf().preferredLocale().getBytes());
             sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
             if (removeLock) {
@@ -426,11 +429,6 @@ public final class Session implements Closeable, SubListener {
         LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
         scheduler.shutdownNow();
 
-        if (receiver != null) {
-            receiver.stop();
-            receiver = null;
-        }
-
         if (player != null) {
             player.close();
             player = null;
@@ -451,9 +449,19 @@ public final class Session implements Closeable, SubListener {
             channelManager = null;
         }
 
+        if (eventService != null) {
+            eventService.close();
+            eventService = null;
+        }
+
         if (mercuryClient != null) {
             mercuryClient.close();
             mercuryClient = null;
+        }
+
+        if (receiver != null) {
+            receiver.stop();
+            receiver = null;
         }
 
         executorService.shutdown();
@@ -506,7 +514,7 @@ public final class Session implements Closeable, SubListener {
                 try {
                     authLock.wait();
                 } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
+                    return;
                 }
             }
 
@@ -589,6 +597,13 @@ public final class Session implements Closeable, SubListener {
         waitAuthLock();
         if (search == null) throw new IllegalStateException("Session isn't authenticated!");
         return search;
+    }
+
+    @NotNull
+    public EventService eventService() {
+        waitAuthLock();
+        if (eventService == null) throw new IllegalStateException("Session isn't authenticated!");
+        return eventService;
     }
 
     @NotNull

@@ -20,7 +20,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.AudioOutput;
-import xyz.gianlu.librespot.player.PlayerRunner;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
@@ -278,7 +278,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public int initialVolume() {
         int vol = config.get("player.initialVolume");
-        if (vol < 0 || vol > PlayerRunner.VOLUME_MAX)
+        if (vol < 0 || vol > Player.VOLUME_MAX)
             throw new IllegalArgumentException("Invalid volume: " + vol);
 
         return vol;
@@ -287,7 +287,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public int volumeSteps() {
         int volumeSteps = config.get("player.volumeSteps");
-        if (volumeSteps < 0 || volumeSteps > PlayerRunner.VOLUME_MAX)
+        if (volumeSteps < 0 || volumeSteps > Player.VOLUME_MAX)
             throw new IllegalArgumentException("Invalid volume steps: " + volumeSteps);
 
         return volumeSteps;

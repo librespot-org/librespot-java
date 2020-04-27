@@ -1,8 +1,9 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.codecs;
 
 
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.player.Player;
 
 import java.io.DataInputStream;
 import java.io.IOException;

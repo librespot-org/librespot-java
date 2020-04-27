@@ -68,6 +68,8 @@ public interface PlayableId {
     @NotNull
     String toString();
 
+    int hashCode();
+
     @NotNull byte[] getGid();
 
     @NotNull String hexId();

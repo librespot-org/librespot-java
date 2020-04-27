@@ -10,10 +10,10 @@ import java.util.List;
  * @author Gianlu
  */
 public final class JournalHeader {
-    public final byte id;
+    public final int id;
     public final byte[] value;
 
-    JournalHeader(byte id, @NotNull String value) {
+    JournalHeader(int id, @NotNull String value) {
         this.id = id;
         this.value = Utils.hexToBytes(value);
     }
