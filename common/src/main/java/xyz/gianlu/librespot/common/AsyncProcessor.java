@@ -1,6 +1,8 @@
 package xyz.gianlu.librespot.common;
 
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
@@ -10,6 +12,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+
 /**
  * Simple worker thread that processes tasks sequentially
  *
@@ -17,7 +20,7 @@ import java.util.function.Function;
  * @param <RES> Return type of our processor implementation
  */
 public class AsyncProcessor<REQ, RES> implements Closeable {
-    private static final Logger LOGGER = Logger.getLogger(AsyncProcessor.class);
+    private static final Logger LOGGER = LogManager.getLogger(AsyncProcessor.class);
     private final String name;
     private final Function<REQ, RES> processor;
     private final ExecutorService executor;
@@ -30,7 +33,7 @@ public class AsyncProcessor<REQ, RES> implements Closeable {
         executor = Executors.newSingleThreadExecutor(new NameThreadFactory(r -> name));
         this.name = name;
         this.processor = processor;
-        LOGGER.trace(String.format("AsyncProcessor{%s} has started", name));
+        LOGGER.trace("AsyncProcessor{{}} has started", name);
     }
 
     public Future<RES> submit(@NotNull REQ task) {
@@ -42,7 +45,7 @@ public class AsyncProcessor<REQ, RES> implements Closeable {
             throw new IllegalStateException(String.format("AsyncProcessor{%s} hasn't been shut down yet", name));
 
         if (executor.awaitTermination(timeout, unit)) {
-            LOGGER.trace(String.format("AsyncProcessor{%s} is shut down", name));
+            LOGGER.trace("AsyncProcessor{{}} is shut down", name);
             return true;
         } else {
             return false;
@@ -51,7 +54,7 @@ public class AsyncProcessor<REQ, RES> implements Closeable {
 
     @Override
     public void close() {
-        LOGGER.trace(String.format("AsyncProcessor{%s} is shutting down", name));
+        LOGGER.trace("AsyncProcessor{{}} is shutting down", name);
         executor.shutdown();
     }
 }

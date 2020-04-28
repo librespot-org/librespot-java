@@ -6,7 +6,8 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.commons.net.ntp.NTPUDPClient;
 import org.apache.commons.net.ntp.TimeInfo;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class TimeProvider {
     private static final AtomicLong offset = new AtomicLong(0);
-    private static final Logger LOGGER = Logger.getLogger(TimeProvider.class);
+    private static final Logger LOGGER = LogManager.getLogger(TimeProvider.class);
     private static Method method = Method.NTP;
 
     private TimeProvider() {
@@ -70,7 +71,7 @@ public final class TimeProvider {
                 TimeInfo info = client.getTime(InetAddress.getByName("time.google.com"));
                 info.computeDetails();
                 Long offsetValue = info.getOffset();
-                LOGGER.debug(String.format("Loaded time offset from NTP: %dms", offsetValue));
+                LOGGER.debug("Loaded time offset from NTP: {}ms", offsetValue);
                 offset.set(offsetValue == null ? 0 : offsetValue);
             }
         } catch (SocketTimeoutException ex) {
@@ -81,7 +82,7 @@ public final class TimeProvider {
     private static void updateMelody(@NotNull Session session) {
         try (Response resp = session.api().send("OPTIONS", "/melody/v1/time", null, null)) {
             if (resp.code() != 200) {
-                LOGGER.error(String.format("Failed notifying server of time request! {code: %d, msg: %s}", resp.code(), resp.message()));
+                LOGGER.error("Failed notifying server of time request! {code: {}, msg: {}}", resp.code(), resp.message());
                 return;
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
@@ -91,7 +92,7 @@ public final class TimeProvider {
 
         try (Response resp = session.api().send("GET", "/melody/v1/time", null, null)) {
             if (resp.code() != 200) {
-                LOGGER.error(String.format("Failed requesting time! {code: %d, msg: %s}", resp.code(), resp.message()));
+                LOGGER.error("Failed requesting time! {code: {}, msg: {}}", resp.code(), resp.message());
                 return;
             }
 
@@ -104,7 +105,7 @@ public final class TimeProvider {
                 offset.set(diff);
             }
 
-            LOGGER.info(String.format("Loaded time offset from melody: %dms", diff));
+            LOGGER.info("Loaded time offset from melody: {}ms", diff);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed requesting time!", ex);
         }
@@ -117,7 +118,7 @@ public final class TimeProvider {
             long diff = ByteBuffer.wrap(pingPayload).getInt() * 1000L - System.currentTimeMillis();
             offset.set(diff);
 
-            LOGGER.debug(String.format("Loaded time offset from ping: %dms", diff));
+            LOGGER.debug("Loaded time offset from ping: {}ms", diff);
         }
     }
 

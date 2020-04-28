@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.playback;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors;
  * @author devgianlu
  */
 public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
-    private static final Logger LOGGER = Logger.getLogger(PlayerSession.class);
+    private static final Logger LOGGER = LogManager.getLogger(PlayerSession.class);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-session-" + r.hashCode()));
     private final Session session;
     private final AudioSink sink;
@@ -44,7 +45,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         this.sessionId = sessionId;
         this.listener = listener;
         this.queue = new PlayerQueue();
-        LOGGER.info(String.format("Created new session. {id: %s}", sessionId));
+        LOGGER.info("Created new session. {id: {}}", sessionId);
 
         sink.clearOutputs();
         add(listener.currentPlayable(), false);
@@ -128,7 +129,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
     @Override
     public void startedLoading(@NotNull PlayerQueueEntry entry) {
-        LOGGER.trace(String.format("%s started loading.", entry));
+        LOGGER.trace("{} started loading.", entry);
         if (entry == queue.head()) listener.startedLoading();
     }
 
@@ -160,7 +161,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
     @Override
     public void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull TrackOrEpisode metadata) {
-        LOGGER.trace(String.format("%s finished loading.", entry));
+        LOGGER.trace("{} finished loading.", entry);
         if (entry == queue.head()) listener.finishedLoading(metadata);
 
         CrossfadeController.FadeInterval fadeOut;
@@ -246,7 +247,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         }
 
         head.setOutput(out);
-        LOGGER.debug(String.format("%s has been added to the output. {sessionId: %s, pos: %d, reason: %s}", head, sessionId, pos, reason));
+        LOGGER.debug("{} has been added to the output. {sessionId: {}, pos: {}, reason: {}}", head, sessionId, pos, reason);
         return new PlayerSession.EntryWithPos(head, pos);
     }
 

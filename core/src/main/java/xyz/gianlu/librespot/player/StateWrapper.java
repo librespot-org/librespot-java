@@ -18,7 +18,8 @@ import com.spotify.transfer.QueueOuterClass;
 import com.spotify.transfer.SessionOuterClass;
 import com.spotify.transfer.TransferStateOuterClass;
 import okhttp3.*;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
@@ -46,7 +47,7 @@ import java.util.*;
  * @author Gianlu
  */
 public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.MessageListener, Closeable {
-    private static final Logger LOGGER = Logger.getLogger(StateWrapper.class);
+    private static final Logger LOGGER = LogManager.getLogger(StateWrapper.class);
 
     static {
         try {
@@ -198,14 +199,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             shuffle = Boolean.parseBoolean(state.getContextMetadataOrThrow("transforming.shuffle"));
 
         boolean willRequest = !tracksKeeper.getCurrentTrack().getMetadataMap().containsKey("audio.fwdbtn.fade_overlap"); // I don't see another way to do this
-        LOGGER.info(String.format("Context has transforming! {url: %s, shuffle: %b, willRequest: %b}", url, shuffle, willRequest));
+        LOGGER.info("Context has transforming! {url: {}, shuffle: {}, willRequest: {}}", url, shuffle, willRequest);
 
         if (!willRequest) return;
         JsonObject obj = ProtoUtils.craftContextStateCombo(state, tracksKeeper.tracks);
         try (Response resp = session.api().send("POST", HttpUrl.get(url).encodedPath(), null, RequestBody.create(obj.toString(), MediaType.get("application/json")))) {
             ResponseBody body = resp.body();
             if (resp.code() != 200) {
-                LOGGER.warn(String.format("Failed loading cuepoints! {code: %d, msg: %s, body: %s}", resp.code(), resp.message(), body == null ? null : body.string()));
+                LOGGER.warn("Failed loading cuepoints! {code: {}, msg: {}, body: {}}", resp.code(), resp.message(), body == null ? null : body.string());
                 return;
             }
 
@@ -335,7 +336,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
         if (state.getTrack() == null) throw new IllegalStateException();
         if (!state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri())) {
-            LOGGER.warn(String.format("Failed updating metadata: tracks do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(track).toSpotifyUri()));
+            LOGGER.warn("Failed updating metadata: tracks do not match. {current: {}, expected: {}}", state.getTrack().getUri(), PlayableId.from(track).toSpotifyUri());
             return;
         }
 
@@ -396,7 +397,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
         if (state.getTrack() == null) throw new IllegalStateException();
         if (!state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri())) {
-            LOGGER.warn(String.format("Failed updating metadata: episodes do not match. {current: %s, expected: %s}", state.getTrack().getUri(), PlayableId.from(episode).toSpotifyUri()));
+            LOGGER.warn("Failed updating metadata: episodes do not match. {current: {}, expected: {}}", state.getTrack().getUri(), PlayableId.from(episode).toSpotifyUri());
             return;
         }
 
@@ -514,7 +515,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     synchronized void updateContext(@NotNull JsonObject obj) {
         String uri = obj.get("uri").getAsString();
         if (!context.uri().equals(uri)) {
-            LOGGER.warn(String.format("Received update for the wrong context! {context: %s, newUri: %s}", context, uri));
+            LOGGER.warn("Received update for the wrong context! {context: {}, newUri: {}}", context, uri);
             return;
         }
 
@@ -686,7 +687,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     }
                 }
 
-                LOGGER.info(String.format("Received update for current context! {uri: %s, ops: %s}", modUri, ProtoUtils.opsKindList(mod.getOpsList())));
+                LOGGER.info("Received update for current context! {uri: {}, ops: {}}", modUri, ProtoUtils.opsKindList(mod.getOpsList()));
                 updated();
             } else if (context != null && AbsSpotifyContext.isCollection(session, modUri)) {
                 for (Playlist4ApiProto.Op op : mod.getOpsList()) {
@@ -700,7 +701,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                         performCollectionUpdate(uris, false);
                 }
 
-                LOGGER.info(String.format("Updated tracks in collection! {uri: %s, ops: %s}", modUri, ProtoUtils.opsKindList(mod.getOpsList())));
+                LOGGER.info("Updated tracks in collection! {uri: {}, ops: {}}", modUri, ProtoUtils.opsKindList(mod.getOpsList()));
                 updated();
             }
         } else if (context != null && uri.equals("hm://collection/collection/" + session.username() + "/json")) {
@@ -723,7 +724,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (added != null) performCollectionUpdate(added, true);
             if (removed != null) performCollectionUpdate(removed, false);
 
-            LOGGER.info(String.format("Updated tracks in collection! {added: %b, removed: %b}", added != null, removed != null));
+            LOGGER.info("Updated tracks in collection! {added: {}, removed: {}}", added != null, removed != null);
             updated();
         }
     }
@@ -1258,7 +1259,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 Collections.swap(tracks, 0, shuffleKeepIndex);
                 setCurrentTrackIndex(0);
 
-                LOGGER.trace(String.format("Shuffled context! {keepIndex: %d}", shuffleKeepIndex));
+                LOGGER.trace("Shuffled context! {keepIndex: {}}", shuffleKeepIndex);
             } else {
                 if (shuffle.canUnshuffle(tracks.size())) {
                     PlayableId currentlyPlaying = getCurrentPlayableOrThrow();

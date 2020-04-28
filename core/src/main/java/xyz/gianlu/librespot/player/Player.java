@@ -8,7 +8,8 @@ import com.spotify.transfer.TransferStateOuterClass;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -43,7 +44,7 @@ import java.util.concurrent.*;
  */
 public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSession.Listener, AudioSink.Listener {
     public static final int VOLUME_MAX = 65536;
-    private static final Logger LOGGER = Logger.getLogger(Player.class);
+    private static final Logger LOGGER = LogManager.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
     private final Configuration conf;
@@ -281,7 +282,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     private void handlePlay(@NotNull JsonObject obj) {
-        LOGGER.debug(String.format("Loading context (play), uri: %s", PlayCommandHelper.getContextUri(obj)));
+        LOGGER.debug("Loading context (play), uri: {}", PlayCommandHelper.getContextUri(obj));
 
         try {
             String sessionId = state.load(obj);
@@ -300,7 +301,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     private void handleTransferState(@NotNull TransferStateOuterClass.TransferState cmd) {
-        LOGGER.debug(String.format("Loading context (transfer), uri: %s", cmd.getCurrentSession().getContext().getUri()));
+        LOGGER.debug("Loading context (transfer), uri: {}", cmd.getCurrentSession().getContext().getUri());
 
         try {
             String sessionId = state.transfer(cmd);
@@ -450,7 +451,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
                 events.contextChanged();
                 loadSession(sessionId, true, false);
 
-                LOGGER.debug(String.format("Loading context for autoplay, uri: %s", newContext));
+                LOGGER.debug("Loading context for autoplay, uri: {}", newContext);
             } else if (resp.statusCode == 204) {
                 MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 String sessionId = state.loadContextWithTracks(station.uri(), station.tracks());
@@ -459,7 +460,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
                 events.contextChanged();
                 loadSession(sessionId, true, false);
 
-                LOGGER.debug(String.format("Loading context for autoplay (using radio-apollo), uri: %s", state.getContextUri()));
+                LOGGER.debug("Loading context for autoplay (using radio-apollo), uri: {}", state.getContextUri());
             } else {
                 LOGGER.fatal("Failed retrieving autoplay context, code: " + resp.statusCode);
 
@@ -568,7 +569,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void playbackHalted(int chunk) {
-        LOGGER.debug(String.format("Playback halted on retrieving chunk %d.", chunk));
+        LOGGER.debug("Playback halted on retrieving chunk {}.", chunk);
         state.setBuffering(true);
         state.updated();
 
@@ -577,7 +578,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void playbackResumedFromHalt(int chunk, long diff) {
-        LOGGER.debug(String.format("Playback resumed, chunk %d retrieved, took %dms.", chunk, diff));
+        LOGGER.debug("Playback resumed, chunk {} retrieved, took {}ms.", chunk, diff);
         state.setPosition(state.getPosition() - diff);
         state.setBuffering(false);
         state.updated();

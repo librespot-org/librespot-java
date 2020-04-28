@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
@@ -17,7 +18,7 @@ import java.io.OutputStream;
  */
 public abstract class Codec implements Closeable {
     public static final int BUFFER_SIZE = 2048;
-    private static final Logger LOGGER = Logger.getLogger(Codec.class);
+    private static final Logger LOGGER = LogManager.getLogger(Codec.class);
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;

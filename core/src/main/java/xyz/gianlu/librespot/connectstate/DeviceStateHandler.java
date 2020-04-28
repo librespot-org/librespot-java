@@ -4,10 +4,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.Connect;
 import com.spotify.connectstate.Player;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
@@ -28,7 +30,7 @@ import java.util.*;
  * @author Gianlu
  */
 public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
-    private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(DeviceStateHandler.class);
 
     static {
         try {
@@ -96,7 +98,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
         if (listeners.isEmpty()) {
-            LOGGER.warn(String.format("Cannot dispatch command because there are no listeners. {command: %s}", endpoint));
+            LOGGER.warn("Cannot dispatch command because there are no listeners. {command: {}}", endpoint);
             return;
         }
 
@@ -149,19 +151,19 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 }
             }
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX));
+            LOGGER.trace("Update volume. {volume: {}/{}}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX);
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
-            LOGGER.debug(String.format("Received cluster update at %d: %s", now, ProtoUtils.toLogString(update, LOGGER)));
+            LOGGER.debug("Received cluster update at {}: {}", () -> now, () -> TextFormat.shortDebugString(update));
 
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
-            LOGGER.warn(String.format("Message left unhandled! {uri: %s}", uri));
+            LOGGER.warn("Message left unhandled! {uri: {}}", uri);
         }
     }
 
@@ -193,7 +195,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             if (!putState.getIsActive()) {
                 long now = TimeProvider.currentTimeMillis();
                 putState.setIsActive(true).setStartedPlayingAt(now);
-                LOGGER.debug(String.format("Device is now active. {ts: %d}", now));
+                LOGGER.debug("Device is now active. {ts: {}}", now);
             }
         } else {
             putState.setIsActive(false).clearStartedPlayingAt();
@@ -224,7 +226,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         }
 
         notifyVolumeChange();
-        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, xyz.gianlu.librespot.player.Player.VOLUME_MAX));
+        LOGGER.trace("Update volume. {volume: {}/{}}", val, xyz.gianlu.librespot.player.Player.VOLUME_MAX);
     }
 
     @Override
@@ -245,8 +247,8 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
         try {
             session.api().putConnectState(connectionId, req);
-            LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
-                    req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+            LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}, request: {}}", req::getClientSideTimestamp,
+                    () -> connectionId.substring(0, 6), req::getPutStateReason, () -> TextFormat.shortDebugString(putState));
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed updating state.", ex);
         }

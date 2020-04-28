@@ -2,7 +2,8 @@ package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -30,7 +31,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
-    private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
+    private static final Logger LOGGER = LogManager.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
     private final Metadata.AudioFile file;
     private final byte[] key;
@@ -69,7 +70,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
                 chunksBuffer.internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
@@ -81,7 +82,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             cacheHandler.readChunk(index, this);
             return true;
         } catch (IOException ex) {
-            LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
+            LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
     }
@@ -129,12 +130,12 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 cacheHandler.writeChunk(buffer, chunkIndex);
             } catch (IOException ex) {
-                LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
+                LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
             }
         }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, Utils.bytesToHex(file.getFileId())));
+        LOGGER.trace("Chunk {}/{} completed, cached: {}, fileId: {}", chunkIndex, chunks, cached, Utils.bytesToHex(file.getFileId()));
     }
 
     @Override
@@ -144,7 +145,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void streamError(int chunkIndex, short code) {
-        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
+        LOGGER.fatal("Stream error, index: {}, code: {}", chunkIndex, code);
         chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.fromStreamError(code));
     }
 

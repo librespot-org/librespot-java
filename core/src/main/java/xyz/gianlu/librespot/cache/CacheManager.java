@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.cache;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.feeders.GeneralWritableStream;
@@ -26,7 +27,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  */
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
-    private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(CacheManager.class);
     private static final int HEADER_TIMESTAMP = 254;
     private final File parent;
     private final CacheJournal journal;
@@ -68,7 +69,7 @@ public class CacheManager implements Closeable {
                     }
                 }
 
-                LOGGER.info(String.format("There are %d cached entries.", entries.size()));
+                LOGGER.info("There are {} cached entries.", entries.size());
             } catch (IOException ex) {
                 LOGGER.warn("Failed performing maintenance operations.", ex);
             }
@@ -96,7 +97,7 @@ public class CacheManager implements Closeable {
         if (file.exists() && !file.delete())
             LOGGER.warn("Couldn't delete cache file: " + file.getAbsolutePath());
 
-        LOGGER.trace(String.format("Removed %s from cache.", streamId));
+        LOGGER.trace("Removed {} from cache.", streamId);
     }
 
     @Override

@@ -5,7 +5,8 @@ import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -22,7 +23,7 @@ import java.io.InputStream;
  * @author Gianlu
  */
 public final class CdnFeedHelper {
-    private static final Logger LOGGER = Logger.getLogger(CdnFeedHelper.class);
+    private static final Logger LOGGER = LogManager.getLogger(CdnFeedHelper.class);
 
     private CdnFeedHelper() {
     }
@@ -58,7 +59,7 @@ public final class CdnFeedHelper {
                 LOGGER.warn("Couldn't resolve redirect!");
 
             HttpUrl url = resp.request().url();
-            LOGGER.debug(String.format("Fetched external url for %s: %s", Utils.bytesToHex(episode.getGid()), url));
+            LOGGER.debug("Fetched external url for {}: {}", Utils.bytesToHex(episode.getGid()), url);
 
             CdnManager.Streamer streamer = session.cdn().streamExternalEpisode(episode, url, haltListener);
             return new LoadedStream(episode, streamer, null, new PlayableContentFeeder.Metrics(null, false, -1));

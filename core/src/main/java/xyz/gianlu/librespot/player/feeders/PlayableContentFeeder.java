@@ -6,7 +6,8 @@ import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.HttpUrl;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +32,7 @@ import java.io.IOException;
  * @author Gianlu
  */
 public final class PlayableContentFeeder {
-    private static final Logger LOGGER = Logger.getLogger(PlayableContentFeeder.class);
+    private static final Logger LOGGER = LogManager.getLogger(PlayableContentFeeder.class);
     private static final String STORAGE_RESOLVE_INTERACTIVE = "/storage-resolve/files/audio/interactive/%s";
     private static final String STORAGE_RESOLVE_INTERACTIVE_PREFETCH = "/storage-resolve/files/audio/interactive_prefetch/%s";
     protected final Session session;
@@ -137,7 +138,7 @@ public final class PlayableContentFeeder {
     private LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track.getFileList());
         if (file == null) {
-            LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(track.getFileList())));
+            LOGGER.fatal("Couldn't find any suitable audio file, available: {}", AudioQuality.listFormats(track.getFileList()));
             throw new FeederException();
         }
 
@@ -153,7 +154,7 @@ public final class PlayableContentFeeder {
         } else {
             Metadata.AudioFile file = audioQualityPreference.getFile(episode.getAudioList());
             if (file == null) {
-                LOGGER.fatal(String.format("Couldn't find any suitable audio file, available: %s", AudioQuality.listFormats(episode.getAudioList())));
+                LOGGER.fatal("Couldn't find any suitable audio file, available: {}", AudioQuality.listFormats(episode.getAudioList()));
                 throw new FeederException();
             }
 

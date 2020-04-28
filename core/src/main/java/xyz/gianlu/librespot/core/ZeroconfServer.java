@@ -3,7 +3,8 @@ package xyz.gianlu.librespot.core;
 import com.google.gson.JsonObject;
 import com.spotify.Authentication;
 import okhttp3.HttpUrl;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.AbsConfiguration;
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 public class ZeroconfServer implements Closeable {
     public final static int MAX_PORT = 65536;
     public final static int MIN_PORT = 1024;
-    private static final Logger LOGGER = Logger.getLogger(ZeroconfServer.class);
+    private static final Logger LOGGER = LogManager.getLogger(ZeroconfServer.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
     private static final JsonObject DEFAULT_GET_INFO_FIELDS = new JsonObject();
     private static final JsonObject DEFAULT_SUCCESSFUL_ADD_USER = new JsonObject();
@@ -120,7 +121,7 @@ public class ZeroconfServer implements Closeable {
                 for (String str : interfaces) {
                     NetworkInterface nif = NetworkInterface.getByName(str);
                     if (nif == null) {
-                        LOGGER.warn(String.format("Interface %s doesn't exists.", str));
+                        LOGGER.warn("Interface {} doesn't exists.", str);
                         continue;
                     }
 
@@ -186,7 +187,7 @@ public class ZeroconfServer implements Closeable {
             if (checkVirtual)
                 return;
             else
-                LOGGER.warn(String.format("Interface %s is suspected to be virtual, mac: %s", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress())));
+                LOGGER.warn("Interface {} is suspected to be virtual, mac: {}", nif.getName(), Utils.bytesToHex(nif.getHardwareAddress()));
         }
 
         list.add(nif);
@@ -278,11 +279,11 @@ public class ZeroconfServer implements Closeable {
 
         if (hasActiveSession() && System.currentTimeMillis() - connectionTime > TimeUnit.SECONDS.toMillis(60)) {
             if (session.username().equals(username)) {
-                LOGGER.debug(String.format("Dropped connection attempt because user is already connected. {username: %s}", session.username()));
+                LOGGER.debug("Dropped connection attempt because user is already connected. {username: {}}", session.username());
                 return;
             } else {
                 session.close();
-                LOGGER.trace(String.format("Closed previous session to accept new. {deviceId: %s}", session.deviceId()));
+                LOGGER.trace("Closed previous session to accept new. {deviceId: {}}", session.deviceId());
             }
         }
 
@@ -340,7 +341,7 @@ public class ZeroconfServer implements Closeable {
 
             session = Session.from(inner);
             connectionTime = System.currentTimeMillis();
-            LOGGER.info(String.format("Accepted new user from %s. {deviceId: %s}", params.get("deviceName"), session.deviceId()));
+            LOGGER.info("Accepted new user from {}. {deviceId: {}}", params.get("deviceName"), session.deviceId());
 
             session.connect();
             session.authenticate(credentials);
@@ -380,7 +381,7 @@ public class ZeroconfServer implements Closeable {
 
         HttpRunner(int port) throws IOException {
             serverSocket = new ServerSocket(port);
-            LOGGER.info(String.format("Zeroconf HTTP server started successfully on port %d!", port));
+            LOGGER.info("Zeroconf HTTP server started successfully on port {}!", port);
         }
 
         @Override
@@ -444,7 +445,7 @@ public class ZeroconfServer implements Closeable {
             }
 
             if (!hasActiveSession())
-                LOGGER.trace(String.format("Handling request: %s %s %s, headers: %s", method, path, httpVersion, headers));
+                LOGGER.trace("Handling request: {} {} {}, headers: {}", method, path, httpVersion, headers);
 
             Map<String, String> params;
             if (Objects.equals(method, "POST")) {

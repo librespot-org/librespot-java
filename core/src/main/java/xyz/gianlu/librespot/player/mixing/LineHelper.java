@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.mixing;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -15,7 +16,7 @@ import java.util.List;
  * @author Gianlu
  */
 public final class LineHelper {
-    private static final Logger LOGGER = Logger.getLogger(LineHelper.class);
+    private static final Logger LOGGER = LogManager.getLogger(LineHelper.class);
 
     private LineHelper() {
     }

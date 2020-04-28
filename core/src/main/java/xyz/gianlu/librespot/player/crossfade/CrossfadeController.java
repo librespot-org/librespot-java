@@ -3,7 +3,8 @@ package xyz.gianlu.librespot.player.crossfade;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.EventService.PlaybackMetrics.Reason;
@@ -13,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CrossfadeController {
-    private static final Logger LOGGER = Logger.getLogger(CrossfadeController.class);
+    private static final Logger LOGGER = LogManager.getLogger(CrossfadeController.class);
     private final String playbackId;
     private final int trackDuration;
     private final Map<Reason, FadeInterval> fadeOutMap = new HashMap<>(8);
@@ -34,7 +35,7 @@ public class CrossfadeController {
         populateFadeIn(metadata);
         populateFadeOut(metadata);
 
-        LOGGER.debug(String.format("Loaded crossfade intervals {id: %s, in: %s, out: %s}", playbackId, fadeInMap, fadeOutMap));
+        LOGGER.debug("Loaded crossfade intervals {id: {}, in: {}, out: {}}", playbackId, fadeInMap, fadeOutMap);
     }
 
     @NotNull
@@ -105,10 +106,10 @@ public class CrossfadeController {
 
             if (activeInterval == fadeIn) {
                 fadeIn = null;
-                LOGGER.debug(String.format("Cleared fade in. {id: %s}", playbackId));
+                LOGGER.debug("Cleared fade in. {id: {}}", playbackId);
             } else if (activeInterval == fadeOut) {
                 fadeOut = null;
-                LOGGER.debug(String.format("Cleared fade out. {id: %s}", playbackId));
+                LOGGER.debug("Cleared fade out. {id: {}}", playbackId);
             }
 
             activeInterval = null;
@@ -139,7 +140,7 @@ public class CrossfadeController {
     public FadeInterval selectFadeIn(@NotNull Reason reason) {
         fadeIn = fadeInMap.get(reason);
         activeInterval = null;
-        LOGGER.debug(String.format("Changed fade in. {curr: %s, why: %s, id: %s}", fadeIn, reason, playbackId));
+        LOGGER.debug("Changed fade in. {curr: {}, why: {}, id: {}}", fadeIn, reason, playbackId);
         return fadeIn;
     }
 
@@ -153,7 +154,7 @@ public class CrossfadeController {
     public FadeInterval selectFadeOut(@NotNull Reason reason) {
         fadeOut = fadeOutMap.get(reason);
         activeInterval = null;
-        LOGGER.debug(String.format("Changed fade out. {curr: %s, why: %s, id: %s}", fadeOut, reason, playbackId));
+        LOGGER.debug("Changed fade out. {curr: {}, why: {}, id: {}}", fadeOut, reason, playbackId);
         return fadeOut;
     }
 

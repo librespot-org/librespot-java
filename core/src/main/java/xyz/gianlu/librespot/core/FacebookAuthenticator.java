@@ -4,7 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.NetUtils;
@@ -23,7 +24,7 @@ import java.util.Base64;
  */
 public class FacebookAuthenticator implements Closeable {
     private static final URL LOGIN_SPOTIFY;
-    private static final Logger LOGGER = Logger.getLogger(FacebookAuthenticator.class);
+    private static final Logger LOGGER = LogManager.getLogger(FacebookAuthenticator.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
 
     static {
@@ -46,7 +47,7 @@ public class FacebookAuthenticator implements Closeable {
             JsonObject obj = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
             credentialsUrl = obj.get("credentials_url").getAsString();
             String loginUrl = obj.get("login_url").getAsString();
-            LOGGER.info(String.format("Visit %s in your browser.", loginUrl));
+            LOGGER.info("Visit {} in your browser.", loginUrl);
             startPolling();
         } finally {
             conn.disconnect();

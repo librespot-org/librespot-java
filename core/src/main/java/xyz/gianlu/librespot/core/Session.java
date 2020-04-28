@@ -13,7 +13,8 @@ import okhttp3.*;
 import okio.BufferedSink;
 import okio.GzipSink;
 import okio.Okio;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +61,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Gianlu
  */
 public final class Session implements Closeable, SubListener {
-    private static final Logger LOGGER = Logger.getLogger(Session.class);
+    private static final Logger LOGGER = LogManager.getLogger(Session.class);
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
             (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93, (byte) 0xa1,
@@ -120,7 +121,7 @@ public final class Session implements Closeable, SubListener {
         this.conn = ConnectionHolder.create(addr, inner.configuration);
         this.client = createClient(inner.configuration);
 
-        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s, proxy: %b} ", inner.deviceId, addr, inner.configuration.proxyEnabled()));
+        LOGGER.info("Created new session! {deviceId: {}, ap: {}, proxy: {}} ", inner.deviceId, addr, inner.configuration.proxyEnabled());
     }
 
     @NotNull
@@ -351,7 +352,7 @@ public final class Session implements Closeable, SubListener {
         TimeProvider.init(this);
         eventService.language(conf().preferredLocale());
 
-        LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
+        LOGGER.info("Authenticated as {}!", apWelcome.getCanonicalUsername());
         mercuryClient.interestedIn("spotify:user:attributes:update", this);
     }
 
@@ -426,7 +427,7 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
-        LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
+        LOGGER.info("Closing session. {deviceId: {}}", inner.deviceId);
         scheduler.shutdownNow();
 
         if (player != null) {
@@ -485,7 +486,7 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s} ", inner.deviceId));
+        LOGGER.info("Closed session. {deviceId: {}} ", inner.deviceId);
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -677,7 +678,7 @@ public final class Session implements Closeable, SubListener {
                     .setAuthData(apWelcome.getReusableAuthCredentials())
                     .build(), true);
 
-            LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
+            LOGGER.info("Re-authenticated as {}!", apWelcome.getCanonicalUsername());
 
             synchronized (reconnectionListeners) {
                 reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
@@ -754,7 +755,7 @@ public final class Session implements Closeable, SubListener {
 
             for (ExplicitContentPubsub.KeyValuePair pair : attributesUpdate.getPairsList()) {
                 userAttributes.put(pair.getKey(), pair.getValue());
-                LOGGER.trace(String.format("Updated user attribute: %s -> %s", pair.getKey(), pair.getValue()));
+                LOGGER.trace("Updated user attribute: {} -> {}", pair.getKey(), pair.getValue());
             }
         }
     }
@@ -1094,7 +1095,7 @@ public final class Session implements Closeable, SubListener {
                     packet = cipherPair.receiveEncoded(conn.in);
                     cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
-                        LOGGER.info(String.format("Skipping unknown command {cmd: 0x%s, payload: %s}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload)));
+                        LOGGER.info("Skipping unknown command {cmd: 0x{}, payload: {}}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload));
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
@@ -1137,9 +1138,9 @@ public final class Session implements Closeable, SubListener {
                         if (id != 0) {
                             byte[] buffer = new byte[licenseVersion.get()];
                             licenseVersion.get(buffer);
-                            LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                            LOGGER.info("Received LicenseVersion: {}, {}", id, new String(buffer));
                         } else {
-                            LOGGER.info(String.format("Received LicenseVersion: %d", id));
+                            LOGGER.info("Received LicenseVersion: {}", id);
                         }
                         break;
                     case Unknown_0x10:

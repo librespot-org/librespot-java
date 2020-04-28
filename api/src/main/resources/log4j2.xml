@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p %c{1}:%L - %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="trace" additivity="false">
+            <AppenderRef ref="console"/>
+        </Root>
+        <Logger name="io.undertow" level="warn"/>
+        <Logger name="org.jboss" level="warn"/>
+        <Logger name="org.xnio" level="warn"/>
+    </Loggers>
+</Configuration>

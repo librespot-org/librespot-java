@@ -1,7 +1,8 @@
 package xyz.gianlu.librespot.core;
 
 import com.spotify.metadata.Metadata;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.AsyncWorker;
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  * @author Gianlu
  */
 public final class EventService implements Closeable {
-    private final static Logger LOGGER = Logger.getLogger(EventService.class);
+    private final static Logger LOGGER = LogManager.getLogger(EventService.class);
     private final Session session;
     private final AsyncWorker<EventBuilder> asyncWorker;
     private long trackTransitionIncremental = 1;
@@ -44,7 +45,7 @@ public final class EventService implements Closeable {
                         .addPayloadPart(body)
                         .build());
 
-                LOGGER.debug(String.format("Event sent. {body: %s, result: %d}", EventBuilder.toString(body), resp.statusCode));
+                LOGGER.debug("Event sent. {body: {}, result: {}}", EventBuilder.toString(body), resp.statusCode);
             } catch (IOException ex) {
                 LOGGER.error("Failed sending event: " + eventBuilder, ex);
             }

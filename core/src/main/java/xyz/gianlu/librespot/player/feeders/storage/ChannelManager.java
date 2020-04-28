@@ -1,7 +1,8 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
@@ -26,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ChannelManager extends PacketsManager {
     public static final int CHUNK_SIZE = 128 * 1024;
-    private static final Logger LOGGER = Logger.getLogger(ChannelManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "channel-queue-" + r.hashCode()));
@@ -69,7 +70,7 @@ public class ChannelManager extends PacketsManager {
             short id = payload.getShort();
             Channel channel = channels.get(id);
             if (channel == null) {
-                LOGGER.warn(String.format("Couldn't find channel, id: %d, received: %d", id, packet.payload.length));
+                LOGGER.warn("Couldn't find channel, id: {}, received: {}", id, packet.payload.length);
                 return;
             }
 
@@ -78,13 +79,13 @@ public class ChannelManager extends PacketsManager {
             short id = payload.getShort();
             Channel channel = channels.get(id);
             if (channel == null) {
-                LOGGER.warn(String.format("Dropping channel error, id: %d, code: %d", id, payload.getShort()));
+                LOGGER.warn("Dropping channel error, id: {}, code: {}", id, payload.getShort());
                 return;
             }
 
             channel.streamError(payload.getShort());
         } else {
-            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, payload: %s", packet.type(), Utils.bytesToHex(packet.payload)));
+            LOGGER.warn("Couldn't handle packet, cmd: {}, payload: {}", packet.type(), Utils.bytesToHex(packet.payload));
         }
     }
 

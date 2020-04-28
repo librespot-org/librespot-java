@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.playback;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,7 +17,7 @@ import java.util.concurrent.Executors;
  * @author devgianlu
  */
 final class PlayerQueue implements Closeable {
-    private static final Logger LOGGER = Logger.getLogger(PlayerQueue.class);
+    private static final Logger LOGGER = LogManager.getLogger(PlayerQueue.class);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-queue-" + r.hashCode()));
     private PlayerQueueEntry head = null;
 
@@ -62,7 +63,7 @@ final class PlayerQueue implements Closeable {
         else head.setNext(entry);
         executorService.execute(entry);
 
-        LOGGER.trace(String.format("%s added to queue.", entry));
+        LOGGER.trace("{} added to queue.", entry);
     }
 
     /**
@@ -87,7 +88,7 @@ final class PlayerQueue implements Closeable {
         oldEntry.close();
         if (swapped) {
             executorService.execute(newEntry);
-            LOGGER.trace(String.format("%s swapped with %s.", oldEntry, newEntry));
+            LOGGER.trace("{} swapped with {}.", oldEntry, newEntry);
         }
     }
 
@@ -109,7 +110,7 @@ final class PlayerQueue implements Closeable {
             removed = head.remove(entry);
         }
 
-        if (removed) LOGGER.trace(String.format("%s removed from queue.", entry));
+        if (removed) LOGGER.trace("{} removed from queue.", entry);
     }
 
     /**

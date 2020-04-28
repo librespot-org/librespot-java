@@ -4,7 +4,8 @@ import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
 import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.*;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -33,7 +34,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public class CdnManager {
-    private static final Logger LOGGER = Logger.getLogger(CdnManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(CdnManager.class);
     private final Session session;
 
     public CdnManager(@NotNull Session session) {
@@ -83,7 +84,7 @@ public class CdnManager {
             StorageResolveResponse proto = StorageResolveResponse.parseFrom(body.byteStream());
             if (proto.getResult() == StorageResolveResponse.Result.CDN) {
                 String url = proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount()));
-                LOGGER.debug(String.format("Fetched CDN url for %s: %s", Utils.bytesToHex(fileId), url));
+                LOGGER.debug("Fetched CDN url for {}: {}", Utils.bytesToHex(fileId), url);
                 return HttpUrl.get(url);
             } else {
                 throw new CdnException(String.format("Could not retrieve CDN url! {result: %s}", proto.getResult()));
@@ -256,11 +257,11 @@ public class CdnManager {
                 try {
                     cacheHandler.writeChunk(chunk, chunkIndex);
                 } catch (IOException ex) {
-                    LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
+                    LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, stream: %s", chunkIndex, chunks, cached, describe()));
+            LOGGER.trace("Chunk {}/{} completed, cached: {}, stream: {}", chunkIndex, chunks, cached, describe());
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -290,7 +291,7 @@ public class CdnManager {
                         return;
                     }
                 } catch (IOException ex) {
-                    LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
+                    LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
                 }
             }
 
@@ -298,7 +299,7 @@ public class CdnManager {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
             } catch (IOException | CdnException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
                 internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }

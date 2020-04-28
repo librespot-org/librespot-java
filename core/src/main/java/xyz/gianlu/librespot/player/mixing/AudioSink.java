@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.mixing;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
@@ -17,7 +18,7 @@ import java.io.*;
  */
 public final class AudioSink implements Runnable, Closeable {
     public static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
-    private static final Logger LOGGER = Logger.getLogger(AudioSink.class);
+    private static final Logger LOGGER = LogManager.getLogger(AudioSink.class);
     private final Object pauseLock = new Object();
     private final Output output;
     private final MixingLine mixing = new MixingLine(OUTPUT_FORMAT);
@@ -234,7 +235,7 @@ public final class AudioSink implements Runnable, Closeable {
                                     .redirectError(ProcessBuilder.Redirect.INHERIT).start();
                             p.waitFor();
                             if (p.exitValue() != 0)
-                                LOGGER.warn(String.format("Failed creating pipe! {exit: %d}", p.exitValue()));
+                                LOGGER.warn("Failed creating pipe! {exit: {}}", p.exitValue());
                             else
                                 LOGGER.info("Created pipe: " + pipe);
                         } catch (InterruptedException ex) {

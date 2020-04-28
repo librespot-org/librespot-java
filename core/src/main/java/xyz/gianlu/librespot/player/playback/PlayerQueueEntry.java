@@ -1,7 +1,8 @@
 package xyz.gianlu.librespot.player.playback;
 
 import javazoom.jl.decoder.BitstreamException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -43,7 +44,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     static final int INSTANT_PRELOAD = 1;
     static final int INSTANT_START_NEXT = 2;
     static final int INSTANT_END = 3;
-    private static final Logger LOGGER = Logger.getLogger(PlayerQueueEntry.class);
+    private static final Logger LOGGER = LogManager.getLogger(PlayerQueueEntry.class);
     final PlayableId playable;
     final String playbackId;
     private final boolean preloaded;
@@ -71,7 +72,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         this.preloaded = preloaded;
         this.listener = listener;
 
-        LOGGER.trace(String.format("Created new %s.", this));
+        LOGGER.trace("Created new {}.", this);
     }
 
     @NotNull
@@ -94,10 +95,10 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         contentMetrics = stream.metrics;
 
         if (playable instanceof EpisodeId && stream.episode != null) {
-            LOGGER.info(String.format("Loaded episode. {name: '%s', uri: %s, id: %s}", stream.episode.getName(), playable.toSpotifyUri(), playbackId));
+            LOGGER.info("Loaded episode. {name: '{}', uri: {}, id: {}}", stream.episode.getName(), playable.toSpotifyUri(), playbackId);
         } else if (playable instanceof TrackId && stream.track != null) {
-            LOGGER.info(String.format("Loaded track. {name: '%s', artists: '%s', uri: %s, id: %s}", stream.track.getName(),
-                    Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), playbackId));
+            LOGGER.info("Loaded track. {name: '{}', artists: '{}', uri: {}, id: {}}", stream.track.getName(),
+                    Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), playbackId);
         }
 
         crossfade = new CrossfadeController(playbackId, metadata.duration(), listener.metadataFor(playable), session.conf());
@@ -119,7 +120,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                 throw new UnsupportedEncodingException(stream.in.codec().toString());
         }
 
-        LOGGER.trace(String.format("Loaded %s codec. {of: %s, format: %s, playbackId: %s}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId));
+        LOGGER.trace("Loaded {} codec. {of: {}, format: {}, playbackId: {}}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId);
     }
 
     /**
@@ -206,7 +207,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             tmp.toggle(false);
             tmp.clear();
 
-            LOGGER.debug(String.format("%s has been removed from output.", this));
+            LOGGER.debug("{} has been removed from output.", this);
         }
 
         synchronized (playbackLock) {
@@ -245,7 +246,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         } catch (IOException | ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
             close();
             listener.loadingError(this, ex, retried);
-            LOGGER.trace(String.format("%s terminated at loading.", this), ex);
+            LOGGER.trace("%{} terminated at loading.", this, ex);
             return;
         }
 
@@ -294,7 +295,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                 if (codec.writeSomeTo(output.stream()) == -1) {
                     try {
                         int time = codec.time();
-                        LOGGER.debug(String.format("Player time offset is %d. {id: %s}", metadata.duration() - time, playbackId));
+                        LOGGER.debug("Player time offset is {}. {id: {}}", metadata.duration() - time, playbackId);
                     } catch (Codec.CannotGetTimeException ignored) {
                     }
 
@@ -313,7 +314,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         }
 
         listener.playbackEnded(this);
-        LOGGER.trace(String.format("%s terminated.", this));
+        LOGGER.trace("{} terminated.", this);
     }
 
     private void checkInstants(int time) {
