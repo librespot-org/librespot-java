@@ -125,7 +125,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         if (paused && !playing) throw new IllegalStateException();
         else if (buffering && !playing) throw new IllegalStateException();
 
+        boolean wasPaused = isPaused();
         state.setIsPlaying(playing).setIsPaused(paused).setIsBuffering(buffering);
+
+        if (wasPaused && !paused) // Assume the position was set immediately before pausing
+            setPosition(state.getPositionAsOfTimestamp());
     }
 
     boolean isPlaying() {

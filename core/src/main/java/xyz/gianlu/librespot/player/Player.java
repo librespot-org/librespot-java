@@ -351,7 +351,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             try {
                 if (playerSession != null)
                     state.setPosition(playerSession.currentTime());
-            } catch (Codec.CannotGetTimeException ignored) {
+            } catch (Codec.CannotGetTimeException ex) {
+                state.setPosition(state.getPosition());
             }
 
             state.updated();
