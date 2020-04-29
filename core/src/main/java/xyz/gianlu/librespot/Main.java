@@ -1,6 +1,8 @@
 package xyz.gianlu.librespot;
 
-import org.apache.log4j.LogManager;
+
+import org.apache.logging.log4j.core.config.Configurator;
+import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.AuthConfiguration;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.ZeroconfServer;
@@ -16,7 +18,9 @@ public class Main {
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
         AbsConfiguration conf = new FileConfiguration(args);
-        LogManager.getRootLogger().setLevel(conf.loggingLevel());
+        Configurator.setRootLevel(conf.loggingLevel());
+        Thread.setDefaultUncaughtExceptionHandler(new Log4JUncaughtExceptionHandler());
+
         if (conf.authStrategy() == AuthConfiguration.Strategy.ZEROCONF && !conf.hasStoredCredentials()) {
             ZeroconfServer server = ZeroconfServer.create(conf);
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
