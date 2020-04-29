@@ -6,9 +6,9 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="trace" additivity="false">
+        <AsyncRoot level="trace" additivity="false">
             <AppenderRef ref="console"/>
-        </Root>
+        </AsyncRoot>
         <Logger name="io.undertow" level="warn"/>
         <Logger name="org.jboss" level="warn"/>
         <Logger name="org.xnio" level="warn"/>
