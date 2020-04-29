@@ -70,7 +70,7 @@ public final class MixingLine extends InputStream {
     public MixingOutput firstOut() {
         if (fout == null) {
             fcb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
-            fout = new FirstOutputStream(fcb);
+            fout = new FirstOutputStream();
         }
 
         return fout;
@@ -80,7 +80,7 @@ public final class MixingLine extends InputStream {
     public MixingOutput secondOut() {
         if (sout == null) {
             scb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
-            sout = new SecondOutputStream(scb);
+            sout = new SecondOutputStream();
         }
 
         return sout;
@@ -90,64 +90,50 @@ public final class MixingLine extends InputStream {
         gg = gain;
     }
 
-    public interface MixingOutput {
-        void toggle(boolean enabled);
-
-        void gain(float gain);
-
-        void write(byte[] buffer, int off, int len);
-
-        void clear();
-
-        @NotNull
-        LowLevelStream stream();
-    }
-
-    public static abstract class LowLevelStream extends OutputStream {
-        private final CircularBuffer buffer;
-
-        LowLevelStream(@NotNull CircularBuffer buffer) {
-            this.buffer = buffer;
-        }
-
+    public abstract static class MixingOutput extends OutputStream {
         @Override
         public final void write(int b) {
             throw new UnsupportedOperationException();
         }
 
-        @Override
-        public final void write(@NotNull byte[] b, int off, int len) {
-            buffer.write(b, off, len);
-        }
+        public abstract void toggle(boolean enabled);
 
-        public final void emptyBuffer() {
-            buffer.empty();
-        }
+        public abstract void gain(float gain);
+
+        public abstract void clear();
+
+        public abstract void emptyBuffer();
+
+        @NotNull
+        public abstract MixingOutput stream();
     }
 
-    public class FirstOutputStream extends LowLevelStream implements MixingOutput {
-        FirstOutputStream(@NotNull CircularBuffer buffer) {
-            super(buffer);
+    public class FirstOutputStream extends MixingOutput {
+
+        @Override
+        public void write(@NotNull byte[] b, int off, int len) {
+            if (fout == null || fout != this) return;
+            fcb.write(b, off, len);
         }
 
         @Override
         public void toggle(boolean enabled) {
             if (enabled == fe) return;
-            if (enabled && fout != null && fout != this) throw new IllegalArgumentException();
+            if (enabled && (fout == null || fout != this)) throw new IllegalStateException();
             fe = enabled;
             LOGGER.trace("Toggle first channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (fout != null && fout != this) throw new IllegalArgumentException();
+            if (fout == null || fout != this) throw new IllegalStateException();
             fg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (fout != null && fout != this) throw new IllegalArgumentException();
+            if (fout == null || fout != this) throw new IllegalStateException();
 
             fg = 1;
             fe = false;
@@ -162,36 +148,44 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull LowLevelStream stream() {
-            if (fout != this) throw new IllegalArgumentException();
+        public @NotNull MixingOutput stream() {
+            if (fout == null || fout != this) throw new IllegalStateException();
             return this;
+        }
+
+        @Override
+        public void emptyBuffer() {
+            if (fout == null || fout != this) throw new IllegalStateException();
+            fcb.empty();
         }
     }
 
-    public class SecondOutputStream extends LowLevelStream implements MixingOutput {
+    public class SecondOutputStream extends MixingOutput {
 
-        SecondOutputStream(@NotNull CircularBuffer scb) {
-            super(scb);
+        @Override
+        public void write(@NotNull byte[] b, int off, int len) {
+            if (sout == null || sout != this) return;
+            scb.write(b, off, len);
         }
 
         @Override
         public void toggle(boolean enabled) {
             if (enabled == se) return;
-            if (enabled && sout != null && sout != this) throw new IllegalArgumentException();
+            if (enabled && (sout == null || sout != this)) throw new IllegalStateException();
             se = enabled;
             LOGGER.trace("Toggle second channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (sout != null && sout != this) throw new IllegalArgumentException();
+            if (sout == null || sout != this) throw new IllegalStateException();
             sg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (sout != null && sout != this) throw new IllegalArgumentException();
+            if (sout == null || sout != this) throw new IllegalStateException();
 
             sg = 1;
             se = false;
@@ -206,9 +200,15 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull LowLevelStream stream() {
-            if (sout != this) throw new IllegalArgumentException();
+        public @NotNull MixingOutput stream() {
+            if (sout == null || sout != this) throw new IllegalStateException();
             return this;
+        }
+
+        @Override
+        public void emptyBuffer() {
+            if (sout == null || sout != this) throw new IllegalStateException();
+            scb.empty();
         }
     }
 }
