@@ -152,12 +152,13 @@ public final class MixingLine extends InputStream {
             fg = 1;
             fe = false;
 
-            fcb.close();
-
+            CircularBuffer tmp = fcb;
             synchronized (MixingLine.this) {
                 fout = null;
                 fcb = null;
             }
+
+            tmp.close();
         }
 
         @Override
@@ -195,12 +196,13 @@ public final class MixingLine extends InputStream {
             sg = 1;
             se = false;
 
-            scb.close();
-
+            CircularBuffer tmp = scb;
             synchronized (MixingLine.this) {
                 sout = null;
                 scb = null;
             }
+
+            tmp.close();
         }
 
         @Override
