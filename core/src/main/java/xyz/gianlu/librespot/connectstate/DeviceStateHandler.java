@@ -416,7 +416,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         private CommandBody(@NotNull JsonObject obj) {
             this.obj = obj;
 
-            if (obj.has("data")) data = Base64.getDecoder().decode(obj.get("data").getAsString());
+            if (obj.has("data")) data = org.apache.commons.codec.binary.Base64.decodeBase64(obj.get("data").getAsString());
             else data = null;
 
             if (obj.has("value")) value = obj.get("value").getAsString();

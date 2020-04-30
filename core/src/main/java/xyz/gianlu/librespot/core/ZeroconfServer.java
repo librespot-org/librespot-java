@@ -149,7 +149,7 @@ public class ZeroconfServer implements Closeable {
     public static String getUsefulHostname() throws UnknownHostException {
         String host = InetAddress.getLocalHost().getHostName();
         if (Objects.equals(host, "localhost")) {
-            host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            host = org.apache.commons.codec.binary.Base64.encodeBase64String(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
             LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
             return host;
         }
@@ -241,7 +241,7 @@ public class ZeroconfServer implements Closeable {
         info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
-        info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
+        info.addProperty("publicKey", org.apache.commons.codec.binary.Base64.encodeBase64String(keys.publicKeyArray()));
         info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
 
         out.write(httpVersion.getBytes());
@@ -287,8 +287,8 @@ public class ZeroconfServer implements Closeable {
             }
         }
 
-        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
-        byte[] blobBytes = Base64.getDecoder().decode(blobStr);
+        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(org.apache.commons.codec.binary.Base64.decodeBase64(clientKeyStr)));
+        byte[] blobBytes = org.apache.commons.codec.binary.Base64.decodeBase64(blobStr);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
         byte[] encrypted = Arrays.copyOfRange(blobBytes, 16, blobBytes.length - 20);
         byte[] checksum = Arrays.copyOfRange(blobBytes, blobBytes.length - 20, blobBytes.length);

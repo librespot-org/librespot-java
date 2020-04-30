@@ -822,7 +822,7 @@ public final class Session implements Closeable, SubListener {
         }
 
         @NotNull Authentication.LoginCredentials decryptBlob(String username, byte[] encryptedBlob) throws GeneralSecurityException, IOException {
-            encryptedBlob = Base64.getDecoder().decode(encryptedBlob);
+            encryptedBlob = org.apache.commons.codec.binary.Base64.decodeBase64(encryptedBlob);
 
             byte[] secret = MessageDigest.getInstance("SHA-1").digest(deviceId.getBytes());
             byte[] baseKey = PBKDF2.HmacSHA1(secret, username.getBytes(), 0x100, 20);
@@ -953,7 +953,7 @@ public final class Session implements Closeable, SubListener {
                     case BLOB:
                         if (username == null) throw new IllegalArgumentException("Missing authUsername!");
                         if (blob == null) throw new IllegalArgumentException("Missing authBlob!");
-                        blob(username, Base64.getDecoder().decode(blob));
+                        blob(username, org.apache.commons.codec.binary.Base64.decodeBase64(blob));
                         break;
                     case USER_PASS:
                         if (username == null) throw new IllegalArgumentException("Missing authUsername!");
@@ -1026,7 +1026,7 @@ public final class Session implements Closeable, SubListener {
                     out.write(String.format("CONNECT %s:%d HTTP/1.0\n", apAddr, apPort).getBytes());
                     if (conf.proxyAuth()) {
                         out.write("Proxy-Authorization: Basic ".getBytes());
-                        out.write(Base64.getEncoder().encodeToString(String.format("%s:%s\n", conf.proxyUsername(), conf.proxyPassword()).getBytes()).getBytes());
+                        out.write(org.apache.commons.codec.binary.Base64.encodeBase64String(String.format("%s:%s\n", conf.proxyUsername(), conf.proxyPassword()).getBytes()).getBytes());
                     }
 
                     out.write('\n');

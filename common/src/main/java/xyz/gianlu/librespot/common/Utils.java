@@ -292,11 +292,11 @@ public final class Utils {
 
     @NotNull
     public static String toBase64(@NotNull ByteString bytes) {
-        return Base64.getEncoder().encodeToString(bytes.toByteArray());
+        return org.apache.commons.codec.binary.Base64.encodeBase64String(bytes.toByteArray());
     }
 
     @NotNull
     public static ByteString fromBase64(@NotNull String str) {
-        return ByteString.copyFrom(Base64.getDecoder().decode(str.getBytes()));
+        return ByteString.copyFrom(org.apache.commons.codec.binary.Base64.decodeBase64(str));
     }
 }
