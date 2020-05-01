@@ -28,7 +28,7 @@ public class BytesArrayList implements Iterable<byte[]> {
     @NotNull
     public static InputStream streamBase64(@NotNull String[] payloads) {
         byte[][] decoded = new byte[payloads.length][];
-        for (int i = 0; i < decoded.length; i++) decoded[i] = org.apache.commons.codec.binary.Base64.decodeBase64(payloads[i]);
+        for (int i = 0; i < decoded.length; i++) decoded[i] = xyz.gianlu.librespot.common.Base64.decode(payloads[i], xyz.gianlu.librespot.common.Base64.DEFAULT);
         return new BytesArrayList(decoded).stream();
     }
 

@@ -81,7 +81,7 @@ public class DealerClient implements Closeable {
         Map<String, String> headers = getHeaders(obj);
         JsonObject payload = obj.getAsJsonObject("payload");
         if ("gzip".equals(headers.get("Transfer-Encoding"))) {
-            byte[] gzip = org.apache.commons.codec.binary.Base64.decodeBase64(payload.get("compressed").getAsString());
+            byte[] gzip = xyz.gianlu.librespot.common.Base64.decode(payload.get("compressed").getAsString(), xyz.gianlu.librespot.common.Base64.DEFAULT);
             try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip))) {
                 payload = JsonParser.parseReader(new InputStreamReader(in)).getAsJsonObject();
             } catch (IOException ex) {

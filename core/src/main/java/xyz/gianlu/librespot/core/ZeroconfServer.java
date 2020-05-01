@@ -149,7 +149,7 @@ public class ZeroconfServer implements Closeable {
     public static String getUsefulHostname() throws UnknownHostException {
         String host = InetAddress.getLocalHost().getHostName();
         if (Objects.equals(host, "localhost")) {
-            host = org.apache.commons.codec.binary.Base64.encodeBase64String(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            host = xyz.gianlu.librespot.common.Base64.encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray(), xyz.gianlu.librespot.common.Base64.DEFAULT) + ".local";
             LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
             return host;
         }
@@ -241,7 +241,7 @@ public class ZeroconfServer implements Closeable {
         info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
-        info.addProperty("publicKey", org.apache.commons.codec.binary.Base64.encodeBase64String(keys.publicKeyArray()));
+        info.addProperty("publicKey", xyz.gianlu.librespot.common.Base64.encodeToString(keys.publicKeyArray(), xyz.gianlu.librespot.common.Base64.DEFAULT));
         info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
 
         out.write(httpVersion.getBytes());
@@ -287,8 +287,8 @@ public class ZeroconfServer implements Closeable {
             }
         }
 
-        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(org.apache.commons.codec.binary.Base64.decodeBase64(clientKeyStr)));
-        byte[] blobBytes = org.apache.commons.codec.binary.Base64.decodeBase64(blobStr);
+        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(xyz.gianlu.librespot.common.Base64.decode(clientKeyStr, xyz.gianlu.librespot.common.Base64.DEFAULT)));
+        byte[] blobBytes = xyz.gianlu.librespot.common.Base64.decode(blobStr, xyz.gianlu.librespot.common.Base64.DEFAULT);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
         byte[] encrypted = Arrays.copyOfRange(blobBytes, 16, blobBytes.length - 20);
         byte[] checksum = Arrays.copyOfRange(blobBytes, blobBytes.length - 20, blobBytes.length);

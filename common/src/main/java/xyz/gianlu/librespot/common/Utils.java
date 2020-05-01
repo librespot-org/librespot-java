@@ -292,11 +292,11 @@ public final class Utils {
 
     @NotNull
     public static String toBase64(@NotNull ByteString bytes) {
-        return org.apache.commons.codec.binary.Base64.encodeBase64String(bytes.toByteArray());
+        return xyz.gianlu.librespot.common.Base64.encodeToString(bytes.toByteArray(), xyz.gianlu.librespot.common.Base64.DEFAULT);
     }
 
     @NotNull
     public static ByteString fromBase64(@NotNull String str) {
-        return ByteString.copyFrom(org.apache.commons.codec.binary.Base64.decodeBase64(str));
+        return ByteString.copyFrom(xyz.gianlu.librespot.common.Base64.decode(str, xyz.gianlu.librespot.common.Base64.DEFAULT));
     }
 }

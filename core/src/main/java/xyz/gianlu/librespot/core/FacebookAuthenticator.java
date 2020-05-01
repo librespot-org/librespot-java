@@ -82,7 +82,7 @@ public class FacebookAuthenticator implements Closeable {
         credentials = Authentication.LoginCredentials.newBuilder()
                 .setUsername(data.get("username").getAsString())
                 .setTyp(Authentication.AuthenticationType.forNumber(data.get("auth_type").getAsInt()))
-                .setAuthData(ByteString.copyFrom(org.apache.commons.codec.binary.Base64.decodeBase64(data.get("encoded_auth_blob").getAsString())))
+                .setAuthData(ByteString.copyFrom(xyz.gianlu.librespot.common.Base64.decode(data.get("encoded_auth_blob").getAsString(), xyz.gianlu.librespot.common.Base64.DEFAULT)))
                 .build();
 
         synchronized (credentialsLock) {
