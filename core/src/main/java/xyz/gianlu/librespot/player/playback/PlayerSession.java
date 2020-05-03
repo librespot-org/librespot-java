@@ -57,11 +57,21 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * @param playable The content for the new entry
      */
     private void add(@NotNull PlayableId playable, boolean preloaded) {
-        queue.add(new PlayerQueueEntry(session, sink.getFormat(), playable, preloaded, this));
+        PlayerQueueEntry entry = new PlayerQueueEntry(session, sink.getFormat(), playable, preloaded, this);
+        queue.add(entry);
+        if (queue.next() == entry) {
+            PlayerQueueEntry head = queue.head();
+            if (head != null && head.crossfade != null) {
+                boolean customFade = entry.playable.equals(head.crossfade.fadeOutPlayable());
+                CrossfadeController.FadeInterval fadeOut;
+                if ((fadeOut = head.crossfade.selectFadeOut(Reason.TRACK_DONE, customFade)) != null)
+                    head.notifyInstant(PlayerQueueEntry.INSTANT_START_NEXT, fadeOut.start());
+            }
+        }
     }
 
     /**
-     * Adds the next content to the queue.
+     * Adds the next content to the queue (considered as preloading).
      */
     private void addNext() {
         PlayableId playable = listener.nextPlayableDoNotSet();
@@ -163,10 +173,6 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     public void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull TrackOrEpisode metadata) {
         LOGGER.trace("{} finished loading.", entry);
         if (entry == queue.head()) listener.finishedLoading(metadata);
-
-        CrossfadeController.FadeInterval fadeOut;
-        if (entry.crossfade != null && (fadeOut = entry.crossfade.selectFadeOut(Reason.TRACK_DONE)) != null)
-            entry.notifyInstant(PlayerQueueEntry.INSTANT_START_NEXT, fadeOut.start());
     }
 
     @Override
@@ -216,21 +222,28 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         if (head == null)
             throw new IllegalStateException();
 
+        boolean customFade = false;
         if (head.prev != null) {
             head.prev.endReason = reason;
-            CrossfadeController.FadeInterval fadeOut;
-            if (head.prev.crossfade == null || (fadeOut = head.prev.crossfade.selectFadeOut(reason)) == null) {
+            if (head.prev.crossfade == null) {
                 head.prev.close();
+                customFade = false;
             } else {
-                if (fadeOut instanceof CrossfadeController.PartialFadeInterval) {
-                    try {
-                        int time = head.prev.getTime();
-                        head.prev.notifyInstant(PlayerQueueEntry.INSTANT_END, ((CrossfadeController.PartialFadeInterval) fadeOut).end(time));
-                    } catch (Codec.CannotGetTimeException ex) {
-                        head.prev.close();
-                    }
+                customFade = head.playable.equals(head.prev.crossfade.fadeOutPlayable());
+                CrossfadeController.FadeInterval fadeOut;
+                if (head.prev.crossfade == null || (fadeOut = head.prev.crossfade.selectFadeOut(reason, customFade)) == null) {
+                    head.prev.close();
                 } else {
-                    head.prev.notifyInstant(PlayerQueueEntry.INSTANT_END, fadeOut.end());
+                    if (fadeOut instanceof CrossfadeController.PartialFadeInterval) {
+                        try {
+                            int time = head.prev.getTime();
+                            head.prev.notifyInstant(PlayerQueueEntry.INSTANT_END, ((CrossfadeController.PartialFadeInterval) fadeOut).end(time));
+                        } catch (Codec.CannotGetTimeException ex) {
+                            head.prev.close();
+                        }
+                    } else {
+                        head.prev.notifyInstant(PlayerQueueEntry.INSTANT_END, fadeOut.end());
+                    }
                 }
             }
         }
@@ -240,7 +253,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
             throw new IllegalStateException("No output is available for " + head);
 
         CrossfadeController.FadeInterval fadeIn;
-        if (head.crossfade != null && (fadeIn = head.crossfade.selectFadeIn(reason)) != null) {
+        if (head.crossfade != null && (fadeIn = head.crossfade.selectFadeIn(reason, customFade)) != null) {
             head.seek(pos = fadeIn.start());
         } else {
             head.seek(pos);

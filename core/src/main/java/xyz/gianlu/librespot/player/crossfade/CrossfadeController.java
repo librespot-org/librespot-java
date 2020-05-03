@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.EventService.PlaybackMetrics.Reason;
+import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public class CrossfadeController {
     private final Map<Reason, FadeInterval> fadeOutMap = new HashMap<>(8);
     private final Map<Reason, FadeInterval> fadeInMap = new HashMap<>(8);
     private final int defaultFadeDuration;
+    private final PlayableId fadeOutPlayable;
     private FadeInterval fadeIn = null;
     private FadeInterval fadeOut = null;
     private FadeInterval activeInterval = null;
@@ -30,7 +32,9 @@ public class CrossfadeController {
         this.playbackId = playbackId;
         trackDuration = duration;
         defaultFadeDuration = conf.crossfadeDuration();
-        // Didn't ever find an use for "audio.fade_out_uri"
+
+        String fadeOutUri = metadata.get("audio.fade_out_uri");
+        fadeOutPlayable = fadeOutUri == null ? null : PlayableId.fromUri(fadeOutUri);
 
         populateFadeIn(metadata);
         populateFadeOut(metadata);
@@ -133,29 +137,45 @@ public class CrossfadeController {
     /**
      * Select the next fade in interval. This field will be cleared once the interval has started and then left.
      *
-     * @param reason The reason behind this change, used to get the correct interval
+     * @param reason     The reason behind this change, used to get the correct interval
+     * @param customFade Whether the previous track was {@link CrossfadeController#fadeOutPlayable()}
      * @return The interval that has just been selected
      */
     @Nullable
-    public FadeInterval selectFadeIn(@NotNull Reason reason) {
-        fadeIn = fadeInMap.get(reason);
-        activeInterval = null;
-        LOGGER.debug("Changed fade in. {curr: {}, why: {}, id: {}}", fadeIn, reason, playbackId);
-        return fadeIn;
+    public FadeInterval selectFadeIn(@NotNull Reason reason, boolean customFade) {
+        if ((!customFade && fadeOutPlayable != null) && reason == Reason.TRACK_DONE) {
+            fadeIn = null;
+            activeInterval = null;
+            LOGGER.debug("Cleared fade in because custom fade doesn't apply. {id: {}}", playbackId);
+            return null;
+        } else {
+            fadeIn = fadeInMap.get(reason);
+            activeInterval = null;
+            LOGGER.debug("Changed fade in. {curr: {}, custom: {}, why: {}, id: {}}", fadeIn, customFade, reason, playbackId);
+            return fadeIn;
+        }
     }
 
     /**
      * Select the next fade out interval. This field will be cleared once the interval has started and then left.
      *
-     * @param reason The reason behind this change, used to get the correct interval
+     * @param reason     The reason behind this change, used to get the correct interval
+     * @param customFade Whether the next track is {@link CrossfadeController#fadeOutPlayable()}
      * @return The interval that has just been selected
      */
     @Nullable
-    public FadeInterval selectFadeOut(@NotNull Reason reason) {
-        fadeOut = fadeOutMap.get(reason);
-        activeInterval = null;
-        LOGGER.debug("Changed fade out. {curr: {}, why: {}, id: {}}", fadeOut, reason, playbackId);
-        return fadeOut;
+    public FadeInterval selectFadeOut(@NotNull Reason reason, boolean customFade) {
+        if ((!customFade && fadeOutPlayable != null) && reason == Reason.TRACK_DONE) {
+            fadeOut = null;
+            activeInterval = null;
+            LOGGER.debug("Cleared fade out because custom fade doesn't apply. {id: {}}", playbackId);
+            return null;
+        } else {
+            fadeOut = fadeOutMap.get(reason);
+            activeInterval = null;
+            LOGGER.debug("Changed fade out. {curr: {}, custom: {}, why: {}, id: {}}", fadeOut, customFade, reason, playbackId);
+            return fadeOut;
+        }
     }
 
     /**
@@ -186,6 +206,14 @@ public class CrossfadeController {
      */
     public int fadeOverlap() {
         return fadeOverlap;
+    }
+
+    /**
+     * @return The content that should be played next for custom fade in/out to apply.
+     */
+    @Nullable
+    public PlayableId fadeOutPlayable() {
+        return fadeOutPlayable;
     }
 
     /**
