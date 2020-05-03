@@ -223,13 +223,19 @@ public class ZeroconfServer implements Closeable {
     }
 
     private boolean hasValidSession() {
-        boolean valid = session != null && session.isValid();
-        if (!valid) {
+        try {
+            boolean valid = session != null && session.isValid();
+            if (!valid) {
+                session = null;
+                connectionTime = 0;
+            }
+
+            return valid;
+        } catch (IllegalStateException ex) {
             session = null;
             connectionTime = 0;
+            return false;
         }
-
-        return valid;
     }
 
     private boolean hasActiveSession() {
