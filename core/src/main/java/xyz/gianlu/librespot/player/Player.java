@@ -28,9 +28,11 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
 import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
+import xyz.gianlu.librespot.player.mixing.LineHelper;
 import xyz.gianlu.librespot.player.playback.PlayerMetrics;
 import xyz.gianlu.librespot.player.playback.PlayerSession;
 
+import javax.sound.sampled.LineUnavailableException;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -526,7 +528,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void sinkError(@NotNull Exception ex) {
-        LOGGER.fatal("Sink error!", ex);
+        if (ex instanceof LineHelper.MixerException || ex instanceof LineUnavailableException) {
+            LOGGER.fatal("An error with the mixer occurred. This is likely a configuration issue, please consult the project repository.", ex);
+        } else {
+            LOGGER.fatal("Sink error!", ex);
+        }
+
         panicState(PlaybackMetrics.Reason.TRACK_ERROR);
     }
 

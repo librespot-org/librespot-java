@@ -31,7 +31,7 @@ public final class LineHelper {
         }
 
         if (mixers.isEmpty())
-            throw new MixerException(String.format("Couldn't find a suitable mixer, openLine: %s, available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
+            throw new MixerException(String.format("Couldn't find a suitable mixer, openLine: '%s', available: %s", info, Arrays.toString(AudioSystem.getMixerInfo())));
         else
             return mixers;
     }
