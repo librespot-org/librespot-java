@@ -8,6 +8,7 @@ import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.Connect;
 import com.spotify.connectstate.Player;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -157,7 +158,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
-            LOGGER.debug("Received cluster update at {}: {}", () -> now, () -> TextFormat.shortDebugString(update));
+            LOGGER.trace("Received cluster update at {}: {}", () -> now, () -> TextFormat.shortDebugString(update));
 
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
@@ -247,8 +248,13 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
         try {
             session.api().putConnectState(connectionId, req);
-            LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}, request: {}}", req::getClientSideTimestamp,
-                    () -> connectionId.substring(0, 6), req::getPutStateReason, () -> TextFormat.shortDebugString(putState));
+            if (LOGGER.getLevel().isLessSpecificThan(Level.TRACE)) {
+                LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}, request: {}}", req.getClientSideTimestamp(),
+                        connectionId.substring(0, 6), req.getPutStateReason(), TextFormat.shortDebugString(putState));
+            } else {
+                LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}}", req.getClientSideTimestamp(),
+                        connectionId.substring(0, 6), req.getPutStateReason());
+            }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed updating state.", ex);
         }

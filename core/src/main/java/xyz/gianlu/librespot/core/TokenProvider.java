@@ -86,7 +86,7 @@ public final class TokenProvider {
         public String toString() {
             return "StoredToken{" +
                     "expiresIn=" + expiresIn +
-                    ", accessToken='" + accessToken + '\'' +
+                    ", accessToken='" + accessToken.substring(0, 10) + "[truncated]'" +
                     ", scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
