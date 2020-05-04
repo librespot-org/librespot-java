@@ -5,9 +5,9 @@ This module depends on `librespot-core` and provides an API to interact with the
 
 ## Available endpoints
 All the endpoints will respond with `200` if successful or:
-- `204`, if there isn't any active session (Zeroconf only)
-- `500`, if the session is invalid
-- `503`, if the session is reconnecting (`Retry-After` is always 10 seconds)
+- `204` If there isn't any active session (Zeroconf only)
+- `500` If the session is invalid
+- `503` If the session is reconnecting (`Retry-After` is always 10 seconds)
 
 ### Player
 - `POST /player/load` Load a track from a given URI. The request body should contain two parameters: `uri` and `play`.
@@ -19,6 +19,7 @@ All the endpoints will respond with `200` if successful or:
 - `POST /player/volume-up` Up the volume a little bit.
 - `POST /player/volume-down` Lower the volume a little bit.
 - `POST /player/current` Retrieve information about the current track (metadata and time).
+- `POST /player/tracks` Retrieve all the tracks in the player state with metadata, you can specify `withQueue`.
 
 ### Metadata
 - `POST /metadata/{type}/{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.

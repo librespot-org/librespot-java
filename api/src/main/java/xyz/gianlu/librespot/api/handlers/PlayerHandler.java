@@ -24,7 +24,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         super(wrapper);
     }
 
-    private void setVolume(HttpServerExchange exchange, Session session, @Nullable String valStr) {
+    private static void setVolume(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
         if (valStr == null) {
             Utils.invalidParameter(exchange, "volume");
             return;
@@ -46,7 +46,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         session.player().setVolume(val);
     }
 
-    private void load(HttpServerExchange exchange, Session session, @Nullable String uri, boolean play) {
+    private static void load(HttpServerExchange exchange, @NotNull Session session, @Nullable String uri, boolean play) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
@@ -55,7 +55,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         session.player().load(uri, play);
     }
 
-    private void current(HttpServerExchange exchange, Session session) {
+    private static void current(HttpServerExchange exchange, @NotNull Session session) {
         PlayableId id;
         try {
             id = session.player().currentPlayable();
@@ -89,6 +89,16 @@ public final class PlayerHandler extends AbsSessionHandler {
             return;
         }
 
+        exchange.getResponseSender().send(obj.toString());
+    }
+
+    private static void tracks(HttpServerExchange exchange, @NotNull Session session, boolean withQueue) {
+        Player.Tracks tracks = session.player().tracks(withQueue);
+
+        JsonObject obj = new JsonObject();
+        obj.add("current", tracks.current == null ? null : ProtobufToJson.convert(tracks.current));
+        obj.add("next", ProtobufToJson.convertList(tracks.next));
+        obj.add("prev", ProtobufToJson.convertList(tracks.previous));
         exchange.getResponseSender().send(obj.toString());
     }
 
@@ -141,13 +151,16 @@ public final class PlayerHandler extends AbsSessionHandler {
             case NEXT:
                 session.player().next();
                 return;
+            case TRACKS:
+                tracks(exchange, session, Utils.getFirstBoolean(params, "withQueue"));
+                return;
             default:
                 throw new IllegalArgumentException(cmd.name());
         }
     }
 
     private enum Command {
-        LOAD("load"), PAUSE("pause"), RESUME("resume"),
+        LOAD("load"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
         NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
         VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current");
 

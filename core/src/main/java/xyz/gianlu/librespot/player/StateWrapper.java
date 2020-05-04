@@ -756,6 +756,38 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
+    public List<ContextTrack> getNextTracks(boolean withQueue) {
+        if (tracksKeeper == null) return Collections.emptyList();
+
+        int index = tracksKeeper.getCurrentTrackIndex();
+        int size = tracksKeeper.tracks.size();
+        List<ContextTrack> list = new ArrayList<>(size - index);
+        for (int i = index + 1; i < size; i++)
+            list.add(tracksKeeper.tracks.get(i));
+
+        if (withQueue) list.addAll(0, tracksKeeper.queue);
+
+        return list;
+    }
+
+    @Nullable
+    public ContextTrack getCurrentTrack() {
+        return tracksKeeper == null ? null : tracksKeeper.tracks.get(tracksKeeper.getCurrentTrackIndex());
+    }
+
+    @NotNull
+    public List<ContextTrack> getPrevTracks() {
+        if (tracksKeeper == null) return Collections.emptyList();
+
+        int index = tracksKeeper.getCurrentTrackIndex();
+        List<ContextTrack> list = new ArrayList<>(index);
+        for (int i = 0; i < index; i++)
+            list.add(tracksKeeper.tracks.get(i));
+
+        return list;
+    }
+
+    @NotNull
     private String renewSessionId() {
         String sessionId = generateSessionId(session.random());
         state.setSessionId(sessionId);

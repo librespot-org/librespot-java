@@ -607,6 +607,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     /**
+     * @return A {@link Tracks} instance with the current player queue
+     */
+    @NotNull
+    public Tracks tracks(boolean withQueue) {
+        return new Tracks(state.getPrevTracks(), state.getCurrentTrack(), state.getNextTracks(withQueue));
+    }
+
+    /**
      * @return The metadata for the current entry or {@code null} if not available.
      */
     @Nullable
@@ -714,11 +722,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
     }
 
-
-    // ================================ //
-    // ============ Close! ============ //
-    // ================================ //
-
     @Override
     public void close() {
         if (playerSession != null)
@@ -733,6 +736,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         scheduler.shutdown();
         events.close();
     }
+
+
+    // ================================ //
+    // ============ Close! ============ //
+    // ================================ //
 
     public interface Configuration {
         @NotNull
@@ -789,6 +797,21 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         void onInactiveSession(boolean timeout);
 
         void onVolumeChanged(@Range(from = 0, to = 1) float volume);
+    }
+
+    /**
+     * A simple object holding some {@link ContextTrack}s related to the current player state.
+     */
+    public static class Tracks {
+        public final List<ContextTrack> previous;
+        public final ContextTrack current;
+        public final List<ContextTrack> next;
+
+        public Tracks(@NotNull List<ContextTrack> previous, @Nullable ContextTrack current, @NotNull List<ContextTrack> next) {
+            this.previous = previous;
+            this.current = current;
+            this.next = next;
+        }
     }
 
     /**
