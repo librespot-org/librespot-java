@@ -137,6 +137,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
     }
 
+    public void addToQueue(@NotNull String uri) {
+        state.addToQueue(ContextTrack.newBuilder().setUri(uri).build());
+        state.updated();
+    }
+
+    public void removeFromQueue(@NotNull String uri) {
+        state.removeFromQueue(uri);
+        state.updated();
+    }
+
 
     // ================================ //
     // ======== Internal state ======== //

@@ -20,6 +20,8 @@ All the endpoints will respond with `200` if successful or:
 - `POST /player/volume-down` Lower the volume a little bit.
 - `POST /player/current` Retrieve information about the current track (metadata and time).
 - `POST /player/tracks` Retrieve all the tracks in the player state with metadata, you can specify `withQueue`.
+- `POST /player/addToQueue` Add a track to the queue, specified by `uri`.
+- `POST /player/removeFromQueue` Remove a track from the queue, specified by `uri`.
 
 ### Metadata
 - `POST /metadata/{type}/{uri}` Retrieve metadata. `type` can be one of `episode`, `track`, `album`, `show`, `artist` or `playlist`, `uri` is the standard Spotify uri.

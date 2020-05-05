@@ -102,6 +102,24 @@ public final class PlayerHandler extends AbsSessionHandler {
         exchange.getResponseSender().send(obj.toString());
     }
 
+    private static void addToQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+        if (uri == null) {
+            Utils.invalidParameter(exchange, "uri");
+            return;
+        }
+
+        session.player().addToQueue(uri);
+    }
+
+    private static void removeFromQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+        if (uri == null) {
+            Utils.invalidParameter(exchange, "uri");
+            return;
+        }
+
+        session.player().removeFromQueue(uri);
+    }
+
     @Override
     protected void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception {
         exchange.startBlocking();
@@ -154,6 +172,12 @@ public final class PlayerHandler extends AbsSessionHandler {
             case TRACKS:
                 tracks(exchange, session, Utils.getFirstBoolean(params, "withQueue"));
                 return;
+            case ADD_TO_QUEUE:
+                addToQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                break;
+            case REMOVE_FROM_QUEUE:
+                removeFromQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                break;
             default:
                 throw new IllegalArgumentException(cmd.name());
         }
@@ -162,7 +186,8 @@ public final class PlayerHandler extends AbsSessionHandler {
     private enum Command {
         LOAD("load"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
         NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
-        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current");
+        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"),
+        ADD_TO_QUEUE("addToQueue"), REMOVE_FROM_QUEUE("removeFromQueue");
 
         private final String name;
 

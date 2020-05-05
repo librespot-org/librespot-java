@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.Connect;
 import com.spotify.connectstate.Player.*;
@@ -581,6 +582,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         tracksKeeper.addToQueue(track);
     }
 
+    synchronized void removeFromQueue(@NotNull String uri) {
+        tracksKeeper.removeFromQueue(uri);
+    }
+
     synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
         tracksKeeper.setQueue(prevTracks, nextTracks);
     }
@@ -974,6 +979,15 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             queue.add(track.toBuilder().putMetadata("is_queued", "true").build());
             updatePrevNextTracks();
             updateTrackCount();
+        }
+
+        synchronized void removeFromQueue(@NotNull String uri) {
+            ByteString gid = ByteString.copyFrom(PlayableId.fromUri(uri).getGid());
+
+            if (queue.removeIf(track -> (track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && gid.equals(track.getGid())))) {
+                updateTrackCount();
+                updatePrevNextTracks();
+            }
         }
 
         synchronized void setQueue(@Nullable List<ContextTrack> prevTracks, @Nullable List<ContextTrack> nextTracks) {
