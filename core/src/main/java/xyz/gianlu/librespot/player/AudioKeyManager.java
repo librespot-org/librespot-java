@@ -122,13 +122,13 @@ public final class AudioKeyManager extends PacketsManager {
         }
 
         @Nullable
-        byte[] waitResponse() {
+        byte[] waitResponse() throws IOException {
             synchronized (reference) {
                 try {
                     reference.wait(AUDIO_KEY_REQUEST_TIMEOUT);
                     return reference.get();
                 } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
+                    throw new IOException(ex); // Wrapping to avoid cluttering the call stack
                 }
             }
         }

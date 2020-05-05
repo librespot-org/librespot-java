@@ -24,12 +24,8 @@ public enum AudioQuality {
     @Nullable
     public static Metadata.AudioFile getAnyVorbisFile(@NotNull List<Metadata.AudioFile> files) {
         for (Metadata.AudioFile file : files) {
-            Metadata.AudioFile.Format fmt = file.getFormat();
-            if (fmt == Metadata.AudioFile.Format.OGG_VORBIS_96
-                    || fmt == Metadata.AudioFile.Format.OGG_VORBIS_160
-                    || fmt == Metadata.AudioFile.Format.OGG_VORBIS_320) {
+            if (file.hasFormat() && SuperAudioFormat.get(file.getFormat()) == SuperAudioFormat.VORBIS)
                 return file;
-            }
         }
 
         return null;
@@ -45,7 +41,7 @@ public enum AudioQuality {
     @Nullable
     public Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files) {
         for (Metadata.AudioFile file : files) {
-            if (file.getFormat() == this.format)
+            if (file.hasFormat() && file.getFormat() == this.format)
                 return file;
         }
 

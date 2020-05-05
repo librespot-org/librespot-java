@@ -28,7 +28,7 @@ public class VorbisOnlyAudioQuality implements AudioQualityPreference {
                 LOGGER.fatal("Couldn't find any Vorbis file, available: {}", AudioQuality.listFormats(files));
                 return null;
             } else {
-                LOGGER.warn("Using {} because preferred {} couldn't be found.", file, preferred);
+                LOGGER.warn("Using {} because preferred {} couldn't be found.", file.getFormat(), preferred);
             }
         }
 
