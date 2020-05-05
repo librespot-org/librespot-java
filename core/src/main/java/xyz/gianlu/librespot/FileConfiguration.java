@@ -219,7 +219,23 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public @NotNull AudioQuality preferredQuality() {
-        return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+        try {
+            return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+        } catch (IllegalArgumentException ex) { // Retro-compatibility
+            LOGGER.warn("Please update the `player.preferredAudioQuality` option to either `NORMAL`, `HIGH` or `VERY_HIGH`.");
+
+            String val = config.get("player.preferredAudioQuality");
+            switch (val) {
+                case "VORBIS_96":
+                    return AudioQuality.NORMAL;
+                case "VORBIS_160":
+                    return AudioQuality.HIGH;
+                case "VORBIS_320":
+                    return AudioQuality.VERY_HIGH;
+                default:
+                    throw ex;
+            }
+        }
     }
 
     @Override

@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
 
@@ -19,19 +20,28 @@ public class VorbisOnlyAudioQuality implements AudioQualityPreference {
         this.preferred = preferred;
     }
 
-    @Override
-    public @Nullable Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files) {
-        Metadata.AudioFile file = preferred.getFile(files);
-        if (file == null) {
-            file = AudioQuality.getAnyVorbisFile(files);
-            if (file == null) {
-                LOGGER.fatal("Couldn't find any Vorbis file, available: {}", AudioQuality.listFormats(files));
-                return null;
-            } else {
-                LOGGER.warn("Using {} because preferred {} couldn't be found.", file.getFormat(), preferred);
-            }
+    @Nullable
+    public static Metadata.AudioFile getVorbisFile(@NotNull List<Metadata.AudioFile> files) {
+        for (Metadata.AudioFile file : files) {
+            if (file.hasFormat() && SuperAudioFormat.get(file.getFormat()) == SuperAudioFormat.VORBIS)
+                return file;
         }
 
-        return file;
+        return null;
+    }
+
+    @Override
+    public @Nullable Metadata.AudioFile getFile(@NotNull List<Metadata.AudioFile> files) {
+        List<Metadata.AudioFile> matches = preferred.getMatches(files);
+        Metadata.AudioFile vorbis = getVorbisFile(matches);
+        if (vorbis == null) {
+            vorbis = getVorbisFile(files);
+            if (vorbis != null)
+                LOGGER.warn("Using {} because preferred {} couldn't be found.", vorbis.getFormat(), preferred);
+            else
+                LOGGER.fatal("Couldn't find any Vorbis file, available: {}", Utils.formatsToString(files));
+        }
+
+        return vorbis;
     }
 }

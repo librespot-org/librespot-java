@@ -18,7 +18,6 @@ import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
 import xyz.gianlu.librespot.player.ContentRestrictedException;
-import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.AudioQualityPreference;
 import xyz.gianlu.librespot.player.codecs.NormalizationData;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnFeedHelper;
@@ -138,7 +137,7 @@ public final class PlayableContentFeeder {
     private LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPreference audioQualityPreference, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         Metadata.AudioFile file = audioQualityPreference.getFile(track.getFileList());
         if (file == null) {
-            LOGGER.fatal("Couldn't find any suitable audio file, available: {}", AudioQuality.listFormats(track.getFileList()));
+            LOGGER.fatal("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(track.getFileList()));
             throw new FeederException();
         }
 
@@ -154,7 +153,7 @@ public final class PlayableContentFeeder {
         } else {
             Metadata.AudioFile file = audioQualityPreference.getFile(episode.getAudioList());
             if (file == null) {
-                LOGGER.fatal("Couldn't find any suitable audio file, available: {}", AudioQuality.listFormats(episode.getAudioList()));
+                LOGGER.fatal("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(episode.getAudioList()));
                 throw new FeederException();
             }
 

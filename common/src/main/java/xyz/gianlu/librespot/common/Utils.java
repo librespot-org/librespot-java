@@ -263,6 +263,13 @@ public final class Utils {
     }
 
     @NotNull
+    public static List<Metadata.AudioFile.Format> formatsToString(@NotNull List<Metadata.AudioFile> files) {
+        List<Metadata.AudioFile.Format> list = new ArrayList<>(files.size());
+        for (Metadata.AudioFile file : files) list.add(file.getFormat());
+        return list;
+    }
+
+    @NotNull
     public static String artistsToString(List<Metadata.Artist> artists) {
         StringBuilder builder = new StringBuilder();
         boolean first = true;
