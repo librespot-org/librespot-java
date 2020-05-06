@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.mercury.model;
 
+import com.google.protobuf.ByteString;
 import com.spotify.connectstate.Player;
 import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +26,19 @@ public interface PlayableId {
         } else {
             throw new IllegalArgumentException("Unknown uri: " + uri);
         }
+    }
+
+    static int indexOfTrack(@NotNull List<ContextTrack> tracks, @NotNull PlayableId id) {
+        ByteString gid = ByteString.copyFrom(id.getGid());
+        String uri = id.toSpotifyUri();
+
+        for (int i = 0; i < tracks.size(); i++) {
+            ContextTrack track = tracks.get(i);
+            if ((track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && gid.equals(track.getGid())))
+                return i;
+        }
+
+        return -1;
     }
 
     static boolean canPlaySomething(@NotNull List<ContextTrack> tracks) {

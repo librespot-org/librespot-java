@@ -594,9 +594,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     Map<String, String> metadataFor(@NotNull PlayableId id) throws IllegalArgumentException {
         if (tracksKeeper == null) throw new IllegalStateException();
 
-        int index = ProtoUtils.indexOfTrackByUri(tracksKeeper.tracks, id.toSpotifyUri());
+        ContextTrack current;
+        if (id.equals(getCurrentPlayable()) && (current = getCurrentTrack()) != null)
+            return current.getMetadataMap();
+
+        int index = PlayableId.indexOfTrack(tracksKeeper.tracks, id);
         if (index == -1) {
-            index = ProtoUtils.indexOfTrackByUri(tracksKeeper.queue, id.toSpotifyUri());
+            index = PlayableId.indexOfTrack(tracksKeeper.queue, id);
             if (index == -1) throw new IllegalArgumentException(id.toString());
         }
 
@@ -1305,7 +1309,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
                 PlayableId currentlyPlaying = getCurrentPlayableOrThrow();
                 shuffle.shuffle(tracks, true);
-                shuffleKeepIndex = ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri());
+                shuffleKeepIndex = PlayableId.indexOfTrack(tracks, currentlyPlaying);
                 Collections.swap(tracks, 0, shuffleKeepIndex);
                 setCurrentTrackIndex(0);
 
@@ -1316,7 +1320,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     if (shuffleKeepIndex != -1) Collections.swap(tracks, 0, shuffleKeepIndex);
 
                     shuffle.unshuffle(tracks);
-                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, currentlyPlaying.toSpotifyUri()));
+                    setCurrentTrackIndex(PlayableId.indexOfTrack(tracks, currentlyPlaying));
 
                     LOGGER.trace("Unshuffled using Fisher-Yates.");
                 } else {
@@ -1326,7 +1330,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     pages = PagesLoader.from(session, context.uri());
                     loadAllTracks();
 
-                    setCurrentTrackIndex(ProtoUtils.indexOfTrackByUri(tracks, id.toSpotifyUri()));
+                    setCurrentTrackIndex(PlayableId.indexOfTrack(tracks, id));
                     LOGGER.trace("Unshuffled by reloading context.");
                 }
             }
