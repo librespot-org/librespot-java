@@ -20,7 +20,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -34,6 +34,9 @@
                                     <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                                     <mainClass>xyz.gianlu.librespot.Main</mainClass>
                                 </manifest>
+                                <manifestEntries>
+                                    <Multi-Release>true</Multi-Release>
+                                </manifestEntries>
                             </archive>
                             <descriptorRefs>
                                 <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -75,14 +78,14 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>4.3.1</version>
+            <version>4.6.0</version>
         </dependency>
 
         <!-- TOML configuration -->
         <dependency>
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
-            <version>3.6.2</version>
+            <version>3.6.3</version>
         </dependency>
 
         <!-- Commons Net (NTP) -->
