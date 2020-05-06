@@ -39,7 +39,7 @@ public class CircularBuffer implements Closeable {
     }
 
     public void write(byte[] b, int off, int len) {
-        if (closed) throw new IllegalStateException("Buffer is closed!");
+        if (closed) return;
 
         lock.lock();
 
@@ -62,7 +62,7 @@ public class CircularBuffer implements Closeable {
 
     @TestOnly
     public void write(byte value) {
-        if (closed) throw new IllegalStateException("Buffer is closed!");
+        if (closed) return;
 
         lock.lock();
 
