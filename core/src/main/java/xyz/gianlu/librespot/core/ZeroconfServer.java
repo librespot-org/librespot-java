@@ -32,7 +32,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Gianlu
@@ -96,7 +95,6 @@ public class ZeroconfServer implements Closeable {
     private final List<SessionListener> sessionListeners;
     private final Zeroconf zeroconf;
     private volatile Session session;
-    private volatile long connectionTime;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -219,27 +217,17 @@ public class ZeroconfServer implements Closeable {
         if (session != null) session.close();
 
         session = null;
-        connectionTime = 0;
     }
 
     private boolean hasValidSession() {
         try {
             boolean valid = session != null && session.isValid();
-            if (!valid) {
-                session = null;
-                connectionTime = 0;
-            }
-
+            if (!valid) session = null;
             return valid;
         } catch (IllegalStateException ex) {
             session = null;
-            connectionTime = 0;
             return false;
         }
-    }
-
-    private boolean hasActiveSession() {
-        return hasValidSession() && session.isActive();
     }
 
     private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
@@ -281,16 +269,6 @@ public class ZeroconfServer implements Closeable {
         if (clientKeyStr == null || clientKeyStr.isEmpty()) {
             LOGGER.fatal("Missing clientKey!");
             return;
-        }
-
-        if (hasActiveSession() && System.currentTimeMillis() - connectionTime > TimeUnit.SECONDS.toMillis(60)) {
-            if (session.username().equals(username)) {
-                LOGGER.debug("Dropped connection attempt because user is already connected. {username: {}}", session.username());
-                return;
-            } else {
-                session.close();
-                LOGGER.trace("Closed previous session to accept new. {deviceId: {}}", session.deviceId());
-            }
         }
 
         byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
@@ -346,7 +324,6 @@ public class ZeroconfServer implements Closeable {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
 
             session = Session.from(inner);
-            connectionTime = System.currentTimeMillis();
             LOGGER.info("Accepted new user from {}. {deviceId: {}}", params.get("deviceName"), session.deviceId());
 
             session.connect();
@@ -450,7 +427,7 @@ public class ZeroconfServer implements Closeable {
                 headers.put(split[0], split[1].trim());
             }
 
-            if (!hasActiveSession())
+            if (!hasValidSession())
                 LOGGER.trace("Handling request: {} {} {}, headers: {}", method, path, httpVersion, headers);
 
             Map<String, String> params;
