@@ -82,8 +82,8 @@ public class DealerClient implements Closeable {
         JsonObject payload = obj.getAsJsonObject("payload");
         if ("gzip".equals(headers.get("Transfer-Encoding"))) {
             byte[] gzip = Base64.getDecoder().decode(payload.get("compressed").getAsString());
-            try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip))) {
-                payload = JsonParser.parseReader(new InputStreamReader(in)).getAsJsonObject();
+            try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip)); Reader reader = new InputStreamReader(in)) {
+                payload = JsonParser.parseReader(reader).getAsJsonObject();
             } catch (IOException ex) {
                 LOGGER.warn("Failed decompressing request! {mid: {}, key: {}}", mid, key, ex);
                 return;

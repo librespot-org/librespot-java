@@ -932,12 +932,14 @@ public final class Session implements Closeable, SubListener {
             if (authConf.storeCredentials()) {
                 File storeFile = authConf.credentialsFile();
                 if (storeFile != null && storeFile.exists()) {
-                    JsonObject obj = JsonParser.parseReader(new FileReader(storeFile)).getAsJsonObject();
-                    loginCredentials = Authentication.LoginCredentials.newBuilder()
-                            .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
-                            .setUsername(obj.get("username").getAsString())
-                            .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
-                            .build();
+                    try (FileReader reader = new FileReader(storeFile)) {
+                        JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+                        loginCredentials = Authentication.LoginCredentials.newBuilder()
+                                .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
+                                .setUsername(obj.get("username").getAsString())
+                                .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                                .build();
+                    }
                 }
             }
 

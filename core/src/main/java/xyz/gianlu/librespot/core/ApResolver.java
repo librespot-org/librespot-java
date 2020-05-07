@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * @author Gianlu
  */
-public class ApResolver {
+public final class ApResolver {
     private static final String BASE_URL = "http://apresolve.spotify.com/";
     private static final Map<String, List<String>> pool = new HashMap<>(3);
     private static final Logger LOGGER = LogManager.getLogger(ApResolver.class);
@@ -52,8 +53,8 @@ public class ApResolver {
         HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
         conn.connect();
 
-        try {
-            JsonObject obj = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+        try (Reader reader = new InputStreamReader(conn.getInputStream())) {
+            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
             HashMap<String, List<String>> map = new HashMap<>();
             for (String type : types)
                 map.put(type, getUrls(obj, type));

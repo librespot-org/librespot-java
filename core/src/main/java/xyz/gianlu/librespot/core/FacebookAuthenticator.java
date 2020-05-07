@@ -22,7 +22,7 @@ import java.util.Base64;
 /**
  * @author Gianlu
  */
-public class FacebookAuthenticator implements Closeable {
+public final class FacebookAuthenticator implements Closeable {
     private static final URL LOGIN_SPOTIFY;
     private static final Logger LOGGER = LogManager.getLogger(FacebookAuthenticator.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
@@ -42,9 +42,9 @@ public class FacebookAuthenticator implements Closeable {
 
     FacebookAuthenticator() throws IOException {
         HttpURLConnection conn = (HttpURLConnection) LOGIN_SPOTIFY.openConnection();
-        try {
+        try (Reader reader = new InputStreamReader(conn.getInputStream())) {
             conn.connect();
-            JsonObject obj = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
             credentialsUrl = obj.get("credentials_url").getAsString();
             String loginUrl = obj.get("login_url").getAsString();
             LOGGER.info("Visit {} in your browser.", loginUrl);
