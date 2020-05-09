@@ -113,6 +113,7 @@ public final class Session implements Closeable, SubListener {
     private EventService eventService;
     private String countryCode = null;
     private volatile boolean closed = false;
+    private volatile boolean closing = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
 
     private Session(Inner inner, String addr) throws IOException {
@@ -428,6 +429,9 @@ public final class Session implements Closeable, SubListener {
     @Override
     public void close() throws IOException {
         LOGGER.info("Closing session. {deviceId: {}}", inner.deviceId);
+
+        closing = true;
+
         scheduler.shutdownNow();
 
         if (player != null) {
@@ -494,6 +498,11 @@ public final class Session implements Closeable, SubListener {
     }
 
     private void waitAuthLock() {
+        if(closing && conn == null){
+            LOGGER.debug("Connection was broken while Session.close() has been called");
+            return;
+        }
+
         if (closed) throw new IllegalStateException("Session is closed!");
 
         synchronized (authLock) {
@@ -508,6 +517,11 @@ public final class Session implements Closeable, SubListener {
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
+        if(closing && conn == null){
+            LOGGER.debug("Connection was broken while Session.close() has been called");
+            return;
+        }
+
         if (closed) throw new IllegalStateException("Session is closed!");
 
         synchronized (authLock) {
@@ -631,7 +645,7 @@ public final class Session implements Closeable, SubListener {
     }
 
     public boolean reconnecting() {
-        return !closed && conn == null;
+        return !closing && !closed && conn == null;
     }
 
     @NotNull
