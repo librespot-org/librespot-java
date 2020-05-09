@@ -21,6 +21,7 @@ public final class PlayerMetrics {
     public String encoding = null;
     public int fadeOverlap = 0;
     public String transition = "none";
+    public int decryptTime = 0;
 
     PlayerMetrics(@Nullable PlayableContentFeeder.Metrics contentMetrics, @Nullable CrossfadeController crossfade, @Nullable Codec codec) {
         this.contentMetrics = contentMetrics;
@@ -29,6 +30,7 @@ public final class PlayerMetrics {
             size = codec.size();
             duration = codec.duration();
             decodedLength = codec.decodedLength();
+            decryptTime = codec.decryptTimeMs();
 
             AudioFormat format = codec.getAudioFormat();
             bitrate = (int) (format.getFrameRate() * format.getFrameSize());

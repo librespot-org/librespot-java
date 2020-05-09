@@ -15,4 +15,6 @@ public interface GeneralAudioStream {
 
     @NotNull
     String describe();
+
+    int decryptTimeMs();
 }

@@ -21,6 +21,8 @@ public final class AesAudioDecrypt implements AudioDecrypt {
     private final static BigInteger IV_INT = new BigInteger(1, AUDIO_AES_IV);
     private final SecretKeySpec secretKeySpec;
     private final Cipher cipher;
+    private int decryptCount = 0;
+    private long decryptTotalTime = 0;
 
     public AesAudioDecrypt(byte[] key) {
         this.secretKeySpec = new SecretKeySpec(key, "AES");
@@ -31,10 +33,12 @@ public final class AesAudioDecrypt implements AudioDecrypt {
         }
     }
 
+    @Override
     public synchronized void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException {
         int pos = CHUNK_SIZE * chunkIndex;
 
         try {
+            long start = System.nanoTime();
             cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, new IvParameterSpec(Utils.toByteArray(IV_INT.add(BigInteger.valueOf(pos / 16)))));
 
             for (int i = 0; i < in.length; i += 4096) {
@@ -43,8 +47,21 @@ public final class AesAudioDecrypt implements AudioDecrypt {
                 if (count != endBytes)
                     throw new IOException(String.format("Couldn't process all data, actual: %d, expected: %d", count, endBytes));
             }
+
+            decryptTotalTime += System.nanoTime() - start;
+            decryptCount++;
         } catch (GeneralSecurityException ex) {
             throw new IOException(ex);
         }
+    }
+
+    /**
+     * Average decrypt time for {@link xyz.gianlu.librespot.player.feeders.storage.ChannelManager#CHUNK_SIZE} bytes of data.
+     *
+     * @return The average decrypt time in milliseconds
+     */
+    @Override
+    public int decryptTimeMs() {
+        return decryptCount == 0 ? 0 : (int) (((float) decryptTotalTime / decryptCount) / 1_000_000f);
     }
 }

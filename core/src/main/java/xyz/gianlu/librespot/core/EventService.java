@@ -85,7 +85,7 @@ public final class EventService implements Closeable {
         event.append(String.valueOf(metrics.player.decodedLength)).append(String.valueOf(metrics.player.size));
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append(String.valueOf(metrics.player.duration));
-        event.append('0').append(String.valueOf(metrics.player.fadeOverlap)).append('0').append('0');
+        event.append(String.valueOf(metrics.player.decryptTime)).append(String.valueOf(metrics.player.fadeOverlap)).append('0').append('0');
         event.append(metrics.firstValue() == 0 ? '0' : '1').append(String.valueOf(metrics.firstValue()));
         event.append('0').append("-1").append("context");
         event.append(String.valueOf(metrics.player.contentMetrics.audioKeyTime)).append('0');

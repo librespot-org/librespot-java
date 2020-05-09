@@ -283,6 +283,11 @@ public class CdnManager {
             else return "{fileId: " + streamId.getFileId() + "}";
         }
 
+        @Override
+        public int decryptTimeMs() {
+            return audioDecrypt.decryptTimeMs();
+        }
+
         private void requestChunk(int index) {
             if (cacheHandler != null) {
                 try {

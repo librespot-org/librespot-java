@@ -22,15 +22,17 @@ public abstract class Codec implements Closeable {
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
+    private final GeneralAudioStream audioFile;
     private final AudioFormat dstFormat;
     protected volatile boolean closed = false;
+    protected int seekZero = 0;
     private AudioFormat format;
     private StreamConverter converter = null;
-    protected int seekZero = 0;
 
     Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
         this.dstFormat = dstFormat;
         this.audioIn = audioFile.stream();
+        this.audioFile = audioFile;
         this.duration = duration;
         if (conf.enableNormalisation())
             this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
@@ -107,6 +109,10 @@ public abstract class Codec implements Closeable {
 
     public int decodedLength() {
         return audioIn.decodedLength();
+    }
+
+    public int decryptTimeMs() {
+        return audioFile.decryptTimeMs();
     }
 
     public static class CannotGetTimeException extends Exception {

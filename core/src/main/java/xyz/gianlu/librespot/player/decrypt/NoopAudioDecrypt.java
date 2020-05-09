@@ -19,4 +19,9 @@ public final class NoopAudioDecrypt implements AudioDecrypt {
 
         System.arraycopy(in, 0, out, 0, length);
     }
+
+    @Override
+    public int decryptTimeMs() {
+        return 0;
+    }
 }

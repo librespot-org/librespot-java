@@ -59,6 +59,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return "{fileId: " + Utils.bytesToHex(file.getFileId()) + "}";
     }
 
+    @Override
+    public int decryptTimeMs() {
+        return chunksBuffer == null ? 0 : chunksBuffer.audioDecrypt.decryptTimeMs();
+    }
+
     @NotNull
     public AbsChunkedInputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
