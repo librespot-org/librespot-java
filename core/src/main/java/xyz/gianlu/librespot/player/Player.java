@@ -647,7 +647,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return null;
 
-            Map<String, String> map = state.metadataFor(id);
+            Map<String, String> map = state.metadataFor(id).orElse(null);
+            if (map == null) return null;
+
             for (String key : ImageId.IMAGE_SIZES_URLS) {
                 if (map.containsKey(key)) {
                     image = ImageId.fromUri(map.get(key));
@@ -717,7 +719,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @return A map containing the metadata associated with this content
      */
     @Override
-    public @NotNull Map<String, String> metadataFor(@NotNull PlayableId playable) {
+    public @NotNull Optional<Map<String, String>> metadataFor(@NotNull PlayableId playable) {
         return state.metadataFor(playable);
     }
 

@@ -6,6 +6,7 @@ import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Utils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -89,4 +90,11 @@ public interface PlayableId {
     @NotNull String hexId();
 
     @NotNull String toSpotifyUri();
+
+    default boolean matches(@NotNull ContextTrack current) {
+        String uri = current.getUri();
+        if (uri != null && !uri.isEmpty()) return toSpotifyUri().equals(uri);
+        else if (current.getGid() != null) return Arrays.equals(current.getGid().toByteArray(), getGid());
+        else return false;
+    }
 }

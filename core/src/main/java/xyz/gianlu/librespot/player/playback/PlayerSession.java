@@ -18,6 +18,7 @@ import xyz.gianlu.librespot.player.mixing.MixingLine;
 
 import java.io.Closeable;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -176,7 +177,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     }
 
     @Override
-    public @NotNull Map<String, String> metadataFor(@NotNull PlayableId playable) {
+    public @NotNull Optional<Map<String, String>> metadataFor(@NotNull PlayableId playable) {
         return listener.metadataFor(playable);
     }
 
@@ -356,7 +357,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
          * @return A map containing all the metadata related
          */
         @NotNull
-        Map<String, String> metadataFor(@NotNull PlayableId playable);
+        Optional<Map<String, String>> metadataFor(@NotNull PlayableId playable);
 
         /**
          * The current track playback halted while trying to receive a chunk.

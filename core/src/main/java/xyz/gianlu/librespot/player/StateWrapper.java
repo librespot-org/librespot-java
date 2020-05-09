@@ -591,20 +591,20 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
-    Map<String, String> metadataFor(@NotNull PlayableId id) throws IllegalArgumentException {
-        if (tracksKeeper == null) throw new IllegalStateException();
+    Optional<Map<String, String>> metadataFor(@NotNull PlayableId id) {
+        if (tracksKeeper == null) return Optional.empty();
 
-        ContextTrack current;
-        if (id.equals(getCurrentPlayable()) && (current = getCurrentTrack()) != null)
-            return current.getMetadataMap();
+        ContextTrack current = getCurrentTrack();
+        if (current != null && id.matches(current))
+            return Optional.of(current.getMetadataMap());
 
         int index = PlayableId.indexOfTrack(tracksKeeper.tracks, id);
         if (index == -1) {
             index = PlayableId.indexOfTrack(tracksKeeper.queue, id);
-            if (index == -1) throw new IllegalArgumentException(id.toString());
+            if (index == -1) return Optional.empty();
         }
 
-        return tracksKeeper.tracks.get(index).getMetadataMap();
+        return Optional.of(tracksKeeper.tracks.get(index).getMetadataMap());
     }
 
     /**
