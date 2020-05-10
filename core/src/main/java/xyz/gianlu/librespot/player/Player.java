@@ -122,6 +122,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         handleSkipPrev();
     }
 
+    public void seek(int pos) {
+        handleSeek(pos);
+    }
+
     public void load(@NotNull String uri, boolean play) {
         try {
             String sessionId = state.loadContext(uri);

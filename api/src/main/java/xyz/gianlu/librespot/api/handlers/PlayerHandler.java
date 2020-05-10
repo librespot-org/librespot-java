@@ -120,6 +120,28 @@ public final class PlayerHandler extends AbsSessionHandler {
         session.player().removeFromQueue(uri);
     }
 
+    private static void seek(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
+        if (valStr == null) {
+            Utils.invalidParameter(exchange, "pos");
+            return;
+        }
+
+        int pos;
+        try {
+            pos = Integer.parseInt(valStr);
+        } catch (Exception ex) {
+            Utils.invalidParameter(exchange, "pos", "Not an integer");
+            return;
+        }
+
+        if (pos < 0) {
+            Utils.invalidParameter(exchange, "pos", "Cannot be negative");
+            return;
+        }
+
+        session.player().seek(pos);
+    }
+
     @Override
     protected void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception {
         exchange.startBlocking();
@@ -169,6 +191,9 @@ public final class PlayerHandler extends AbsSessionHandler {
             case NEXT:
                 session.player().next();
                 return;
+            case SEEK:
+                seek(exchange, session, Utils.getFirstString(params, "pos"));
+                return;
             case TRACKS:
                 tracks(exchange, session, Utils.getFirstBoolean(params, "withQueue"));
                 return;
@@ -185,7 +210,7 @@ public final class PlayerHandler extends AbsSessionHandler {
 
     private enum Command {
         LOAD("load"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
-        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
+        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"), SEEK("seek"),
         VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"),
         ADD_TO_QUEUE("addToQueue"), REMOVE_FROM_QUEUE("removeFromQueue");
 
