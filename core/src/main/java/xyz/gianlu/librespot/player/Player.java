@@ -736,8 +736,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void close() {
-        if (playerSession != null)
+        if (playerSession != null) {
             endMetrics(playerSession.currentPlaybackId(), PlaybackMetrics.Reason.LOGOUT, playerSession.currentMetrics(), state.getPosition());
+            playerSession.close();
+        }
 
         state.close();
         events.listeners.clear();
