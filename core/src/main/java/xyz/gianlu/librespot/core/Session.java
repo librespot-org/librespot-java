@@ -490,6 +490,8 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
+        reconnectionListeners.clear();
+
         LOGGER.info("Closed session. {deviceId: {}} ", inner.deviceId);
     }
 
@@ -725,6 +727,10 @@ public final class Session implements Closeable, SubListener {
 
     public void addReconnectionListener(@NotNull ReconnectionListener listener) {
         if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
+    }
+
+    public void removeReconnectionListener(@NotNull ReconnectionListener listener) {
+        reconnectionListeners.remove(listener);
     }
 
     private void parseProductInfo(@NotNull InputStream in) throws IOException, SAXException, ParserConfigurationException {

@@ -109,7 +109,10 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onSessionCleared() {
+    public void onSessionCleared(@NotNull Session old) {
+        old.player().removeEventsListener(this);
+        old.removeReconnectionListener(this);
+
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "sessionCleared");
         dispatch(obj);
