@@ -51,6 +51,8 @@ On some systems, many mixers could be installed making librespot-java playback o
 4) Pick the right mixer and copy its name inside the `mixerSearchKeywords` option. If you need to specify more search keywords, you can separate them with a semicolon
 5) Restart and enjoy
 
+> **Linux note:** librespot-java will not be able to detect the mixers available on the system if you are running headless OpenJDK. You'll need to install a headful version of OpenJDK (usually doesn't end with `-headless`).
+
 ## Build it
 This project uses [Maven](https://maven.apache.org/), after installing it you can compile with `mvn clean package` in the project root, if the compilation succeeds you'll be pleased with a JAR executable in `core/target`.
 To run the newly build jar run `java -jar ./core/target/librespot-core-jar-with-dependencies.jar`.
