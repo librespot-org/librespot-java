@@ -305,21 +305,6 @@ public class ZeroconfServer implements Closeable {
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
 
-
-        String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
-        out.write(httpVersion.getBytes());
-        out.write(" 200 OK".getBytes());
-        out.write(EOL);
-        out.write("Content-Length: ".getBytes());
-        out.write(String.valueOf(resp.length()).getBytes());
-        out.write(EOL);
-        out.flush();
-
-        out.write(EOL);
-        out.write(resp.getBytes());
-        out.flush();
-
-
         try {
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
 
@@ -330,9 +315,28 @@ public class ZeroconfServer implements Closeable {
             session.authenticate(credentials);
 
             sessionListeners.forEach(l -> l.sessionChanged(session));
+
+            // Sending response
+            String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
+            out.write(httpVersion.getBytes());
+            out.write(" 200 OK".getBytes());
+            out.write(EOL);
+            out.write("Content-Length: ".getBytes());
+            out.write(String.valueOf(resp.length()).getBytes());
+            out.write(EOL);
+            out.flush();
+
+            out.write(EOL);
+            out.write(resp.getBytes());
+            out.flush();
         } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed handling connection! Going away.", ex);
-            close();
+            LOGGER.fatal("Couldn't establish a new session.", ex);
+
+            out.write(httpVersion.getBytes());
+            out.write(" 500 Internal Server Error".getBytes()); // I don't think this is the Spotify way
+            out.write(EOL);
+            out.write(EOL);
+            out.flush();
         }
     }
 
