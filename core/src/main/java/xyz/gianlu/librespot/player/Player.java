@@ -579,6 +579,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         state.updated();
 
         events.trackChanged();
+        events.metadataAvailable();
 
         session.eventService().newPlaybackId(state, playbackId);
         startMetrics(playbackId, startedReason, pos);
