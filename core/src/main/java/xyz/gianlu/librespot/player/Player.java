@@ -618,7 +618,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @return Whether the player is active
      */
     public boolean isActive() {
-        return state.isActive();
+        return state != null && state.isActive();
     }
 
     /**
@@ -739,6 +739,11 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
     }
 
+
+    // ================================ //
+    // ============ Close! ============ //
+    // ================================ //
+
     @Override
     public void close() {
         if (playerSession != null) {
@@ -755,11 +760,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         scheduler.shutdown();
         events.close();
     }
-
-
-    // ================================ //
-    // ============ Close! ============ //
-    // ================================ //
 
     public interface Configuration {
         @NotNull
