@@ -230,7 +230,7 @@ public class ZeroconfServer implements Closeable {
         }
     }
 
-    private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
+    private synchronized void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
         info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
@@ -252,7 +252,7 @@ public class ZeroconfServer implements Closeable {
         out.flush();
     }
 
-    private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
+    private synchronized void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
         if (username == null || username.isEmpty()) {
             LOGGER.fatal("Missing userName!");
