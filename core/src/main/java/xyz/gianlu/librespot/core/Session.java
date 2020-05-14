@@ -348,10 +348,10 @@ public final class Session implements Closeable, SubListener {
             authLock.notifyAll();
         }
 
-        dealer.connect();
-        player.initState();
-        TimeProvider.init(this);
         eventService.language(conf().preferredLocale());
+        TimeProvider.init(this);
+        player.initState();
+        dealer.connect();
 
         LOGGER.info("Authenticated as {}!", apWelcome.getCanonicalUsername());
         mercuryClient.interestedIn("spotify:user:attributes:update", this);
@@ -500,7 +500,7 @@ public final class Session implements Closeable, SubListener {
     }
 
     private void waitAuthLock() {
-        if(closing && conn == null){
+        if (closing && conn == null) {
             LOGGER.debug("Connection was broken while Session.close() has been called");
             return;
         }
@@ -519,7 +519,7 @@ public final class Session implements Closeable, SubListener {
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
-        if(closing && conn == null){
+        if (closing && conn == null) {
             LOGGER.debug("Connection was broken while Session.close() has been called");
             return;
         }
