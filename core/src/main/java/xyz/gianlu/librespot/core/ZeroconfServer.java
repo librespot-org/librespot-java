@@ -94,7 +94,9 @@ public class ZeroconfServer implements Closeable {
     private final DiffieHellman keys;
     private final List<SessionListener> sessionListeners;
     private final Zeroconf zeroconf;
+    private final Object connectionLock = new Object();
     private volatile Session session;
+    private String connectingUsername = null;
 
     private ZeroconfServer(Session.Inner inner, Configuration conf) throws IOException {
         this.inner = inner;
@@ -230,13 +232,16 @@ public class ZeroconfServer implements Closeable {
         }
     }
 
-    private synchronized void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
+    private void handleGetInfo(OutputStream out, String httpVersion) throws IOException {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
-        info.addProperty("activeUser", hasValidSession() ? session.username() : "");
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
         info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
         info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
+
+        synchronized (connectionLock) {
+            info.addProperty("activeUser", connectingUsername != null ? connectingUsername : (hasValidSession() ? session.username() : ""));
+        }
 
         out.write(httpVersion.getBytes());
         out.write(" 200 OK".getBytes());
@@ -252,7 +257,7 @@ public class ZeroconfServer implements Closeable {
         out.flush();
     }
 
-    private synchronized void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
+    private void handleAddUser(OutputStream out, Map<String, String> params, String httpVersion) throws GeneralSecurityException, IOException {
         String username = params.get("userName");
         if (username == null || username.isEmpty()) {
             LOGGER.fatal("Missing userName!");
@@ -269,6 +274,13 @@ public class ZeroconfServer implements Closeable {
         if (clientKeyStr == null || clientKeyStr.isEmpty()) {
             LOGGER.fatal("Missing clientKey!");
             return;
+        }
+
+        synchronized (connectionLock) {
+            if (username.equals(connectingUsername)) {
+                LOGGER.info("{} is already trying to connect.", username);
+                return;
+            }
         }
 
         byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
@@ -306,6 +318,10 @@ public class ZeroconfServer implements Closeable {
         byte[] decrypted = aes.doFinal(encrypted);
 
         try {
+            synchronized (connectionLock) {
+                connectingUsername = username;
+            }
+
             Authentication.LoginCredentials credentials = inner.decryptBlob(username, decrypted);
 
             session = Session.from(inner);
@@ -314,7 +330,9 @@ public class ZeroconfServer implements Closeable {
             session.connect();
             session.authenticate(credentials);
 
-            sessionListeners.forEach(l -> l.sessionChanged(session));
+            synchronized (connectionLock) {
+                connectingUsername = null;
+            }
 
             // Sending response
             String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
@@ -329,8 +347,14 @@ public class ZeroconfServer implements Closeable {
             out.write(EOL);
             out.write(resp.getBytes());
             out.flush();
+
+            sessionListeners.forEach(l -> l.sessionChanged(session));
         } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Couldn't establish a new session.", ex);
+
+            synchronized (connectionLock) {
+                connectingUsername = null;
+            }
 
             out.write(httpVersion.getBytes());
             out.write(" 500 Internal Server Error".getBytes()); // I don't think this is the Spotify way
