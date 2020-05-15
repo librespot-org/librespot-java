@@ -781,7 +781,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     @Nullable
     public ContextTrack getCurrentTrack() {
-        return tracksKeeper == null ? null : tracksKeeper.tracks.get(tracksKeeper.getCurrentTrackIndex());
+        int index = tracksKeeper.getCurrentTrackIndex();
+        return tracksKeeper == null || tracksKeeper.tracks.size() < index ? null : tracksKeeper.tracks.get(index);
     }
 
     @NotNull
