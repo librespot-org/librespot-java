@@ -37,7 +37,7 @@ public final class TokenProvider {
     }
 
     @NotNull
-    public StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
+    public synchronized StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
         if (scopes.length == 0) throw new IllegalArgumentException();
 
         StoredToken token = findTokenWithAllScopes(scopes);
