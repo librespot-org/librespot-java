@@ -21,16 +21,17 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.SubListener;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.*;
 
 /**
  * @author Gianlu
  */
-public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
+public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener {
     private static final Logger LOGGER = LogManager.getLogger(DeviceStateHandler.class);
 
     static {
@@ -60,7 +61,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
-        session.mercury().interestedIn("hm://pusher/v1/connections/", this);
     }
 
     @NotNull
@@ -122,15 +122,12 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             listener.notActive();
     }
 
-    @Override
-    public void event(@NotNull MercuryClient.Response resp) {
-        if (resp.uri.startsWith("hm://pusher/v1/connections/")) {
-            int index = resp.uri.lastIndexOf('/');
-            updateConnectionId(resp.uri.substring(index + 1));
-        }
-    }
-
     private synchronized void updateConnectionId(@NotNull String newer) {
+        try {
+            newer = URLDecoder.decode(newer, "UTF-8");
+        } catch (UnsupportedEncodingException ignored) {
+        }
+
         if (connectionId == null || !connectionId.equals(newer)) {
             connectionId = newer;
             LOGGER.debug("Updated Spotify-Connection-Id: " + connectionId);
@@ -234,7 +231,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     public void close() {
         session.dealer().removeMessageListener(this);
         session.dealer().removeRequestListener(this);
-        session.mercury().notInterested(this);
 
         putStateWorker.close();
         listeners.clear();
