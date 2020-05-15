@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
+import xyz.gianlu.librespot.core.EventService;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.player.Player;
@@ -106,6 +107,11 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         obj.addProperty("event", "volumeChanged");
         obj.addProperty("value", volume);
         dispatch(obj);
+    }
+
+    @Override
+    public void onPanicState(EventService.PlaybackMetrics.@Nullable Reason reason) {
+
     }
 
     @Override
