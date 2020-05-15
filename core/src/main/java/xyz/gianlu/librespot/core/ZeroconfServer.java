@@ -217,7 +217,6 @@ public class ZeroconfServer implements Closeable {
 
     public void closeSession() throws IOException {
         if (session != null) session.close();
-
         session = null;
     }
 
@@ -279,6 +278,12 @@ public class ZeroconfServer implements Closeable {
         synchronized (connectionLock) {
             if (username.equals(connectingUsername)) {
                 LOGGER.info("{} is already trying to connect.", username);
+
+                out.write(httpVersion.getBytes());
+                out.write(" 403 Forbidden".getBytes()); // I don't think this is the Spotify way
+                out.write(EOL);
+                out.write(EOL);
+                out.flush();
                 return;
             }
         }
@@ -310,12 +315,24 @@ public class ZeroconfServer implements Closeable {
 
         if (!Arrays.equals(mac, checksum)) {
             LOGGER.fatal("Mac and checksum don't match!");
+
+            out.write(httpVersion.getBytes());
+            out.write(" 400 Bad Request".getBytes()); // I don't think this is the Spotify way
+            out.write(EOL);
+            out.write(EOL);
+            out.flush();
             return;
         }
 
         Cipher aes = Cipher.getInstance("AES/CTR/NoPadding");
         aes.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Arrays.copyOfRange(encryptionKey, 0, 16), "AES"), new IvParameterSpec(iv));
         byte[] decrypted = aes.doFinal(encrypted);
+
+        try {
+            closeSession();
+        } catch (IOException ex) {
+            LOGGER.warn("Failed closing previous session.", ex);
+        }
 
         try {
             synchronized (connectionLock) {
@@ -326,13 +343,6 @@ public class ZeroconfServer implements Closeable {
 
             session = Session.from(inner);
             LOGGER.info("Accepted new user from {}. {deviceId: {}}", params.get("deviceName"), session.deviceId());
-
-            session.connect();
-            session.authenticate(credentials);
-
-            synchronized (connectionLock) {
-                connectingUsername = null;
-            }
 
             // Sending response
             String resp = DEFAULT_SUCCESSFUL_ADD_USER.toString();
@@ -347,6 +357,14 @@ public class ZeroconfServer implements Closeable {
             out.write(EOL);
             out.write(resp.getBytes());
             out.flush();
+
+
+            session.connect();
+            session.authenticate(credentials);
+
+            synchronized (connectionLock) {
+                connectingUsername = null;
+            }
 
             sessionListeners.forEach(l -> l.sessionChanged(session));
         } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
