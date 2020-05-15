@@ -144,10 +144,10 @@ public final class AudioSink implements Runnable, Closeable {
                     }
                 }
             } else {
-                if (!started)
-                    started = output.start();
-
                 try {
+                    if (!started)
+                        started = output.start();
+
                     int count = mixing.read(buffer);
                     output.write(buffer, count);
                 } catch (IOException | LineUnavailableException | LineHelper.MixerException ex) {
@@ -214,8 +214,9 @@ public final class AudioSink implements Runnable, Closeable {
             if (line != null) line.stop();
         }
 
-        boolean start() {
-            if (line != null) {
+        boolean start() throws LineUnavailableException {
+            if (type == Type.MIXER) {
+                acquireLine();
                 line.start();
                 return true;
             }
@@ -225,7 +226,6 @@ public final class AudioSink implements Runnable, Closeable {
 
         void write(byte[] buffer, int len) throws IOException, LineUnavailableException, LineHelper.MixerException {
             if (type == Type.MIXER) {
-                acquireLine();
                 line.write(buffer, 0, len);
             } else if (type == Type.PIPE) {
                 if (out == null) {
