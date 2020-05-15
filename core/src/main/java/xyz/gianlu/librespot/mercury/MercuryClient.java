@@ -203,10 +203,12 @@ public final class MercuryClient extends PacketsManager {
 
         if (packet.is(Packet.Type.MercuryEvent)) {
             boolean dispatched = false;
-            for (InternalSubListener sub : subscriptions) {
-                if (sub.matches(header.getUri())) {
-                    sub.dispatch(resp);
-                    dispatched = true;
+            synchronized (subscriptions) {
+                for (InternalSubListener sub : subscriptions) {
+                    if (sub.matches(header.getUri())) {
+                        sub.dispatch(resp);
+                        dispatched = true;
+                    }
                 }
             }
 
@@ -238,9 +240,7 @@ public final class MercuryClient extends PacketsManager {
     }
 
     public void notInterested(@NotNull SubListener listener) {
-        synchronized (subscriptions) {
-            subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
-        }
+        subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
     }
 
     @Override
