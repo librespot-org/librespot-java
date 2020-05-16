@@ -181,7 +181,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      * @throws IllegalStateException If the output is already set. Will also clear {@param output}.
      */
     void setOutput(@NotNull MixingLine.MixingOutput output) {
-        if (closed || this.output != null) {
+        if (closed || hasOutput()) {
             output.clear();
             throw new IllegalStateException("Cannot set output for " + this);
         }
@@ -209,6 +209,13 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         synchronized (playbackLock) {
             playbackLock.notifyAll();
         }
+    }
+
+    /**
+     * @return Whether the entry is associated with an output.
+     */
+    public boolean hasOutput() {
+        return output != null;
     }
 
     /**
@@ -310,7 +317,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
         }
 
-        output.toggle(false);
+        if (output != null) output.toggle(false);
         listener.playbackEnded(this);
         LOGGER.trace("{} terminated.", this);
     }
@@ -330,7 +337,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      * @return Whether it has been closed
      */
     boolean closeIfUseless() {
-        if (output == null) {
+        if (!hasOutput()) {
             close();
             return true;
         }

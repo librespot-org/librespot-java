@@ -286,8 +286,9 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     public void seekCurrent(int pos) {
         if (queue.head() == null) return;
 
-        if (queue.prev() != null) queue.remove(queue.prev());
-        if (queue.next() != null) queue.remove(queue.next());
+        PlayerQueueEntry entry;
+        if ((entry = queue.prev()) != null && entry.hasOutput()) queue.remove(entry);
+        if ((entry = queue.next()) != null && entry.hasOutput()) queue.remove(entry);
 
         queue.head().seek(pos);
         sink.flush();
