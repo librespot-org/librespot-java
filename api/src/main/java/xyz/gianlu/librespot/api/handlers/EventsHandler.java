@@ -109,6 +109,13 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
+    public void onPanicState() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "panic");
+        dispatch(obj);
+    }
+
+    @Override
     public void onSessionCleared(@NotNull Session old) {
         old.player().removeEventsListener(this);
         old.removeReconnectionListener(this);

@@ -171,6 +171,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         } else if (playerSession != null) {
             endMetrics(playerSession.currentPlaybackId(), reason, playerSession.currentMetrics(), state.getPosition());
         }
+
+        events.panicState();
     }
 
     /**
@@ -816,6 +818,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         void onInactiveSession(boolean timeout);
 
         void onVolumeChanged(@Range(from = 0, to = 1) float volume);
+
+        void onPanicState();
     }
 
     /**
@@ -1076,6 +1080,12 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         void inactiveSession(boolean timeout) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onInactiveSession(timeout));
+        }
+
+
+        private void panicState() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(l::onPanicState);
         }
 
         public void close() {
