@@ -324,12 +324,12 @@ public final class EventService implements Closeable {
 
         public void startedHow(@NotNull EventService.PlaybackMetrics.Reason reason, @Nullable String origin) {
             reasonStart = reason;
-            sourceStart = origin == null ? "unknown" : origin;
+            sourceStart = origin == null || origin.isEmpty() ? "unknown" : origin;
         }
 
         public void endedHow(@NotNull EventService.PlaybackMetrics.Reason reason, @Nullable String origin) {
             reasonEnd = reason;
-            sourceEnd = origin == null ? "unknown" : origin;
+            sourceEnd = origin == null || origin.isEmpty() ? "unknown" : origin;
         }
 
         @Nullable
