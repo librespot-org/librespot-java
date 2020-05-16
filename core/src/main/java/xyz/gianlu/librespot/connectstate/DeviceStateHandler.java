@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.ProtoUtils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
@@ -245,11 +246,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         try {
             session.api().putConnectState(connectionId, req);
             if (LOGGER.getLevel().isLessSpecificThan(Level.TRACE)) {
-                LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}, request: {}}", req.getClientSideTimestamp(),
-                        connectionId.substring(0, 6), req.getPutStateReason(), TextFormat.shortDebugString(putState));
+                LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}, request: {}}", req.getClientSideTimestamp(),
+                        Utils.truncateMiddle(connectionId, 10), req.getPutStateReason(), TextFormat.shortDebugString(putState));
             } else {
-                LOGGER.info("Put state. {ts: {}, connId: {}[truncated], reason: {}}", req.getClientSideTimestamp(),
-                        connectionId.substring(0, 6), req.getPutStateReason());
+                LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}}", req.getClientSideTimestamp(),
+                        Utils.truncateMiddle(connectionId, 10), req.getPutStateReason());
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed updating state.", ex);

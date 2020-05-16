@@ -50,6 +50,17 @@ public final class Utils {
     }
 
     @NotNull
+    public static String truncateMiddle(@NotNull String str, int length) {
+        if (length <= 1) throw new IllegalStateException();
+
+        int first = length / 2;
+        String result = str.substring(0, first);
+        result += "...";
+        result += str.substring(str.length() - (length - first));
+        return result;
+    }
+
+    @NotNull
     public static String readLine(@NotNull InputStream in) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         boolean lastWasR = false;

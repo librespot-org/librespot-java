@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 
@@ -86,8 +87,8 @@ public final class TokenProvider {
         public String toString() {
             return "StoredToken{" +
                     "expiresIn=" + expiresIn +
-                    ", accessToken='" + accessToken.substring(0, 10) + "[truncated]'" +
-                    ", scopes=" + Arrays.toString(scopes) +
+                    ", accessToken='" + Utils.truncateMiddle(accessToken, 12) +
+                    "', scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
         }
