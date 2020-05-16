@@ -37,19 +37,20 @@ All the endpoints will respond with `200` if successful or:
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.
 The currently available events are:
-- `contextChanged`, the Spotify context URI changed
-- `trackChanged`, the Spotify track URI changed
-- `playbackPaused`, playback has been paused
-- `playbackResumed`, playback has been resumed
-- `volumeChanged`, playback volume changed
-- `trackSeeked`, track has been seeked
-- `metadataAvailable`, metadata for the current track is available
-- `playbackHaltStateChanged`, playback halted or resumed from halt
-- `sessionCleared`, (Zeroconf only) current session went away
-- `sessionChanged`, (Zeroconf only) current session changed
-- `inactiveSession`, current session is now inactive (no audio)
-- `connectionDropped`, a network error occurred and we're trying to reconnect
-- `connectionEstablished`, successfully reconnected
+- `contextChanged` The Spotify context URI changed
+- `trackChanged` The Spotify track URI changed
+- `playbackPaused` Playback has been paused
+- `playbackResumed` Playback has been resumed
+- `volumeChanged` Playback volume changed
+- `trackSeeked` Track has been seeked
+- `metadataAvailable` Metadata for the current track is available
+- `playbackHaltStateChanged` Playback halted or resumed from halt
+- `sessionCleared` Current session went away (Zeroconf only)
+- `sessionChanged` Current session changed (Zeroconf only)
+- `inactiveSession` Current session is now inactive (no audio)
+- `connectionDropped` A network error occurred and we're trying to reconnect
+- `connectionEstablished` Successfully reconnected
+- `panic` Entered the panic state, playback is stopped. This is usually recoverable.
 
 ## Examples
 `curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true" http://localhost:24879/player/load`

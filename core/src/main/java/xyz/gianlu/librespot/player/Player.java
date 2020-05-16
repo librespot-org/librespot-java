@@ -172,7 +172,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             endMetrics(playerSession.currentPlaybackId(), reason, playerSession.currentMetrics(), state.getPosition());
         }
 
-        events.panicState(reason);
+        events.panicState();
     }
 
     /**
@@ -819,7 +819,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
         void onVolumeChanged(@Range(from = 0, to = 1) float volume);
 
-        void onPanicState(@Nullable PlaybackMetrics.Reason reason);
+        void onPanicState();
     }
 
     /**
@@ -1083,9 +1083,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
 
 
-        private void panicState(@Nullable PlaybackMetrics.Reason reason) {
+        private void panicState() {
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onPanicState(reason));
+                executorService.execute(l::onPanicState);
         }
 
         public void close() {
