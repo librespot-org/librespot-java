@@ -103,9 +103,6 @@ public final class MixingLine extends InputStream {
         public abstract void clear();
 
         public abstract void emptyBuffer();
-
-        @NotNull
-        public abstract MixingOutput stream();
     }
 
     public class FirstOutputStream extends MixingOutput {
@@ -119,21 +116,21 @@ public final class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == fe) return;
-            if (enabled && (fout == null || fout != this)) throw new IllegalStateException();
+            if (enabled && (fout == null || fout != this)) return;
             fe = enabled;
             LOGGER.trace("Toggle first channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (fout == null || fout != this) throw new IllegalStateException();
+            if (fout == null || fout != this) return;
             fg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (fout == null || fout != this) throw new IllegalStateException();
+            if (fout == null || fout != this) return;
 
             fg = 1;
             fe = false;
@@ -146,14 +143,8 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull MixingOutput stream() {
-            if (fout == null || fout != this) throw new IllegalStateException();
-            return this;
-        }
-
-        @Override
         public void emptyBuffer() {
-            if (fout == null || fout != this) throw new IllegalStateException();
+            if (fout == null || fout != this) return;
             fcb.empty();
         }
     }
@@ -169,21 +160,21 @@ public final class MixingLine extends InputStream {
         @Override
         public void toggle(boolean enabled) {
             if (enabled == se) return;
-            if (enabled && (sout == null || sout != this)) throw new IllegalStateException();
+            if (enabled && (sout == null || sout != this)) return;
             se = enabled;
             LOGGER.trace("Toggle second channel: " + enabled);
         }
 
         @Override
         public void gain(float gain) {
-            if (sout == null || sout != this) throw new IllegalStateException();
+            if (sout == null || sout != this) return;
             sg = gain;
         }
 
         @Override
         @SuppressWarnings("DuplicatedCode")
         public void clear() {
-            if (sout == null || sout != this) throw new IllegalStateException();
+            if (sout == null || sout != this) return;
 
             sg = 1;
             se = false;
@@ -196,14 +187,8 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        public @NotNull MixingOutput stream() {
-            if (sout == null || sout != this) throw new IllegalStateException();
-            return this;
-        }
-
-        @Override
         public void emptyBuffer() {
-            if (sout == null || sout != this) throw new IllegalStateException();
+            if (sout == null || sout != this) return;
             scb.empty();
         }
     }

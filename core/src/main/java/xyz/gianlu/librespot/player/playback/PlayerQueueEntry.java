@@ -172,7 +172,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      */
     void seek(int pos) {
         seekTime = pos;
-        if (output != null) output.stream().emptyBuffer();
+        if (output != null) output.emptyBuffer();
     }
 
     /**
@@ -190,8 +190,6 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             this.output = output;
             playbackLock.notifyAll();
         }
-
-        this.output.toggle(true);
     }
 
     /**
@@ -270,6 +268,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
 
             if (closed) break;
+            output.toggle(true);
 
             if (seekTime != -1) {
                 codec.seek(seekTime);
@@ -290,7 +289,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
 
             try {
-                if (codec.writeSomeTo(output.stream()) == -1) {
+                if (codec.writeSomeTo(output) == -1) {
                     try {
                         int time = codec.time();
                         LOGGER.debug("Player time offset is {}. {id: {}}", metadata.duration() - time, playbackId);
@@ -311,6 +310,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
         }
 
+        output.toggle(false);
         listener.playbackEnded(this);
         LOGGER.trace("{} terminated.", this);
     }
