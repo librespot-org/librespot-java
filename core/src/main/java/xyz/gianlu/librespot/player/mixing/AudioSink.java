@@ -265,7 +265,7 @@ public final class AudioSink implements Runnable, Closeable {
                 line = null;
             }
 
-            if (out != null) out.close();
+            if (out != null && out != System.out) out.close();
         }
 
         @NotNull
