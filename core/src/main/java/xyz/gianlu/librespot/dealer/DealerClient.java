@@ -366,6 +366,8 @@ public class DealerClient implements Closeable {
 
             @Override
             public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, @Nullable Response response) {
+                if (closed) return;
+
                 LOGGER.warn("An exception occurred. Reconnecting...", t);
                 ConnectionHolder.this.close();
             }

@@ -472,6 +472,9 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
 
         executorService.shutdown();
 
+        client.dispatcher().executorService().shutdownNow();
+        client.connectionPool().evictAll();
+
         if (conn != null) {
             conn.socket.close();
             conn = null;
