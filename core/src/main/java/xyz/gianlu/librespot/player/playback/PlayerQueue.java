@@ -180,13 +180,15 @@ final class PlayerQueue implements Closeable {
 
         void clear() {
             if (prev != null) {
-                if (prev != this) prev.clear();
+                Entry tmp = prev;
                 prev = null;
+                if (tmp != this) tmp.clear();
             }
 
             if (next != null) {
-                if (next != this) next.clear();
+                Entry tmp = next;
                 next = null;
+                if (tmp != this) tmp.clear();
             }
 
             ((PlayerQueueEntry) this).close();
