@@ -224,11 +224,14 @@ public final class AudioSink implements Runnable, Closeable {
             return false;
         }
 
-        void write(byte[] buffer, int len) throws IOException, LineUnavailableException, LineHelper.MixerException {
+        void write(byte[] buffer, int len) throws IOException, LineHelper.MixerException {
             if (type == Type.MIXER) {
-                line.write(buffer, 0, len);
+                if (line != null) line.write(buffer, 0, len);
             } else if (type == Type.PIPE) {
                 if (out == null) {
+                    if (pipe == null)
+                        throw new IllegalStateException();
+
                     if (!pipe.exists()) {
                         try {
                             Process p = new ProcessBuilder().command("mkfifo " + pipe.getAbsolutePath())
