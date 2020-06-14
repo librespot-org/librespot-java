@@ -57,8 +57,9 @@ public final class SessionWrapper {
     }
 
     private void clear() {
+        Session old = ref.get();
         ref.set(null);
-        if (listener != null) listener.onSessionCleared();
+        if (listener != null && old != null) listener.onSessionCleared(old);
     }
 
     @Nullable
@@ -73,7 +74,7 @@ public final class SessionWrapper {
     }
 
     public interface Listener {
-        void onSessionCleared();
+        void onSessionCleared(@NotNull Session old);
 
         void onNewSession(@NotNull Session session);
     }

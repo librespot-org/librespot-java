@@ -2,7 +2,8 @@ package xyz.gianlu.librespot.player.feeders.storage;
 
 import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -10,13 +11,13 @@ import xyz.gianlu.librespot.cache.JournalHeader;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.HaltListener;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.player.feeders.HaltListener;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,7 +31,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
-    private static final Logger LOGGER = Logger.getLogger(AudioFileStreaming.class);
+    private static final Logger LOGGER = LogManager.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
     private final Metadata.AudioFile file;
     private final byte[] key;
@@ -58,6 +59,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         return "{fileId: " + Utils.bytesToHex(file.getFileId()) + "}";
     }
 
+    @Override
+    public int decryptTimeMs() {
+        return chunksBuffer == null ? 0 : chunksBuffer.audioDecrypt.decryptTimeMs();
+    }
+
     @NotNull
     public AbsChunkedInputStream stream() {
         if (chunksBuffer == null) throw new IllegalStateException("Stream not open!");
@@ -69,7 +75,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
                 chunksBuffer.internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
@@ -81,7 +87,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             cacheHandler.readChunk(index, this);
             return true;
         } catch (IOException ex) {
-            LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
+            LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
     }
@@ -129,22 +135,22 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 cacheHandler.writeChunk(buffer, chunkIndex);
             } catch (IOException ex) {
-                LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
+                LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
             }
         }
 
         chunksBuffer.writeChunk(buffer, chunkIndex);
-        LOGGER.trace(String.format("Chunk %d/%d completed, cached: %b, fileId: %s", chunkIndex, chunks, cached, Utils.bytesToHex(file.getFileId())));
+        LOGGER.trace("Chunk {}/{} completed, cached: {}, fileId: {}", chunkIndex, chunks, cached, Utils.bytesToHex(file.getFileId()));
     }
 
     @Override
-    public void writeHeader(byte id, byte[] bytes, boolean cached) {
+    public void writeHeader(int id, byte[] bytes, boolean cached) {
         // Not interested
     }
 
     @Override
     public void streamError(int chunkIndex, short code) {
-        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
+        LOGGER.fatal("Stream error, index: {}, code: {}", chunkIndex, code);
         chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.fromStreamError(code));
     }
 
@@ -176,10 +182,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {
             if (internalStream.isClosed()) return;
 
-            if (chunk.length != buffer[chunkIndex].length) {
-                System.out.println(Utils.bytesToHex(chunk));
+            if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
-            }
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -207,7 +211,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

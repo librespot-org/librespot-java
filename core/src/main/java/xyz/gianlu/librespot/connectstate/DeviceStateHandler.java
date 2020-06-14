@@ -4,32 +4,36 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.TextFormat;
 import com.spotify.connectstate.Connect;
 import com.spotify.connectstate.Player;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.ProtoUtils;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.SubListener;
-import xyz.gianlu.librespot.player.PlayerRunner;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.*;
 
 /**
  * @author Gianlu
  */
-public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener, SubListener {
-    private static final Logger LOGGER = Logger.getLogger(DeviceStateHandler.class);
+public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener {
+    private static final Logger LOGGER = LogManager.getLogger(DeviceStateHandler.class);
 
     static {
         try {
@@ -58,7 +62,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
         session.dealer().addMessageListener(this, "hm://pusher/v1/connections/", "hm://connect-state/v1/connect/volume", "hm://connect-state/v1/cluster");
         session.dealer().addRequestListener(this, "hm://connect-state/v1/");
-        session.mercury().interestedIn("hm://pusher/v1/connections/", this);
     }
 
     @NotNull
@@ -97,7 +100,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
     private void notifyCommand(@NotNull Endpoint endpoint, @NotNull CommandBody data) {
         if (listeners.isEmpty()) {
-            LOGGER.warn(String.format("Cannot dispatch command because there are no listeners. {command: %s}", endpoint));
+            LOGGER.warn("Cannot dispatch command because there are no listeners. {command: {}}", endpoint);
             return;
         }
 
@@ -120,15 +123,12 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             listener.notActive();
     }
 
-    @Override
-    public void event(@NotNull MercuryClient.Response resp) {
-        if (resp.uri.startsWith("hm://pusher/v1/connections/")) {
-            int index = resp.uri.lastIndexOf('/');
-            updateConnectionId(resp.uri.substring(index + 1));
-        }
-    }
-
     private synchronized void updateConnectionId(@NotNull String newer) {
+        try {
+            newer = URLDecoder.decode(newer, "UTF-8");
+        } catch (UnsupportedEncodingException ignored) {
+        }
+
         if (connectionId == null || !connectionId.equals(newer)) {
             connectionId = newer;
             LOGGER.debug("Updated Spotify-Connection-Id: " + connectionId);
@@ -150,19 +150,19 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 }
             }
 
-            LOGGER.trace(String.format("Update volume. {volume: %d/%d}", cmd.getVolume(), PlayerRunner.VOLUME_MAX));
+            LOGGER.trace("Update volume. {volume: {}/{}}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX);
             notifyVolumeChange();
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
-            LOGGER.debug(String.format("Received cluster update at %d: %s", now, ProtoUtils.toLogString(update, LOGGER)));
+            LOGGER.trace("Received cluster update at {}: {}", () -> now, () -> TextFormat.shortDebugString(update));
 
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
                 notifyNotActive();
         } else {
-            LOGGER.warn(String.format("Message left unhandled! {uri: %s}", uri));
+            LOGGER.warn("Message left unhandled! {uri: {}}", uri);
         }
     }
 
@@ -174,6 +174,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
         notifyCommand(endpoint, new CommandBody(command));
         return RequestResult.SUCCESS;
+    }
+
+    @Nullable
+    public synchronized String getLastCommandSentByDeviceId() {
+        return putState.getLastCommandSentByDeviceId();
     }
 
     private synchronized long startedPlayingAt() {
@@ -189,7 +194,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             if (!putState.getIsActive()) {
                 long now = TimeProvider.currentTimeMillis();
                 putState.setIsActive(true).setStartedPlayingAt(now);
-                LOGGER.debug(String.format("Device is now active. {ts: %d}", now));
+                LOGGER.debug("Device is now active. {ts: {}}", now);
             }
         } else {
             putState.setIsActive(false).clearStartedPlayingAt();
@@ -220,14 +225,13 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         }
 
         notifyVolumeChange();
-        LOGGER.trace(String.format("Update volume. {volume: %d/%d}", val, PlayerRunner.VOLUME_MAX));
+        LOGGER.trace("Update volume. {volume: {}/{}}", val, xyz.gianlu.librespot.player.Player.VOLUME_MAX);
     }
 
     @Override
     public void close() {
         session.dealer().removeMessageListener(this);
         session.dealer().removeRequestListener(this);
-        session.mercury().notInterested(this);
 
         putStateWorker.close();
         listeners.clear();
@@ -241,8 +245,13 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
         try {
             session.api().putConnectState(connectionId, req);
-            LOGGER.info(String.format("Put state. {ts: %d, connId: %s[truncated], reason: %s, request: %s}", req.getClientSideTimestamp(), connectionId.substring(0, 6),
-                    req.getPutStateReason(), ProtoUtils.toLogString(putState, LOGGER)));
+            if (LOGGER.getLevel().isLessSpecificThan(Level.TRACE)) {
+                LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}, request: {}}", req.getClientSideTimestamp(),
+                        Utils.truncateMiddle(connectionId, 10), req.getPutStateReason(), TextFormat.shortDebugString(putState));
+            } else {
+                LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}}", req.getClientSideTimestamp(),
+                        Utils.truncateMiddle(connectionId, 10), req.getPutStateReason());
+            }
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed updating state.", ex);
         }
@@ -319,6 +328,16 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             return obj.getAsJsonObject("options").getAsJsonObject("player_options_override");
         }
 
+        public static boolean willSkipToSomething(@NotNull JsonObject obj) {
+            JsonObject parent = obj.getAsJsonObject("options");
+            if (parent == null) return false;
+
+            parent = parent.getAsJsonObject("skip_to");
+            if (parent == null) return false;
+
+            return parent.has("track_uid") || parent.has("track_uri") || parent.has("track_index");
+        }
+
         @Nullable
         public static String getSkipToUid(@NotNull JsonObject obj) {
             JsonObject parent = obj.getAsJsonObject("options");
@@ -389,17 +408,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             JsonElement elm;
             if ((elm = options.get("seek_to")) != null && elm.isJsonPrimitive()) return elm.getAsInt();
             else return null;
-        }
-
-        @NotNull
-        public static JsonArray getPages(@NotNull JsonObject obj) {
-            JsonObject context = getContext(obj);
-            return context.getAsJsonArray("pages");
-        }
-
-        @NotNull
-        public static JsonObject getMetadata(@NotNull JsonObject obj) {
-            return getContext(obj).getAsJsonObject("metadata");
         }
     }
 

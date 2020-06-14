@@ -1,9 +1,11 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonArray;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 
@@ -17,7 +19,7 @@ import java.util.Objects;
  * @author Gianlu
  */
 public final class TokenProvider {
-    private final static Logger LOGGER = Logger.getLogger(TokenProvider.class);
+    private final static Logger LOGGER = LogManager.getLogger(TokenProvider.class);
     private final static int TOKEN_EXPIRE_THRESHOLD = 10;
     private final Session session;
     private final List<StoredToken> tokens = new ArrayList<>();
@@ -36,7 +38,7 @@ public final class TokenProvider {
     }
 
     @NotNull
-    public StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
+    public synchronized StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
         if (scopes.length == 0) throw new IllegalArgumentException();
 
         StoredToken token = findTokenWithAllScopes(scopes);
@@ -45,11 +47,11 @@ public final class TokenProvider {
             else return token;
         }
 
-        LOGGER.debug(String.format("Token expired or not suitable, requesting again. {scopes: %s, oldToken: %s}", Arrays.asList(scopes), token));
+        LOGGER.debug("Token expired or not suitable, requesting again. {scopes: {}, oldToken: {}}", Arrays.asList(scopes), token);
         MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
         token = new StoredToken(resp);
 
-        LOGGER.debug(String.format("Updated token successfully! {scopes: %s, newToken: %s}", Arrays.asList(scopes), token));
+        LOGGER.debug("Updated token successfully! {scopes: {}, newToken: {}}", Arrays.asList(scopes), token);
         tokens.add(token);
 
         return token;
@@ -85,8 +87,8 @@ public final class TokenProvider {
         public String toString() {
             return "StoredToken{" +
                     "expiresIn=" + expiresIn +
-                    ", accessToken='" + accessToken + '\'' +
-                    ", scopes=" + Arrays.toString(scopes) +
+                    ", accessToken='" + Utils.truncateMiddle(accessToken, 12) +
+                    "', scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
         }

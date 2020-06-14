@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders;
 
 import java.io.IOException;
 

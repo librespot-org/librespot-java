@@ -3,12 +3,13 @@ package xyz.gianlu.librespot.api;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.RoutingHandler;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.handlers.*;
 
 public class ApiServer {
-    private static final Logger LOGGER = Logger.getLogger(ApiServer.class);
+    private static final Logger LOGGER = LogManager.getLogger(ApiServer.class);
     private final int port;
     private final String host;
     private final HttpHandler handler;
@@ -35,7 +36,7 @@ public class ApiServer {
 
         undertow = Undertow.builder().addHttpListener(port, host, handler).build();
         undertow.start();
-        LOGGER.info(String.format("Server started on port %d!", port));
+        LOGGER.info("Server started on port {}!", port);
     }
 
     public void stop() {

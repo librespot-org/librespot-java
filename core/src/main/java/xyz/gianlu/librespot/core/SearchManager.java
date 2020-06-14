@@ -8,13 +8,14 @@ import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
 /**
  * @author Gianlu
  */
-public class SearchManager {
+public final class SearchManager {
     private static final String BASE_URL = "hm://searchview/km/v4/search/";
     private final Session session;
 
@@ -33,7 +34,9 @@ public class SearchManager {
 
         if (resp.statusCode != 200) throw new SearchException(resp.statusCode);
 
-        return JsonParser.parseReader(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
+        try (Reader reader = new InputStreamReader(resp.payload.stream())) {
+            return JsonParser.parseReader(reader).getAsJsonObject();
+        }
     }
 
     public static class SearchException extends IOException {

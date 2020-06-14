@@ -1,11 +1,12 @@
 package xyz.gianlu.librespot.player.feeders.storage;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,7 +19,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
 public class AudioFileFetch implements AudioFile {
     public static final byte HEADER_SIZE = 0x3;
     public static final byte HEADER_CDN = 0x4;
-    private static final Logger LOGGER = Logger.getLogger(AudioFileFetch.class);
+    private static final Logger LOGGER = LogManager.getLogger(AudioFileFetch.class);
     private final CacheManager.Handler cache;
     private int size = -1;
     private int chunks = -1;
@@ -36,7 +37,7 @@ public class AudioFileFetch implements AudioFile {
     }
 
     @Override
-    public synchronized void writeHeader(byte id, byte[] bytes, boolean cached) throws IOException {
+    public synchronized void writeHeader(int id, byte[] bytes, boolean cached) throws IOException {
         if (closed) return;
 
         if (!cached && cache != null) {
@@ -44,7 +45,7 @@ public class AudioFileFetch implements AudioFile {
                 cache.setHeader(id, bytes);
             } catch (IOException ex) {
                 if (id == HEADER_SIZE) throw new IOException(ex);
-                else LOGGER.warn(String.format("Failed writing header to cache! {id: %s}", Utils.byteToHex(id)));
+                else LOGGER.warn("Failed writing header to cache! {id: {}}", Utils.byteToHex((byte) id));
             }
         }
 
@@ -63,7 +64,7 @@ public class AudioFileFetch implements AudioFile {
 
     @Override
     public synchronized void streamError(int chunkIndex, short code) {
-        LOGGER.fatal(String.format("Stream error, index: %d, code: %d", chunkIndex, code));
+        LOGGER.fatal("Stream error, index: {}, code: {}", chunkIndex, code);
 
         exception = AbsChunkedInputStream.ChunkException.fromStreamError(code);
         notifyAll();

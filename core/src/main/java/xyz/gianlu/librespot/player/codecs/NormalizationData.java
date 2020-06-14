@@ -1,8 +1,10 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.codecs;
 
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.player.Player;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -14,7 +16,7 @@ import java.nio.ByteOrder;
  * @author Gianlu
  */
 public class NormalizationData {
-    private static final Logger LOGGER = Logger.getLogger(NormalizationData.class);
+    private static final Logger LOGGER = LogManager.getLogger(NormalizationData.class);
     public final float track_gain_db;
     public final float track_peak;
     public final float album_gain_db;
@@ -26,8 +28,8 @@ public class NormalizationData {
         this.album_gain_db = album_gain_db;
         this.album_peak = album_peak;
 
-        LOGGER.trace(String.format("Loaded normalization data, track_gain: %.2f, track_peak: %.2f, album_gain: %.2f, album_peak: %.2f",
-                track_gain_db, track_peak, album_gain_db, album_peak));
+        LOGGER.trace("Loaded normalization data, track_gain: {}, track_peak: {}, album_gain: {}, album_peak: {}",
+                track_gain_db, track_peak, album_gain_db, album_peak);
     }
 
     @NotNull

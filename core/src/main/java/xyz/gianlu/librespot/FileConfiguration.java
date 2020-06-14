@@ -12,15 +12,16 @@ import com.electronwill.nightconfig.core.io.ConfigParser;
 import com.electronwill.nightconfig.core.io.ConfigWriter;
 import com.electronwill.nightconfig.toml.TomlParser;
 import com.spotify.connectstate.Connect;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.AudioOutput;
-import xyz.gianlu.librespot.player.PlayerRunner;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
@@ -38,7 +39,7 @@ import java.util.function.Supplier;
  * @author Gianlu
  */
 public final class FileConfiguration extends AbsConfiguration {
-    private static final Logger LOGGER = Logger.getLogger(FileConfiguration.class);
+    private static final Logger LOGGER = LogManager.getLogger(FileConfiguration.class);
 
     static {
         FormatDetector.registerExtension("properties", new PropertiesFormat());
@@ -218,7 +219,23 @@ public final class FileConfiguration extends AbsConfiguration {
 
     @Override
     public @NotNull AudioQuality preferredQuality() {
-        return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+        try {
+            return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
+        } catch (IllegalArgumentException ex) { // Retro-compatibility
+            LOGGER.warn("Please update the `player.preferredAudioQuality` option to either `NORMAL`, `HIGH` or `VERY_HIGH`.");
+
+            String val = config.get("player.preferredAudioQuality");
+            switch (val) {
+                case "VORBIS_96":
+                    return AudioQuality.NORMAL;
+                case "VORBIS_160":
+                    return AudioQuality.HIGH;
+                case "VORBIS_320":
+                    return AudioQuality.VERY_HIGH;
+                default:
+                    throw ex;
+            }
+        }
     }
 
     @Override
@@ -278,7 +295,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public int initialVolume() {
         int vol = config.get("player.initialVolume");
-        if (vol < 0 || vol > PlayerRunner.VOLUME_MAX)
+        if (vol < 0 || vol > Player.VOLUME_MAX)
             throw new IllegalArgumentException("Invalid volume: " + vol);
 
         return vol;
@@ -287,7 +304,7 @@ public final class FileConfiguration extends AbsConfiguration {
     @Override
     public int volumeSteps() {
         int volumeSteps = config.get("player.volumeSteps");
-        if (volumeSteps < 0 || volumeSteps > PlayerRunner.VOLUME_MAX)
+        if (volumeSteps < 0 || volumeSteps > Player.VOLUME_MAX)
             throw new IllegalArgumentException("Invalid volume steps: " + volumeSteps);
 
         return volumeSteps;

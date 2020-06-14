@@ -10,9 +10,8 @@ import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
@@ -36,9 +35,9 @@ public class VorbisCodec extends Codec {
     private byte[] buffer;
     private int count;
     private int index;
-    private byte[] convertedBuffer;
-    private float[][][] pcmInfo;
-    private int[] pcmIndex;
+    private final byte[] convertedBuffer;
+    private final float[][][] pcmInfo;
+    private final int[] pcmIndex;
     private long pcm_offset;
 
     public VorbisCodec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {

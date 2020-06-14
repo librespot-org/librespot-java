@@ -1,12 +1,12 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
@@ -18,19 +18,21 @@ import java.io.OutputStream;
  */
 public abstract class Codec implements Closeable {
     public static final int BUFFER_SIZE = 2048;
-    private static final Logger LOGGER = Logger.getLogger(Codec.class);
+    private static final Logger LOGGER = LogManager.getLogger(Codec.class);
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
+    private final GeneralAudioStream audioFile;
     private final AudioFormat dstFormat;
     protected volatile boolean closed = false;
+    protected int seekZero = 0;
     private AudioFormat format;
     private StreamConverter converter = null;
-    protected int seekZero = 0;
 
     Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
         this.dstFormat = dstFormat;
         this.audioIn = audioFile.stream();
+        this.audioFile = audioFile;
         this.duration = duration;
         if (conf.enableNormalisation())
             this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
@@ -38,7 +40,7 @@ public abstract class Codec implements Closeable {
             this.normalizationFactor = 1;
     }
 
-    public final int readSome(@NotNull OutputStream out) throws IOException, CodecException {
+    public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
         if (converter == null) return readInternal(out);
 
         int written = readInternal(converter);
@@ -99,6 +101,18 @@ public abstract class Codec implements Closeable {
 
     public final int duration() {
         return duration;
+    }
+
+    public int size() {
+        return audioIn.size();
+    }
+
+    public int decodedLength() {
+        return audioIn.decodedLength();
+    }
+
+    public int decryptTimeMs() {
+        return audioFile.decryptTimeMs();
     }
 
     public static class CannotGetTimeException extends Exception {

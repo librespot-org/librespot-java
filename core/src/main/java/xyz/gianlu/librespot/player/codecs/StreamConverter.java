@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -9,7 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 public final class StreamConverter extends OutputStream {
-    private static final Logger LOGGER = Logger.getLogger(StreamConverter.class);
+    private static final Logger LOGGER = LogManager.getLogger(StreamConverter.class);
     private final boolean monoToStereo;
     private final int sampleSizeFrom;
     private final int sampleSizeTo;
@@ -20,7 +21,7 @@ public final class StreamConverter extends OutputStream {
         sampleSizeFrom = from.getSampleSizeInBits();
         sampleSizeTo = to.getSampleSizeInBits();
 
-        LOGGER.debug(String.format("Converting '%s' to '%s'", from, to));
+        LOGGER.debug("Converting '{}' to '{}'", from, to);
     }
 
     public static boolean canConvert(@NotNull AudioFormat from, @NotNull AudioFormat to) {

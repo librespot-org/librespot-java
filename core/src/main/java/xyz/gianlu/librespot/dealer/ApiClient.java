@@ -5,7 +5,8 @@ import com.spotify.connectstate.Connect;
 import com.spotify.metadata.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.ApResolver;
@@ -22,7 +23,7 @@ import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
  * @author Gianlu
  */
 public class ApiClient {
-    private static final Logger LOGGER = Logger.getLogger(ApiClient.class);
+    private static final Logger LOGGER = LogManager.getLogger(ApiClient.class);
     private final Session session;
     private final String baseUrl;
 
@@ -101,7 +102,7 @@ public class ApiClient {
         try (Response resp = send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
                 .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto), 5 /* We want this to succeed */)) {
             if (resp.code() != 200)
-                LOGGER.warn(String.format("PUT %s returned %d. {headers: %s}", resp.request().url(), resp.code(), resp.headers()));
+                LOGGER.warn("PUT {} returned {}. {headers: {}}", resp.request().url(), resp.code(), resp.headers());
         }
     }
 

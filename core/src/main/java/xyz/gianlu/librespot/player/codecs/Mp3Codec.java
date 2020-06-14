@@ -3,9 +3,8 @@ package xyz.gianlu.librespot.player.codecs;
 import javazoom.jl.decoder.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.GeneralAudioStream;
-import xyz.gianlu.librespot.player.NormalizationData;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.IOException;

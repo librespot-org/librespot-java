@@ -1,7 +1,5 @@
 package xyz.gianlu.librespot.player.mixing;
 
-import java.io.IOException;
-
 /**
  * @author Gianlu
  */
@@ -10,7 +8,7 @@ class GainAwareCircularBuffer extends CircularBuffer {
         super(bufferSize);
     }
 
-    void readGain(byte[] b, int off, int len, float gain) throws IOException {
+    void readGain(byte[] b, int off, int len, float gain) {
         if (closed) return;
 
         lock.lock();
@@ -33,14 +31,13 @@ class GainAwareCircularBuffer extends CircularBuffer {
             }
 
             awaitSpace.signal();
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
         } finally {
             lock.unlock();
         }
     }
 
-    void readMergeGain(byte[] b, int off, int len, float gg, float fg, float sg) throws IOException {
+    void readMergeGain(byte[] b, int off, int len, float gg, float fg, float sg) {
         if (closed) return;
 
         lock.lock();
@@ -69,8 +66,7 @@ class GainAwareCircularBuffer extends CircularBuffer {
             }
 
             awaitSpace.signal();
-        } catch (InterruptedException ex) {
-            throw new IOException(ex);
+        } catch (InterruptedException ignored) {
         } finally {
             lock.unlock();
         }

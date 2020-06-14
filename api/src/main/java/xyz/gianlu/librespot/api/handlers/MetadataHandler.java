@@ -2,7 +2,8 @@ package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
 import io.undertow.server.HttpServerExchange;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.SessionWrapper;
@@ -23,7 +24,7 @@ import java.util.Objects;
  * @author Gianlu
  */
 public final class MetadataHandler extends AbsSessionHandler {
-    private static final Logger LOGGER = Logger.getLogger(MetadataHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(MetadataHandler.class);
     private final boolean needsType;
 
     public MetadataHandler(@NotNull SessionWrapper wrapper, boolean needsType) {
@@ -74,10 +75,10 @@ public final class MetadataHandler extends AbsSessionHandler {
             }
 
             Utils.internalError(exchange, ex);
-            LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s, code: %d}", type, uri, ex.code), ex);
+            LOGGER.error("Failed handling api request. {type: {}, uri: {}, code: {}}", type, uri, ex.code, ex);
         } catch (IOException | MercuryClient.MercuryException ex) {
             Utils.internalError(exchange, ex);
-            LOGGER.error(String.format("Failed handling api request. {type: %s, uri: %s}", type, uri), ex);
+            LOGGER.error("Failed handling api request. {type: {}, uri: {}}", type, uri, ex);
         } catch (IllegalArgumentException ex) {
             Utils.invalidParameter(exchange, "uri", "Invalid uri for type: " + type);
         }

@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.player.feeders;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
@@ -15,4 +15,6 @@ public interface GeneralAudioStream {
 
     @NotNull
     String describe();
+
+    int decryptTimeMs();
 }

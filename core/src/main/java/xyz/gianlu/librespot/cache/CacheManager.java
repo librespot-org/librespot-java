@@ -1,10 +1,11 @@
 package xyz.gianlu.librespot.cache;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.GeneralWritableStream;
-import xyz.gianlu.librespot.player.StreamId;
+import xyz.gianlu.librespot.player.feeders.GeneralWritableStream;
+import xyz.gianlu.librespot.player.feeders.StreamId;
 
 import java.io.Closeable;
 import java.io.File;
@@ -26,8 +27,8 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  */
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
-    private static final Logger LOGGER = Logger.getLogger(CacheManager.class);
-    private static final byte HEADER_TIMESTAMP = (byte) 0b11111110;
+    private static final Logger LOGGER = LogManager.getLogger(CacheManager.class);
+    private static final int HEADER_TIMESTAMP = 254;
     private final File parent;
     private final CacheJournal journal;
     private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
@@ -62,13 +63,13 @@ public class CacheManager implements Closeable {
                         JournalHeader header = journal.getHeader(id, HEADER_TIMESTAMP);
                         if (header == null) continue;
 
-                        long timestamp = new BigInteger(header.value).longValue();
+                        long timestamp = new BigInteger(header.value).longValue() * 1000;
                         if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
                             remove(id);
                     }
                 }
 
-                LOGGER.info(String.format("There are %d cached entries.", entries.size()));
+                LOGGER.info("There are {} cached entries.", entries.size());
             } catch (IOException ex) {
                 LOGGER.warn("Failed performing maintenance operations.", ex);
             }
@@ -96,7 +97,7 @@ public class CacheManager implements Closeable {
         if (file.exists() && !file.delete())
             LOGGER.warn("Couldn't delete cache file: " + file.getAbsolutePath());
 
-        LOGGER.trace(String.format("Removed %s from cache.", streamId));
+        LOGGER.trace("Removed {} from cache.", streamId);
     }
 
     @Override
@@ -160,7 +161,7 @@ public class CacheManager implements Closeable {
             }
         }
 
-        public void setHeader(byte id, byte[] value) throws IOException {
+        public void setHeader(int id, byte[] value) throws IOException {
             try {
                 journal.setHeader(streamId, id, value);
             } finally {

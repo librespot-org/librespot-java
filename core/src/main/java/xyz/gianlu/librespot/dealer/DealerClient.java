@@ -7,7 +7,8 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
@@ -29,7 +30,7 @@ import java.util.zip.GZIPInputStream;
  * @author Gianlu
  */
 public class DealerClient implements Closeable {
-    private static final Logger LOGGER = Logger.getLogger(DealerClient.class);
+    private static final Logger LOGGER = LogManager.getLogger(DealerClient.class);
     private final AsyncWorker<Runnable> asyncWorker;
     private final Session session;
     private final Map<String, RequestListener> reqListeners = new HashMap<>();
@@ -81,10 +82,10 @@ public class DealerClient implements Closeable {
         JsonObject payload = obj.getAsJsonObject("payload");
         if ("gzip".equals(headers.get("Transfer-Encoding"))) {
             byte[] gzip = Base64.getDecoder().decode(payload.get("compressed").getAsString());
-            try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip))) {
-                payload = JsonParser.parseReader(new InputStreamReader(in)).getAsJsonObject();
+            try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip)); Reader reader = new InputStreamReader(in)) {
+                payload = JsonParser.parseReader(reader).getAsJsonObject();
             } catch (IOException ex) {
-                LOGGER.warn(String.format("Failed decompressing request! {mid: %s, key: %s}", mid, key), ex);
+                LOGGER.warn("Failed decompressing request! {mid: {}, key: {}}", mid, key, ex);
                 return;
             }
         }
@@ -93,7 +94,7 @@ public class DealerClient implements Closeable {
         String sender = payload.get("sent_by_device_id").getAsString();
 
         JsonObject command = payload.getAsJsonObject("command");
-        LOGGER.trace(String.format("Received request. {mid: %s, key: %s, pid: %d, sender: %s}", mid, key, pid, sender));
+        LOGGER.trace("Received request. {mid: {}, key: {}, pid: {}, sender: {}}", mid, key, pid, sender);
 
         boolean interesting = false;
         synchronized (reqListeners) {
@@ -104,7 +105,7 @@ public class DealerClient implements Closeable {
                     asyncWorker.submit(() -> {
                         RequestResult result = listener.onRequest(mid, pid, sender, command);
                         if (conn != null) conn.sendReply(key, result);
-                        LOGGER.debug(String.format("Handled request. {key: %s, result: %s}", key, result));
+                        LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
                     });
                 }
             }
@@ -128,7 +129,7 @@ public class DealerClient implements Closeable {
                 try {
                     in = new GZIPInputStream(in);
                 } catch (IOException ex) {
-                    LOGGER.warn(String.format("Failed decompressing message! {uri: %s}", uri), ex);
+                    LOGGER.warn("Failed decompressing message! {uri: {}}", uri, ex);
                     return;
                 }
             }
@@ -300,7 +301,7 @@ public class DealerClient implements Closeable {
             if (conn == ConnectionHolder.this)
                 connectionInvalided();
             else
-                LOGGER.debug(String.format("Did not dispatch connection invalidated: %s != %s", conn, ConnectionHolder.this));
+                LOGGER.debug("Did not dispatch connection invalidated: {} != {}", conn, ConnectionHolder.this);
         }
 
         private class WebSocketListenerImpl extends WebSocketListener {
@@ -308,11 +309,11 @@ public class DealerClient implements Closeable {
             @Override
             public void onOpen(@NotNull WebSocket ws, @NotNull Response response) {
                 if (closed || scheduler.isShutdown()) {
-                    LOGGER.fatal(String.format("I wonder what happened here... Terminating. {closed: %b}", closed));
+                    LOGGER.fatal("I wonder what happened here... Terminating. {closed: {}}", closed);
                     return;
                 }
 
-                LOGGER.debug(String.format("Dealer connected! {host: %s}", response.request().url().host()));
+                LOGGER.debug("Dealer connected! {host: {}}", response.request().url().host());
                 lastScheduledPing = scheduler.scheduleAtFixedRate(() -> {
                     sendPing();
                     receivedPong = false;
@@ -365,6 +366,8 @@ public class DealerClient implements Closeable {
 
             @Override
             public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, @Nullable Response response) {
+                if (closed) return;
+
                 LOGGER.warn("An exception occurred. Reconnecting...", t);
                 ConnectionHolder.this.close();
             }

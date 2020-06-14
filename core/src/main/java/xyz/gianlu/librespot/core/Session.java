@@ -13,7 +13,8 @@ import okhttp3.*;
 import okio.BufferedSink;
 import okio.GzipSink;
 import okio.Okio;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,8 +60,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author Gianlu
  */
-public final class Session implements Closeable, SubListener {
-    private static final Logger LOGGER = Logger.getLogger(Session.class);
+public final class Session implements Closeable, SubListener, DealerClient.MessageListener {
+    private static final Logger LOGGER = LogManager.getLogger(Session.class);
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
             (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93, (byte) 0xa1,
@@ -109,8 +110,10 @@ public final class Session implements Closeable, SubListener {
     private ApiClient api;
     private SearchManager search;
     private PlayableContentFeeder contentFeeder;
+    private EventService eventService;
     private String countryCode = null;
     private volatile boolean closed = false;
+    private volatile boolean closing = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
 
     private Session(Inner inner, String addr) throws IOException {
@@ -119,7 +122,7 @@ public final class Session implements Closeable, SubListener {
         this.conn = ConnectionHolder.create(addr, inner.configuration);
         this.client = createClient(inner.configuration);
 
-        LOGGER.info(String.format("Created new session! {deviceId: %s, ap: %s, proxy: %b} ", inner.deviceId, addr, inner.configuration.proxyEnabled()));
+        LOGGER.info("Created new session! {deviceId: {}, ap: {}, proxy: {}} ", inner.deviceId, addr, inner.configuration.proxyEnabled());
     }
 
     @NotNull
@@ -335,21 +338,24 @@ public final class Session implements Closeable, SubListener {
             api = new ApiClient(this);
             cdnManager = new CdnManager(this);
             contentFeeder = new PlayableContentFeeder(this);
-            cacheManager = new CacheManager(inner.configuration);
+            cacheManager = new CacheManager(conf());
             dealer = new DealerClient(this);
-            player = new Player(inner.configuration, this);
+            player = new Player(conf(), this);
             search = new SearchManager(this);
+            eventService = new EventService(this);
 
             authLock.set(false);
             authLock.notifyAll();
         }
 
-        dealer.connect();
-        player.initState();
+        eventService.language(conf().preferredLocale());
         TimeProvider.init(this);
+        player.initState();
+        dealer.connect();
 
-        LOGGER.info(String.format("Authenticated as %s!", apWelcome.getCanonicalUsername()));
-        mercuryClient.interestedIn("spotify:user:attributes:update", this);
+        LOGGER.info("Authenticated as {}!", apWelcome.getCanonicalUsername());
+        mercury().interestedIn("spotify:user:attributes:update", this);
+        dealer().addMessageListener(this, "hm://connect-state/v1/connect/logout");
     }
 
     /**
@@ -389,7 +395,7 @@ public final class Session implements Closeable, SubListener {
             ByteBuffer preferredLocale = ByteBuffer.allocate(18 + 5);
             preferredLocale.put((byte) 0x0).put((byte) 0x0).put((byte) 0x10).put((byte) 0x0).put((byte) 0x02);
             preferredLocale.put("preferred-locale".getBytes());
-            preferredLocale.put(inner.configuration.preferredLocale().getBytes());
+            preferredLocale.put(conf().preferredLocale().getBytes());
             sendUnchecked(Packet.Type.PreferredLocale, preferredLocale.array());
 
             if (removeLock) {
@@ -423,13 +429,11 @@ public final class Session implements Closeable, SubListener {
 
     @Override
     public void close() throws IOException {
-        LOGGER.info(String.format("Closing session. {deviceId: %s} ", inner.deviceId));
-        scheduler.shutdownNow();
+        LOGGER.info("Closing session. {deviceId: {}}", inner.deviceId);
 
-        if (receiver != null) {
-            receiver.stop();
-            receiver = null;
-        }
+        closing = true;
+
+        scheduler.shutdownNow();
 
         if (player != null) {
             player.close();
@@ -451,12 +455,25 @@ public final class Session implements Closeable, SubListener {
             channelManager = null;
         }
 
+        if (eventService != null) {
+            eventService.close();
+            eventService = null;
+        }
+
         if (mercuryClient != null) {
             mercuryClient.close();
             mercuryClient = null;
         }
 
+        if (receiver != null) {
+            receiver.stop();
+            receiver = null;
+        }
+
         executorService.shutdown();
+
+        client.dispatcher().executorService().shutdownNow();
+        client.connectionPool().evictAll();
 
         if (conn != null) {
             conn.socket.close();
@@ -477,7 +494,9 @@ public final class Session implements Closeable, SubListener {
             }
         }
 
-        LOGGER.info(String.format("Closed session. {deviceId: %s} ", inner.deviceId));
+        reconnectionListeners.clear();
+
+        LOGGER.info("Closed session. {deviceId: {}} ", inner.deviceId);
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
@@ -485,6 +504,11 @@ public final class Session implements Closeable, SubListener {
     }
 
     private void waitAuthLock() {
+        if (closing && conn == null) {
+            LOGGER.debug("Connection was broken while Session.close() has been called");
+            return;
+        }
+
         if (closed) throw new IllegalStateException("Session is closed!");
 
         synchronized (authLock) {
@@ -499,6 +523,11 @@ public final class Session implements Closeable, SubListener {
     }
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
+        if (closing && conn == null) {
+            LOGGER.debug("Connection was broken while Session.close() has been called");
+            return;
+        }
+
         if (closed) throw new IllegalStateException("Session is closed!");
 
         synchronized (authLock) {
@@ -506,7 +535,7 @@ public final class Session implements Closeable, SubListener {
                 try {
                     authLock.wait();
                 } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
+                    return;
                 }
             }
 
@@ -592,6 +621,13 @@ public final class Session implements Closeable, SubListener {
     }
 
     @NotNull
+    public EventService eventService() {
+        waitAuthLock();
+        if (eventService == null) throw new IllegalStateException("Session isn't authenticated!");
+        return eventService;
+    }
+
+    @NotNull
     public String username() {
         return apWelcome().getCanonicalUsername();
     }
@@ -615,7 +651,7 @@ public final class Session implements Closeable, SubListener {
     }
 
     public boolean reconnecting() {
-        return !closed && conn == null;
+        return !closing && !closed && conn == null;
     }
 
     @NotNull
@@ -662,7 +698,7 @@ public final class Session implements Closeable, SubListener {
                     .setAuthData(apWelcome.getReusableAuthCredentials())
                     .build(), true);
 
-            LOGGER.info(String.format("Re-authenticated as %s!", apWelcome.getCanonicalUsername()));
+            LOGGER.info("Re-authenticated as {}!", apWelcome.getCanonicalUsername());
 
             synchronized (reconnectionListeners) {
                 reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
@@ -695,6 +731,10 @@ public final class Session implements Closeable, SubListener {
 
     public void addReconnectionListener(@NotNull ReconnectionListener listener) {
         if (!reconnectionListeners.contains(listener)) reconnectionListeners.add(listener);
+    }
+
+    public void removeReconnectionListener(@NotNull ReconnectionListener listener) {
+        reconnectionListeners.remove(listener);
     }
 
     private void parseProductInfo(@NotNull InputStream in) throws IOException, SAXException, ParserConfigurationException {
@@ -739,7 +779,18 @@ public final class Session implements Closeable, SubListener {
 
             for (ExplicitContentPubsub.KeyValuePair pair : attributesUpdate.getPairsList()) {
                 userAttributes.put(pair.getKey(), pair.getValue());
-                LOGGER.trace(String.format("Updated user attribute: %s -> %s", pair.getKey(), pair.getValue()));
+                LOGGER.trace("Updated user attribute: {} -> {}", pair.getKey(), pair.getValue());
+            }
+        }
+    }
+
+    @Override
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
+        if (uri.equals("hm://connect-state/v1/connect/logout")) {
+            try {
+                close();
+            } catch (IOException ex) {
+                LOGGER.error("Failed closing session due to logout.", ex);
             }
         }
     }
@@ -916,12 +967,14 @@ public final class Session implements Closeable, SubListener {
             if (authConf.storeCredentials()) {
                 File storeFile = authConf.credentialsFile();
                 if (storeFile != null && storeFile.exists()) {
-                    JsonObject obj = JsonParser.parseReader(new FileReader(storeFile)).getAsJsonObject();
-                    loginCredentials = Authentication.LoginCredentials.newBuilder()
-                            .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
-                            .setUsername(obj.get("username").getAsString())
-                            .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
-                            .build();
+                    try (FileReader reader = new FileReader(storeFile)) {
+                        JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+                        loginCredentials = Authentication.LoginCredentials.newBuilder()
+                                .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
+                                .setUsername(obj.get("username").getAsString())
+                                .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                                .build();
+                    }
                 }
             }
 
@@ -1079,7 +1132,7 @@ public final class Session implements Closeable, SubListener {
                     packet = cipherPair.receiveEncoded(conn.in);
                     cmd = Packet.Type.parse(packet.cmd);
                     if (cmd == null) {
-                        LOGGER.info(String.format("Skipping unknown command {cmd: 0x%s, payload: %s}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload)));
+                        LOGGER.info("Skipping unknown command {cmd: 0x{}, payload: {}}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload));
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
@@ -1122,9 +1175,9 @@ public final class Session implements Closeable, SubListener {
                         if (id != 0) {
                             byte[] buffer = new byte[licenseVersion.get()];
                             licenseVersion.get(buffer);
-                            LOGGER.info(String.format("Received LicenseVersion: %d, %s", id, new String(buffer)));
+                            LOGGER.info("Received LicenseVersion: {}, {}", id, new String(buffer));
                         } else {
-                            LOGGER.info(String.format("Received LicenseVersion: %d", id));
+                            LOGGER.info("Received LicenseVersion: {}", id);
                         }
                         break;
                     case Unknown_0x10:

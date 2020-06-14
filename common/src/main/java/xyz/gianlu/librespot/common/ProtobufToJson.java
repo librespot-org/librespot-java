@@ -28,7 +28,8 @@ public final class ProtobufToJson {
         return obj;
     }
 
-    private static JsonArray array(List<? extends Message> list) {
+    @NotNull
+    public static JsonArray convertList(@NotNull List<? extends Message> list) {
         JsonArray array = new JsonArray(list.size());
         for (Message msg : list) array.add(convert(msg));
         return array;
@@ -99,7 +100,7 @@ public final class ProtobufToJson {
                 break;
             case MESSAGE:
                 if (descriptor.isMapField()) json.add(key, mapOfStrings((List<MapEntry>) obj));
-                else if (descriptor.isRepeated()) json.add(key, array((List<? extends Message>) obj));
+                else if (descriptor.isRepeated()) json.add(key, convertList((List<? extends Message>) obj));
                 else json.add(key, convert((Message) obj));
                 break;
             default:

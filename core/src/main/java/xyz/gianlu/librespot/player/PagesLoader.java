@@ -13,6 +13,7 @@ import xyz.gianlu.librespot.mercury.RawMercuryRequest;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,8 +55,10 @@ public final class PagesLoader {
         MercuryClient.Response resp = session.mercury().sendSync(RawMercuryRequest.newBuilder()
                 .setUri(url).setMethod("GET").build());
 
-        JsonObject obj = JsonParser.parseReader(new InputStreamReader(resp.payload.stream())).getAsJsonObject();
-        return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
+        try (Reader reader = new InputStreamReader(resp.payload.stream())) {
+            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+            return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
+        }
     }
 
     @NotNull

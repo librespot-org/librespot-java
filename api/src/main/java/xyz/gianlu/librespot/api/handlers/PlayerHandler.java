@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.api.handlers;
 
 import com.google.gson.JsonObject;
-import com.spotify.metadata.Metadata;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -12,7 +11,8 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.model.EpisodeId;
 import xyz.gianlu.librespot.mercury.model.PlayableId;
 import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.PlayerRunner;
+import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 import java.util.Deque;
 import java.util.Map;
@@ -24,7 +24,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         super(wrapper);
     }
 
-    private void setVolume(HttpServerExchange exchange, Session session, @Nullable String valStr) {
+    private static void setVolume(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
         if (valStr == null) {
             Utils.invalidParameter(exchange, "volume");
             return;
@@ -38,15 +38,15 @@ public final class PlayerHandler extends AbsSessionHandler {
             return;
         }
 
-        if (val < 0 || val > PlayerRunner.VOLUME_MAX) {
-            Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + PlayerRunner.VOLUME_MAX);
+        if (val < 0 || val > Player.VOLUME_MAX) {
+            Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + Player.VOLUME_MAX);
             return;
         }
 
         session.player().setVolume(val);
     }
 
-    private void load(HttpServerExchange exchange, Session session, @Nullable String uri, boolean play) {
+    private static void load(HttpServerExchange exchange, @NotNull Session session, @Nullable String uri, boolean play) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
@@ -55,8 +55,13 @@ public final class PlayerHandler extends AbsSessionHandler {
         session.player().load(uri, play);
     }
 
-    private void current(HttpServerExchange exchange, Session session) {
-        PlayableId id = session.player().currentPlayableId();
+    private static void current(HttpServerExchange exchange, @NotNull Session session) {
+        PlayableId id;
+        try {
+            id = session.player().currentPlayable();
+        } catch (IllegalStateException ex) {
+            id = null;
+        }
 
         JsonObject obj = new JsonObject();
         if (id != null) obj.addProperty("current", id.toSpotifyUri());
@@ -64,28 +69,77 @@ public final class PlayerHandler extends AbsSessionHandler {
         long time = session.player().time();
         obj.addProperty("trackTime", time);
 
+        TrackOrEpisode metadata = session.player().currentMetadata();
         if (id instanceof TrackId) {
-            Metadata.Track track = session.player().currentTrack();
-            if (track == null) {
+            if (metadata == null || metadata.track == null) {
                 Utils.internalError(exchange, "Missing track metadata. Try again.");
                 return;
             }
 
-            obj.add("track", ProtobufToJson.convert(track));
+            obj.add("track", ProtobufToJson.convert(metadata.track));
         } else if (id instanceof EpisodeId) {
-            Metadata.Episode episode = session.player().currentEpisode();
-            if (episode == null) {
+            if (metadata == null || metadata.episode == null) {
                 Utils.internalError(exchange, "Missing episode metadata. Try again.");
                 return;
             }
 
-            obj.add("episode", ProtobufToJson.convert(episode));
+            obj.add("episode", ProtobufToJson.convert(metadata.episode));
         } else {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;
         }
 
         exchange.getResponseSender().send(obj.toString());
+    }
+
+    private static void tracks(HttpServerExchange exchange, @NotNull Session session, boolean withQueue) {
+        Player.Tracks tracks = session.player().tracks(withQueue);
+
+        JsonObject obj = new JsonObject();
+        obj.add("current", tracks.current == null ? null : ProtobufToJson.convert(tracks.current));
+        obj.add("next", ProtobufToJson.convertList(tracks.next));
+        obj.add("prev", ProtobufToJson.convertList(tracks.previous));
+        exchange.getResponseSender().send(obj.toString());
+    }
+
+    private static void addToQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+        if (uri == null) {
+            Utils.invalidParameter(exchange, "uri");
+            return;
+        }
+
+        session.player().addToQueue(uri);
+    }
+
+    private static void removeFromQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+        if (uri == null) {
+            Utils.invalidParameter(exchange, "uri");
+            return;
+        }
+
+        session.player().removeFromQueue(uri);
+    }
+
+    private static void seek(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
+        if (valStr == null) {
+            Utils.invalidParameter(exchange, "pos");
+            return;
+        }
+
+        int pos;
+        try {
+            pos = Integer.parseInt(valStr);
+        } catch (Exception ex) {
+            Utils.invalidParameter(exchange, "pos", "Not an integer");
+            return;
+        }
+
+        if (pos < 0) {
+            Utils.invalidParameter(exchange, "pos", "Cannot be negative");
+            return;
+        }
+
+        session.player().seek(pos);
     }
 
     @Override
@@ -137,15 +191,28 @@ public final class PlayerHandler extends AbsSessionHandler {
             case NEXT:
                 session.player().next();
                 return;
+            case SEEK:
+                seek(exchange, session, Utils.getFirstString(params, "pos"));
+                return;
+            case TRACKS:
+                tracks(exchange, session, Utils.getFirstBoolean(params, "withQueue"));
+                return;
+            case ADD_TO_QUEUE:
+                addToQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                break;
+            case REMOVE_FROM_QUEUE:
+                removeFromQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                break;
             default:
                 throw new IllegalArgumentException(cmd.name());
         }
     }
 
     private enum Command {
-        LOAD("load"), PAUSE("pause"), RESUME("resume"),
-        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"),
-        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current");
+        LOAD("load"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
+        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"), SEEK("seek"),
+        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"),
+        ADD_TO_QUEUE("addToQueue"), REMOVE_FROM_QUEUE("removeFromQueue");
 
         private final String name;
 

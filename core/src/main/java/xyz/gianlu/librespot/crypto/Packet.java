@@ -51,6 +51,7 @@ public class Packet {
         MercurySub(0xb3),
         MercuryUnsub(0xb4),
         MercuryEvent(0xb5),
+        TrackEndedTime(0x82),
         UnknownData_AllZeros(0x1f),
         PreferredLocale(0x74),
         Unknown_0x4f(0x4f),

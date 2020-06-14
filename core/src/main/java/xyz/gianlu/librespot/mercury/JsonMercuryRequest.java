@@ -5,7 +5,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.InvocationTargetException;
 
 /**
@@ -22,10 +24,10 @@ public class JsonMercuryRequest<W extends JsonWrapper> {
 
     @NotNull
     public W instantiate(@NotNull MercuryClient.Response resp) {
-        try {
-            JsonElement elm = JsonParser.parseReader(new InputStreamReader(resp.payload.stream()));
+        try (Reader reader = new InputStreamReader(resp.payload.stream())) {
+            JsonElement elm = JsonParser.parseReader(reader);
             return wrapperClass.getConstructor(JsonObject.class).newInstance(elm.getAsJsonObject());
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException | IOException ex) {
             throw new IllegalArgumentException(ex);
         }
     }

@@ -4,7 +4,8 @@ import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
 import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.*;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.cache.CacheManager;
@@ -12,11 +13,12 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.*;
+import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.AudioDecrypt;
 import xyz.gianlu.librespot.player.decrypt.NoopAudioDecrypt;
+import xyz.gianlu.librespot.player.feeders.*;
 import xyz.gianlu.librespot.player.feeders.storage.AudioFileFetch;
 
 import java.io.IOException;
@@ -32,7 +34,7 @@ import static xyz.gianlu.librespot.player.feeders.storage.ChannelManager.CHUNK_S
  * @author Gianlu
  */
 public class CdnManager {
-    private static final Logger LOGGER = Logger.getLogger(CdnManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(CdnManager.class);
     private final Session session;
 
     public CdnManager(@NotNull Session session) {
@@ -82,7 +84,7 @@ public class CdnManager {
             StorageResolveResponse proto = StorageResolveResponse.parseFrom(body.byteStream());
             if (proto.getResult() == StorageResolveResponse.Result.CDN) {
                 String url = proto.getCdnurl(session.random().nextInt(proto.getCdnurlCount()));
-                LOGGER.debug(String.format("Fetched CDN url for %s: %s", Utils.bytesToHex(fileId), url));
+                LOGGER.debug("Fetched CDN url for {}: {}", Utils.bytesToHex(fileId), url);
                 return HttpUrl.get(url);
             } else {
                 throw new CdnException(String.format("Could not retrieve CDN url! {result: %s}", proto.getResult()));
@@ -119,11 +121,6 @@ public class CdnManager {
         CdnUrl(@Nullable ByteString fileId, @NotNull HttpUrl url) {
             this.fileId = fileId;
             this.setUrl(url);
-        }
-
-        @Nullable
-        String host() {
-            return url == null ? null : url.host();
         }
 
         @NotNull
@@ -210,7 +207,22 @@ public class CdnManager {
             boolean fromCache;
             byte[] firstChunk;
             byte[] sizeHeader;
-            if (cacheHandler == null || (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) == null) {
+
+            if (cacheHandler != null && (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) != null) {
+                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
+                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                try {
+                    firstChunk = cacheHandler.readChunk(0);
+                    fromCache = true;
+                } catch (IOException ex) {
+                    LOGGER.error("Failed getting first chunk from cache.", ex);
+
+                    InternalResponse resp = request(0, CHUNK_SIZE - 1);
+                    firstChunk = resp.buffer;
+                    fromCache = false;
+                }
+            } else {
                 InternalResponse resp = request(0, CHUNK_SIZE - 1);
                 String contentRange = resp.headers.get("Content-Range");
                 if (contentRange == null)
@@ -220,17 +232,11 @@ public class CdnManager {
                 size = Integer.parseInt(split[1]);
                 chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
 
-                firstChunk = resp.buffer;
-                fromCache = false;
-
                 if (cacheHandler != null)
                     cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());
-            } else {
-                size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
-                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-                firstChunk = cacheHandler.readChunk(0);
-                fromCache = true;
+                firstChunk = resp.buffer;
+                fromCache = false;
             }
 
             available = new boolean[chunks];
@@ -251,11 +257,11 @@ public class CdnManager {
                 try {
                     cacheHandler.writeChunk(chunk, chunkIndex);
                 } catch (IOException ex) {
-                    LOGGER.warn(String.format("Failed writing to cache! {index: %d}", chunkIndex), ex);
+                    LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
                 }
             }
 
-            LOGGER.trace(String.format("Chunk %d/%d completed, cdn: %s, cached: %b, stream: %s", chunkIndex, chunks, cdnUrl.host(), cached, describe()));
+            LOGGER.trace("Chunk {}/{} completed, cached: {}, stream: {}", chunkIndex, chunks, cached, describe());
 
             audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
             internalStream.notifyChunkAvailable(chunkIndex);
@@ -277,6 +283,11 @@ public class CdnManager {
             else return "{fileId: " + streamId.getFileId() + "}";
         }
 
+        @Override
+        public int decryptTimeMs() {
+            return audioDecrypt.decryptTimeMs();
+        }
+
         private void requestChunk(int index) {
             if (cacheHandler != null) {
                 try {
@@ -285,7 +296,7 @@ public class CdnManager {
                         return;
                     }
                 } catch (IOException ex) {
-                    LOGGER.fatal(String.format("Failed requesting chunk from cache, index: %d", index), ex);
+                    LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
                 }
             }
 
@@ -293,7 +304,7 @@ public class CdnManager {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
             } catch (IOException | CdnException ex) {
-                LOGGER.fatal(String.format("Failed requesting chunk from network, index: %d", index), ex);
+                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
                 internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
@@ -320,6 +331,10 @@ public class CdnManager {
             }
         }
 
+        public int size() {
+            return size;
+        }
+
         private class InternalStream extends AbsChunkedInputStream {
 
             private InternalStream(Player.@NotNull Configuration conf) {
@@ -338,7 +353,7 @@ public class CdnManager {
             }
 
             @Override
-            protected int size() {
+            public int size() {
                 return size;
             }
 

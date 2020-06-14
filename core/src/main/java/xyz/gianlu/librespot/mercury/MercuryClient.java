@@ -6,7 +6,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.spotify.Mercury;
 import com.spotify.Pubsub;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.BytesArrayList;
@@ -28,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Gianlu
  */
 public final class MercuryClient extends PacketsManager {
-    private static final Logger LOGGER = Logger.getLogger(MercuryClient.class);
+    private static final Logger LOGGER = LogManager.getLogger(MercuryClient.class);
     private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
@@ -53,7 +54,7 @@ public final class MercuryClient extends PacketsManager {
             subscriptions.add(new InternalSubListener(uri, listener, true));
         }
 
-        LOGGER.trace(String.format("Subscribed successfully to %s!", uri));
+        LOGGER.trace("Subscribed successfully to {}!", uri);
     }
 
     public void unsubscribe(@NotNull String uri) throws IOException, PubSubException {
@@ -61,7 +62,7 @@ public final class MercuryClient extends PacketsManager {
         if (response.statusCode != 200) throw new PubSubException(response);
 
         subscriptions.removeIf(l -> l.matches(uri));
-        LOGGER.trace(String.format("Unsubscribed successfully from %s!", uri));
+        LOGGER.trace("Unsubscribed successfully from {}!", uri);
     }
 
     @NotNull
@@ -69,11 +70,15 @@ public final class MercuryClient extends PacketsManager {
         SyncCallback callback = new SyncCallback();
         int seq = send(request, callback);
 
-        Response resp = callback.waitResponse();
-        if (resp == null)
-            throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
+        try {
+            Response resp = callback.waitResponse();
+            if (resp == null)
+                throw new IOException(String.format("Request timeout out, %d passed, yet no response. {seq: %d}", MERCURY_REQUEST_TIMEOUT, seq));
 
-        return resp;
+            return resp;
+        } catch (InterruptedException ex) {
+            throw new IOException(ex); // Wrapping to avoid having to dispatch yet another exception down the call stack
+        }
     }
 
     @NotNull
@@ -130,7 +135,7 @@ public final class MercuryClient extends PacketsManager {
             seq = seqHolder.getAndIncrement();
         }
 
-        LOGGER.trace(String.format("Send Mercury request, seq: %d, uri: %s, method: %s", seq, request.header.getUri(), request.header.getMethod()));
+        LOGGER.trace("Send Mercury request, seq: {}, uri: {}, method: {}", seq, request.header.getUri(), request.header.getMethod());
 
         out.writeShort((short) 4); // Seq length
         out.writeInt(seq); // Seq
@@ -173,7 +178,7 @@ public final class MercuryClient extends PacketsManager {
             partials.put(seq, partial);
         }
 
-        LOGGER.trace(String.format("Handling packet, cmd: %s, seq: %d, flags: %d, parts: %d", packet.type(), seq, flags, parts));
+        LOGGER.trace("Handling packet, cmd: {}, seq: {}, flags: {}, parts: {}", packet.type(), seq, flags, parts);
 
         for (int i = 0; i < parts; i++) {
             short size = payload.getShort();
@@ -190,7 +195,7 @@ public final class MercuryClient extends PacketsManager {
         try {
             header = Mercury.Header.parseFrom(partial.get(0));
         } catch (InvalidProtocolBufferException ex) {
-            LOGGER.fatal(String.format("Couldn't parse header! {bytes: %s}", Utils.bytesToHex(partial.get(0))));
+            LOGGER.fatal("Couldn't parse header! {bytes: {}}", Utils.bytesToHex(partial.get(0)));
             throw ex;
         }
 
@@ -198,28 +203,30 @@ public final class MercuryClient extends PacketsManager {
 
         if (packet.is(Packet.Type.MercuryEvent)) {
             boolean dispatched = false;
-            for (InternalSubListener sub : subscriptions) {
-                if (sub.matches(header.getUri())) {
-                    sub.dispatch(resp);
-                    dispatched = true;
+            synchronized (subscriptions) {
+                for (InternalSubListener sub : subscriptions) {
+                    if (sub.matches(header.getUri())) {
+                        sub.dispatch(resp);
+                        dispatched = true;
+                    }
                 }
             }
 
             if (!dispatched)
-                LOGGER.debug(String.format("Couldn't dispatch Mercury event {seq: %d, uri: %s, code: %d, payload: %s}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex()));
+                LOGGER.debug("Couldn't dispatch Mercury event {seq: {}, uri: {}, code: {}, payload: {}}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex());
         } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
             if (callback != null) {
                 callback.response(resp);
             } else {
-                LOGGER.warn(String.format("Skipped Mercury response, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
+                LOGGER.warn("Skipped Mercury response, seq: {}, uri: {}, code: {}", seq, header.getUri(), header.getStatusCode());
             }
 
             synchronized (removeCallbackLock) {
                 removeCallbackLock.notifyAll();
             }
         } else {
-            LOGGER.warn(String.format("Couldn't handle packet, seq: %d, uri: %s, code %d", seq, header.getUri(), header.getStatusCode()));
+            LOGGER.warn("Couldn't handle packet, seq: {}, uri: {}, code: {}", seq, header.getUri(), header.getStatusCode());
         }
     }
 
@@ -233,9 +240,7 @@ public final class MercuryClient extends PacketsManager {
     }
 
     public void notInterested(@NotNull SubListener listener) {
-        synchronized (subscriptions) {
-            subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
-        }
+        subscriptions.removeIf(internalSubListener -> internalSubListener.listener == listener);
     }
 
     @Override
@@ -245,7 +250,7 @@ public final class MercuryClient extends PacketsManager {
                 try {
                     if (listener.isSub) unsubscribe(listener.uri);
                     else notInterested(listener.listener);
-                } catch (IOException | PubSubException ex) {
+                } catch (IOException | MercuryException ex) {
                     LOGGER.debug("Failed unsubscribing.", ex);
                 }
             }
@@ -292,14 +297,10 @@ public final class MercuryClient extends PacketsManager {
         }
 
         @Nullable
-        Response waitResponse() {
+        Response waitResponse() throws InterruptedException {
             synchronized (reference) {
-                try {
-                    reference.wait(MERCURY_REQUEST_TIMEOUT);
-                    return reference.get();
-                } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
-                }
+                reference.wait(MERCURY_REQUEST_TIMEOUT);
+                return reference.get();
             }
         }
     }

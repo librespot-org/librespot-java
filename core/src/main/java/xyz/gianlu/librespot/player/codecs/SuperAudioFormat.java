@@ -24,6 +24,7 @@ public enum SuperAudioFormat {
                 return MP3;
             case AAC_24:
             case AAC_48:
+            case AAC_24_NORM:
                 return AAC;
             default:
                 throw new IllegalArgumentException("Unknown audio format: " + format);

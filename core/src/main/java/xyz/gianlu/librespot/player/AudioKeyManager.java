@@ -1,7 +1,8 @@
 package xyz.gianlu.librespot.player;
 
 import com.google.protobuf.ByteString;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
@@ -23,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class AudioKeyManager extends PacketsManager {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
-    private static final Logger LOGGER = Logger.getLogger(AudioKeyManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(AudioKeyManager.class);
     private static final long AUDIO_KEY_REQUEST_TIMEOUT = 2000;
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
@@ -84,7 +85,7 @@ public final class AudioKeyManager extends PacketsManager {
             short code = payload.getShort();
             callback.error(code);
         } else {
-            LOGGER.warn(String.format("Couldn't handle packet, cmd: %s, length: %d", packet.type(), packet.payload.length));
+            LOGGER.warn("Couldn't handle packet, cmd: {}, length: {}", packet.type(), packet.payload.length);
         }
     }
 
@@ -112,7 +113,7 @@ public final class AudioKeyManager extends PacketsManager {
 
         @Override
         public void error(short code) {
-            LOGGER.fatal(String.format("Audio key error, code: %d", code));
+            LOGGER.fatal("Audio key error, code: {}", code);
 
             synchronized (reference) {
                 reference.set(null);
@@ -121,13 +122,13 @@ public final class AudioKeyManager extends PacketsManager {
         }
 
         @Nullable
-        byte[] waitResponse() {
+        byte[] waitResponse() throws IOException {
             synchronized (reference) {
                 try {
                     reference.wait(AUDIO_KEY_REQUEST_TIMEOUT);
                     return reference.get();
                 } catch (InterruptedException ex) {
-                    throw new IllegalStateException(ex);
+                    throw new IOException(ex); // Wrapping to avoid cluttering the call stack
                 }
             }
         }

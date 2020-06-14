@@ -5,7 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,9 +27,8 @@ import java.util.*;
  * @author Gianlu
  */
 public final class Utils {
-    public static final byte[] EOL = new byte[]{'\r', '\n'};
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
-    private static final Logger LOGGER = Logger.getLogger(Utils.class);
+    private static final Logger LOGGER = LogManager.getLogger(Utils.class);
     private static final String randomString = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     private Utils() {
@@ -47,6 +47,17 @@ public final class Utils {
         for (int i = 0; i < length; i++)
             chars[i] = randomString.charAt(random.nextInt(randomString.length()));
         return new String(chars);
+    }
+
+    @NotNull
+    public static String truncateMiddle(@NotNull String str, int length) {
+        if (length <= 1) throw new IllegalStateException();
+
+        int first = length / 2;
+        String result = str.substring(0, first);
+        result += "...";
+        result += str.substring(str.length() - (length - first));
+        return result;
     }
 
     @NotNull
@@ -260,6 +271,13 @@ public final class Utils {
         hexChars[0] = hexArray[v >>> 4];
         hexChars[1] = hexArray[v & 0x0F];
         return new String(hexChars);
+    }
+
+    @NotNull
+    public static List<Metadata.AudioFile.Format> formatsToString(@NotNull List<Metadata.AudioFile> files) {
+        List<Metadata.AudioFile.Format> list = new ArrayList<>(files.size());
+        for (Metadata.AudioFile file : files) list.add(file.getFormat());
+        return list;
     }
 
     @NotNull
