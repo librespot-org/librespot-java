@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 14-06-2020
+### Added
+- Report to server that we played a track (#155, still buggy)
+- Retrieve tracks in state from API (#222)
+- Add/remove tracks from queue from API (#222)
+- Seek from API (6104db1a66b9defabc43ec21e6668899cf8c2683)
+- Added logout feature (5839d5b48133cd69cf59a028ee423b44caec8627)
+
+### Changed
+- Rewritten player and related bug fixing (#155, 08282b94d6adc7e5e5a07fe20c150829fc912943, #216, #217, 13423cdcfd39b8a5722e3a14bb19e53ab426b4ea, e549f08356696ef46add79f60ad8e28891738bd7)
+- Using Log4j2 (5bb16797b78a76618821d28f547e92c217bdb8c8, 73a668c47db36932567777216330479d8147d80b, 52a60cbf0c059d4582dfe278a65bf786a4df43a3, 548163e4d3b2267d3030f7597ed5b4e8eeeab29c)
+- Improved error message for mixers (#220)
+- Refactored audio quality selection (#223)
+- Close readers properly (6ad0f3cddc89e6d172eb16c5635ed46128eb65db)
+- Better truncation of sensitive values (661c171fcd353471924a4ae0544dc27ff0ca83d0)
+
+### Fixed
+- Fixed time bar in wrong position after resuming (#213)
+- Do not get Cipher instance every time (#215)
+- Fixed loading of some podcasts (#223)
+- Fixed crash when pressing next after adding song to queue (#226)
+- Prevent deadlock when closing after network issue (#227)
+- Fixed old issue with Zeroconf active session (#225, #229, #231)
+- Avoid establishing two connections (afc7dc366379391f7e59ce8a37a0b007b2c69303)
+- Start line before writing for the first time (#232)
+- Do not close `System.out` for any reason (#234)
+- Shutdown OkHttp threads when closing (#235)
+
+
 ## [1.3.1] - 26-04-2020
 ### Added
 - Added explicit content filter (#200)
