@@ -458,6 +458,15 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             return;
         }
 
+        if (context.startsWith("spotify:search:")) {
+            LOGGER.info("Cannot load autoplay for search context: " + context);
+
+            state.setPosition(0);
+            state.setState(true, false, false);
+            state.updated();
+            return;
+        }
+
         String contextDesc = state.getContextMetadata("context_description");
 
         try {
