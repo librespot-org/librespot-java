@@ -101,8 +101,10 @@ public class ApiClient {
     public void putConnectState(@NotNull String connectionId, @NotNull Connect.PutStateRequest proto) throws IOException, MercuryClient.MercuryException {
         try (Response resp = send("PUT", "/connect-state/v1/devices/" + session.deviceId(), new Headers.Builder()
                 .add("X-Spotify-Connection-Id", connectionId).build(), protoBody(proto), 5 /* We want this to succeed */)) {
-            if (resp.code() != 200)
-                LOGGER.warn("PUT {} returned {}. {headers: {}}", resp.request().url(), resp.code(), resp.headers());
+            if (resp.code() == 413)
+                LOGGER.warn("PUT state payload is too large: {} bytes uncompressed.", proto.getSerializedSize());
+            else if (resp.code() != 200)
+                LOGGER.warn("PUT state returned {}. {headers: {}}", resp.code(), resp.headers());
         }
     }
 

@@ -858,6 +858,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     private class TracksKeeper {
+        private static final int MAX_PREV_TRACKS = 16;
+        private static final int MAX_NEXT_TRACKS = 48;
         private final LinkedList<ContextTrack> queue = new LinkedList<>();
         private final List<ContextTrack> tracks = new ArrayList<>();
         private final FisherYatesShuffle<ContextTrack> shuffle = new FisherYatesShuffle<>(session.random());
@@ -917,14 +919,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             int index = getCurrentTrackIndex();
 
             state.clearPrevTracks();
-            for (int i = 0; i < index; i++)
+            for (int i = Math.max(0, index - MAX_PREV_TRACKS); i < index; i++)
                 state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
 
             state.clearNextTracks();
             for (ContextTrack track : queue)
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(track));
 
-            for (int i = index + 1; i < tracks.size(); i++)
+            for (int i = index + 1; i < Math.min(tracks.size(), index + 1 + MAX_NEXT_TRACKS); i++)
                 state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
         }
 
