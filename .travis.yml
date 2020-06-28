@@ -31,13 +31,13 @@ deploy:
       - api/target/librespot-api-sources.jar
     on:
       repo: librespot-org/librespot-java
-      jdk: 'openjdk11'
+      jdk: 'openjdk8'
       tags: true
   - provider: script
     script: mvn deploy --settings .maven.xml -B -U -Prelease
     on:
       repo: librespot-org/librespot-java
-      jdk: 'openjdk11'
+      jdk: 'openjdk8'
       all_branches: true
       condition: $TRAVIS_BRANCH = "master" || $TRAVIS_BRANCH = "dev"
 
