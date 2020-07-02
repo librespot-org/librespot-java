@@ -1,16 +1,12 @@
 package xyz.gianlu.librespot.player.codecs;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.IOException;
 import java.io.OutputStream;
 
 public final class StreamConverter extends OutputStream {
-    private static final Logger LOGGER = LogManager.getLogger(StreamConverter.class);
     private final boolean monoToStereo;
     private final int sampleSizeFrom;
     private final int sampleSizeTo;
@@ -20,8 +16,6 @@ public final class StreamConverter extends OutputStream {
         monoToStereo = from.getChannels() == 1 && to.getChannels() == 2;
         sampleSizeFrom = from.getSampleSizeInBits();
         sampleSizeTo = to.getSampleSizeInBits();
-
-        LOGGER.debug("Converting '{}' to '{}'", from, to);
     }
 
     public static boolean canConvert(@NotNull AudioFormat from, @NotNull AudioFormat to) {
@@ -95,12 +89,10 @@ public final class StreamConverter extends OutputStream {
         }
     }
 
-    public int convertInto(@NotNull OutputStream out) throws IOException {
+    public byte[] convert() {
         byte[] result = sampleSizeConversion(buffer, sampleSizeFrom, sampleSizeTo);
         if (monoToStereo) result = monoToStereo(result, sampleSizeTo);
-
-        out.write(result);
-        return result.length;
+        return result;
     }
 
     @Override
@@ -113,10 +105,5 @@ public final class StreamConverter extends OutputStream {
     @Contract("_ -> fail")
     public void write(int i) {
         throw new UnsupportedOperationException();
-    }
-
-    public void checkWritten(int written) {
-        if (buffer.length != written)
-            throw new IllegalStateException(String.format("Buffer is %d bytes long, %d should have been written!", buffer.length, written));
     }
 }

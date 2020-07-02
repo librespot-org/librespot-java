@@ -23,9 +23,9 @@ import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.feeders.HaltListener;
 import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
 import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
+import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.MixingLine;
 
-import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -49,8 +49,8 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private final Listener listener;
     private final Object playbackLock = new Object();
     private final TreeMap<Integer, Integer> notifyInstants = new TreeMap<>(Comparator.comparingInt(o -> o));
+    private final AudioSink sink;
     private final Session session;
-    private final AudioFormat format;
     CrossfadeController crossfade;
     PlaybackMetrics.Reason endReason = PlaybackMetrics.Reason.END_PLAY;
     private Codec codec;
@@ -62,9 +62,9 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private boolean retried = false;
     private PlayableContentFeeder.Metrics contentMetrics;
 
-    PlayerQueueEntry(@NotNull Session session, @NotNull AudioFormat format, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
+    PlayerQueueEntry(@NotNull AudioSink sink, @NotNull Session session, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
+        this.sink = sink;
         this.session = session;
-        this.format = format;
         this.playbackId = StateWrapper.generatePlaybackId(session.random());
         this.playable = playable;
         this.preloaded = preloaded;
@@ -77,7 +77,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     PlayerQueueEntry retrySelf(boolean preloaded) {
         if (retried) throw new IllegalStateException();
 
-        PlayerQueueEntry retry = new PlayerQueueEntry(session, format, playable, preloaded, listener);
+        PlayerQueueEntry retry = new PlayerQueueEntry(sink, session, playable, preloaded, listener);
         retry.retried = true;
         return retry;
     }
@@ -105,11 +105,11 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         switch (stream.in.codec()) {
             case VORBIS:
-                codec = new VorbisCodec(format, stream.in, stream.normalizationData, session.conf(), metadata.duration());
+                codec = new VorbisCodec(sink, stream.in, stream.normalizationData, session.conf(), metadata.duration());
                 break;
             case MP3:
                 try {
-                    codec = new Mp3Codec(format, stream.in, stream.normalizationData, session.conf(), metadata.duration());
+                    codec = new Mp3Codec(sink, stream.in, stream.normalizationData, session.conf(), metadata.duration());
                 } catch (BitstreamException ex) {
                     throw new IOException(ex);
                 }
@@ -200,7 +200,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             MixingLine.MixingOutput tmp = output;
             output = null;
 
-            tmp.toggle(false);
+            tmp.toggle(false, null);
             tmp.clear();
 
             LOGGER.debug("{} has been removed from output.", this);
@@ -275,7 +275,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
 
             if (closed) break;
-            output.toggle(true);
+            output.toggle(true, codec.getAudioFormat());
 
             if (seekTime != -1) {
                 codec.seek(seekTime);
@@ -317,7 +317,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
         }
 
-        if (output != null) output.toggle(false);
+        if (output != null) output.toggle(false, null);
         listener.playbackEnded(this);
         LOGGER.trace("{} terminated.", this);
     }

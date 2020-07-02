@@ -990,8 +990,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             TrackOrEpisode metadata = currentMetadata();
             if (metadata == null) return;
 
-            String data = String.format("1/%.0f/%.0f", state.getPosition() * AudioSink.OUTPUT_FORMAT.getSampleRate() / 1000 + 1,
-                    metadata.duration() * AudioSink.OUTPUT_FORMAT.getSampleRate() / 1000 + 1);
+            String data = String.format("1/%.0f/%.0f", state.getPosition() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1,
+                    metadata.duration() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
         }
 

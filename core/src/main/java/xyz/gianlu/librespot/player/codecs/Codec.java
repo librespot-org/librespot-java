@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
 import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.player.mixing.AudioSink;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
@@ -22,15 +23,14 @@ public abstract class Codec implements Closeable {
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
+    private final AudioSink sink;
     private final GeneralAudioStream audioFile;
-    private final AudioFormat dstFormat;
     protected volatile boolean closed = false;
     protected int seekZero = 0;
     private AudioFormat format;
-    private StreamConverter converter = null;
 
-    Codec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
-        this.dstFormat = dstFormat;
+    Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
+        this.sink = sink;
         this.audioIn = audioFile.stream();
         this.audioFile = audioFile;
         this.duration = duration;
@@ -41,13 +41,7 @@ public abstract class Codec implements Closeable {
     }
 
     public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
-        if (converter == null) return readInternal(out);
-
-        int written = readInternal(converter);
-        if (written == -1) return -1;
-
-        converter.checkWritten(written);
-        return converter.convertInto(out);
+        return readInternal(out);
     }
 
     protected abstract int readInternal(@NotNull OutputStream out) throws IOException, CodecException;
@@ -90,9 +84,6 @@ public abstract class Codec implements Closeable {
 
     protected final void setAudioFormat(@NotNull AudioFormat format) {
         this.format = format;
-
-        if (format.matches(dstFormat)) converter = null;
-        else converter = StreamConverter.converter(format, dstFormat);
     }
 
     protected final int sampleSizeBytes() {

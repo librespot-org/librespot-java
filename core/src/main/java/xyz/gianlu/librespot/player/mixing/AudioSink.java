@@ -17,18 +17,18 @@ import java.io.*;
  * @author devgianlu
  */
 public final class AudioSink implements Runnable, Closeable {
-    public static final AudioFormat OUTPUT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
+    public static final AudioFormat DEFAULT_FORMAT = new AudioFormat(44100, 16, 2, true, false);
     private static final Logger LOGGER = LogManager.getLogger(AudioSink.class);
     private final Object pauseLock = new Object();
     private final Output output;
-    private final MixingLine mixing = new MixingLine(OUTPUT_FORMAT);
+    private final MixingLine mixing = new MixingLine();
     private final Thread thread;
     private final Listener listener;
     private volatile boolean closed = false;
     private volatile boolean paused = true;
 
     /**
-     * Creates a new sink from the current {@param conf} with the standard {@link AudioSink#OUTPUT_FORMAT} format. Also sets the initial volume.
+     * Creates a new sink from the current {@param conf}. Also sets the initial volume.
      */
     public AudioSink(@NotNull Player.Configuration conf, @NotNull Listener listener) {
         this.listener = listener;
@@ -54,14 +54,6 @@ public final class AudioSink implements Runnable, Closeable {
 
         thread = new Thread(this, "player-audio-sink");
         thread.start();
-    }
-
-    /**
-     * @return The {@link AudioFormat} that this sink accepts
-     */
-    @NotNull
-    public AudioFormat getFormat() {
-        return output.getFormat();
     }
 
     public void clearOutputs() {
@@ -145,8 +137,11 @@ public final class AudioSink implements Runnable, Closeable {
                 }
             } else {
                 try {
-                    if (!started)
-                        started = output.start();
+                    if (!started || mixing.switchFormat) {
+                        AudioFormat format = mixing.getFormat();
+                        if (format != null) started = output.start(format);
+                        mixing.switchFormat = false;
+                    }
 
                     int count = mixing.read(buffer);
                     output.write(buffer, count);
@@ -197,11 +192,22 @@ public final class AudioSink implements Runnable, Closeable {
             return (float) (Math.log10((double) val / Player.VOLUME_MAX) * 20f);
         }
 
-        private void acquireLine() throws LineUnavailableException, LineHelper.MixerException {
-            if (line != null) return;
+        private void acquireLine(@NotNull AudioFormat format) throws LineUnavailableException, LineHelper.MixerException {
+            if (type != Type.MIXER)
+                return;
 
-            line = LineHelper.getLineFor(conf, OUTPUT_FORMAT);
-            line.open(OUTPUT_FORMAT);
+            if (line == null || !line.getFormat().matches(format)) {
+                if (line != null) line.close();
+
+                try {
+                    line = LineHelper.getLineFor(conf, format);
+                    line.open(format);
+                } catch (LineUnavailableException | LineHelper.MixerException ex) {
+                    LOGGER.warn("Failed opening like for custom format '{}'. Opening default.", format);
+                    line = LineHelper.getLineFor(conf, DEFAULT_FORMAT);
+                    line.open(DEFAULT_FORMAT);
+                }
+            }
 
             if (lastVolume != -1) setVolume(lastVolume);
         }
@@ -214,9 +220,9 @@ public final class AudioSink implements Runnable, Closeable {
             if (line != null) line.stop();
         }
 
-        boolean start() throws LineUnavailableException {
+        boolean start(@NotNull AudioFormat format) throws LineUnavailableException {
             if (type == Type.MIXER) {
-                acquireLine();
+                acquireLine(format);
                 line.start();
                 return true;
             }
@@ -269,12 +275,6 @@ public final class AudioSink implements Runnable, Closeable {
             }
 
             if (out != null && out != System.out) out.close();
-        }
-
-        @NotNull
-        public AudioFormat getFormat() {
-            if (line != null) return line.getFormat();
-            else return OUTPUT_FORMAT;
         }
 
         void setVolume(int volume) {

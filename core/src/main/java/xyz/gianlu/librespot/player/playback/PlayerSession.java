@@ -58,7 +58,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * @param playable The content for the new entry
      */
     private void add(@NotNull PlayableId playable, boolean preloaded) {
-        PlayerQueueEntry entry = new PlayerQueueEntry(session, sink.getFormat(), playable, preloaded, this);
+        PlayerQueueEntry entry = new PlayerQueueEntry(sink, session, playable, preloaded, this);
         queue.add(entry);
         if (queue.next() == entry) {
             PlayerQueueEntry head = queue.head();

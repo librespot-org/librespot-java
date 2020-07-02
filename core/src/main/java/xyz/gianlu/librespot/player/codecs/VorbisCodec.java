@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
 
 import javax.sound.sampled.AudioFormat;
@@ -32,16 +33,16 @@ public class VorbisCodec extends Codec {
     private final Page joggPage = new Page();
     private final SyncState joggSyncState = new SyncState();
     private final Object readLock = new Object();
-    private byte[] buffer;
-    private int count;
-    private int index;
     private final byte[] convertedBuffer;
     private final float[][][] pcmInfo;
     private final int[] pcmIndex;
+    private byte[] buffer;
+    private int count;
+    private int index;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull AudioFormat dstFormat, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
-        super(dstFormat, audioFile, normalizationData, conf, duration);
+    public VorbisCodec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
+        super(sink, audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
