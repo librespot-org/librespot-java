@@ -28,6 +28,7 @@ public class ApiServer {
                 .post("/metadata/{uri}", new MetadataHandler(wrapper, false))
                 .post("/search/{query}", new SearchHandler(wrapper))
                 .post("/token/{scope}", new TokensHandler(wrapper))
+                .get("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
                 .get("/events", events));
     }
 

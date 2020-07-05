@@ -103,6 +103,11 @@ public final class MercuryRequests {
     }
 
     @NotNull
+    public static JsonMercuryRequest<GeneralJson> generalJsonGet(@NotNull String uri) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get(uri), GeneralJson.class);
+    }
+
+    @NotNull
     private static String getAsString(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement elm = obj.get(key);
         if (elm == null) throw new IllegalArgumentException("Unexpected null value for " + key);
@@ -156,6 +161,13 @@ public final class MercuryRequests {
     public static final class KeymasterToken extends JsonWrapper {
 
         public KeymasterToken(@NotNull JsonObject obj) {
+            super(obj);
+        }
+    }
+
+    public static final class GeneralJson extends JsonWrapper {
+
+        public GeneralJson(@NotNull JsonObject obj) {
             super(obj);
         }
     }
