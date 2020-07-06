@@ -34,6 +34,10 @@ All the endpoints will respond with `200` if successful or:
 ### Tokens
 - `POST /token/{scope}` Request an access token for a specific scope (or a comma separated list of scopes).
 
+### Profile
+- `GET /profile/{user_id}/followers` Retrieve a list of profiles that are followers of the specified user
+- `GET /profile/{user_id}/following` Retrieve a list of profiles that the specified user is following
+
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.
 The currently available events are:

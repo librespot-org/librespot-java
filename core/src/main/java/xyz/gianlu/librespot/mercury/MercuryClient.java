@@ -352,7 +352,7 @@ public final class MercuryClient extends PacketsManager {
     }
 
     public static class MercuryException extends Exception {
-        private MercuryException(Response response) {
+        private MercuryException(@NotNull Response response) {
             super(String.format("status: %d", response.statusCode));
         }
     }
