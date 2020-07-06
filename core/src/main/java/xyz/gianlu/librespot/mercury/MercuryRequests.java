@@ -98,13 +98,13 @@ public final class MercuryRequests {
     }
 
     @NotNull
-    public static JsonMercuryRequest<KeymasterToken> requestToken(@NotNull String deviceId, @NotNull String scope) {
-        return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://keymaster/token/authenticated?scope=%s&client_id=%s&device_id=%s", scope, KEYMASTER_CLIENT_ID, deviceId)), KeymasterToken.class);
+    public static JsonMercuryRequest<GenericJson> requestToken(@NotNull String deviceId, @NotNull String scope) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get(String.format("hm://keymaster/token/authenticated?scope=%s&client_id=%s&device_id=%s", scope, KEYMASTER_CLIENT_ID, deviceId)), GenericJson.class);
     }
 
     @NotNull
-    public static JsonMercuryRequest<GeneralJson> generalJsonGet(@NotNull String uri) {
-        return new JsonMercuryRequest<>(RawMercuryRequest.get(uri), GeneralJson.class);
+    public static JsonMercuryRequest<GenericJson> getGenericJson(@NotNull String uri) {
+        return new JsonMercuryRequest<>(RawMercuryRequest.get(uri), GenericJson.class);
     }
 
     @NotNull
@@ -165,9 +165,9 @@ public final class MercuryRequests {
         }
     }
 
-    public static final class GeneralJson extends JsonWrapper {
+    public static final class GenericJson extends JsonWrapper {
 
-        public GeneralJson(@NotNull JsonObject obj) {
+        public GenericJson(@NotNull JsonObject obj) {
             super(obj);
         }
     }

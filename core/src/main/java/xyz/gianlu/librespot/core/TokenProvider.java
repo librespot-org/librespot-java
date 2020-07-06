@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -48,8 +49,8 @@ public final class TokenProvider {
         }
 
         LOGGER.debug("Token expired or not suitable, requesting again. {scopes: {}, oldToken: {}}", Arrays.asList(scopes), token);
-        MercuryRequests.KeymasterToken resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
-        token = new StoredToken(resp);
+        MercuryRequests.GenericJson resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
+        token = new StoredToken(resp.obj);
 
         LOGGER.debug("Updated token successfully! {scopes: {}, newToken: {}}", Arrays.asList(scopes), token);
         tokens.add(token);
@@ -68,12 +69,12 @@ public final class TokenProvider {
         public final String[] scopes;
         public final long timestamp;
 
-        private StoredToken(@NotNull MercuryRequests.KeymasterToken token) {
+        private StoredToken(@NotNull JsonObject obj) {
             timestamp = TimeProvider.currentTimeMillis();
-            expiresIn = token.obj.get("expiresIn").getAsInt();
-            accessToken = token.obj.get("accessToken").getAsString();
+            expiresIn = obj.get("expiresIn").getAsInt();
+            accessToken = obj.get("accessToken").getAsString();
 
-            JsonArray scopesArray = token.obj.getAsJsonArray("scope");
+            JsonArray scopesArray = obj.getAsJsonArray("scope");
             scopes = new String[scopesArray.size()];
             for (int i = 0; i < scopesArray.size(); i++)
                 scopes[i] = scopesArray.get(i).getAsString();
