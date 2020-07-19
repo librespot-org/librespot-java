@@ -258,7 +258,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     }
 
     public enum Endpoint {
-        Play("play"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
+        Play("play"), PlayPause("playpause"), Pause("pause"), Resume("resume"), SeekTo("seek_to"), SkipNext("skip_next"),
         SkipPrev("skip_prev"), SetShufflingContext("set_shuffling_context"), SetRepeatingContext("set_repeating_context"),
         SetRepeatingTrack("set_repeating_track"), UpdateContext("update_context"), SetQueue("set_queue"),
         AddToQueue("add_to_queue"), Transfer("transfer");

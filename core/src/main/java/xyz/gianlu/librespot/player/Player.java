@@ -110,6 +110,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         handleResume();
     }
 
+    public void playpause() {
+        handlePlayPause();
+    }
+
     public void pause() {
         handlePause();
     }
@@ -259,6 +263,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             case Resume:
                 handleResume();
                 break;
+            case PlayPause:
+                handlePlayPause();
+                break;
             case Pause:
                 handlePause();
                 break;
@@ -358,6 +365,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
                 releaseLineFuture.cancel(true);
                 releaseLineFuture = null;
             }
+        }
+    }
+
+    private void handlePlayPause() {
+        if (state.isPlaying()) {
+            handlePause();
+        } else {
+            handleResume();
         }
     }
 
