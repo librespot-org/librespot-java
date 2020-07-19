@@ -20,7 +20,7 @@ Its main features are:
 - Mixed playlists (cuepoints and transitions)
 
 ## Get started
-All the configuration you need is inside the `config.toml` file, there you can decide to authenticate with:
+All the configuration you need is inside the `config.toml` file. If none is present, a sample `config.toml` will be generated the first time the jar is run. There you can decide to authenticate with:
 - Username and password
 - Zeroconf
 - Facebook
@@ -38,7 +38,10 @@ If you have a firewall, you need to open the UDP port `5355` for mDNS. Then spec
 Authenticate with Facebook. The console will provide a link to visit in order to continue the login process.
 
 ### Auth blob
-This is more advanced and should only be used if you saved an authentication blob. The blob should have already been Base64-decoded.
+This is more advanced and should only be used if you saved an authentication blob. The blob should have already been Base64-decoded. Generating one is currently not a feature of librespot-java
+
+### Storing credentials
+If the configurations `storeCredentials=true` and `credentialsFile="somepath.json"` have been set, the credentials will be saved in a more secure format inside the json file. After having run the application once and successfully authenticating, the authentication config fields above are no longer needed and should be made blank for security purposes.
 
 ## Run
 You can download the latest release from [here](https://github.com/librespot-org/librespot-java/releases) and then run `java -jar ./librespot-core-jar-with-dependencies.jar` from the command line.
