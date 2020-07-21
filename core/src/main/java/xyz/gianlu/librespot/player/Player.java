@@ -110,8 +110,9 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         handleResume();
     }
 
-    public void playpause() {
-        handlePlayPause();
+    public void playPause() {
+        if (state.isPaused()) handleResume();
+        else handlePause();
     }
 
     public void pause() {
@@ -263,9 +264,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             case Resume:
                 handleResume();
                 break;
-            case PlayPause:
-                handlePlayPause();
-                break;
             case Pause:
                 handlePause();
                 break;
@@ -368,16 +366,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         }
     }
 
-    private void handlePlayPause() {
-        if (state.isPlaying()) {
-            handlePause();
-        } else {
-            handleResume();
-        }
-    }
-
     private void handlePause() {
-        if (state.isPlaying()) {
+        if (!state.isPaused()) {
             state.setState(true, true, false);
             sink.pause(false);
 
@@ -551,7 +541,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void startedLoading() {
-        if (state.isPlaying()) {
+        if (!state.isPaused()) {
             state.setBuffering(true);
             state.updated();
         }

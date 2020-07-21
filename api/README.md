@@ -11,7 +11,7 @@ All the endpoints will respond with `200` if successful or:
 
 ### Player
 - `POST /player/load` Load a track from a given URI. The request body should contain two parameters: `uri` and `play`.
-- 'POST /player/playpause' Toggel play/pause status. Useful when using a remote.
+- `POST /player/play-pause` Toggle play/pause status. Useful when using a remote.
 - `POST /player/pause` Pause playback.
 - `POST /player/resume` Resume playback.
 - `POST /player/next` Skip to next track.

@@ -179,8 +179,8 @@ public final class PlayerHandler extends AbsSessionHandler {
             case LOAD:
                 load(exchange, session, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
                 return;
-            case PLAYPAUSE:
-                session.player().playpause();
+            case PLAY_PAUSE:
+                session.player().playPause();
                 return;
             case PAUSE:
                 session.player().pause();
@@ -212,7 +212,7 @@ public final class PlayerHandler extends AbsSessionHandler {
     }
 
     private enum Command {
-        LOAD("load"), PLAYPAUSE("playpause"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
+        LOAD("load"), PLAY_PAUSE("play-pause"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
         NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"), SEEK("seek"),
         VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"),
         ADD_TO_QUEUE("addToQueue"), REMOVE_FROM_QUEUE("removeFromQueue");
