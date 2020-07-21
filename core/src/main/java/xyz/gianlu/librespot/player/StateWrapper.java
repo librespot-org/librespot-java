@@ -133,10 +133,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             setPosition(state.getPositionAsOfTimestamp());
     }
 
-    boolean isPlaying() {
-        return state.getIsPlaying() && !state.getIsPaused();
-    }
-
     boolean isPaused() {
         return state.getIsPlaying() && state.getIsPaused();
     }
