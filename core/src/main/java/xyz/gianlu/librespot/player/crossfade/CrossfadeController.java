@@ -7,9 +7,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.core.EventService.PlaybackMetrics.Reason;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.player.Configuration;
+import xyz.gianlu.librespot.player.metrics.PlaybackMetrics.Reason;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,10 +28,10 @@ public class CrossfadeController {
     private float lastGain = 1;
     private int fadeOverlap = 0;
 
-    public CrossfadeController(@NotNull String playbackId, int duration, @NotNull Map<String, String> metadata, @NotNull Player.Configuration conf) {
+    public CrossfadeController(@NotNull String playbackId, int duration, @NotNull Map<String, String> metadata, @NotNull Configuration conf) {
         this.playbackId = playbackId;
         trackDuration = duration;
-        defaultFadeDuration = conf.crossfadeDuration();
+        defaultFadeDuration = conf.crossfadeDuration;
 
         String fadeOutUri = metadata.get("audio.fade_out_uri");
         fadeOutPlayable = fadeOutUri == null ? null : PlayableId.fromUri(fadeOutUri);

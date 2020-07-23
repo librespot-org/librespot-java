@@ -13,7 +13,7 @@ import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 
@@ -117,7 +117,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
 
     @Override
     public void onSessionCleared(@NotNull Session old) {
-        old.player().removeEventsListener(this);
+        // old.player().removeEventsListener(this); FIXME
         old.removeReconnectionListener(this);
 
         JsonObject obj = new JsonObject();
@@ -132,7 +132,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         obj.addProperty("username", session.username());
         dispatch(obj);
 
-        session.player().addEventsListener(this);
+        // session.player().addEventsListener(this); FIXME
         session.addReconnectionListener(this);
     }
 

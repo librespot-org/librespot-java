@@ -5,14 +5,16 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
-import xyz.gianlu.librespot.core.EventService.PlaybackMetrics.Reason;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.player.ContentRestrictedException;
+import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
+import xyz.gianlu.librespot.player.metrics.PlaybackMetrics.Reason;
+import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.MixingLine;
 
@@ -33,6 +35,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-session-" + r.hashCode()));
     private final Session session;
     private final AudioSink sink;
+    private final Configuration conf;
     private final String sessionId;
     private final Listener listener;
     private final PlayerQueue queue;
@@ -40,9 +43,10 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private Reason lastPlayReason = null;
     private volatile boolean closed = false;
 
-    public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull String sessionId, @NotNull Listener listener) {
+    public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull Configuration conf, @NotNull String sessionId, @NotNull Listener listener) {
         this.session = session;
         this.sink = sink;
+        this.conf = conf;
         this.sessionId = sessionId;
         this.listener = listener;
         this.queue = new PlayerQueue();
@@ -58,7 +62,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * @param playable The content for the new entry
      */
     private void add(@NotNull PlayableId playable, boolean preloaded) {
-        PlayerQueueEntry entry = new PlayerQueueEntry(sink, session, playable, preloaded, this);
+        PlayerQueueEntry entry = new PlayerQueueEntry(sink, session, conf, playable, preloaded, this);
         queue.add(entry);
         if (queue.next() == entry) {
             PlayerQueueEntry head = queue.head();
@@ -147,7 +151,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     @Override
     public void loadingError(@NotNull PlayerQueueEntry entry, @NotNull Exception ex, boolean retried) {
         if (entry == queue.head()) {
-            if (ex instanceof ContentRestrictedException) {
+            if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
                 advance(Reason.TRACK_ERROR);
             } else if (!retried) {
                 PlayerQueueEntry newEntry = entry.retrySelf(false);
@@ -160,7 +164,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
             listener.loadingError(ex);
         } else if (entry == queue.next()) {
-            if (!(ex instanceof ContentRestrictedException) && !retried) {
+            if (!(ex instanceof PlayableContentFeeder.ContentRestrictedException) && !retried) {
                 PlayerQueueEntry newEntry = entry.retrySelf(true);
                 executorService.execute(() -> queue.swap(entry, newEntry));
                 return;
@@ -321,7 +325,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * @return The time for the current head or {@code -1} if not available.
      * @throws Codec.CannotGetTimeException If the head is available, but time cannot be retrieved
      */
-    public long currentTime() throws Codec.CannotGetTimeException {
+    public int currentTime() throws Codec.CannotGetTimeException {
         if (queue.head() == null) return -1;
         else return queue.head().getTime();
     }

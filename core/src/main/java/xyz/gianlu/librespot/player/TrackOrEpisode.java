@@ -5,7 +5,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.metadata.PlayableId;
 
 /**
  * @author devgianlu

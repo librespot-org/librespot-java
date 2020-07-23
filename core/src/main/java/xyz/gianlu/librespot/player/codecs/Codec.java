@@ -4,9 +4,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
-import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
+import xyz.gianlu.librespot.audio.GeneralAudioStream;
+import xyz.gianlu.librespot.audio.NormalizationData;
+import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 
 import javax.sound.sampled.AudioFormat;
@@ -29,13 +30,13 @@ public abstract class Codec implements Closeable {
     protected int seekZero = 0;
     private AudioFormat format;
 
-    Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Player.Configuration conf, int duration) {
+    Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Configuration conf, int duration) {
         this.sink = sink;
         this.audioIn = audioFile.stream();
         this.audioFile = audioFile;
         this.duration = duration;
-        if (conf.enableNormalisation())
-            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf) : 1;
+        if (conf.enableNormalisation)
+            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf.normalisationPregain) : 1;
         else
             this.normalizationFactor = 1;
     }

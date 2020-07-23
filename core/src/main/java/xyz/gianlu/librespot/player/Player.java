@@ -13,24 +13,26 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
+import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
+import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
-import xyz.gianlu.librespot.core.EventService.PlaybackMetrics;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.model.ImageId;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.metadata.ImageId;
+import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
-import xyz.gianlu.librespot.player.codecs.AudioQuality;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
-import xyz.gianlu.librespot.player.feeders.AbsChunkedInputStream;
+import xyz.gianlu.librespot.player.metrics.NewPlaybackIdEvent;
+import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
+import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
+import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
-import xyz.gianlu.librespot.player.playback.PlayerMetrics;
 import xyz.gianlu.librespot.player.playback.PlayerSession;
+import xyz.gianlu.librespot.player.state.DeviceStateHandler;
+import xyz.gianlu.librespot.player.state.DeviceStateHandler.PlayCommandHelper;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.io.Closeable;
@@ -57,7 +59,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private ScheduledFuture<?> releaseLineFuture = null;
     private Map<String, PlaybackMetrics> metrics = new HashMap<>(5);
 
-    public Player(@NotNull Player.Configuration conf, @NotNull Session session) {
+    public Player(@NotNull Configuration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.events = new EventsDispatcher(conf);
@@ -78,7 +80,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     // ================================ //
 
     public void initState() {
-        this.state = new StateWrapper(session);
+        this.state = new StateWrapper(session, this, conf);
         state.addListener(this);
     }
 
@@ -93,7 +95,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     private int oneVolumeStep() {
-        return Player.VOLUME_MAX / conf.volumeSteps();
+        return Player.VOLUME_MAX / conf.volumeSteps;
     }
 
     public void setVolume(int val) {
@@ -196,8 +198,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             playerSession = null;
         }
 
-        playerSession = new PlayerSession(session, sink, sessionId, this);
-        session.eventService().newSessionId(sessionId, state);
+        playerSession = new PlayerSession(session, sink, conf, sessionId, this);
+        session.eventService().sendEvent(new NewSessionIdEvent(sessionId, state));
 
         loadTrack(play, trans);
     }
@@ -215,7 +217,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
         String playbackId = playerSession.play(state.getCurrentPlayableOrThrow(), state.getPosition(), trans.startedReason);
         state.setPlaybackId(playbackId);
-        session.eventService().newPlaybackId(state, playbackId);
+        session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
 
         if (play) sink.resume();
         else sink.pause(false);
@@ -387,7 +389,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
                 events.inactiveSession(true);
                 sink.pause(true);
-            }, conf.releaseLineDelay(), TimeUnit.SECONDS);
+            }, conf.releaseLineDelay, TimeUnit.SECONDS);
         }
     }
 
@@ -418,7 +420,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             return;
         }
 
-        NextPlayable next = state.nextPlayable(conf);
+        NextPlayable next = state.nextPlayable(conf.autoplayEnabled);
         if (next == NextPlayable.AUTOPLAY) {
             loadAutoplay();
             return;
@@ -531,7 +533,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         pm.endedHow(reason, state.getPlayOrigin().getFeatureIdentifier());
         pm.endInterval(when);
         pm.update(playerMetrics);
-        session.eventService().trackPlayed(pm, state.device());
+        pm.sendEvents(session, state.device());
     }
 
 
@@ -569,7 +571,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     @Override
     public void loadingError(@NotNull Exception ex) {
-        if (ex instanceof ContentRestrictedException) {
+        if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
             LOGGER.error("Can't load track (content restricted).", ex);
         } else {
             LOGGER.fatal("Failed loading track.", ex);
@@ -597,7 +599,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         events.trackChanged();
         events.metadataAvailable();
 
-        session.eventService().newPlaybackId(state, playbackId);
+        session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
         startMetrics(playbackId, startedReason, pos);
     }
 
@@ -709,7 +711,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      */
     @Override
     public @Nullable PlayableId nextPlayable() {
-        NextPlayable next = state.nextPlayable(conf);
+        NextPlayable next = state.nextPlayable(conf.autoplayEnabled);
         if (next == NextPlayable.AUTOPLAY) {
             loadAutoplay();
             return null;
@@ -747,7 +749,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     /**
      * @return The current position of the player or {@code -1} if unavailable (most likely if it's playing an episode).
      */
-    public long time() {
+    public int time() {
         try {
             return playerSession == null ? -1 : playerSession.currentTime();
         } catch (Codec.CannotGetTimeException ex) {
@@ -775,43 +777,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
         scheduler.shutdown();
         events.close();
-    }
-
-    public interface Configuration {
-        @NotNull
-        AudioQuality preferredQuality();
-
-        @NotNull
-        AudioOutput output();
-
-        @Nullable
-        File outputPipe();
-
-        @Nullable
-        File metadataPipe();
-
-        boolean preloadEnabled();
-
-        boolean enableNormalisation();
-
-        float normalisationPregain();
-
-        @Nullable
-        String[] mixerSearchKeywords();
-
-        boolean logAvailableMixers();
-
-        int initialVolume();
-
-        int volumeSteps();
-
-        boolean autoplayEnabled();
-
-        int crossfadeDuration();
-
-        int releaseLineDelay();
-
-        boolean stopPlaybackOnChunkError();
     }
 
     public interface EventsListener {
@@ -929,7 +894,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         private FileOutputStream out;
 
         MetadataPipe(@NotNull Configuration conf) {
-            file = conf.metadataPipe();
+            file = conf.metadataPipe;
         }
 
         void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {

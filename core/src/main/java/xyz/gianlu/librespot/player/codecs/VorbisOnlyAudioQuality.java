@@ -5,6 +5,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.audio.format.AudioQualityPicker;
+import xyz.gianlu.librespot.audio.format.SuperAudioFormat;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.List;
@@ -12,7 +14,7 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public class VorbisOnlyAudioQuality implements AudioQualityPreference {
+public class VorbisOnlyAudioQuality implements AudioQualityPicker {
     private static final Logger LOGGER = LogManager.getLogger(VorbisOnlyAudioQuality.class);
     private final AudioQuality preferred;
 

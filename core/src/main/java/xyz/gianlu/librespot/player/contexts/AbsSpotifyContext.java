@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.player.contexts;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.connectstate.RestrictionsManager;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.player.state.RestrictionsManager;
 
 import java.util.Objects;
 

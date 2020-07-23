@@ -8,9 +8,9 @@ import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.model.EpisodeId;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
+import xyz.gianlu.librespot.metadata.EpisodeId;
+import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.metadata.TrackId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 
@@ -24,7 +24,7 @@ public final class PlayerHandler extends AbsSessionHandler {
         super(wrapper);
     }
 
-    private static void setVolume(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
+    private static void setVolume(HttpServerExchange exchange, @NotNull Player player, @Nullable String valStr) {
         if (valStr == null) {
             Utils.invalidParameter(exchange, "volume");
             return;
@@ -43,22 +43,22 @@ public final class PlayerHandler extends AbsSessionHandler {
             return;
         }
 
-        session.player().setVolume(val);
+        player.setVolume(val);
     }
 
-    private static void load(HttpServerExchange exchange, @NotNull Session session, @Nullable String uri, boolean play) {
+    private static void load(HttpServerExchange exchange, @NotNull Player player, @Nullable String uri, boolean play) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
         }
 
-        session.player().load(uri, play);
+        player.load(uri, play);
     }
 
-    private static void current(HttpServerExchange exchange, @NotNull Session session) {
+    private static void current(HttpServerExchange exchange, @NotNull Player player) {
         PlayableId id;
         try {
-            id = session.player().currentPlayable();
+            id = player.currentPlayable();
         } catch (IllegalStateException ex) {
             id = null;
         }
@@ -66,10 +66,10 @@ public final class PlayerHandler extends AbsSessionHandler {
         JsonObject obj = new JsonObject();
         if (id != null) obj.addProperty("current", id.toSpotifyUri());
 
-        long time = session.player().time();
+        long time = player.time();
         obj.addProperty("trackTime", time);
 
-        TrackOrEpisode metadata = session.player().currentMetadata();
+        TrackOrEpisode metadata = player.currentMetadata();
         if (id instanceof TrackId) {
             if (metadata == null || metadata.track == null) {
                 Utils.internalError(exchange, "Missing track metadata. Try again.");
@@ -92,8 +92,8 @@ public final class PlayerHandler extends AbsSessionHandler {
         exchange.getResponseSender().send(obj.toString());
     }
 
-    private static void tracks(HttpServerExchange exchange, @NotNull Session session, boolean withQueue) {
-        Player.Tracks tracks = session.player().tracks(withQueue);
+    private static void tracks(@NotNull HttpServerExchange exchange, @NotNull Player player, boolean withQueue) {
+        Player.Tracks tracks = player.tracks(withQueue);
 
         JsonObject obj = new JsonObject();
         obj.add("current", tracks.current == null ? null : ProtobufToJson.convert(tracks.current));
@@ -102,25 +102,25 @@ public final class PlayerHandler extends AbsSessionHandler {
         exchange.getResponseSender().send(obj.toString());
     }
 
-    private static void addToQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+    private static void addToQueue(HttpServerExchange exchange, @NotNull Player player, String uri) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
         }
 
-        session.player().addToQueue(uri);
+        player.addToQueue(uri);
     }
 
-    private static void removeFromQueue(HttpServerExchange exchange, @NotNull Session session, String uri) {
+    private static void removeFromQueue(HttpServerExchange exchange, @NotNull Player player, String uri) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
         }
 
-        session.player().removeFromQueue(uri);
+        player.removeFromQueue(uri);
     }
 
-    private static void seek(HttpServerExchange exchange, @NotNull Session session, @Nullable String valStr) {
+    private static void seek(HttpServerExchange exchange, @NotNull Player player, @Nullable String valStr) {
         if (valStr == null) {
             Utils.invalidParameter(exchange, "pos");
             return;
@@ -139,7 +139,7 @@ public final class PlayerHandler extends AbsSessionHandler {
             return;
         }
 
-        session.player().seek(pos);
+        player.seek(pos);
     }
 
     @Override

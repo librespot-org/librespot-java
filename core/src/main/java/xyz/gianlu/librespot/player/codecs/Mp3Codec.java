@@ -3,8 +3,9 @@ package xyz.gianlu.librespot.player.codecs;
 import javazoom.jl.decoder.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.player.feeders.GeneralAudioStream;
+import xyz.gianlu.librespot.audio.GeneralAudioStream;
+import xyz.gianlu.librespot.audio.NormalizationData;
+import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 
 import javax.sound.sampled.AudioFormat;
@@ -21,7 +22,7 @@ public class Mp3Codec extends Codec {
     private final byte[] buffer = new byte[2 * BUFFER_SIZE];
     private final Mp3InputStream in;
 
-    public Mp3Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, Player.@NotNull Configuration conf, int duration) throws IOException, BitstreamException {
+    public Mp3Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Configuration conf, int duration) throws IOException, BitstreamException {
         super(sink, audioFile, normalizationData, conf, duration);
 
         skipMp3Tags(audioIn);

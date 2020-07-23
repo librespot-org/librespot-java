@@ -2,8 +2,8 @@ package xyz.gianlu.librespot.api;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.core.ZeroconfServer;
 
 import java.util.concurrent.atomic.AtomicReference;
 

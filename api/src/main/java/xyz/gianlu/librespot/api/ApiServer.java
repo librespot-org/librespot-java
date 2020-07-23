@@ -15,9 +15,9 @@ public class ApiServer {
     private final HttpHandler handler;
     private Undertow undertow = null;
 
-    public ApiServer(@NotNull ApiConfiguration conf, @NotNull SessionWrapper wrapper) {
-        this.port = conf.apiPort();
-        this.host = conf.apiHost();
+    public ApiServer(int port, @NotNull String host, @NotNull SessionWrapper wrapper) {
+        this.port = port;
+        this.host = host;
 
         EventsHandler events = new EventsHandler();
         wrapper.setListener(events);

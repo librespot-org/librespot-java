@@ -19,7 +19,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.TimeProvider;
-import xyz.gianlu.librespot.core.ZeroconfServer;
 import xyz.gianlu.librespot.player.AudioOutput;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
@@ -38,7 +37,7 @@ import java.util.function.Supplier;
 /**
  * @author Gianlu
  */
-public final class FileConfiguration extends AbsConfiguration {
+public final class FileConfiguration {
     private static final Logger LOGGER = LogManager.getLogger(FileConfiguration.class);
 
     static {
@@ -202,22 +201,18 @@ public final class FileConfiguration extends AbsConfiguration {
         else return Utils.split(str, separator);
     }
 
-    @Override
     public boolean cacheEnabled() {
-        return config.get("cache.enabled");
+        return config.get("xyz.gianlu.librespot.cache.enabled");
     }
 
-    @Override
     public @NotNull File cacheDir() {
-        return new File((String) config.get("cache.dir"));
+        return new File((String) config.get("xyz.gianlu.librespot.cache.dir"));
     }
 
-    @Override
     public boolean doCleanUp() {
-        return config.get("cache.doCleanUp");
+        return config.get("xyz.gianlu.librespot.cache.doCleanUp");
     }
 
-    @Override
     public @NotNull AudioQuality preferredQuality() {
         try {
             return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
@@ -238,36 +233,30 @@ public final class FileConfiguration extends AbsConfiguration {
         }
     }
 
-    @Override
     public @NotNull AudioOutput output() {
         return config.getEnum("player.output", AudioOutput.class);
     }
 
-    @Override
     public @Nullable File outputPipe() {
         String path = config.get("player.pipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    @Override
     public @Nullable File metadataPipe() {
         String path = config.get("player.metadataPipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    @Override
     public boolean preloadEnabled() {
         return config.get("preload.enabled");
     }
 
-    @Override
     public boolean enableNormalisation() {
         return config.get("player.enableNormalisation");
     }
 
-    @Override
     public float normalisationPregain() {
         Object raw = config.get("player.normalisationPregain");
         if (raw instanceof String) {
@@ -282,17 +271,14 @@ public final class FileConfiguration extends AbsConfiguration {
     }
 
     @NotNull
-    @Override
     public String[] mixerSearchKeywords() {
         return getStringArray("player.mixerSearchKeywords", ';');
     }
 
-    @Override
     public boolean logAvailableMixers() {
         return config.get("player.logAvailableMixers");
     }
 
-    @Override
     public int initialVolume() {
         int vol = config.get("player.initialVolume");
         if (vol < 0 || vol > Player.VOLUME_MAX)
@@ -301,7 +287,6 @@ public final class FileConfiguration extends AbsConfiguration {
         return vol;
     }
 
-    @Override
     public int volumeSteps() {
         int volumeSteps = config.get("player.volumeSteps");
         if (volumeSteps < 0 || volumeSteps > Player.VOLUME_MAX)
@@ -310,160 +295,129 @@ public final class FileConfiguration extends AbsConfiguration {
         return volumeSteps;
     }
 
-    @Override
     public boolean autoplayEnabled() {
         return config.get("player.autoplayEnabled");
     }
 
-    @Override
     public int crossfadeDuration() {
         return config.get("player.crossfadeDuration");
     }
 
-    @Override
     public int releaseLineDelay() {
         return config.get("player.releaseLineDelay");
     }
 
-    @Override
     public boolean stopPlaybackOnChunkError() {
         return config.get("player.stopPlaybackOnChunkError");
     }
 
-    @Override
     public @Nullable String deviceId() {
         return config.get("deviceId");
     }
 
-    @Override
     public @Nullable String deviceName() {
         return config.get("deviceName");
     }
 
-    @Override
     public @Nullable Connect.DeviceType deviceType() {
         return config.getEnum("deviceType", Connect.DeviceType.class);
     }
 
-    @Override
     public @NotNull String preferredLocale() {
         return config.get("preferredLocale");
     }
 
-    @Override
     public @NotNull Level loggingLevel() {
         String str = config.get("logLevel");
         return Level.toLevel(str);
     }
 
-    @Override
     public @Nullable String authUsername() {
         return config.get("auth.username");
     }
 
-    @Override
     public @Nullable String authPassword() {
         return config.get("auth.password");
     }
 
-    @Override
     public @Nullable String authBlob() {
         return config.get("auth.blob");
     }
 
     @NotNull
-    @Override
-    public Strategy authStrategy() {
-        return config.getEnum("auth.strategy", Strategy.class);
+    public FileConfiguration.AuthStrategy authStrategy() {
+        return config.getEnum("auth.strategy", AuthStrategy.class);
     }
 
-    @Override
     public boolean storeCredentials() {
         return config.get("auth.storeCredentials");
     }
 
-    @Override
     public @Nullable File credentialsFile() {
         String path = config.get("auth.credentialsFile");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    @Override
     public boolean zeroconfListenAll() {
         return config.get("zeroconf.listenAll");
     }
 
-    @Override
     public int zeroconfListenPort() {
-        int val = config.get("zeroconf.listenPort");
-        if (val == -1) return val;
-
-        if (val < ZeroconfServer.MIN_PORT || val > ZeroconfServer.MAX_PORT)
-            throw new IllegalArgumentException("Illegal port number: " + val);
-
-        return val;
+        return config.get("zeroconf.listenPort");
     }
 
     @NotNull
-    @Override
     public String[] zeroconfInterfaces() {
         return getStringArray("zeroconf.interfaces", ',');
     }
 
-    @Override
     public TimeProvider.@NotNull Method timeSynchronizationMethod() {
         return config.getEnum("time.synchronizationMethod", TimeProvider.Method.class);
     }
 
-    @Override
     public int timeManualCorrection() {
         return config.get("time.manualCorrection");
     }
 
-    @Override
     public int apiPort() {
         return config.get("api.port");
     }
 
-    @Override
     public @NotNull String apiHost() {
         return config.get("api.host");
     }
 
-    @Override
     public boolean proxyEnabled() {
         return config.get("proxy.enabled");
     }
 
-    @Override
     public @NotNull Proxy.Type proxyType() {
         return config.getEnum("proxy.type", Proxy.Type.class);
     }
 
-    @Override
     public @NotNull String proxyAddress() {
         return config.get("proxy.address");
     }
 
-    @Override
     public int proxyPort() {
         return config.get("proxy.port");
     }
 
-    @Override
     public boolean proxyAuth() {
         return config.get("proxy.auth");
     }
 
-    @Override
     public @NotNull String proxyUsername() {
         return config.get("proxy.username");
     }
 
-    @Override
     public @NotNull String proxyPassword() {
         return config.get("proxy.password");
+    }
+
+    enum AuthStrategy {
+        FACEBOOK, BLOB, USER_PASS, ZEROCONF
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {

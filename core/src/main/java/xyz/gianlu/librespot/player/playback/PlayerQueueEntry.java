@@ -5,14 +5,16 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.audio.HaltListener;
+import xyz.gianlu.librespot.audio.PlayableContentFeeder;
+import xyz.gianlu.librespot.audio.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.EventService.PlaybackMetrics;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.model.EpisodeId;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
-import xyz.gianlu.librespot.mercury.model.TrackId;
-import xyz.gianlu.librespot.player.ContentRestrictedException;
+import xyz.gianlu.librespot.metadata.EpisodeId;
+import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.metadata.TrackId;
+import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.StateWrapper;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
@@ -20,9 +22,8 @@ import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
-import xyz.gianlu.librespot.player.feeders.HaltListener;
-import xyz.gianlu.librespot.player.feeders.PlayableContentFeeder;
-import xyz.gianlu.librespot.player.feeders.cdn.CdnManager;
+import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
+import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.MixingLine;
 
@@ -43,6 +44,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     static final int INSTANT_START_NEXT = 2;
     static final int INSTANT_END = 3;
     private static final Logger LOGGER = LogManager.getLogger(PlayerQueueEntry.class);
+    private final Configuration conf;
     final PlayableId playable;
     final String playbackId;
     private final boolean preloaded;
@@ -62,10 +64,11 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private boolean retried = false;
     private PlayableContentFeeder.Metrics contentMetrics;
 
-    PlayerQueueEntry(@NotNull AudioSink sink, @NotNull Session session, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
+    PlayerQueueEntry(@NotNull AudioSink sink, @NotNull Session session, @NotNull Configuration conf, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
         this.sink = sink;
         this.session = session;
         this.playbackId = StateWrapper.generatePlaybackId(session.random());
+        this.conf = conf;
         this.playable = playable;
         this.preloaded = preloaded;
         this.listener = listener;
@@ -77,7 +80,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     PlayerQueueEntry retrySelf(boolean preloaded) {
         if (retried) throw new IllegalStateException();
 
-        PlayerQueueEntry retry = new PlayerQueueEntry(sink, session, playable, preloaded, listener);
+        PlayerQueueEntry retry = new PlayerQueueEntry(sink, session, conf, playable, preloaded, listener);
         retry.retried = true;
         return retry;
     }
@@ -85,10 +88,10 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     /**
      * Loads the content described by this entry.
      *
-     * @throws ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
+     * @throws PlayableContentFeeder.ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
      */
-    private void load(boolean preload) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, ContentRestrictedException {
-        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(session.conf().preferredQuality()), preload, this);
+    private void load(boolean preload) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
+        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(conf.preferredQuality), preload, this);
         metadata = new TrackOrEpisode(stream.track, stream.episode);
         contentMetrics = stream.metrics;
 
@@ -99,17 +102,17 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                     Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), playbackId);
         }
 
-        crossfade = new CrossfadeController(playbackId, metadata.duration(), listener.metadataFor(playable).orElse(Collections.emptyMap()), session.conf());
-        if (crossfade.hasAnyFadeOut() || session.conf().preloadEnabled())
+        crossfade = new CrossfadeController(playbackId, metadata.duration(), listener.metadataFor(playable).orElse(Collections.emptyMap()), conf);
+        if (crossfade.hasAnyFadeOut() || conf.preloadEnabled)
             notifyInstant(INSTANT_PRELOAD, (int) (crossfade.fadeOutStartTimeMin() - TimeUnit.SECONDS.toMillis(20)));
 
         switch (stream.in.codec()) {
             case VORBIS:
-                codec = new VorbisCodec(sink, stream.in, stream.normalizationData, session.conf(), metadata.duration());
+                codec = new VorbisCodec(sink, stream.in, stream.normalizationData, conf, metadata.duration());
                 break;
             case MP3:
                 try {
-                    codec = new Mp3Codec(sink, stream.in, stream.normalizationData, session.conf(), metadata.duration());
+                    codec = new Mp3Codec(sink, stream.in, stream.normalizationData, conf, metadata.duration());
                 } catch (BitstreamException ex) {
                     throw new IOException(ex);
                 }
@@ -246,7 +249,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         try {
             load(preloaded);
-        } catch (IOException | ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
+        } catch (IOException | PlayableContentFeeder.ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
             close();
             listener.loadingError(this, ex, retried);
             LOGGER.trace("{} terminated at loading.", this, ex);

@@ -26,19 +26,16 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler;
-import xyz.gianlu.librespot.connectstate.DeviceStateHandler.PlayCommandHelper;
-import xyz.gianlu.librespot.connectstate.RestrictionsManager;
-import xyz.gianlu.librespot.connectstate.RestrictionsManager.Action;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.model.AlbumId;
-import xyz.gianlu.librespot.mercury.model.ArtistId;
-import xyz.gianlu.librespot.mercury.model.ImageId;
-import xyz.gianlu.librespot.mercury.model.PlayableId;
+import xyz.gianlu.librespot.metadata.*;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
+import xyz.gianlu.librespot.player.state.DeviceStateHandler;
+import xyz.gianlu.librespot.player.state.DeviceStateHandler.PlayCommandHelper;
+import xyz.gianlu.librespot.player.state.RestrictionsManager;
+import xyz.gianlu.librespot.player.state.RestrictionsManager.Action;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -64,14 +61,16 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     private final PlayerState.Builder state;
     private final Session session;
+    private final Player player;
     private final DeviceStateHandler device;
     private AbsSpotifyContext context;
     private PagesLoader pages;
     private TracksKeeper tracksKeeper;
 
-    StateWrapper(@NotNull Session session) {
+    StateWrapper(@NotNull Session session, @NotNull Player player, @NotNull Configuration conf) {
         this.session = session;
-        this.device = new DeviceStateHandler(session);
+        this.player = player;
+        this.device = new DeviceStateHandler(session, conf);
         this.state = initState(PlayerState.newBuilder());
 
         device.addListener(this);
@@ -287,7 +286,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     synchronized void updated() {
         updateRestrictions();
-        device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, state.build());
+        device.updateState(Connect.PutStateReason.PLAYER_STATE_CHANGED, player.time(), state.build());
     }
 
     void addListener(@NotNull DeviceStateHandler.Listener listener) {
@@ -297,7 +296,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     @Override
     public synchronized void ready() {
         state.setIsSystemInitiated(true);
-        device.updateState(Connect.PutStateReason.NEW_DEVICE, state.build());
+        device.updateState(Connect.PutStateReason.NEW_DEVICE, player.time(), state.build());
         LOGGER.info("Notified new device (us)!");
     }
 
@@ -308,7 +307,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     @Override
     public synchronized void volumeChanged() {
-        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, state.build());
+        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, player.time(), state.build());
     }
 
     @Override
@@ -317,7 +316,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         initState(state);
 
         device.setIsActive(false);
-        device.updateState(Connect.PutStateReason.BECAME_INACTIVE, state.build());
+        device.updateState(Connect.PutStateReason.BECAME_INACTIVE, player.time(), state.build());
         LOGGER.info("Notified inactivity!");
     }
 
@@ -542,11 +541,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     @NotNull
-    NextPlayable nextPlayable(@NotNull Player.Configuration conf) {
+    NextPlayable nextPlayable(boolean autoplayEnabled) {
         if (tracksKeeper == null) return NextPlayable.MISSING_TRACKS;
 
         try {
-            return tracksKeeper.nextPlayable(conf);
+            return tracksKeeper.nextPlayable(autoplayEnabled);
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.error("Failed fetching next playable.", ex);
             return NextPlayable.MISSING_TRACKS;
@@ -1130,7 +1129,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         /**
          * Figures out what the next {@link PlayableId} should be. This is called directly by the preload function and therefore can return {@code null} as it doesn't account for repeating contexts.
-         * This will NOT return {@link xyz.gianlu.librespot.mercury.model.UnsupportedId}.
+         * This will NOT return {@link UnsupportedId}.
          *
          * @return The next {@link PlayableId} or {@code null} if there are no more tracks or if repeating the current track
          */
@@ -1175,7 +1174,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
 
         @NotNull
-        synchronized NextPlayable nextPlayable(@NotNull Player.Configuration conf) throws IOException, MercuryClient.MercuryException {
+        synchronized NextPlayable nextPlayable(boolean autoplayEnabled) throws IOException, MercuryClient.MercuryException {
             if (isRepeatingTrack()) {
                 setRepeatingTrack(false);
                 return NextPlayable.OK_REPEAT;
@@ -1186,7 +1185,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 updateState();
 
                 if (!shouldPlay(tracks.get(getCurrentTrackIndex())))
-                    return nextPlayable(conf);
+                    return nextPlayable(autoplayEnabled);
 
                 return NextPlayable.OK_PLAY;
             }
@@ -1201,7 +1200,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 if (isRepeatingContext()) {
                     setCurrentTrackIndex(0);
                 } else {
-                    if (conf.autoplayEnabled()) {
+                    if (autoplayEnabled) {
                         return NextPlayable.AUTOPLAY;
                     } else {
                         setCurrentTrackIndex(0);

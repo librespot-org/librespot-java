@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resend Shairport metadata when resuming (#195)
 - Fixed NPE when reconnecting (f5071197785053dea641e75bdf7f1ca5005bae79)
 - Fixed device disappearing due to concurrent reconnection (a3edb34a504d668c57ef28b58541768017d052c2)
-- Fixed cache not working after replaying the same track 8 times (#201)
+- Fixed xyz.gianlu.librespot.cache not working after replaying the same track 8 times (#201)
 - Fixed issue with time synchronization PING (#202)
 - Close all threads properly when shutting down (#209)
 
@@ -72,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **!!** Improved playback performance (befe207a21c1cea1ffe4d641bf80394f075bed51)
-- **!!** Rewritten cache system to improve performance (#179, #184)
+- **!!** Rewritten xyz.gianlu.librespot.cache system to improve performance (#179, #184)
 - Log big protobuf messages only if log level is `TRACE` (38975e77a3a7b3d0745a60a66aefb89c17d9865e)
 - Improved closing operations (6b6333eaea274b952a4a81120c41112104329157, #176)
 - Improved seeking by clearing buffers (7c7a34f6cfc2e783f96e060c5cd386a0f7833d02)

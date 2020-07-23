@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
@@ -30,14 +31,14 @@ public final class AudioSink implements Runnable, Closeable {
     /**
      * Creates a new sink from the current {@param conf}. Also sets the initial volume.
      */
-    public AudioSink(@NotNull Player.Configuration conf, @NotNull Listener listener) {
+    public AudioSink(@NotNull Configuration conf, @NotNull Listener listener) {
         this.listener = listener;
-        switch (conf.output()) {
+        switch (conf.output) {
             case MIXER:
                 output = new Output(Output.Type.MIXER, mixing, conf, null, null);
                 break;
             case PIPE:
-                File pipe = conf.outputPipe();
+                File pipe = conf.outputPipe;
                 if (pipe == null || !pipe.exists() || !pipe.canWrite())
                     throw new IllegalArgumentException("Invalid pipe file: " + pipe);
 
@@ -47,10 +48,10 @@ public final class AudioSink implements Runnable, Closeable {
                 output = new Output(Output.Type.STREAM, mixing, conf, null, System.out);
                 break;
             default:
-                throw new IllegalArgumentException("Unknown output: " + conf.output());
+                throw new IllegalArgumentException("Unknown output: " + conf.output);
         }
 
-        output.setVolume(conf.initialVolume());
+        output.setVolume(conf.initialVolume);
 
         thread = new Thread(this, "player-audio-sink");
         thread.start();
@@ -168,13 +169,13 @@ public final class AudioSink implements Runnable, Closeable {
     private static class Output implements Closeable {
         private final File pipe;
         private final MixingLine mixing;
-        private final Player.Configuration conf;
+        private final Configuration conf;
         private final Type type;
         private SourceDataLine line;
         private OutputStream out;
         private int lastVolume = -1;
 
-        Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull Player.Configuration conf, @Nullable File pipe, @Nullable OutputStream out) {
+        Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull Configuration conf, @Nullable File pipe, @Nullable OutputStream out) {
             this.conf = conf;
             this.mixing = mixing;
             this.type = type;
