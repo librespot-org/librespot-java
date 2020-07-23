@@ -14,7 +14,7 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.EpisodeId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
-import xyz.gianlu.librespot.player.Configuration;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.StateWrapper;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
@@ -44,7 +44,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     static final int INSTANT_START_NEXT = 2;
     static final int INSTANT_END = 3;
     private static final Logger LOGGER = LogManager.getLogger(PlayerQueueEntry.class);
-    private final Configuration conf;
+    private final PlayerConfiguration conf;
     final PlayableId playable;
     final String playbackId;
     private final boolean preloaded;
@@ -64,7 +64,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private boolean retried = false;
     private PlayableContentFeeder.Metrics contentMetrics;
 
-    PlayerQueueEntry(@NotNull AudioSink sink, @NotNull Session session, @NotNull Configuration conf, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
+    PlayerQueueEntry(@NotNull AudioSink sink, @NotNull Session session, @NotNull PlayerConfiguration conf, @NotNull PlayableId playable, boolean preloaded, @NotNull Listener listener) {
         this.sink = sink;
         this.session = session;
         this.playbackId = StateWrapper.generatePlaybackId(session.random());

@@ -18,9 +18,10 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.player.AudioOutput;
-import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
@@ -28,10 +29,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Proxy;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
+import java.security.GeneralSecurityException;
+import java.util.*;
 import java.util.function.Supplier;
 
 /**
@@ -201,19 +200,7 @@ public final class FileConfiguration {
         else return Utils.split(str, separator);
     }
 
-    public boolean cacheEnabled() {
-        return config.get("xyz.gianlu.librespot.cache.enabled");
-    }
-
-    public @NotNull File cacheDir() {
-        return new File((String) config.get("xyz.gianlu.librespot.cache.dir"));
-    }
-
-    public boolean doCleanUp() {
-        return config.get("xyz.gianlu.librespot.cache.doCleanUp");
-    }
-
-    public @NotNull AudioQuality preferredQuality() {
+    private @NotNull AudioQuality preferredQuality() {
         try {
             return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
         } catch (IllegalArgumentException ex) { // Retro-compatibility
@@ -233,31 +220,19 @@ public final class FileConfiguration {
         }
     }
 
-    public @NotNull AudioOutput output() {
-        return config.getEnum("player.output", AudioOutput.class);
-    }
-
-    public @Nullable File outputPipe() {
+    private @Nullable File outputPipe() {
         String path = config.get("player.pipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    public @Nullable File metadataPipe() {
+    private @Nullable File metadataPipe() {
         String path = config.get("player.metadataPipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    public boolean preloadEnabled() {
-        return config.get("preload.enabled");
-    }
-
-    public boolean enableNormalisation() {
-        return config.get("player.enableNormalisation");
-    }
-
-    public float normalisationPregain() {
+    private float normalisationPregain() {
         Object raw = config.get("player.normalisationPregain");
         if (raw instanceof String) {
             return Float.parseFloat((String) raw);
@@ -270,114 +245,48 @@ public final class FileConfiguration {
         }
     }
 
-    @NotNull
-    public String[] mixerSearchKeywords() {
-        return getStringArray("player.mixerSearchKeywords", ';');
+    private @Nullable String deviceId() {
+        String val = config.get("deviceId");
+        return val == null || val.isEmpty() ? null : val;
     }
 
-    public boolean logAvailableMixers() {
-        return config.get("player.logAvailableMixers");
-    }
-
-    public int initialVolume() {
-        int vol = config.get("player.initialVolume");
-        if (vol < 0 || vol > Player.VOLUME_MAX)
-            throw new IllegalArgumentException("Invalid volume: " + vol);
-
-        return vol;
-    }
-
-    public int volumeSteps() {
-        int volumeSteps = config.get("player.volumeSteps");
-        if (volumeSteps < 0 || volumeSteps > Player.VOLUME_MAX)
-            throw new IllegalArgumentException("Invalid volume steps: " + volumeSteps);
-
-        return volumeSteps;
-    }
-
-    public boolean autoplayEnabled() {
-        return config.get("player.autoplayEnabled");
-    }
-
-    public int crossfadeDuration() {
-        return config.get("player.crossfadeDuration");
-    }
-
-    public int releaseLineDelay() {
-        return config.get("player.releaseLineDelay");
-    }
-
-    public boolean stopPlaybackOnChunkError() {
-        return config.get("player.stopPlaybackOnChunkError");
-    }
-
-    public @Nullable String deviceId() {
-        return config.get("deviceId");
-    }
-
-    public @Nullable String deviceName() {
+    private @NotNull String deviceName() {
         return config.get("deviceName");
     }
 
-    public @Nullable Connect.DeviceType deviceType() {
+    private @NotNull Connect.DeviceType deviceType() {
         return config.getEnum("deviceType", Connect.DeviceType.class);
     }
 
-    public @NotNull String preferredLocale() {
+    private @NotNull String preferredLocale() {
         return config.get("preferredLocale");
     }
 
-    public @NotNull Level loggingLevel() {
-        String str = config.get("logLevel");
-        return Level.toLevel(str);
-    }
-
-    public @Nullable String authUsername() {
+    private @NotNull String authUsername() {
         return config.get("auth.username");
     }
 
-    public @Nullable String authPassword() {
+    private @NotNull String authPassword() {
         return config.get("auth.password");
     }
 
-    public @Nullable String authBlob() {
+    private @NotNull String authBlob() {
         return config.get("auth.blob");
     }
 
-    @NotNull
-    public FileConfiguration.AuthStrategy authStrategy() {
-        return config.getEnum("auth.strategy", AuthStrategy.class);
-    }
-
-    public boolean storeCredentials() {
-        return config.get("auth.storeCredentials");
-    }
-
-    public @Nullable File credentialsFile() {
+    private @Nullable File credentialsFile() {
         String path = config.get("auth.credentialsFile");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    public boolean zeroconfListenAll() {
-        return config.get("zeroconf.listenAll");
-    }
-
-    public int zeroconfListenPort() {
-        return config.get("zeroconf.listenPort");
+    public @NotNull Level loggingLevel() {
+        return Level.toLevel(config.get("logLevel"));
     }
 
     @NotNull
-    public String[] zeroconfInterfaces() {
-        return getStringArray("zeroconf.interfaces", ',');
-    }
-
-    public TimeProvider.@NotNull Method timeSynchronizationMethod() {
-        return config.getEnum("time.synchronizationMethod", TimeProvider.Method.class);
-    }
-
-    public int timeManualCorrection() {
-        return config.get("time.manualCorrection");
+    public FileConfiguration.AuthStrategy authStrategy() {
+        return config.getEnum("auth.strategy", AuthStrategy.class);
     }
 
     public int apiPort() {
@@ -388,36 +297,93 @@ public final class FileConfiguration {
         return config.get("api.host");
     }
 
-    public boolean proxyEnabled() {
-        return config.get("proxy.enabled");
+    @NotNull
+    public ZeroconfServer.Builder initZeroconfBuilder() {
+        ZeroconfServer.Builder builder = new ZeroconfServer.Builder(toSession())
+                .setPreferredLocale(preferredLocale())
+                .setDeviceType(deviceType())
+                .setDeviceName(deviceName())
+                .setDeviceId(deviceId())
+                .setListenPort(config.get("zeroconf.listenPort"));
+
+        if (config.get("zeroconf.listenAll")) builder.setListenAll(true);
+        else builder.setListenInterfaces(getStringArray("zeroconf.interfaces", ','));
+
+        return builder;
     }
 
-    public @NotNull Proxy.Type proxyType() {
-        return config.getEnum("proxy.type", Proxy.Type.class);
+    @NotNull
+    public Session.Builder initSessionBuilder() throws IOException, GeneralSecurityException {
+        Session.Builder builder = new Session.Builder(toSession())
+                .setPreferredLocale(preferredLocale())
+                .setDeviceType(deviceType())
+                .setDeviceName(deviceName())
+                .setDeviceId(deviceId());
+
+        switch (authStrategy()) {
+            case FACEBOOK:
+                builder.facebook();
+                break;
+            case BLOB:
+                builder.blob(authUsername(), Base64.getDecoder().decode(authBlob()));
+                break;
+            case USER_PASS:
+                builder.userPass(authUsername(), authPassword());
+                break;
+            case STORED:
+                builder.stored();
+                break;
+            case ZEROCONF:
+            default:
+                throw new IllegalArgumentException(authStrategy().name());
+        }
+
+        return builder;
     }
 
-    public @NotNull String proxyAddress() {
-        return config.get("proxy.address");
+    @NotNull
+    public Session.Configuration toSession() {
+        return new Session.Configuration.Builder()
+                .setCacheEnabled(config.get("cache.enabled"))
+                .setCacheDir(new File((String) config.get("cache.dir")))
+                .setDoCacheCleanUp(config.get("cache.doCleanUp"))
+                .setStoreCredentials(config.get("auth.storeCredentials"))
+                .setStoredCredentialsFile(credentialsFile())
+                .setTimeSynchronizationMethod(config.getEnum("time.synchronizationMethod", TimeProvider.Method.class))
+                .setTimeManualCorrection(config.get("time.manualCorrection"))
+                .setProxyEnabled(config.get("proxy.enabled"))
+                .setProxyType(config.getEnum("proxy.type", Proxy.Type.class))
+                .setProxyAddress(config.get("proxy.address"))
+                .setProxyPort(config.get("proxy.port"))
+                .setProxyAuth(config.get("proxy.auth"))
+                .setProxyUsername(config.get("proxy.username"))
+                .setProxyPassword(config.get("proxy.password"))
+                .build();
     }
 
-    public int proxyPort() {
-        return config.get("proxy.port");
+    @NotNull
+    public PlayerConfiguration toPlayer() {
+        return new PlayerConfiguration.Builder()
+                .setAutoplayEnabled(config.get("player.autoplayEnabled"))
+                .setCrossfadeDuration(config.get("player.crossfadeDuration"))
+                .setEnableNormalisation(config.get("player.enableNormalisation"))
+                .setInitialVolume(config.get("player.initialVolume"))
+                .setLogAvailableMixers(config.get("player.logAvailableMixers"))
+                .setMetadataPipe(metadataPipe())
+                .setMixerSearchKeywords(getStringArray("player.mixerSearchKeywords", ';'))
+                .setNormalisationPregain(normalisationPregain())
+                .setOutput(config.getEnum("player.output", AudioOutput.class))
+                .setOutputPipe(outputPipe())
+                .setPreferredQuality(preferredQuality())
+                .setPreloadEnabled(config.get("preload.enabled"))
+                .setReleaseLineDelay(config.get("player.releaseLineDelay"))
+                .setRetryOnChunkError(config.get("player.retryOnChunkError"))
+                .setVolumeSteps(config.get("player.volumeSteps"))
+                .build();
     }
 
-    public boolean proxyAuth() {
-        return config.get("proxy.auth");
-    }
-
-    public @NotNull String proxyUsername() {
-        return config.get("proxy.username");
-    }
-
-    public @NotNull String proxyPassword() {
-        return config.get("proxy.password");
-    }
-
-    enum AuthStrategy {
-        FACEBOOK, BLOB, USER_PASS, ZEROCONF
+    public enum AuthStrategy {
+        FACEBOOK, BLOB, USER_PASS, ZEROCONF, STORED
     }
 
     private final static class PropertiesFormat implements ConfigFormat<Config> {

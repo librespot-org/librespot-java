@@ -7,7 +7,7 @@ import java.io.File;
 /**
  * @author devgianlu
  */
-public final class Configuration {
+public final class PlayerConfiguration {
     // Audio
     public final AudioQuality preferredQuality;
     public final boolean enableNormalisation;
@@ -31,10 +31,10 @@ public final class Configuration {
     public final boolean preloadEnabled;
     public final boolean retryOnChunkError;
 
-    private Configuration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration,
-                          AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
-                          int initialVolume, int volumeSteps,
-                          boolean preloadEnabled, boolean retryOnChunkError) {
+    private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration,
+                                AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
+                                int initialVolume, int volumeSteps,
+                                boolean preloadEnabled, boolean retryOnChunkError) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
         this.normalisationPregain = normalisationPregain;
@@ -135,11 +135,17 @@ public final class Configuration {
         }
 
         public Builder setInitialVolume(int initialVolume) {
+            if (initialVolume < 0 || initialVolume > Player.VOLUME_MAX)
+                throw new IllegalArgumentException("Invalid volume: " + initialVolume);
+
             this.initialVolume = initialVolume;
             return this;
         }
 
         public Builder setVolumeSteps(int volumeSteps) {
+            if (volumeSteps < 0 || volumeSteps > Player.VOLUME_MAX)
+                throw new IllegalArgumentException("Invalid volume steps: " + volumeSteps);
+
             this.volumeSteps = volumeSteps;
             return this;
         }
@@ -154,8 +160,8 @@ public final class Configuration {
             return this;
         }
 
-        public Configuration build() {
-            return new Configuration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration,
+        public PlayerConfiguration build() {
+            return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration,
                     output, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
                     initialVolume, volumeSteps,
                     preloadEnabled, retryOnChunkError);

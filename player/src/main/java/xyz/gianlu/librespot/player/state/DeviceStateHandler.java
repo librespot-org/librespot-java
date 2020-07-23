@@ -22,7 +22,7 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.player.Configuration;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private final AsyncWorker<Connect.PutStateRequest> putStateWorker;
     private volatile String connectionId = null;
 
-    public DeviceStateHandler(@NotNull Session session, @NotNull Configuration conf) {
+    public DeviceStateHandler(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         this.session = session;
         this.deviceInfo = initializeDeviceInfo(session, conf);
         this.putStateWorker = new AsyncWorker<>("put-state-worker", this::putConnectState);
@@ -66,7 +66,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     }
 
     @NotNull
-    private static Connect.DeviceInfo.Builder initializeDeviceInfo(@NotNull Session session, @NotNull Configuration conf) {
+    private static Connect.DeviceInfo.Builder initializeDeviceInfo(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         return Connect.DeviceInfo.newBuilder()
                 .setCanPlay(true)
                 .setVolume(conf.initialVolume)

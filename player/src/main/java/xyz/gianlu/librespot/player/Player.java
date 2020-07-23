@@ -51,7 +51,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private static final Logger LOGGER = LogManager.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
     private final Session session;
-    private final Configuration conf;
+    private final PlayerConfiguration conf;
     private final EventsDispatcher events;
     private final AudioSink sink;
     private StateWrapper state;
@@ -59,7 +59,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private ScheduledFuture<?> releaseLineFuture = null;
     private Map<String, PlaybackMetrics> metrics = new HashMap<>(5);
 
-    public Player(@NotNull Configuration conf, @NotNull Session session) {
+    public Player(@NotNull PlayerConfiguration conf, @NotNull Session session) {
         this.conf = conf;
         this.session = session;
         this.events = new EventsDispatcher(conf);
@@ -893,7 +893,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         private final File file;
         private FileOutputStream out;
 
-        MetadataPipe(@NotNull Configuration conf) {
+        MetadataPipe(@NotNull PlayerConfiguration conf) {
             file = conf.metadataPipe;
         }
 
@@ -935,7 +935,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
         private final List<EventsListener> listeners = new ArrayList<>();
 
-        EventsDispatcher(@NotNull Configuration conf) {
+        EventsDispatcher(@NotNull PlayerConfiguration conf) {
             metadataPipe = new MetadataPipe(conf);
         }
 

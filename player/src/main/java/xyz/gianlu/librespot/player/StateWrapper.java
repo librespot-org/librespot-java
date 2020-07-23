@@ -67,7 +67,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private PagesLoader pages;
     private TracksKeeper tracksKeeper;
 
-    StateWrapper(@NotNull Session session, @NotNull Player player, @NotNull Configuration conf) {
+    StateWrapper(@NotNull Session session, @NotNull Player player, @NotNull PlayerConfiguration conf) {
         this.session = session;
         this.player = player;
         this.device = new DeviceStateHandler(session, conf);

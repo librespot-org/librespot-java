@@ -10,14 +10,14 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
-import xyz.gianlu.librespot.api.SessionWrapper;
+import xyz.gianlu.librespot.api.PlayerWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 
-public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, SessionWrapper.Listener, Session.ReconnectionListener {
+public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, PlayerWrapper.Listener, Session.ReconnectionListener {
     private static final Logger LOGGER = LogManager.getLogger(EventsHandler.class);
 
     public EventsHandler() {
@@ -117,12 +117,16 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
 
     @Override
     public void onSessionCleared(@NotNull Session old) {
-        // old.player().removeEventsListener(this); FIXME
         old.removeReconnectionListener(this);
 
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "sessionCleared");
         dispatch(obj);
+    }
+
+    @Override
+    public void onPlayerCleared(@NotNull Player old) {
+        old.removeEventsListener(this);
     }
 
     @Override
@@ -132,8 +136,12 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
         obj.addProperty("username", session.username());
         dispatch(obj);
 
-        // session.player().addEventsListener(this); FIXME
         session.addReconnectionListener(this);
+    }
+
+    @Override
+    public void onNewPlayer(@NotNull Player player) {
+        player.addEventsListener(this);
     }
 
     @Override

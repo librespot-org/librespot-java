@@ -9,7 +9,7 @@ import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
-import xyz.gianlu.librespot.player.Configuration;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
@@ -35,7 +35,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-session-" + r.hashCode()));
     private final Session session;
     private final AudioSink sink;
-    private final Configuration conf;
+    private final PlayerConfiguration conf;
     private final String sessionId;
     private final Listener listener;
     private final PlayerQueue queue;
@@ -43,7 +43,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     private Reason lastPlayReason = null;
     private volatile boolean closed = false;
 
-    public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull Configuration conf, @NotNull String sessionId, @NotNull Listener listener) {
+    public PlayerSession(@NotNull Session session, @NotNull AudioSink sink, @NotNull PlayerConfiguration conf, @NotNull String sessionId, @NotNull Listener listener) {
         this.session = session;
         this.sink = sink;
         this.conf = conf;

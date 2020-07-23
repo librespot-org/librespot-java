@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.api.SessionWrapper;
+import xyz.gianlu.librespot.api.PlayerWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
@@ -18,9 +18,9 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.Objects;
 
-public final class PlayerHandler extends AbsSessionHandler {
+public final class PlayerHandler extends AbsPlayerHandler {
 
-    public PlayerHandler(@NotNull SessionWrapper wrapper) {
+    public PlayerHandler(@NotNull PlayerWrapper wrapper) {
         super(wrapper);
     }
 
@@ -143,7 +143,7 @@ public final class PlayerHandler extends AbsSessionHandler {
     }
 
     @Override
-    protected void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception {
+    protected void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session, @NotNull Player player) throws Exception {
         exchange.startBlocking();
         if (exchange.isInIoThread()) {
             exchange.dispatch(this);
@@ -165,46 +165,46 @@ public final class PlayerHandler extends AbsSessionHandler {
 
         switch (cmd) {
             case CURRENT:
-                current(exchange, session);
+                current(exchange, player);
                 return;
             case SET_VOLUME:
-                setVolume(exchange, session, Utils.getFirstString(params, "volume"));
+                setVolume(exchange, player, Utils.getFirstString(params, "volume"));
                 return;
             case VOLUME_UP:
-                session.player().volumeUp();
+                player.volumeUp();
                 return;
             case VOLUME_DOWN:
-                session.player().volumeDown();
+                player.volumeDown();
                 return;
             case LOAD:
-                load(exchange, session, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
+                load(exchange, player, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
                 return;
             case PLAY_PAUSE:
-                session.player().playPause();
+                player.playPause();
                 return;
             case PAUSE:
-                session.player().pause();
+                player.pause();
                 return;
             case RESUME:
-                session.player().play();
+                player.play();
                 return;
             case PREV:
-                session.player().previous();
+                player.previous();
                 return;
             case NEXT:
-                session.player().next();
+                player.next();
                 return;
             case SEEK:
-                seek(exchange, session, Utils.getFirstString(params, "pos"));
+                seek(exchange, player, Utils.getFirstString(params, "pos"));
                 return;
             case TRACKS:
-                tracks(exchange, session, Utils.getFirstBoolean(params, "withQueue"));
+                tracks(exchange, player, Utils.getFirstBoolean(params, "withQueue"));
                 return;
             case ADD_TO_QUEUE:
-                addToQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                addToQueue(exchange, player, Utils.getFirstString(params, "uri"));
                 break;
             case REMOVE_FROM_QUEUE:
-                removeFromQueue(exchange, session, Utils.getFirstString(params, "uri"));
+                removeFromQueue(exchange, player, Utils.getFirstString(params, "uri"));
                 break;
             default:
                 throw new IllegalArgumentException(cmd.name());

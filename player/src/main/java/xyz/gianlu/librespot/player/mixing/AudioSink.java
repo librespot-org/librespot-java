@@ -4,8 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.Configuration;
 import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.codecs.Codec;
 
 import javax.sound.sampled.AudioFormat;
@@ -31,7 +31,7 @@ public final class AudioSink implements Runnable, Closeable {
     /**
      * Creates a new sink from the current {@param conf}. Also sets the initial volume.
      */
-    public AudioSink(@NotNull Configuration conf, @NotNull Listener listener) {
+    public AudioSink(@NotNull PlayerConfiguration conf, @NotNull Listener listener) {
         this.listener = listener;
         switch (conf.output) {
             case MIXER:
@@ -169,13 +169,13 @@ public final class AudioSink implements Runnable, Closeable {
     private static class Output implements Closeable {
         private final File pipe;
         private final MixingLine mixing;
-        private final Configuration conf;
+        private final PlayerConfiguration conf;
         private final Type type;
         private SourceDataLine line;
         private OutputStream out;
         private int lastVolume = -1;
 
-        Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull Configuration conf, @Nullable File pipe, @Nullable OutputStream out) {
+        Output(@NotNull Type type, @NotNull MixingLine mixing, @NotNull PlayerConfiguration conf, @Nullable File pipe, @Nullable OutputStream out) {
             this.conf = conf;
             this.mixing = mixing;
             this.type = type;

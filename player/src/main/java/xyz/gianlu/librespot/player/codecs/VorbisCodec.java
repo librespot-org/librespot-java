@@ -12,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.NormalizationData;
-import xyz.gianlu.librespot.player.Configuration;
+import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.LineHelper;
 
@@ -42,7 +42,7 @@ public class VorbisCodec extends Codec {
     private int index;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull Configuration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
+    public VorbisCodec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
         super(sink, audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();

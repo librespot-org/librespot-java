@@ -399,9 +399,6 @@ public class ZeroconfServer implements Closeable {
         }
 
         public Builder setListenPort(int listenPort) {
-            if (listenPort <= MIN_PORT || listenPort >= MAX_PORT)
-                throw new IllegalArgumentException("Invalid port.");
-
             this.listenPort = listenPort;
             return this;
         }
