@@ -158,6 +158,7 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
+        @SuppressWarnings("DuplicatedCode")
         public void toggle(boolean enabled, @Nullable AudioFormat format) {
             if (enabled == fe) return;
             if (enabled && (fout == null || fout != this)) return;
@@ -175,7 +176,6 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        @SuppressWarnings("DuplicatedCode")
         public void clear() {
             if (fout == null || fout != this) return;
 
@@ -205,6 +205,7 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
+        @SuppressWarnings("DuplicatedCode")
         public void toggle(boolean enabled, @Nullable AudioFormat format) {
             if (enabled == se) return;
             if (enabled && (sout == null || sout != this)) return;
@@ -222,7 +223,6 @@ public final class MixingLine extends InputStream {
         }
 
         @Override
-        @SuppressWarnings("DuplicatedCode")
         public void clear() {
             if (sout == null || sout != this) return;
 

@@ -8,6 +8,15 @@ class GainAwareCircularBuffer extends CircularBuffer {
         super(bufferSize);
     }
 
+    private static void writeToArray(int val, byte[] b, int dest) {
+        if (val > 32767) val = 32767;
+        else if (val < -32768) val = -32768;
+        else if (val < 0) val |= 32768;
+
+        b[dest] = (byte) val;
+        b[dest + 1] = (byte) (val >>> 8);
+    }
+
     void readGain(byte[] b, int off, int len, float gain) {
         if (closed) return;
 
@@ -21,13 +30,7 @@ class GainAwareCircularBuffer extends CircularBuffer {
             for (int i = 0; i < len; i += 2, dest += 2) {
                 int val = (short) ((readInternal() & 0xFF) | ((readInternal() & 0xFF) << 8));
                 val *= gain;
-
-                if (val > 32767) val = 32767;
-                else if (val < -32768) val = -32768;
-                else if (val < 0) val |= 32768;
-
-                b[dest] = (byte) val;
-                b[dest + 1] = (byte) (val >>> 8);
+                writeToArray(val, b, dest);
             }
 
             awaitSpace.signal();
@@ -56,13 +59,7 @@ class GainAwareCircularBuffer extends CircularBuffer {
 
                 int result = first + second;
                 result *= gg;
-
-                if (result > 32767) result = 32767;
-                else if (result < -32768) result = -32768;
-                else if (result < 0) result |= 32768;
-
-                b[dest] = (byte) result;
-                b[dest + 1] = (byte) (result >>> 8);
+                writeToArray(result, b, dest);
             }
 
             awaitSpace.signal();

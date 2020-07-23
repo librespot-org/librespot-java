@@ -42,7 +42,7 @@ public interface PlayableId {
         return -1;
     }
 
-    static boolean canPlaySomething(@NotNull List<ContextTrack> tracks) {
+    static boolean cannotPlayAnything(@NotNull List<ContextTrack> tracks) {
         for (ContextTrack track : tracks)
             if (PlayableId.isSupported(track.getUri()) && shouldPlay(track))
                 return true;

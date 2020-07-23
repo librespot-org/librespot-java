@@ -35,44 +35,44 @@ public final class ProtobufToJson {
         return array;
     }
 
-    private static JsonArray arrayOfNumbers(List<? extends Number> list) {
+    private static @NotNull JsonArray arrayOfNumbers(@NotNull List<? extends Number> list) {
         JsonArray array = new JsonArray(list.size());
         for (Number num : list) array.add(num);
         return array;
     }
 
-    private static JsonArray arrayOfBooleans(List<Boolean> list) {
+    private static @NotNull JsonArray arrayOfBooleans(@NotNull List<Boolean> list) {
         JsonArray array = new JsonArray(list.size());
         for (Boolean b : list) array.add(b);
         return array;
     }
 
-    private static JsonObject mapOfStrings(List<MapEntry> map) {
+    private static @NotNull JsonObject mapOfStrings(@NotNull List<MapEntry<?, ?>> map) {
         JsonObject obj = new JsonObject();
-        for (MapEntry entry : map) obj.addProperty(entry.getKey().toString(), entry.getValue().toString());
+        for (MapEntry<?, ?> entry : map) obj.addProperty(entry.getKey().toString(), entry.getValue().toString());
         return obj;
     }
 
-    private static JsonArray arrayOfStrings(List<String> list) {
+    private static @NotNull JsonArray arrayOfStrings(@NotNull List<String> list) {
         JsonArray array = new JsonArray(list.size());
         for (String str : list) array.add(str);
         return array;
     }
 
-    private static JsonArray arrayOfEnums(List<Descriptors.EnumValueDescriptor> list) {
+    private static @NotNull JsonArray arrayOfEnums(@NotNull List<Descriptors.EnumValueDescriptor> list) {
         JsonArray array = new JsonArray(list.size());
         for (Descriptors.EnumValueDescriptor desc : list) array.add(desc.getName());
         return array;
     }
 
-    private static JsonArray arrayOfByteStrings(List<ByteString> list) {
+    private static @NotNull JsonArray arrayOfByteStrings(@NotNull List<ByteString> list) {
         JsonArray array = new JsonArray(list.size());
         for (ByteString str : list) array.add(Utils.bytesToHex(str));
         return array;
     }
 
     @SuppressWarnings("unchecked")
-    private static void put(JsonObject json, Descriptors.FieldDescriptor descriptor, Object obj) {
+    private static void put(@NotNull JsonObject json, @NotNull Descriptors.FieldDescriptor descriptor, Object obj) {
         String key = descriptor.getJsonName();
         switch (descriptor.getJavaType()) {
             case FLOAT:
@@ -99,7 +99,7 @@ public final class ProtobufToJson {
                 else json.addProperty(key, ((Descriptors.EnumValueDescriptor) obj).getName());
                 break;
             case MESSAGE:
-                if (descriptor.isMapField()) json.add(key, mapOfStrings((List<MapEntry>) obj));
+                if (descriptor.isMapField()) json.add(key, mapOfStrings((List<MapEntry<?, ?>>) obj));
                 else if (descriptor.isRepeated()) json.add(key, convertList((List<? extends Message>) obj));
                 else json.add(key, convert((Message) obj));
                 break;

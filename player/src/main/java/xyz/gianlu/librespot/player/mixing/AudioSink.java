@@ -82,14 +82,10 @@ public final class AudioSink implements Runnable, Closeable {
 
     /**
      * Pauses the sink and then releases the {@link javax.sound.sampled.Line} if specified by {@param release}.
-     *
-     * @return Whether the line was released.
      */
-    public boolean pause(boolean release) {
+    public void pause(boolean release) {
         paused = true;
-
-        if (release) return output.releaseLine();
-        else return false;
+        if (release) output.releaseLine();
     }
 
     /**
@@ -294,12 +290,11 @@ public final class AudioSink implements Runnable, Closeable {
             mixing.setGlobalGain(((float) volume) / Player.VOLUME_MAX);
         }
 
-        boolean releaseLine() {
-            if (line == null) return false;
+        void releaseLine() {
+            if (line == null) return;
 
             line.close();
             line = null;
-            return true;
         }
 
         enum Type {

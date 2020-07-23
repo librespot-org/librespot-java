@@ -8,7 +8,6 @@ import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.NormalizationData;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.mixing.AudioSink;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.Closeable;
@@ -24,14 +23,12 @@ public abstract class Codec implements Closeable {
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
-    private final AudioSink sink;
     private final GeneralAudioStream audioFile;
     protected volatile boolean closed = false;
     protected int seekZero = 0;
     private AudioFormat format;
 
-    Codec(@NotNull AudioSink sink, @NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
-        this.sink = sink;
+    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
         this.audioIn = audioFile.stream();
         this.audioFile = audioFile;
         this.duration = duration;

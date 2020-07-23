@@ -761,7 +761,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     }
 
     @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) throws IOException {
+    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) {
         if (uri.equals("hm://connect-state/v1/connect/logout")) {
             try {
                 close();
@@ -1268,7 +1268,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
                     proxySocket.connect(new InetSocketAddress(apAddr, apPort));
                     LOGGER.info("Successfully connected to the SOCKS proxy.");
                     return new ConnectionHolder(proxySocket);
-                case DIRECT:
                 default:
                     throw new UnsupportedOperationException();
             }

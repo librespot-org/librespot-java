@@ -3,11 +3,11 @@ package xyz.gianlu.librespot.api;
 
 import org.apache.logging.log4j.core.config.Configurator;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.FileConfiguration;
-import xyz.gianlu.librespot.FileConfiguration.AuthStrategy;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.player.FileConfiguration;
+import xyz.gianlu.librespot.player.FileConfiguration.AuthStrategy;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;

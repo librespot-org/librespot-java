@@ -67,13 +67,6 @@
             <version>1.0.2-gdx</version>
         </dependency>
 
-        <!-- Zeroconf -->
-        <dependency>
-            <groupId>xyz.gianlu.zeroconf</groupId>
-            <artifactId>zeroconf</artifactId>
-            <version>1.1.3</version>
-        </dependency>
-
         <!-- TOML configuration -->
         <dependency>
             <groupId>com.electronwill.night-config</groupId>

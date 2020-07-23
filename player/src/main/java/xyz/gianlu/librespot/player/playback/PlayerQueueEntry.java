@@ -44,9 +44,9 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     static final int INSTANT_START_NEXT = 2;
     static final int INSTANT_END = 3;
     private static final Logger LOGGER = LogManager.getLogger(PlayerQueueEntry.class);
-    private final PlayerConfiguration conf;
     final PlayableId playable;
     final String playbackId;
+    private final PlayerConfiguration conf;
     private final boolean preloaded;
     private final Listener listener;
     private final Object playbackLock = new Object();
@@ -108,11 +108,11 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         switch (stream.in.codec()) {
             case VORBIS:
-                codec = new VorbisCodec(sink, stream.in, stream.normalizationData, conf, metadata.duration());
+                codec = new VorbisCodec(stream.in, stream.normalizationData, conf, metadata.duration());
                 break;
             case MP3:
                 try {
-                    codec = new Mp3Codec(sink, stream.in, stream.normalizationData, conf, metadata.duration());
+                    codec = new Mp3Codec(stream.in, stream.normalizationData, conf, metadata.duration());
                 } catch (BitstreamException ex) {
                     throw new IOException(ex);
                 }

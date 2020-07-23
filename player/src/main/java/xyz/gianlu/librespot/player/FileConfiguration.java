@@ -1,4 +1,4 @@
-package xyz.gianlu.librespot;
+package xyz.gianlu.librespot.player;
 
 import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.Config;
@@ -17,11 +17,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
-import xyz.gianlu.librespot.player.AudioOutput;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
@@ -69,7 +68,8 @@ public final class FileConfiguration {
         if (migrating) {
             migrateOldConfig(confFile, config);
             config.save();
-            confFile.delete();
+            if (!confFile.delete())
+                LOGGER.warn("Failed deleting old configuration file.");
 
             LOGGER.info("Your configuration has been migrated to `config.toml`, change your input file if needed.");
         } else {

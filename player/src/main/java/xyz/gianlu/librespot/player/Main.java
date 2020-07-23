@@ -2,7 +2,6 @@ package xyz.gianlu.librespot.player;
 
 
 import org.apache.logging.log4j.core.config.Configurator;
-import xyz.gianlu.librespot.FileConfiguration;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;

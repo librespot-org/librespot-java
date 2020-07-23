@@ -1036,7 +1036,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             tracks.addAll(pages.currentPage());
 
             checkComplete();
-            if (!PlayableId.canPlaySomething(tracks))
+            if (PlayableId.cannotPlayAnything(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
             boolean transformingShuffle = Boolean.parseBoolean(state.getContextMetadataOrDefault("transforming.shuffle", "true"));
@@ -1078,7 +1078,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
 
             checkComplete();
-            if (!PlayableId.canPlaySomething(tracks))
+            if (PlayableId.cannotPlayAnything(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
             if (track != null) enrichCurrentTrack(track);
