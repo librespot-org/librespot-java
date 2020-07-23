@@ -9,13 +9,13 @@
         <relativePath>../</relativePath>
     </parent>
 
-    <artifactId>librespot-core</artifactId>
+    <artifactId>librespot-player</artifactId>
     <packaging>jar</packaging>
 
-    <name>librespot-java core</name>
+    <name>librespot-java player</name>
 
     <build>
-        <finalName>librespot-core</finalName>
+        <finalName>librespot-player</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -32,7 +32,7 @@
                                 <manifest>
                                     <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                                     <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-                                    <mainClass>xyz.gianlu.librespot.Main</mainClass>
+                                    <mainClass>xyz.gianlu.librespot.player.Main</mainClass>
                                 </manifest>
                                 <manifestEntries>
                                     <Multi-Release>true</Multi-Release>
