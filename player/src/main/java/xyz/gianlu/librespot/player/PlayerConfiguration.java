@@ -1,5 +1,7 @@
 package xyz.gianlu.librespot.player;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
 
 import java.io.File;
@@ -14,6 +16,7 @@ public final class PlayerConfiguration {
     public final float normalisationPregain;
     public final boolean autoplayEnabled;
     public final int crossfadeDuration;
+    public final boolean preloadEnabled;
 
     // Output
     public final AudioOutput output;
@@ -27,14 +30,9 @@ public final class PlayerConfiguration {
     public final int initialVolume;
     public final int volumeSteps;
 
-    // Behaviour
-    public final boolean preloadEnabled;
-    public final boolean retryOnChunkError;
-
-    private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration,
+    private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
                                 AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
-                                int initialVolume, int volumeSteps,
-                                boolean preloadEnabled, boolean retryOnChunkError) {
+                                int initialVolume, int volumeSteps) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
         this.normalisationPregain = normalisationPregain;
@@ -49,7 +47,6 @@ public final class PlayerConfiguration {
         this.initialVolume = initialVolume;
         this.volumeSteps = volumeSteps;
         this.preloadEnabled = preloadEnabled;
-        this.retryOnChunkError = retryOnChunkError;
     }
 
     public final static class Builder {
@@ -59,6 +56,7 @@ public final class PlayerConfiguration {
         private float normalisationPregain = 3.0f;
         private boolean autoplayEnabled = true;
         private int crossfadeDuration = 0;
+        private boolean preloadEnabled = true;
 
         // Output
         private AudioOutput output = AudioOutput.MIXER;
@@ -71,10 +69,6 @@ public final class PlayerConfiguration {
         // Volume
         private int initialVolume = Player.VOLUME_MAX;
         private int volumeSteps = 64;
-
-        // Behaviour
-        private boolean preloadEnabled = true;
-        private boolean retryOnChunkError = true;
 
         public Builder() {
         }
@@ -155,16 +149,11 @@ public final class PlayerConfiguration {
             return this;
         }
 
-        public Builder setRetryOnChunkError(boolean retryOnChunkError) {
-            this.retryOnChunkError = retryOnChunkError;
-            return this;
-        }
-
-        public PlayerConfiguration build() {
-            return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration,
+        @Contract(value = " -> new", pure = true)
+        public @NotNull PlayerConfiguration build() {
+            return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
                     output, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
-                    initialVolume, volumeSteps,
-                    preloadEnabled, retryOnChunkError);
+                    initialVolume, volumeSteps);
         }
     }
 }

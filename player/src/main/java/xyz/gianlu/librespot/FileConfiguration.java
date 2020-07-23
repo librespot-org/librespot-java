@@ -358,6 +358,7 @@ public final class FileConfiguration {
                 .setProxyAuth(config.get("proxy.auth"))
                 .setProxyUsername(config.get("proxy.username"))
                 .setProxyPassword(config.get("proxy.password"))
+                .setRetryOnChunkError(config.get("player.retryOnChunkError"))
                 .build();
     }
 
@@ -377,7 +378,6 @@ public final class FileConfiguration {
                 .setPreferredQuality(preferredQuality())
                 .setPreloadEnabled(config.get("preload.enabled"))
                 .setReleaseLineDelay(config.get("player.releaseLineDelay"))
-                .setRetryOnChunkError(config.get("player.retryOnChunkError"))
                 .setVolumeSteps(config.get("player.volumeSteps"))
                 .build();
     }

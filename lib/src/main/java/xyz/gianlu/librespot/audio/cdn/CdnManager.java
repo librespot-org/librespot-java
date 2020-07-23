@@ -244,7 +244,7 @@ public class CdnManager {
             buffer = new byte[chunks][CHUNK_SIZE];
             buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
 
-            this.internalStream = new InternalStream(true /* TODO */);
+            this.internalStream = new InternalStream(session.configuration().retryOnChunkError);
             writeChunk(firstChunk, 0, fromCache);
         }
 

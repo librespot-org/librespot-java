@@ -175,7 +175,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
             this.audioDecrypt = new AesAudioDecrypt(key);
-            this.internalStream = new InternalStream(true /* TODO */);
+            this.internalStream = new InternalStream(session.configuration().retryOnChunkError);
         }
 
         void writeChunk(@NotNull byte[] chunk, int chunkIndex) throws IOException {

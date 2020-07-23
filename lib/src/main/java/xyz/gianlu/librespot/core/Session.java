@@ -626,6 +626,16 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     }
 
     @NotNull
+    ExecutorService executor() {
+        return executorService;
+    }
+
+    @Nullable
+    public String countryCode() {
+        return countryCode;
+    }
+
+    @NotNull
     public String deviceId() {
         return inner.deviceId;
     }
@@ -641,11 +651,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     }
 
     @NotNull
-    ExecutorService executor() {
-        return executorService;
-    }
-
-    @NotNull
     public String deviceName() {
         return inner.deviceName;
     }
@@ -653,6 +658,11 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     @NotNull
     public Random random() {
         return inner.random;
+    }
+
+    @NotNull
+    public Configuration configuration() {
+        return inner.conf;
     }
 
     private void reconnect() {
@@ -689,11 +699,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
                 LOGGER.info("Scheduler already shutdown, stopping reconnection", exx);
             }
         }
-    }
-
-    @Nullable
-    public String countryCode() {
-        return countryCode;
     }
 
     public void addCloseListener(@NotNull CloseListener listener) {
@@ -1034,10 +1039,14 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         public final boolean storeCredentials;
         public final File storedCredentialsFile;
 
+        // Fetching
+        public final boolean retryOnChunkError;
+
         private Configuration(boolean proxyEnabled, Proxy.Type proxyType, String proxyAddress, int proxyPort, boolean proxyAuth, String proxyUsername, String proxyPassword,
                               TimeProvider.Method timeSynchronizationMethod, int timeManualCorrection,
                               boolean cacheEnabled, File cacheDir, boolean doCacheCleanUp,
-                              boolean storeCredentials, File storedCredentialsFile) {
+                              boolean storeCredentials, File storedCredentialsFile,
+                              boolean retryOnChunkError) {
             this.proxyEnabled = proxyEnabled;
             this.proxyType = proxyType;
             this.proxyAddress = proxyAddress;
@@ -1052,6 +1061,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
             this.doCacheCleanUp = doCacheCleanUp;
             this.storeCredentials = storeCredentials;
             this.storedCredentialsFile = storedCredentialsFile;
+            this.retryOnChunkError = retryOnChunkError;
         }
 
         public static final class Builder {
@@ -1076,6 +1086,9 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
             // Stored credentials
             private boolean storeCredentials = true;
             private File storedCredentialsFile = new File("credentials.json");
+
+            // Fetching
+            private boolean retryOnChunkError;
 
             public Builder() {
             }
@@ -1150,12 +1163,18 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
                 return this;
             }
 
+            public Builder setRetryOnChunkError(boolean retryOnChunkError) {
+                this.retryOnChunkError = retryOnChunkError;
+                return this;
+            }
+
             @NotNull
             public Configuration build() {
                 return new Configuration(proxyEnabled, proxyType, proxyAddress, proxyPort, proxyAuth, proxyUsername, proxyPassword,
                         timeSynchronizationMethod, timeManualCorrection,
                         cacheEnabled, cacheDir, doCacheCleanUp,
-                        storeCredentials, storedCredentialsFile);
+                        storeCredentials, storedCredentialsFile,
+                        retryOnChunkError);
             }
         }
     }
