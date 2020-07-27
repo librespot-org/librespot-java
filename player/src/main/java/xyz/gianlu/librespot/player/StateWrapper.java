@@ -132,12 +132,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             setPosition(state.getPositionAsOfTimestamp());
     }
 
-    boolean isPaused() {
+    synchronized boolean isPaused() {
         return state.getIsPlaying() && state.getIsPaused();
     }
 
-    void setBuffering(boolean buffering) {
-        setState(state.getIsPlaying(), state.getIsPaused(), buffering);
+    synchronized void setBuffering(boolean buffering) {
+        setState(true, state.getIsPaused(), buffering);
     }
 
     private boolean isShufflingContext() {

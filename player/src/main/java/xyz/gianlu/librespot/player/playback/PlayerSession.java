@@ -53,7 +53,6 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         LOGGER.info("Created new session. {id: {}}", sessionId);
 
         sink.clearOutputs();
-        add(listener.currentPlayable(), false);
     }
 
     /**
