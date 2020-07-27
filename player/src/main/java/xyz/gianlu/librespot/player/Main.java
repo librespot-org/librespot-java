@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.player;
 
 
 import org.apache.logging.log4j.core.config.Configurator;
+import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;
@@ -22,6 +23,22 @@ public class Main {
 
         if (conf.authStrategy() == FileConfiguration.AuthStrategy.ZEROCONF) {
             ZeroconfServer server = conf.initZeroconfBuilder().create();
+            server.addSessionListener(new ZeroconfServer.SessionListener() {
+                Player lastPlayer = null;
+
+                {
+                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                        if (lastPlayer != null) lastPlayer.close();
+                    }));
+                }
+
+                @Override
+                public void sessionChanged(@NotNull Session session) {
+                    if (lastPlayer != null) lastPlayer.close();
+                    lastPlayer = new Player(conf.toPlayer(), session);
+                }
+            });
+
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     server.closeSession();
@@ -31,8 +48,11 @@ public class Main {
             }));
         } else {
             Session session = conf.initSessionBuilder().create();
+            Player player = new Player(conf.toPlayer(), session);
+
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
+                    player.close();
                     session.close();
                 } catch (IOException ignored) {
                 }

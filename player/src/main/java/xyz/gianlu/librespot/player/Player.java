@@ -64,6 +64,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         this.session = session;
         this.events = new EventsDispatcher(conf);
         this.sink = new AudioSink(conf, this);
+
+        initState();
     }
 
     public void addEventsListener(@NotNull EventsListener listener) {
@@ -74,15 +76,14 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         events.listeners.remove(listener);
     }
 
+    private void initState() {
+        this.state = new StateWrapper(session, this, conf);
+        state.addListener(this);
+    }
 
     // ================================ //
     // =========== Commands =========== //
     // ================================ //
-
-    public void initState() {
-        this.state = new StateWrapper(session, this, conf);
-        state.addListener(this);
-    }
 
     public void volumeUp() {
         if (state == null) return;

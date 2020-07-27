@@ -46,11 +46,7 @@ public class PlayerWrapper extends SessionWrapper {
     public static PlayerWrapper fromSession(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         PlayerWrapper wrapper = new PlayerWrapper(conf);
         wrapper.sessionRef.set(session);
-
-        Player player = new Player(conf, session);
-        player.initState();
-        wrapper.playerRef.set(player);
-
+        wrapper.playerRef.set(new Player(conf, session));
         return wrapper;
     }
 
@@ -67,7 +63,6 @@ public class PlayerWrapper extends SessionWrapper {
         super.set(session);
 
         Player player = new Player(conf, session);
-        player.initState();
         playerRef.set(player);
 
         if (listener != null) listener.onNewPlayer(player);
