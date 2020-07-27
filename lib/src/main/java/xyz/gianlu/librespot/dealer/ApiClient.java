@@ -165,7 +165,7 @@ public class ApiClient {
 
     @NotNull
     public EntityCanvazResponse getCanvases(@NotNull EntityCanvazRequest req) throws IOException, MercuryClient.MercuryException {
-        try (Response resp = send("POST", "/canvaz-xyz.gianlu.librespot.cache/v0/canvases", null, protoBody(req))) {
+        try (Response resp = send("POST", "/canvaz-cache/v0/canvases", null, protoBody(req))) {
             StatusCodeException.checkStatus(resp);
 
             ResponseBody body;

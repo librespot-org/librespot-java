@@ -86,7 +86,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             cacheHandler.readChunk(index, this);
             return true;
         } catch (IOException ex) {
-            LOGGER.fatal("Failed requesting chunk from xyz.gianlu.librespot.cache, index: {}", index, ex);
+            LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
     }
@@ -134,7 +134,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 cacheHandler.writeChunk(buffer, chunkIndex);
             } catch (IOException ex) {
-                LOGGER.warn("Failed writing to xyz.gianlu.librespot.cache! {index: {}}", chunkIndex, ex);
+                LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
             }
         }
 

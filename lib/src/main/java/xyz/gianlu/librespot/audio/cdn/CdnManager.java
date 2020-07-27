@@ -215,7 +215,7 @@ public class CdnManager {
                     firstChunk = cacheHandler.readChunk(0);
                     fromCache = true;
                 } catch (IOException ex) {
-                    LOGGER.error("Failed getting first chunk from xyz.gianlu.librespot.cache.", ex);
+                    LOGGER.error("Failed getting first chunk from cache.", ex);
 
                     InternalResponse resp = request(0, CHUNK_SIZE - 1);
                     firstChunk = resp.buffer;
@@ -256,7 +256,7 @@ public class CdnManager {
                 try {
                     cacheHandler.writeChunk(chunk, chunkIndex);
                 } catch (IOException ex) {
-                    LOGGER.warn("Failed writing to xyz.gianlu.librespot.cache! {index: {}}", chunkIndex, ex);
+                    LOGGER.warn("Failed writing to cache! {index: {}}", chunkIndex, ex);
                 }
             }
 
@@ -295,7 +295,7 @@ public class CdnManager {
                         return;
                     }
                 } catch (IOException ex) {
-                    LOGGER.fatal("Failed requesting chunk from xyz.gianlu.librespot.cache, index: {}", index, ex);
+                    LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
                 }
             }
 

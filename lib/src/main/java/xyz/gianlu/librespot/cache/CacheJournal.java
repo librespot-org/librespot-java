@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
- * A little journal implementation that stores information about the xyz.gianlu.librespot.cache. The data is stored in this order:
+ * A little journal implementation that stores information about the cache. The data is stored in this order:
  * - 40 bytes for the ID
  * - 2048 bytes for chunks
  * - 8 headers each of 1023 length + 1 byte for the ID
@@ -35,7 +35,7 @@ class CacheJournal implements Closeable {
     CacheJournal(@NotNull File parent) throws IOException {
         File file = new File(parent, "journal.dat");
         if (!file.exists() && !file.createNewFile())
-            throw new IOException("Failed creating empty xyz.gianlu.librespot.cache journal.");
+            throw new IOException("Failed creating empty cache journal.");
 
         io = new RandomAccessFile(file, "rwd");
     }

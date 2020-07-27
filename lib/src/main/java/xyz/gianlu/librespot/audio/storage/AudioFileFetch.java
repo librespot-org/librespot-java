@@ -46,7 +46,7 @@ public class AudioFileFetch implements AudioFile {
             } catch (IOException ex) {
                 if (id == HEADER_SIZE) throw new IOException(ex);
                 else
-                    LOGGER.warn("Failed writing header to xyz.gianlu.librespot.cache! {id: {}}", Utils.byteToHex((byte) id));
+                    LOGGER.warn("Failed writing header to cache! {id: {}}", Utils.byteToHex((byte) id));
             }
         }
 
