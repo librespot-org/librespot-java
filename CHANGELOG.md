@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 28-07-2020
+### Breaking changes
+- Separated library from player (#245)
+- Removed `common` module, moved into `lib`
+- Removed `core` module, split into `lib` and `player`
+- Moved many classes
+
+### Added
+- Added `STORED` authentication strategy (17ba408b844554632e180d3ad1e8fc7cb9db2b6c)
+- Added followers and following endpoint to API (#241)
+- Added toggle play/pause command to API (#244)
+
+### Changed
+- Release versions are compiled on Java 8 (5a97a60c62f002444b3a695ee7dbd6146fc52b2d)
+- Refactored line acquisition to prefer native lines over conversion (#240)
+- Refactored audio decrypt (b71af8376fa1d12212c679b6fdd83c20cdfd9361)
+
+### Fixed
+- Do not panic when trying to autoplay search context (2e41807ceb40af1034f2da088af545e44169b1d2)
+- Fixed payload too large when sending state (#239) 
+
+
 ## [1.4.0] - 14-06-2020
 ### Added
 - Report to server that we played a track (#155, still buggy)

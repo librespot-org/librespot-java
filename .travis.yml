@@ -11,7 +11,7 @@ script:
 before_deploy:
   - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
   - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
-  - mvn package -B -U -Prelease
+  - mvn package -B -U
   - mvn help:evaluate -N -Dexpression=project.version|grep -v '\['
   - export project_version=$(mvn help:evaluate -N -Dexpression=project.version|grep -v '\[')
 
@@ -22,16 +22,10 @@ deploy:
     draft: true
     api_key:
       secure: qD8WixE5dpxKyiDEEPdrWVchBxMw7NKLrSNeUEJIb+p9Wq/yJ4cf3DScXYJToFJ/SB5JPCjjyj7rudOJ2wUMydJ01UGVJ+vbR/dTIXjtQxRJ7bDuqq4AGeUjZvDeBhigrA6hxWsqkzbRZzPEMcsWPa77Bs5drwiSJVixS2kLWgH3cKzLHZaqRQnlOeX20MHcPLFr/K0buFBg+qKUazx/z56qJuT0hh6+DYbXhdB9qK3bcGgUPE7rEaq6qfK0o3bZibCxtxFpMQR9qNXHnxfV5hUnq/k/YHQUNwFVo8kA3mSniYd9LxycLQ5nlwcbA2EgjKoJmQ3GYg1VLNsXVbWbw4aAl54h/7k7JzlCfpmM4DDrN62hGYzcoU+dD1WkAQob7a20pmmUmZI5LYUOJPIrpS98/DjDQdnkGeU/waCswSmjIYCqWhX2n0F1yYmC8X9nD2tRUCSyAAT3jFotLyRCsbjy1zg5xBFDw/Lgvd2ixgsnlVVKJrAo4q396WWstcL/2oGR/+J5K/Otlh0BBjJ+ND6tlKqOMFVLm6sE8WL0490Y9C2kumf9kDXV3QqganPnGS7/2MqqJBHrqhDXUbSZhkcExYfZwFjMqHA+Fi6yAFUvtNBC5W6nydWi2Nh1k5QiHtxCnukVnGU7iN0o+tT/H5d3UEklT+xIE0tILWcrXII=
+    file_glob: true
     file:
-      - lib/target/librespot-lib-jar-with-dependencies.jar
-      - lib/target/librespot-lib-javadoc.jar
-      - lib/target/librespot-lib-sources.jar
-      - player/target/librespot-player-jar-with-dependencies.jar
-      - player/target/librespot-player-javadoc.jar
-      - player/target/librespot-player-sources.jar
-      - api/target/librespot-api-jar-with-dependencies.jar
-      - api/target/librespot-api-javadoc.jar
-      - api/target/librespot-api-sources.jar
+      - player/target/librespot-player-*.jar
+      - api/target/librespot-api-*.jar
     on:
       repo: librespot-org/librespot-java
       jdk: 'openjdk8'
@@ -48,8 +42,7 @@ deploy:
     on:
       repo: librespot-org/librespot-java
       jdk: 'openjdk8'
-      all_branches: true
-      condition: $TRAVIS_BRANCH = "master"
+      tags: true
 
 cache:
   directories:
