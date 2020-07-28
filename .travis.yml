@@ -8,7 +8,7 @@ jdk:
 script:
   - mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
 
-before_deploy:
+after_success:
   - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
   - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
   - mvn package -B -U
