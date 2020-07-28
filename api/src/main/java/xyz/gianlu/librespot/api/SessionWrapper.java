@@ -2,19 +2,19 @@ package xyz.gianlu.librespot.api;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.core.ZeroconfServer;
 
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Gianlu
  */
-public final class SessionWrapper {
-    private final AtomicReference<Session> ref = new AtomicReference<>(null);
+public class SessionWrapper {
+    protected final AtomicReference<Session> sessionRef = new AtomicReference<>(null);
     private Listener listener = null;
 
-    private SessionWrapper() {
+    protected SessionWrapper() {
     }
 
     /**
@@ -39,7 +39,7 @@ public final class SessionWrapper {
     @NotNull
     public static SessionWrapper fromSession(@NotNull Session session) {
         SessionWrapper wrapper = new SessionWrapper();
-        wrapper.ref.set(session);
+        wrapper.sessionRef.set(session);
         return wrapper;
     }
 
@@ -47,24 +47,24 @@ public final class SessionWrapper {
         this.listener = listener;
 
         Session s;
-        if ((s = ref.get()) != null) listener.onNewSession(s);
+        if ((s = sessionRef.get()) != null) listener.onNewSession(s);
     }
 
-    private void set(@NotNull Session session) {
-        ref.set(session);
+    protected void set(@NotNull Session session) {
+        sessionRef.set(session);
         session.addCloseListener(this::clear);
         if (listener != null) listener.onNewSession(session);
     }
 
-    private void clear() {
-        Session old = ref.get();
-        ref.set(null);
+    protected void clear() {
+        Session old = sessionRef.get();
+        sessionRef.set(null);
         if (listener != null && old != null) listener.onSessionCleared(old);
     }
 
     @Nullable
-    public Session get() {
-        Session s = ref.get();
+    public Session getSession() {
+        Session s = sessionRef.get();
         if (s != null) {
             if (s.isValid()) return s;
             else clear();

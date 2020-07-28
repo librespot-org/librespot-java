@@ -13,7 +13,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.dealer.ApiClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
-import xyz.gianlu.librespot.mercury.model.*;
+import xyz.gianlu.librespot.metadata.*;
 
 import java.io.IOException;
 import java.util.Deque;

@@ -20,24 +20,24 @@ public abstract class AbsSessionHandler implements HttpHandler {
 
     @Override
     public final void handleRequest(HttpServerExchange exchange) throws Exception {
-        Session s = wrapper.get();
-        if (s == null) {
+        Session session = wrapper.getSession();
+        if (session == null) {
             exchange.setStatusCode(StatusCodes.NO_CONTENT);
             return;
         }
 
-        if (s.reconnecting()) {
+        if (session.reconnecting()) {
             exchange.setStatusCode(StatusCodes.SERVICE_UNAVAILABLE);
             exchange.getResponseHeaders().add(Headers.RETRY_AFTER, 10);
             return;
         }
 
-        if (!s.isValid()) {
+        if (!session.isValid()) {
             exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
             return;
         }
 
-        handleRequest(exchange, s);
+        handleRequest(exchange, session);
     }
 
     protected abstract void handleRequest(@NotNull HttpServerExchange exchange, @NotNull Session session) throws Exception;
