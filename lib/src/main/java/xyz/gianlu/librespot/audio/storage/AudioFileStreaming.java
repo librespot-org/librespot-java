@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
-
 /**
  * @author Gianlu
  */
@@ -170,8 +168,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
         ChunksBuffer(int size, int chunks) {
             this.size = size;
-            this.buffer = new byte[chunks][CHUNK_SIZE];
-            this.buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
+            this.buffer = new byte[chunks][];
             this.available = new boolean[chunks];
             this.requested = new boolean[chunks];
             this.audioDecrypt = new AesAudioDecrypt(key);
@@ -184,7 +181,8 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (chunk.length != buffer[chunkIndex].length)
                 throw new IllegalArgumentException(String.format("Buffer size mismatch, required: %d, received: %d, index: %d", buffer[chunkIndex].length, chunk.length, chunkIndex));
 
-            audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
+            buffer[chunkIndex] = chunk;
+            audioDecrypt.decryptChunk(chunkIndex, chunk);
             internalStream.notifyChunkAvailable(chunkIndex);
         }
 

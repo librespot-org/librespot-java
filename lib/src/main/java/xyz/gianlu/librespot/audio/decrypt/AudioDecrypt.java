@@ -6,7 +6,7 @@ import java.io.IOException;
  * @author Gianlu
  */
 public interface AudioDecrypt {
-    void decryptChunk(int chunkIndex, byte[] in, byte[] out) throws IOException;
+    void decryptChunk(int chunkIndex, byte[] buffer) throws IOException;
 
     int decryptTimeMs();
 }

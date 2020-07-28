@@ -241,8 +241,7 @@ public class CdnManager {
             available = new boolean[chunks];
             requested = new boolean[chunks];
 
-            buffer = new byte[chunks][CHUNK_SIZE];
-            buffer[chunks - 1] = new byte[size % CHUNK_SIZE];
+            buffer = new byte[chunks][];
 
             this.internalStream = new InternalStream(session.configuration().retryOnChunkError);
             writeChunk(firstChunk, 0, fromCache);
@@ -262,7 +261,8 @@ public class CdnManager {
 
             LOGGER.trace("Chunk {}/{} completed, cached: {}, stream: {}", chunkIndex, chunks, cached, describe());
 
-            audioDecrypt.decryptChunk(chunkIndex, chunk, buffer[chunkIndex]);
+            buffer[chunkIndex] = chunk;
+            audioDecrypt.decryptChunk(chunkIndex, chunk);
             internalStream.notifyChunkAvailable(chunkIndex);
         }
 
