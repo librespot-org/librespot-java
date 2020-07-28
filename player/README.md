@@ -1,4 +1,6 @@
 # Player
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-player/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-player)
+
 This module allows running `librespot-java` in headless mode as a Spotify Connect device.
 
 ## Get started
