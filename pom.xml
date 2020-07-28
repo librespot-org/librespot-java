@@ -140,6 +140,7 @@
                             </execution>
                         </executions>
                         <configuration>
+                            <quiet>true</quiet>
                             <failOnError>false</failOnError>
                         </configuration>
                     </plugin>
