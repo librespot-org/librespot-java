@@ -426,9 +426,9 @@ public class ZeroconfServer implements Closeable {
         Inner(@NotNull Connect.DeviceType deviceType, @NotNull String deviceName, @Nullable String deviceId, @NotNull String preferredLocale, @NotNull Session.Configuration conf) {
             this.deviceType = deviceType;
             this.deviceName = deviceName;
-            this.deviceId = deviceId;
             this.preferredLocale = preferredLocale;
             this.conf = conf;
+            this.deviceId = (deviceId == null || deviceId.isEmpty()) ? Utils.randomHexString(random, 40).toLowerCase() : deviceId;
         }
     }
 
