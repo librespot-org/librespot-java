@@ -121,31 +121,36 @@ public class DealerClient implements Closeable {
         JsonArray payloads = obj.getAsJsonArray("payloads");
         byte[] decodedPayload;
         if (payloads != null) {
-            String[] payloadsStr = new String[payloads.size()];
-            for (int i = 0; i < payloads.size(); i++) payloadsStr[i] = payloads.get(i).getAsString();
+            if ("application/json".equals(headers.get("Content-Type"))) {
+                if (payloads.size() > 1) throw new UnsupportedOperationException();
+                decodedPayload = payloads.get(0).getAsJsonObject().toString().getBytes();
+            } else {
+                String[] payloadsStr = new String[payloads.size()];
+                for (int i = 0; i < payloads.size(); i++) payloadsStr[i] = payloads.get(i).getAsString();
 
-            InputStream in = BytesArrayList.streamBase64(payloadsStr);
-            if ("gzip".equals(headers.get("Transfer-Encoding"))) {
-                try {
-                    in = new GZIPInputStream(in);
-                } catch (IOException ex) {
-                    LOGGER.warn("Failed decompressing message! {uri: {}}", uri, ex);
-                    return;
+                InputStream in = BytesArrayList.streamBase64(payloadsStr);
+                if ("gzip".equals(headers.get("Transfer-Encoding"))) {
+                    try {
+                        in = new GZIPInputStream(in);
+                    } catch (IOException ex) {
+                        LOGGER.warn("Failed decompressing message! {uri: {}}", uri, ex);
+                        return;
+                    }
                 }
-            }
 
-            try {
-                ByteArrayOutputStream out = new ByteArrayOutputStream(in.available());
-                byte[] buffer = new byte[1024];
-                int read;
-                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-                decodedPayload = out.toByteArray();
-            } catch (IOException ex) {
-                throw new IllegalStateException(ex);
-            } finally {
                 try {
-                    in.close();
-                } catch (IOException ignored) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream(in.available());
+                    byte[] buffer = new byte[1024];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                    decodedPayload = out.toByteArray();
+                } catch (IOException ex) {
+                    throw new IllegalStateException(ex);
+                } finally {
+                    try {
+                        in.close();
+                    } catch (IOException ignored) {
+                    }
                 }
             }
         } else {
