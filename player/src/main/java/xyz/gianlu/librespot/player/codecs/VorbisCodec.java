@@ -223,7 +223,7 @@ public class VorbisCodec extends Codec {
             joggStreamState.clear();
             jorbisBlock.clear();
             jorbisDspState.clear();
-            jorbisInfo.clear();
+            // jorbisInfo.clear();
             joggSyncState.clear();
         }
     }
