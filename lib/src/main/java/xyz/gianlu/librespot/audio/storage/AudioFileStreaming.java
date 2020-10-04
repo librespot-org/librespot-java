@@ -156,6 +156,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         executorService.shutdown();
         if (chunksBuffer != null)
             chunksBuffer.close();
+
+        try {
+            cacheHandler.close();
+        } catch (IOException ignored) {
+        }
     }
 
     private class ChunksBuffer implements Closeable {
@@ -194,6 +199,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         @Override
         public void close() {
             internalStream.close();
+            AudioFileStreaming.this.close();
         }
 
         private class InternalStream extends AbsChunkedInputStream {

@@ -344,6 +344,11 @@ public class CdnManager {
             public void close() {
                 super.close();
                 executorService.shutdown();
+
+                try {
+                    cacheHandler.close();
+                } catch (IOException ignored) {
+                }
             }
 
             @Override
