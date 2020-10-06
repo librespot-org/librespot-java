@@ -345,9 +345,11 @@ public class CdnManager {
                 super.close();
                 executorService.shutdown();
 
-                try {
-                    cacheHandler.close();
-                } catch (IOException ignored) {
+                if (cacheHandler != null) {
+                    try {
+                        cacheHandler.close();
+                    } catch (IOException ignored) {
+                    }
                 }
             }
 
