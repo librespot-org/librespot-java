@@ -157,9 +157,11 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         if (chunksBuffer != null)
             chunksBuffer.close();
 
-        try {
-            cacheHandler.close();
-        } catch (IOException ignored) {
+        if (cacheHandler != null) {
+            try {
+                cacheHandler.close();
+            } catch (IOException ignored) {
+            }
         }
     }
 
