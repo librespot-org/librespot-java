@@ -354,7 +354,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         clearOutput();
 
         try {
-            codec.close();
+          if (codec != null) codec.close();
         } catch (IOException ignored) {
         }
     }
