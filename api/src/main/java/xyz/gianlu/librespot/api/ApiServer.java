@@ -2,6 +2,8 @@ package xyz.gianlu.librespot.api;
 
 import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
+import io.undertow.server.handlers.PathHandler;
+import io.undertow.server.handlers.ResponseCodeHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -24,7 +26,10 @@ public class ApiServer {
                 .post("/search/{query}", new SearchHandler(wrapper))
                 .post("/token/{scope}", new TokensHandler(wrapper))
                 .post("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
-                .get("/events", events);
+                .post("/web-api/{endpoint}", new WebApiHandler(wrapper))
+                .get("/events", events)
+                .setFallbackHandler(new PathHandler(ResponseCodeHandler.HANDLE_404)
+                        .addPrefixPath("/web-api", new WebApiHandler(wrapper)));
 
         wrapper.setListener(events);
     }
