@@ -181,12 +181,14 @@ public final class ProtoUtils {
 
 
     @NotNull
-    public static ContextPlayerOptions jsonToPlayerOptions(@NotNull JsonObject obj, @Nullable ContextPlayerOptions old) {
+    public static ContextPlayerOptions jsonToPlayerOptions(@Nullable JsonObject obj, @Nullable ContextPlayerOptions old) {
         ContextPlayerOptions.Builder builder = old == null ? ContextPlayerOptions.newBuilder() : old.toBuilder();
 
-        Optional.ofNullable(obj.get("repeating_context")).ifPresent(elm -> builder.setRepeatingContext(elm.getAsBoolean()));
-        Optional.ofNullable(obj.get("repeating_track")).ifPresent(elm -> builder.setRepeatingTrack(elm.getAsBoolean()));
-        Optional.ofNullable(obj.get("shuffling_context")).ifPresent(elm -> builder.setShufflingContext(elm.getAsBoolean()));
+        if (obj != null) {
+            Optional.ofNullable(obj.get("repeating_context")).ifPresent(elm -> builder.setRepeatingContext(elm.getAsBoolean()));
+            Optional.ofNullable(obj.get("repeating_track")).ifPresent(elm -> builder.setRepeatingTrack(elm.getAsBoolean()));
+            Optional.ofNullable(obj.get("shuffling_context")).ifPresent(elm -> builder.setShufflingContext(elm.getAsBoolean()));
+        }
 
         return builder.build();
     }
