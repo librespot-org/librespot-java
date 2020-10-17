@@ -180,7 +180,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             public void notActive() {
             }
         });
-
         return future;
     }
 
@@ -340,7 +339,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             events.contextChanged();
 
             Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
-            if (paused == null) paused = true;
+            if (paused == null) paused = false;
             loadSession(sessionId, !paused, PlayCommandHelper.willSkipToSomething(obj));
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);
