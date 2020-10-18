@@ -206,7 +206,6 @@ public class CdnManager {
             boolean fromCache;
             byte[] firstChunk;
             byte[] sizeHeader;
-
             if (cacheHandler != null && (sizeHeader = cacheHandler.getHeader(AudioFileFetch.HEADER_SIZE)) != null) {
                 size = ByteBuffer.wrap(sizeHeader).getInt() * 4;
                 chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
@@ -214,7 +213,7 @@ public class CdnManager {
                 try {
                     firstChunk = cacheHandler.readChunk(0);
                     fromCache = true;
-                } catch (IOException ex) {
+                } catch (IOException | CacheManager.BadChunkHashException ex) {
                     LOGGER.error("Failed getting first chunk from cache.", ex);
 
                     InternalResponse resp = request(0, CHUNK_SIZE - 1);
@@ -294,7 +293,7 @@ public class CdnManager {
                         cacheHandler.readChunk(index, this);
                         return;
                     }
-                } catch (IOException ex) {
+                } catch (IOException | CacheManager.BadChunkHashException ex) {
                     LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
                 }
             }

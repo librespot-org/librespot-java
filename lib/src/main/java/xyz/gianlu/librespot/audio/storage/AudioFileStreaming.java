@@ -83,7 +83,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (!cacheHandler.hasChunk(index)) return false;
             cacheHandler.readChunk(index, this);
             return true;
-        } catch (IOException ex) {
+        } catch (IOException | CacheManager.BadChunkHashException ex) {
             LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
