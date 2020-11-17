@@ -159,6 +159,30 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         state.updated();
     }
 
+    @NotNull
+    public Future<Player> waitReady() {
+        CompletableFuture<Player> future = new CompletableFuture<>();
+        state.addListener(new DeviceStateHandler.Listener() {
+            @Override
+            public void ready() {
+                future.complete(Player.this);
+            }
+
+            @Override
+            public void command(DeviceStateHandler.@NotNull Endpoint endpoint, DeviceStateHandler.@NotNull CommandBody data) throws InvalidProtocolBufferException {
+            }
+
+            @Override
+            public void volumeChanged() {
+            }
+
+            @Override
+            public void notActive() {
+            }
+        });
+        return future;
+    }
+
 
     // ================================ //
     // ======== Internal state ======== //
@@ -315,7 +339,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             events.contextChanged();
 
             Boolean paused = PlayCommandHelper.isInitiallyPaused(obj);
-            if (paused == null) paused = true;
+            if (paused == null) paused = false;
             loadSession(sessionId, !paused, PlayCommandHelper.willSkipToSomething(obj));
         } catch (IOException | MercuryClient.MercuryException ex) {
             LOGGER.fatal("Failed loading context!", ex);

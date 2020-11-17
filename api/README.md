@@ -57,9 +57,15 @@ The currently available events are:
 - `connectionEstablished` Successfully reconnected
 - `panic` Entered the panic state, playback is stopped. This is usually recoverable.
 
+### Web API pass through
+Use any endpoint from the [public Web API](https://developer.spotify.com/documentation/web-api/reference/) by appending it to `/web-api/`, the request will be made to the API with the correct `Authorization` header and the result will be returned.
+The method, body, and content type headers will pass through. Additionally, you can specify an `X-Spotify-Scope` header to override the requested scope, by default all will be requested.
+
 ## Examples
 `curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true" http://localhost:24879/player/load`
 
 `curl -X POST http://localhost:24879/metadata/track/spotify:track:xxxxxxxxxxxxxxxxxxxxxx`
 
 `curl -X POST http://localhost:24879/metadata/spotify:track:xxxxxxxxxxxxxxxxxxxxxx`
+
+`curl -X GET http://localhost:24879/web-api/v1/me/top/artists`

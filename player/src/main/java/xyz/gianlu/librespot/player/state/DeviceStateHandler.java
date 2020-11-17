@@ -323,7 +323,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             return obj.getAsJsonObject("context");
         }
 
-        @NotNull
+        @Nullable
         public static JsonObject getPlayerOptionsOverride(@NotNull JsonObject obj) {
             return obj.getAsJsonObject("options").getAsJsonObject("player_options_override");
         }

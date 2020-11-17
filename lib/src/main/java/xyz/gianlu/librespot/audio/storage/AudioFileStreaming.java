@@ -83,7 +83,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             if (!cacheHandler.hasChunk(index)) return false;
             cacheHandler.readChunk(index, this);
             return true;
-        } catch (IOException ex) {
+        } catch (IOException | CacheManager.BadChunkHashException ex) {
             LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
@@ -156,6 +156,13 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         executorService.shutdown();
         if (chunksBuffer != null)
             chunksBuffer.close();
+
+        if (cacheHandler != null) {
+            try {
+                cacheHandler.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     private class ChunksBuffer implements Closeable {
@@ -194,6 +201,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
         @Override
         public void close() {
             internalStream.close();
+            AudioFileStreaming.this.close();
         }
 
         private class InternalStream extends AbsChunkedInputStream {

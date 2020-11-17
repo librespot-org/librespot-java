@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.GeneralWritableStream;
 import xyz.gianlu.librespot.audio.StreamId;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 
 import java.io.Closeable;
@@ -13,10 +14,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -29,7 +29,14 @@ import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
     private static final Logger LOGGER = LogManager.getLogger(CacheManager.class);
+    /**
+     * The header indicating when the file was last read or written to.
+     */
     private static final int HEADER_TIMESTAMP = 254;
+    /**
+     * The header indicating the hash of the first chunk of the file.
+     */
+    private static final int HEADER_HASH = 253;
     private final File parent;
     private final CacheJournal journal;
     private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
@@ -127,6 +134,13 @@ public class CacheManager implements Closeable {
         return getHandler(streamId.isEpisode() ? streamId.getEpisodeGid() : streamId.getFileId());
     }
 
+    public static class BadChunkHashException extends Exception {
+        BadChunkHashException(@NotNull String streamId, byte[] expected, byte[] actual) {
+            super(String.format("Failed verifying chunk hash for %s, expected: %s, actual: %s",
+                    streamId, Utils.bytesToHex(expected), Utils.bytesToHex(actual)));
+        }
+    }
+
     public class Handler implements Closeable {
         private final String streamId;
         private final RandomAccessFile io;
@@ -173,21 +187,35 @@ public class CacheManager implements Closeable {
             return header == null ? null : header.value;
         }
 
+        /**
+         * Checks if the chunk is present in the cache, WITHOUT checking the hash.
+         *
+         * @param index The index of the chunk
+         * @return Whether the chunk is available
+         */
         public boolean hasChunk(int index) throws IOException {
             updateTimestamp();
 
             synchronized (io) {
-                if (io.length() < (index + 1) * CHUNK_SIZE) return false;
+                if (io.length() < (index + 1) * CHUNK_SIZE)
+                    return false;
             }
 
             return journal.hasChunk(streamId, index);
         }
 
-        public void readChunk(int index, @NotNull GeneralWritableStream stream) throws IOException {
+        public void readChunk(int index, @NotNull GeneralWritableStream stream) throws IOException, BadChunkHashException {
             stream.writeChunk(readChunk(index), index, true);
         }
 
-        public byte[] readChunk(int index) throws IOException {
+        /**
+         * Reads the given chunk.
+         *
+         * @param index The index of the chunk
+         * @return The buffer containing the content of the chunk
+         * @throws BadChunkHashException If {@code index == 0} and the hash doesn't match
+         */
+        public byte[] readChunk(int index) throws IOException, BadChunkHashException {
             updateTimestamp();
 
             synchronized (io) {
@@ -197,6 +225,22 @@ public class CacheManager implements Closeable {
                 int read = io.read(buffer);
                 if (read != buffer.length)
                     throw new IOException(String.format("Couldn't read full chunk, read: %d, needed: %d", read, buffer.length));
+
+                if (index == 0) {
+                    JournalHeader header = journal.getHeader(streamId, HEADER_HASH);
+                    if (header != null) {
+                        try {
+                            MessageDigest digest = MessageDigest.getInstance("MD5");
+                            byte[] hash = digest.digest(buffer);
+                            if (!Arrays.equals(header.value, hash)) {
+                                journal.setChunk(streamId, index, false);
+                                throw new BadChunkHashException(streamId, header.value, hash);
+                            }
+                        } catch (NoSuchAlgorithmException ex) {
+                            LOGGER.error("Failed initializing MD5 digest.", ex);
+                        }
+                    }
+                }
 
                 return buffer;
             }
@@ -210,6 +254,16 @@ public class CacheManager implements Closeable {
 
             try {
                 journal.setChunk(streamId, index, true);
+
+                if (index == 0) {
+                    try {
+                        MessageDigest digest = MessageDigest.getInstance("MD5");
+                        byte[] hash = digest.digest(buffer);
+                        journal.setHeader(streamId, HEADER_HASH, hash);
+                    } catch (NoSuchAlgorithmException ex) {
+                        LOGGER.error("Failed initializing MD5 digest.", ex);
+                    }
+                }
             } finally {
                 updateTimestamp();
             }
