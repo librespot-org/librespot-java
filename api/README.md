@@ -1,7 +1,7 @@
 # API
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-api/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-api)
 
-This module depends on `librespot-core` and provides an API to interact with the Spotify client.
+This module depends on `librespot-player` and, in addition, provides an API to interact with the Spotify client.
 
 ## Available endpoints
 All the endpoints will respond with `200` if successful or:
