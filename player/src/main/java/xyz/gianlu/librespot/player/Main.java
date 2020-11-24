@@ -33,8 +33,12 @@ public class Main {
                 }
 
                 @Override
-                public void sessionChanged(@NotNull Session session) {
+                public void sessionClosing(@NotNull Session session) {
                     if (lastPlayer != null) lastPlayer.close();
+                }
+
+                @Override
+                public void sessionChanged(@NotNull Session session) {
                     lastPlayer = new Player(conf.toPlayer(), session);
                 }
             });

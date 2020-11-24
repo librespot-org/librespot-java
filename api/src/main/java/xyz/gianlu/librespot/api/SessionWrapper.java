@@ -26,7 +26,18 @@ public class SessionWrapper {
     @NotNull
     public static SessionWrapper fromZeroconf(@NotNull ZeroconfServer server) {
         SessionWrapper wrapper = new SessionWrapper();
-        server.addSessionListener(wrapper::set);
+        server.addSessionListener(new ZeroconfServer.SessionListener() {
+            @Override
+            public void sessionClosing(@NotNull Session session) {
+                if (wrapper.getSession() == session)
+                    wrapper.clear();
+            }
+
+            @Override
+            public void sessionChanged(@NotNull Session session) {
+                wrapper.set(session);
+            }
+        });
         return wrapper;
     }
 
