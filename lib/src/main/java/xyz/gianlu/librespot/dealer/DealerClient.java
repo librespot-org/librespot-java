@@ -124,6 +124,9 @@ public class DealerClient implements Closeable {
             if ("application/json".equals(headers.get("Content-Type"))) {
                 if (payloads.size() > 1) throw new UnsupportedOperationException();
                 decodedPayload = payloads.get(0).getAsJsonObject().toString().getBytes();
+            } else if ("text/plain".equals(headers.get("Content-Type"))) {
+                if (payloads.size() > 1) throw new UnsupportedOperationException();
+                decodedPayload = payloads.get(0).getAsString().getBytes();
             } else {
                 String[] payloadsStr = new String[payloads.size()];
                 for (int i = 0; i < payloads.size(); i++) payloadsStr[i] = payloads.get(i).getAsString();

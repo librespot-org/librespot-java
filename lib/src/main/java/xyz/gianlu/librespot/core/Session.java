@@ -487,7 +487,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
 
     private void waitAuthLock() {
         if (closing && conn == null) {
-            LOGGER.debug("Connection was broken while Session.close() has been called");
+            LOGGER.debug("Connection was broken while closing.");
             return;
         }
 
@@ -506,7 +506,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
 
     public void send(Packet.Type cmd, byte[] payload) throws IOException {
         if (closing && conn == null) {
-            LOGGER.debug("Connection was broken while Session.close() has been called");
+            LOGGER.debug("Connection was broken while closing.");
             return;
         }
 
