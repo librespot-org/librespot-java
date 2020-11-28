@@ -239,10 +239,10 @@ public class CdnManager {
 
             available = new boolean[chunks];
             requested = new boolean[chunks];
-
             buffer = new byte[chunks][];
+            internalStream = new InternalStream(session.configuration().retryOnChunkError);
 
-            this.internalStream = new InternalStream(session.configuration().retryOnChunkError);
+            requested[0] = true;
             writeChunk(firstChunk, 0, fromCache);
         }
 
