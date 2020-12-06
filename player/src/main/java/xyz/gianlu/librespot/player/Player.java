@@ -86,13 +86,21 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     // ================================ //
 
     public void volumeUp() {
+        this.volumeUp(1);
+    }
+
+    public void volumeUp(int steps) {
         if (state == null) return;
-        setVolume(Math.min(Player.VOLUME_MAX, state.getVolume() + oneVolumeStep()));
+        setVolume(Math.min(Player.VOLUME_MAX, state.getVolume() + steps * oneVolumeStep()));
     }
 
     public void volumeDown() {
+        this.volumeDown(1);
+    }
+
+    public void volumeDown(int steps) {
         if (state == null) return;
-        setVolume(Math.max(0, state.getVolume() - oneVolumeStep()));
+        setVolume(Math.max(0, state.getVolume() - steps * oneVolumeStep()));
     }
 
     private int oneVolumeStep() {
