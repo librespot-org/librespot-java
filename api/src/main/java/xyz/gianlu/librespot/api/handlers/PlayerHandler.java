@@ -24,26 +24,48 @@ public final class PlayerHandler extends AbsPlayerHandler {
         super(wrapper);
     }
 
-    private static void setVolume(HttpServerExchange exchange, @NotNull Player player, @Nullable String valStr) {
-        if (valStr == null) {
+    private static void setVolume(HttpServerExchange exchange, @NotNull Player player, @Nullable String valStr, @Nullable String stepStr) {
+        if (valStr != null && stepStr != null) {
+            // Reject requests with both parameters
+            Utils.invalidParameter(exchange, "step", "Cannot be passed alongside volume");
+        } else if (valStr != null) {
+            // Absolute volume change
+            int val;
+            try {
+                val = Integer.parseInt(valStr);
+            } catch (Exception ex) {
+                Utils.invalidParameter(exchange, "volume", "Not an integer");
+                return;
+            }
+
+            if (val < 0 || val > Player.VOLUME_MAX) {
+                Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + Player.VOLUME_MAX);
+                return;
+            }
+
+            player.setVolume(val);
+        } else if (stepStr != null) {
+            // Relative volume change in number of steps
+            int val;
+            try {
+                val = Integer.parseInt(stepStr);
+            } catch (Exception ex) {
+                Utils.invalidParameter(exchange, "step", "Not an integer");
+                return;
+            }
+
+            if (val > 0) {
+                player.volumeUp(val);
+            } else if (val < 0) {
+                player.volumeDown(Math.abs(val));
+            } else {
+                Utils.invalidParameter(exchange, "step", "Must be non zero");
+                return;
+            }
+        } else {
             Utils.invalidParameter(exchange, "volume");
             return;
         }
-
-        int val;
-        try {
-            val = Integer.parseInt(valStr);
-        } catch (Exception ex) {
-            Utils.invalidParameter(exchange, "volume", "Not an integer");
-            return;
-        }
-
-        if (val < 0 || val > Player.VOLUME_MAX) {
-            Utils.invalidParameter(exchange, "volume", "Must be >= 0 and <= " + Player.VOLUME_MAX);
-            return;
-        }
-
-        player.setVolume(val);
     }
 
     private static void load(HttpServerExchange exchange, @NotNull Player player, @Nullable String uri, boolean play) {
@@ -168,7 +190,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
                 current(exchange, player);
                 return;
             case SET_VOLUME:
-                setVolume(exchange, player, Utils.getFirstString(params, "volume"));
+                setVolume(exchange, player, Utils.getFirstString(params, "volume"), Utils.getFirstString(params, "step"));
                 return;
             case VOLUME_UP:
                 player.volumeUp();

@@ -17,7 +17,7 @@ All the endpoints will respond with `200` if successful or:
 - `POST /player/next` Skip to next track.
 - `POST /player/prev` Skip to previous track.
 - `POST /player/seek` Seek to a given position in ms specified by `pos`.
-- `POST /player/set-volume` Set volume to a given `volume` value from 0 to 65536.
+- `POST /player/set-volume` Either set volume to a given `volume` value (from 0 to 65536), or change it by a `step` count (positive or negative).
 - `POST /player/volume-up` Up the volume a little bit.
 - `POST /player/volume-down` Lower the volume a little bit.
 - `POST /player/current` Retrieve information about the current track (metadata and time).
