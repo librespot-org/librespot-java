@@ -1230,8 +1230,11 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
 
                     out.write(String.format("CONNECT %s:%d HTTP/1.0\n", apAddr, apPort).getBytes());
                     if (conf.proxyAuth) {
-                        out.write("Proxy-Authorization: Basic ".getBytes());
-                        out.write(Base64.getEncoder().encodeToString(String.format("%s:%s\n", conf.proxyUsername, conf.proxyPassword).getBytes()).getBytes());
+                        String auth1 = "Proxy-Authorization: Basic";
+                        String auth2 = String.format("%s:%s",conf.proxyUsername, conf.proxyPassword);
+                        String auth2coded = Base64.getEncoder().encodeToString(auth2.getBytes());
+                        String authFinal = String.format("%s %s\n",auth1, auth2coded);
+                        out.write(authFinal.getBytes());
                     }
 
                     out.write('\n');
