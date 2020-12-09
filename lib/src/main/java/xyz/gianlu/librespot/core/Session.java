@@ -1229,10 +1229,8 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
                     DataInputStream in = new DataInputStream(sock.getInputStream());
 
                     out.write(String.format("CONNECT %s:%d HTTP/1.0\n", apAddr, apPort).getBytes());
-                    if (conf.proxyAuth) {
-                        out.write("Proxy-Authorization: Basic ".getBytes());
-                        out.write(Base64.getEncoder().encodeToString(String.format("%s:%s\n", conf.proxyUsername, conf.proxyPassword).getBytes()).getBytes());
-                    }
+                    if (conf.proxyAuth)
+                        out.write(String.format("Proxy-Authorization: %s\n", Credentials.basic(conf.proxyUsername, conf.proxyPassword)).getBytes());
 
                     out.write('\n');
                     out.flush();
