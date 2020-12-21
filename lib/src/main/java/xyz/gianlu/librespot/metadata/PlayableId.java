@@ -61,8 +61,7 @@ public interface PlayableId {
     }
 
     static boolean shouldPlay(@NotNull ContextTrack track) {
-        String forceRemoveReasons = track.getMetadataOrDefault("force_remove_reasons", null);
-        return forceRemoveReasons == null || forceRemoveReasons.isEmpty();
+        return track.getMetadataOrDefault("force_remove_reasons", "").isEmpty();
     }
 
     @NotNull
@@ -92,9 +91,8 @@ public interface PlayableId {
     @NotNull String toSpotifyUri();
 
     default boolean matches(@NotNull ContextTrack current) {
-        String uri = current.getUri();
-        if (uri != null && !uri.isEmpty()) return toSpotifyUri().equals(uri);
-        else if (current.getGid() != null) return Arrays.equals(current.getGid().toByteArray(), getGid());
+        if (current.hasUri()) return toSpotifyUri().equals(current.getUri());
+        else if (current.hasGid()) return Arrays.equals(current.getGid().toByteArray(), getGid());
         else return false;
     }
 }

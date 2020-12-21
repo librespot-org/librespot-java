@@ -37,7 +37,7 @@ public final class AesAudioDecrypt implements AudioDecrypt {
 
     @Override
     public synchronized void decryptChunk(int chunkIndex, @NotNull byte[] buffer) throws IOException {
-        BigInteger iv = IV_INT.add(BigInteger.valueOf(CHUNK_SIZE * chunkIndex / 16));
+        BigInteger iv = IV_INT.add(BigInteger.valueOf((long) CHUNK_SIZE * chunkIndex / 16));
         try {
             long start = System.nanoTime();
             for (int i = 0; i < buffer.length; i += 4096) {

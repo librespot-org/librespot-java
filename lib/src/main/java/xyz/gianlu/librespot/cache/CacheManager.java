@@ -197,7 +197,7 @@ public class CacheManager implements Closeable {
             updateTimestamp();
 
             synchronized (io) {
-                if (io.length() < (index + 1) * CHUNK_SIZE)
+                if (io.length() < (long) (index + 1) * CHUNK_SIZE)
                     return false;
             }
 
@@ -219,7 +219,7 @@ public class CacheManager implements Closeable {
             updateTimestamp();
 
             synchronized (io) {
-                io.seek(index * CHUNK_SIZE);
+                io.seek((long) index * CHUNK_SIZE);
 
                 byte[] buffer = new byte[CHUNK_SIZE];
                 int read = io.read(buffer);
@@ -248,7 +248,7 @@ public class CacheManager implements Closeable {
 
         public void writeChunk(byte[] buffer, int index) throws IOException {
             synchronized (io) {
-                io.seek(index * CHUNK_SIZE);
+                io.seek((long) index * CHUNK_SIZE);
                 io.write(buffer);
             }
 

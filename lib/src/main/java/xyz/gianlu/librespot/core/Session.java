@@ -86,7 +86,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     private final DiffieHellman keys;
     private final Inner inner;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
-    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private final OkHttpClient client;
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
@@ -449,8 +448,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
             receiver.stop();
             receiver = null;
         }
-
-        executorService.shutdown();
 
         client.dispatcher().executorService().shutdownNow();
         client.connectionPool().evictAll();

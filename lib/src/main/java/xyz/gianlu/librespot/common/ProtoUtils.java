@@ -165,12 +165,12 @@ public final class ProtoUtils {
 
         Player.PlayOrigin.Builder builder = Player.PlayOrigin.newBuilder();
 
-        Optional.ofNullable(po.getFeatureIdentifier()).ifPresent(builder::setFeatureIdentifier);
-        Optional.ofNullable(po.getFeatureVersion()).ifPresent(builder::setFeatureVersion);
-        Optional.ofNullable(po.getViewUri()).ifPresent(builder::setViewUri);
-        Optional.ofNullable(po.getExternalReferrer()).ifPresent(builder::setExternalReferrer);
-        Optional.ofNullable(po.getReferrerIdentifier()).ifPresent(builder::setReferrerIdentifier);
-        Optional.ofNullable(po.getDeviceIdentifier()).ifPresent(builder::setDeviceIdentifier);
+        if (po.hasFeatureIdentifier()) builder.setFeatureIdentifier(po.getFeatureIdentifier());
+        if (po.hasFeatureVersion()) builder.setFeatureVersion(po.getFeatureVersion());
+        if (po.hasViewUri()) builder.setViewUri(po.getViewUri());
+        if (po.hasExternalReferrer()) builder.setExternalReferrer(po.getExternalReferrer());
+        if (po.hasReferrerIdentifier()) builder.setReferrerIdentifier(po.getReferrerIdentifier());
+        if (po.hasDeviceIdentifier()) builder.setDeviceIdentifier(po.getDeviceIdentifier());
 
         if (po.getFeatureClassesCount() > 0)
             for (String feature : po.getFeatureClassesList())
@@ -254,9 +254,11 @@ public final class ProtoUtils {
     }
 
     public static boolean isQueued(@NotNull ContextTrack track) {
-        String value = track.getMetadataOrDefault("is_queued", null);
-        if (value == null) return false;
-        else return Boolean.parseBoolean(value);
+        try {
+            return Boolean.parseBoolean(track.getMetadataOrThrow("is_queued"));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     public static void enrichTrack(@NotNull ContextTrack.Builder subject, @NotNull ContextTrack track) {
@@ -283,10 +285,18 @@ public final class ProtoUtils {
 
         Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
         builder.setProvider("context");
-        Optional.ofNullable(track.getUri()).ifPresent(builder::setUri);
-        Optional.ofNullable(track.getUid()).ifPresent(builder::setUid);
-        Optional.ofNullable(track.getMetadataOrDefault("album_uri", null)).ifPresent(builder::setAlbumUri);
-        Optional.ofNullable(track.getMetadataOrDefault("artist_uri", null)).ifPresent(builder::setArtistUri);
+        if (track.hasUri()) builder.setUri(track.getUri());
+        if (track.hasUid()) builder.setUid(track.getUid());
+
+        try {
+            builder.setAlbumUri(track.getMetadataOrThrow("album_uri"));
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            builder.setArtistUri(track.getMetadataOrThrow("artist_uri"));
+        } catch (IllegalArgumentException ignored) {
+        }
 
         builder.putAllMetadata(track.getMetadataMap());
 
