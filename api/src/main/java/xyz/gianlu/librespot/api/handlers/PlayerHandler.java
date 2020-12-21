@@ -54,17 +54,11 @@ public final class PlayerHandler extends AbsPlayerHandler {
                 return;
             }
 
-            if (val > 0) {
-                player.volumeUp(val);
-            } else if (val < 0) {
-                player.volumeDown(Math.abs(val));
-            } else {
-                Utils.invalidParameter(exchange, "step", "Must be non zero");
-                return;
-            }
+            if (val > 0) player.volumeUp(val);
+            else if (val < 0) player.volumeDown(Math.abs(val));
+            else Utils.invalidParameter(exchange, "step", "Must be non zero");
         } else {
             Utils.invalidParameter(exchange, "volume");
-            return;
         }
     }
 

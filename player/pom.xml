@@ -6,7 +6,7 @@
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
         <version>1.5.3-SNAPSHOT</version>
-        <relativePath>../</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>librespot-player</artifactId>

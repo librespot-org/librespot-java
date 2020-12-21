@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.PacketsManager;
+import xyz.gianlu.librespot.core.PacketsReceiver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
 
@@ -22,15 +22,16 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public final class AudioKeyManager extends PacketsManager {
+public final class AudioKeyManager implements PacketsReceiver {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
     private static final Logger LOGGER = LogManager.getLogger(AudioKeyManager.class);
     private static final long AUDIO_KEY_REQUEST_TIMEOUT = 2000;
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
+    private final Session session;
 
     public AudioKeyManager(@NotNull Session session) {
-        super(session, "audio-keys");
+        this.session = session;
     }
 
     @NotNull
@@ -67,7 +68,7 @@ public final class AudioKeyManager extends PacketsManager {
     }
 
     @Override
-    protected void handle(@NotNull Packet packet) {
+    public void dispatch(@NotNull Packet packet) {
         ByteBuffer payload = ByteBuffer.wrap(packet.payload);
         int seq = payload.getInt();
 
@@ -87,11 +88,6 @@ public final class AudioKeyManager extends PacketsManager {
         } else {
             LOGGER.warn("Couldn't handle packet, cmd: {}, length: {}", packet.type(), packet.payload.length);
         }
-    }
-
-    @Override
-    protected void exception(@NotNull Exception ex) {
-        LOGGER.fatal("Failed handling packet!", ex);
     }
 
     private interface Callback {

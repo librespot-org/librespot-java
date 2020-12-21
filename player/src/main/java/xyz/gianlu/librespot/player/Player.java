@@ -177,7 +177,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             }
 
             @Override
-            public void command(DeviceStateHandler.@NotNull Endpoint endpoint, DeviceStateHandler.@NotNull CommandBody data) throws InvalidProtocolBufferException {
+            public void command(DeviceStateHandler.@NotNull Endpoint endpoint, DeviceStateHandler.@NotNull CommandBody data) {
             }
 
             @Override

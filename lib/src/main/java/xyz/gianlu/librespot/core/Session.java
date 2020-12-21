@@ -15,7 +15,6 @@ import okio.GzipSink;
 import okio.Okio;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Document;
@@ -87,7 +86,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
     private final DiffieHellman keys;
     private final Inner inner;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
-    private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "handle-packet-" + r.hashCode()));
     private final AtomicBoolean authLock = new AtomicBoolean(false);
     private final OkHttpClient client;
     private final List<CloseListener> closeListeners = Collections.synchronizedList(new ArrayList<>());
@@ -428,7 +426,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         }
 
         if (audioKeyManager != null) {
-            audioKeyManager.close();
             audioKeyManager = null;
         }
 
@@ -451,8 +448,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
             receiver.stop();
             receiver = null;
         }
-
-        executorService.shutdown();
 
         client.dispatcher().executorService().shutdownNow();
         client.connectionPool().evictAll();
@@ -625,11 +620,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         return !closing && !closed && conn == null;
     }
 
-    @NotNull
-    ExecutorService executor() {
-        return executorService;
-    }
-
     @Nullable
     public String countryCode() {
         return countryCode;
@@ -737,7 +727,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         return userAttributes.get(key);
     }
 
-    @Contract("_, !null -> !null")
+    @NotNull
     public String getUserAttribute(@NotNull String key, @NotNull String fallback) {
         return userAttributes.getOrDefault(key, fallback);
     }
@@ -1366,7 +1356,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
                         try {
                             parseProductInfo(new ByteArrayInputStream(packet.payload));
                         } catch (IOException | ParserConfigurationException | SAXException ex) {
-                            LOGGER.warn("Failed parsing prodcut info!", ex);
+                            LOGGER.warn("Failed parsing product info!", ex);
                         }
                         break;
                     default:

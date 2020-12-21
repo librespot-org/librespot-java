@@ -30,7 +30,7 @@ public final class Utils {
                 byte[] buffer = new byte[1024];
                 int count;
                 while ((count = in.read(buffer)) > 0) out.write(buffer, 0, count);
-                body = new String(out.toByteArray());
+                body = out.toString();
             }
 
             return QueryParameterUtils.mergeQueryParametersWithNewQueryString(map, body, "UTF-8");
