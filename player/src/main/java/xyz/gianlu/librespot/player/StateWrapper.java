@@ -346,7 +346,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         if (track.hasPopularity()) builder.putMetadata("popularity", String.valueOf(track.getPopularity()));
         if (track.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(track.getExplicit()));
         if (track.hasHasLyrics()) builder.putMetadata("has_lyrics", String.valueOf(track.getHasLyrics()));
-        if (track.hasName()) builder.putMetadata("title", String.valueOf(track.getName()));
+        if (track.hasName()) builder.putMetadata("title", track.getName());
         if (track.hasDiscNumber()) builder.putMetadata("album_disc_number", String.valueOf(track.getDiscNumber()));
 
         for (int i = 0; i < track.getArtistCount(); i++) {
@@ -405,7 +405,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();
         if (episode.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(episode.getExplicit()));
-        if (episode.hasName()) builder.putMetadata("title", String.valueOf(episode.getName()));
+        if (episode.hasName()) builder.putMetadata("title", episode.getName());
 
         if (episode.hasShow()) {
             Metadata.Show show = episode.getShow();
@@ -1055,6 +1055,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     List<ContextTrack> newTracks = pages.currentPage();
                     int index = finder.find(newTracks);
                     if (index == -1) {
+                        LOGGER.trace("Did not find track, going to next page, finder: {}", finder);
                         tracks.addAll(newTracks);
                         continue;
                     }
@@ -1063,6 +1064,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     tracks.addAll(newTracks);
 
                     setCurrentTrackIndex(index);
+                    LOGGER.trace("Initialized current track index to {}, finder: {}", index, finder);
                     break;
                 } else {
                     cannotLoadMore = true;

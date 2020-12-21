@@ -222,6 +222,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
      * @param play      Whether the playback should start immediately
      */
     private void loadSession(@NotNull String sessionId, boolean play, boolean withSkip) {
+        LOGGER.debug("Loading session, id: {}, play: {}", sessionId, play);
+
         TransitionInfo trans = TransitionInfo.contextChange(state, withSkip);
 
         if (playerSession != null) {
@@ -248,6 +250,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private void loadTrack(boolean play, @NotNull TransitionInfo trans) {
         endMetrics(playerSession.currentPlaybackId(), trans.endedReason, playerSession.currentMetrics(), trans.endedWhen);
 
+        LOGGER.debug("Loading track, id: {}, session: {}, playback: {}, play: {}", state.getCurrentPlayable(), playerSession.sessionId(), playerSession.currentPlaybackId(), play);
         String playbackId = playerSession.play(state.getCurrentPlayableOrThrow(), state.getPosition(), trans.startedReason);
         state.setPlaybackId(playbackId);
         session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
