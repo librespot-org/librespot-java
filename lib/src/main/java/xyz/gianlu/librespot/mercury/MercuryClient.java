@@ -13,11 +13,12 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.PacketsManager;
+import xyz.gianlu.librespot.core.PacketsReceiver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Gianlu
  */
-public final class MercuryClient extends PacketsManager {
+public final class MercuryClient implements PacketsReceiver, Closeable {
     private static final Logger LOGGER = LogManager.getLogger(MercuryClient.class);
     private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
@@ -36,9 +37,10 @@ public final class MercuryClient extends PacketsManager {
     private final Object removeCallbackLock = new Object();
     private final List<InternalSubListener> subscriptions = Collections.synchronizedList(new ArrayList<>());
     private final Map<Long, BytesArrayList> partials = new HashMap<>();
+    private final Session session;
 
     public MercuryClient(@NotNull Session session) {
-        super(session, "mercury");
+        this.session = session;
     }
 
     public void subscribe(@NotNull String uri, @NotNull SubListener listener) throws IOException, PubSubException {
@@ -160,7 +162,7 @@ public final class MercuryClient extends PacketsManager {
     }
 
     @Override
-    protected void handle(@NotNull Packet packet) throws InvalidProtocolBufferException {
+    public void dispatch(@NotNull Packet packet) {
         ByteBuffer payload = ByteBuffer.wrap(packet.payload);
         int seqLength = payload.getShort();
         long seq;
@@ -196,7 +198,7 @@ public final class MercuryClient extends PacketsManager {
             header = Mercury.Header.parseFrom(partial.get(0));
         } catch (InvalidProtocolBufferException ex) {
             LOGGER.fatal("Couldn't parse header! {bytes: {}}", Utils.bytesToHex(partial.get(0)));
-            throw ex;
+            return;
         }
 
         Response resp = new Response(header, partial);
@@ -216,11 +218,10 @@ public final class MercuryClient extends PacketsManager {
                 LOGGER.debug("Couldn't dispatch Mercury event {seq: {}, uri: {}, code: {}, payload: {}}", seq, header.getUri(), header.getStatusCode(), resp.payload.toHex());
         } else if (packet.is(Packet.Type.MercuryReq) || packet.is(Packet.Type.MercurySub) || packet.is(Packet.Type.MercuryUnsub)) {
             Callback callback = callbacks.remove(seq);
-            if (callback != null) {
+            if (callback != null)
                 callback.response(resp);
-            } else {
+            else
                 LOGGER.warn("Skipped Mercury response, seq: {}, uri: {}, code: {}", seq, header.getUri(), header.getStatusCode());
-            }
 
             synchronized (removeCallbackLock) {
                 removeCallbackLock.notifyAll();
@@ -228,11 +229,6 @@ public final class MercuryClient extends PacketsManager {
         } else {
             LOGGER.warn("Couldn't handle packet, seq: {}, uri: {}, code: {}", seq, header.getUri(), header.getStatusCode());
         }
-    }
-
-    @Override
-    protected void exception(@NotNull Exception ex) {
-        LOGGER.fatal("Failed handling packet!", ex);
     }
 
     public void interestedIn(@NotNull String uri, @NotNull SubListener listener) {
@@ -266,7 +262,6 @@ public final class MercuryClient extends PacketsManager {
         }
 
         callbacks.clear();
-        super.close();
     }
 
     public interface JsonCallback<W extends JsonWrapper> {
