@@ -103,9 +103,14 @@ public class DealerClient implements Closeable {
                     RequestListener listener = reqListeners.get(midPrefix);
                     interesting = true;
                     asyncWorker.submit(() -> {
-                        RequestResult result = listener.onRequest(mid, pid, sender, command);
-                        if (conn != null) conn.sendReply(key, result);
-                        LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
+                        try {
+                            RequestResult result = listener.onRequest(mid, pid, sender, command);
+                            if (conn != null) conn.sendReply(key, result);
+                            LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
+                        } catch (Exception ex) {
+                            if (conn != null) conn.sendReply(key, RequestResult.UPSTREAM_ERROR);
+                            LOGGER.error("Failed handling request. {key: {}}", key);
+                        }
                     });
                 }
             }
@@ -172,7 +177,9 @@ public class DealerClient implements Closeable {
                             try {
                                 listener.onMessage(uri, headers, decodedPayload);
                             } catch (IOException ex) {
-                                LOGGER.error("Failed dispatching message!", ex);
+                                LOGGER.error("Failed dispatching message! {uri: {}}", uri, ex);
+                            } catch (Exception ex) {
+                                LOGGER.error("Failed handling message! {uri: {}}", uri, ex);
                             }
                         });
                         dispatched = true;

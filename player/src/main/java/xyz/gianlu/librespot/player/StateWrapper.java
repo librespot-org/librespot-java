@@ -471,7 +471,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         String sessionId = setContext(ps.getContext());
 
         PlaybackOuterClass.Playback pb = cmd.getPlayback();
-        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
+        try {
+            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
+        } catch (IllegalStateException ex) {
+            LOGGER.warn("Failed initializing tracks, falling back to start. {uid: {}}", ps.getCurrentUid());
+            tracksKeeper.initializeStart();
+        }
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         if (pb.getIsPaused()) state.setTimestamp(TimeProvider.currentTimeMillis());
@@ -491,16 +496,21 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         String trackUri = PlayCommandHelper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandHelper.getSkipToIndex(obj);
 
-        if (trackUri != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
-        } else if (trackUid != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
-        } else if (trackIndex != null) {
-            tracksKeeper.initializeFrom(tracks -> {
-                if (trackIndex < tracks.size()) return trackIndex;
-                else return -1;
-            }, null, null);
-        } else {
+        try {
+            if (trackUri != null) {
+                tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
+            } else if (trackUid != null) {
+                tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
+            } else if (trackIndex != null) {
+                tracksKeeper.initializeFrom(tracks -> {
+                    if (trackIndex < tracks.size()) return trackIndex;
+                    else return -1;
+                }, null, null);
+            } else {
+                tracksKeeper.initializeStart();
+            }
+        } catch (IllegalStateException ex) {
+            LOGGER.warn("Failed initializing tracks, falling back to start. {uri: {}, uid: {}, index: {}}", trackUri, trackUid, trackIndex);
             tracksKeeper.initializeStart();
         }
 
@@ -1030,10 +1040,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
-            if (!pages.nextPage()) throw new IllegalStateException();
+            if (!cannotLoadMore) {
+                if (!pages.nextPage()) throw new IllegalStateException();
 
-            tracks.clear();
-            tracks.addAll(pages.currentPage());
+                tracks.clear();
+                tracks.addAll(pages.currentPage());
+            }
 
             checkComplete();
             if (!PlayableId.canPlaySomething(tracks))
