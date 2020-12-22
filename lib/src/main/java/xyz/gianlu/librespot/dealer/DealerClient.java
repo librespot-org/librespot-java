@@ -109,7 +109,7 @@ public class DealerClient implements Closeable {
                             LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
                         } catch (Exception ex) {
                             if (conn != null) conn.sendReply(key, RequestResult.UPSTREAM_ERROR);
-                            LOGGER.error("Failed handling request. {key: {}}", key);
+                            LOGGER.error("Failed handling request. {key: {}}", key, ex);
                         }
                     });
                 }
