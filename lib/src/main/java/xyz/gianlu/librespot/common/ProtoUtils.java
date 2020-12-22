@@ -262,7 +262,7 @@ public final class ProtoUtils {
     }
 
     public static void enrichTrack(@NotNull ContextTrack.Builder subject, @NotNull ContextTrack track) {
-        if (subject.hasUri() && track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
+        if (subject.hasUri() && track.hasUri() && !subject.getUri().isEmpty() && !track.getUri().isEmpty() && !Objects.equals(subject.getUri(), track.getUri()))
             throw new IllegalArgumentException(subject.getUri() + " is not " + track.getUri());
 
         if (subject.hasGid() && track.hasGid() && !Objects.equals(subject.getGid(), track.getGid()))
@@ -272,7 +272,7 @@ public final class ProtoUtils {
     }
 
     public static void enrichTrack(@NotNull Player.ProvidedTrack.Builder subject, @NotNull ContextTrack track) {
-        if (track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
+        if (track.hasUri() && !track.getUri().isEmpty() && !Objects.equals(subject.getUri(), track.getUri()))
             throw new IllegalArgumentException(subject.getUri() + " is not " + track.getUri());
 
         subject.putAllMetadata(track.getMetadataMap());

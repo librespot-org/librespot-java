@@ -497,9 +497,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         Integer trackIndex = PlayCommandHelper.getSkipToIndex(obj);
 
         try {
-            if (trackUri != null) {
+            if (trackUri != null && !trackUri.isEmpty()) {
                 tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
-            } else if (trackUid != null) {
+            } else if (trackUid != null && !trackUid.isEmpty()) {
                 tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
             } else if (trackIndex != null) {
                 tracksKeeper.initializeFrom(tracks -> {
