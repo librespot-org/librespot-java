@@ -1095,7 +1095,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (!PlayableId.canPlaySomething(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
-            if (track != null) enrichCurrentTrack(track);
+            try {
+                if (track != null) enrichCurrentTrack(track);
+            } catch (IllegalArgumentException ex) {
+                LOGGER.warn("Failed updating current track metadata.", ex);
+            }
         }
 
         private void enrichCurrentTrack(@NotNull ContextTrack track) {
@@ -1131,7 +1135,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
 
             int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
-            if (index == -1) throw new IllegalStateException();
+            if (index == -1) throw new IllegalStateException("Did not find track to skip to: " + uri);
 
             setCurrentTrackIndex(index);
         }
