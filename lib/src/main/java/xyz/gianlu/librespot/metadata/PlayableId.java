@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.spotify.connectstate.Player;
 import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.Arrays;
@@ -50,9 +51,9 @@ public interface PlayableId {
         return false;
     }
 
-    @NotNull
+    @Nullable
     static PlayableId from(@NotNull Player.ProvidedTrack track) {
-        return fromUri(track.getUri());
+        return track.getUri().isEmpty() ? null : fromUri(track.getUri());
     }
 
     static boolean isSupported(@NotNull String uri) {

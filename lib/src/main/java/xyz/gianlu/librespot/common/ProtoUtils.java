@@ -285,7 +285,7 @@ public final class ProtoUtils {
 
         Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
         builder.setProvider("context");
-        if (track.hasUri()) builder.setUri(track.getUri());
+        if (track.hasUri() && !track.getUri().isEmpty()) builder.setUri(track.getUri());
         if (track.hasUid()) builder.setUid(track.getUid());
 
         try {
