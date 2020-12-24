@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.common;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.spotify.connectstate.Player;
 import com.spotify.connectstate.Player.ContextPlayerOptions;
@@ -14,6 +15,7 @@ import com.spotify.playlist4.Playlist4ApiProto;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.metadata.PlayableId;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -61,8 +63,8 @@ public final class ProtoUtils {
     @NotNull
     private static JsonObject trackToJson(@NotNull ContextTrack track) {
         JsonObject obj = new JsonObject();
-        obj.addProperty("uri", track.getUri());
-        obj.addProperty("uid", track.getUid());
+        if (track.hasUri() && !track.getUri().isEmpty()) obj.addProperty("uri", track.getUri());
+        if (track.hasUid()) obj.addProperty("uid", track.getUid());
         obj.add("metadata", mapToJson(track.getMetadataMap()));
         return obj;
     }
@@ -106,7 +108,10 @@ public final class ProtoUtils {
     @NotNull
     public static ContextTrack jsonToContextTrack(@NotNull JsonObject obj) {
         ContextTrack.Builder builder = ContextTrack.newBuilder();
-        Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(builder::setUri);
+        Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(uri -> {
+            builder.setUri(uri);
+            builder.setGid(ByteString.copyFrom(PlayableId.fromUri(uri).getGid()));
+        });
         Optional.ofNullable(Utils.optString(obj, "uid", null)).ifPresent(builder::setUid);
 
         JsonObject metadata = obj.getAsJsonObject("metadata");
@@ -280,7 +285,7 @@ public final class ProtoUtils {
 
     @Nullable
     @Contract("null -> null")
-    public static Player.ProvidedTrack convertToProvidedTrack(@Nullable ContextTrack track) {
+    public static Player.ProvidedTrack toProvidedTrack(@Nullable ContextTrack track) {
         if (track == null) return null;
 
         Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
@@ -337,5 +342,57 @@ public final class ProtoUtils {
 
     public static void copyOverMetadata(@NotNull ContextTrack from, @NotNull Player.ProvidedTrack.Builder to) {
         to.putAllMetadata(from.getMetadataMap());
+    }
+
+    public static boolean trackEquals(ContextTrack first, ContextTrack second) {
+        if (first == null || second == null) return false;
+        if (first == second) return true;
+
+        if (first.hasUri() && !first.getUri().isEmpty() && second.hasUri() && !second.getUri().isEmpty())
+            return first.getUri().equals(second.getUri());
+
+        if (first.hasGid() && second.hasGid())
+            return first.getGid().equals(second.getGid());
+
+        if (first.hasUid() && !first.getUid().isEmpty() && second.hasUid() && !second.getUid().isEmpty())
+            return first.getUid().equals(second.getUid());
+
+        return false;
+    }
+
+    public static int indexOfTrack(List<ContextTrack> list, ContextTrack track) {
+        for (int i = 0; i < list.size(); i++)
+            if (trackEquals(list.get(i), track))
+                return i;
+
+        return -1;
+    }
+
+    public static boolean isTrack(Player.ProvidedTrack track, Metadata.Track metadata) {
+        return track.getUri().equals(PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    public static boolean isEpisode(Player.ProvidedTrack track, Metadata.Episode metadata) {
+        return track.getUri().equals(PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    @NotNull
+    public static String toString(ContextTrack track) {
+        return String.format("ContextTrack{uri: %s, uid: %s, gid: %s}", track.getUri(), track.getUid(), Utils.bytesToHex(track.getGid()));
+    }
+
+    @NotNull
+    public static String toString(Player.ProvidedTrack track) {
+        return String.format("ProvidedTrack{uri: %s, uid: %s}", track.getUri(), track.getUid());
+    }
+
+    @NotNull
+    public static String toString(Metadata.Track metadata) {
+        return String.format("Metadata.Track{%s,%s}", Utils.bytesToHex(metadata.getGid()), PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    @NotNull
+    public static String toString(Metadata.Episode metadata) {
+        return String.format("Metadata.Episode{%s,%s}", Utils.bytesToHex(metadata.getGid()), PlayableId.from(metadata).toSpotifyUri());
     }
 }
