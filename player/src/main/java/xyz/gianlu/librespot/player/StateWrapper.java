@@ -442,7 +442,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.setOptions(ContextPlayerOptions.newBuilder().build());
 
         String sessionId = setContext(uri);
-        pages.putFirstPage(tracks);
+        pages.putFirstPage(tracks, uri);
         tracksKeeper.initializeStart();
         setPosition(0);
 

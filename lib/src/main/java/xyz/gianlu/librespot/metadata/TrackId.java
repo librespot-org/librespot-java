@@ -1,7 +1,6 @@
 package xyz.gianlu.librespot.metadata;
 
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.common.Base62;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.regex.Matcher;
@@ -12,7 +11,6 @@ import java.util.regex.Pattern;
  */
 public final class TrackId implements SpotifyId, PlayableId {
     static final Pattern PATTERN = Pattern.compile("spotify:track:(.{22})");
-    private static final Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
     private final String hexId;
 
     private TrackId(@NotNull String hex) {
