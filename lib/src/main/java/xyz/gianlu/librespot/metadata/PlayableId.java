@@ -4,6 +4,8 @@ import com.google.protobuf.ByteString;
 import com.spotify.connectstate.Player;
 import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.common.Base62;
 import xyz.gianlu.librespot.common.Utils;
 
 import java.util.Arrays;
@@ -16,6 +18,8 @@ import static com.spotify.context.ContextTrackOuterClass.ContextTrack;
  * @author Gianlu
  */
 public interface PlayableId {
+    Base62 BASE62 = Base62.createInstanceWithInvertedCharacterSet();
+
     @NotNull
     static PlayableId fromUri(@NotNull String uri) {
         if (!isSupported(uri)) return new UnsupportedId(uri);
@@ -50,9 +54,9 @@ public interface PlayableId {
         return false;
     }
 
-    @NotNull
+    @Nullable
     static PlayableId from(@NotNull Player.ProvidedTrack track) {
-        return fromUri(track.getUri());
+        return track.getUri().isEmpty() ? null : fromUri(track.getUri());
     }
 
     static boolean isSupported(@NotNull String uri) {
@@ -61,8 +65,7 @@ public interface PlayableId {
     }
 
     static boolean shouldPlay(@NotNull ContextTrack track) {
-        String forceRemoveReasons = track.getMetadataOrDefault("force_remove_reasons", null);
-        return forceRemoveReasons == null || forceRemoveReasons.isEmpty();
+        return track.getMetadataOrDefault("force_remove_reasons", "").isEmpty();
     }
 
     @NotNull
@@ -81,6 +84,14 @@ public interface PlayableId {
     }
 
     @NotNull
+    static String inferUriPrefix(@NotNull String contextUri) {
+        if (contextUri.startsWith("spotify:episode:") || contextUri.startsWith("spotify:show:"))
+            return "spotify:episode:";
+        else
+            return "spotify:track:";
+    }
+
+    @NotNull
     String toString();
 
     int hashCode();
@@ -92,9 +103,8 @@ public interface PlayableId {
     @NotNull String toSpotifyUri();
 
     default boolean matches(@NotNull ContextTrack current) {
-        String uri = current.getUri();
-        if (uri != null && !uri.isEmpty()) return toSpotifyUri().equals(uri);
-        else if (current.getGid() != null) return Arrays.equals(current.getGid().toByteArray(), getGid());
+        if (current.hasUri()) return toSpotifyUri().equals(current.getUri());
+        else if (current.hasGid()) return Arrays.equals(current.getGid().toByteArray(), getGid());
         else return false;
     }
 }

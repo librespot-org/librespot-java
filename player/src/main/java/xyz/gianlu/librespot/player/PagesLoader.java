@@ -10,6 +10,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
+import xyz.gianlu.librespot.metadata.PlayableId;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -46,8 +47,18 @@ public final class PagesLoader {
         if (pages.isEmpty()) return from(session, context.getUri());
 
         PagesLoader loader = new PagesLoader(session);
-        loader.pages.addAll(pages);
+        loader.putFirstPages(pages, PlayableId.inferUriPrefix(context.getUri()));
         return loader;
+    }
+
+    private static void sanitizeTracks(List<ContextTrack> tracks, String uriPrefix) {
+        for (int i = 0; i < tracks.size(); i++) {
+            ContextTrack.Builder builder = tracks.get(i).toBuilder();
+            if (builder.hasUri() || !builder.hasGid()) continue;
+
+            builder.setUri(uriPrefix + new String(PlayableId.BASE62.encode(builder.getGid().toByteArray(), 22)));
+            tracks.set(i, builder.build());
+        }
     }
 
     @NotNull
@@ -123,13 +134,17 @@ public final class PagesLoader {
         }
     }
 
-    void putFirstPages(@NotNull List<ContextPage> pages) {
+    void putFirstPages(@NotNull List<ContextPage> pages, String contextUri) {
         if (currentPage != -1 || !this.pages.isEmpty()) throw new IllegalStateException();
-        this.pages.addAll(pages);
+        for (ContextPage page : pages) {
+            sanitizeTracks(page.getTracksList(), contextUri == null ? null : PlayableId.inferUriPrefix(contextUri));
+            this.pages.add(page);
+        }
     }
 
-    void putFirstPage(@NotNull List<ContextTrack> tracks) {
+    void putFirstPage(@NotNull List<ContextTrack> tracks, String contextUri) {
         if (currentPage != -1 || !pages.isEmpty()) throw new IllegalStateException();
+        sanitizeTracks(tracks, contextUri == null ? null : PlayableId.inferUriPrefix(contextUri));
         pages.add(ContextPage.newBuilder().addAllTracks(tracks).build());
     }
 }

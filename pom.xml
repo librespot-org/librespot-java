@@ -5,7 +5,7 @@
     <groupId>xyz.gianlu.librespot</groupId>
     <artifactId>librespot-java</artifactId>
     <packaging>pom</packaging>
-    <version>1.5.2</version>
+    <version>1.5.3</version>
 
     <name>librespot-java</name>
     <description>Java port of librespot, the Open Source Spotify client library</description>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
-            <version>2.13.3</version>
+            <version>2.14.0</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>

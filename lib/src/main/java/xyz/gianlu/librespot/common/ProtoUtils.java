@@ -3,6 +3,7 @@ package xyz.gianlu.librespot.common;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.spotify.connectstate.Player;
 import com.spotify.connectstate.Player.ContextPlayerOptions;
@@ -11,9 +12,12 @@ import com.spotify.context.ContextPageOuterClass.ContextPage;
 import com.spotify.context.ContextPlayerOptionsOuterClass;
 import com.spotify.metadata.Metadata;
 import com.spotify.playlist4.Playlist4ApiProto;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import xyz.gianlu.librespot.metadata.PlayableId;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -26,6 +30,8 @@ import static com.spotify.context.PlayOriginOuterClass.PlayOrigin;
  * @author Gianlu
  */
 public final class ProtoUtils {
+    private static final Logger LOGGER = LogManager.getLogger(ProtoUtils.class);
+
     private ProtoUtils() {
     }
 
@@ -59,11 +65,15 @@ public final class ProtoUtils {
     }
 
     @NotNull
-    private static JsonObject trackToJson(@NotNull ContextTrack track) {
+    private static JsonObject trackToJson(@NotNull ContextTrack track, String uriPrefix) {
         JsonObject obj = new JsonObject();
-        obj.addProperty("uri", track.getUri());
-        obj.addProperty("uid", track.getUid());
+        if (track.hasUid()) obj.addProperty("uid", track.getUid());
         obj.add("metadata", mapToJson(track.getMetadataMap()));
+        if (track.hasUri() && !track.getUri().isEmpty())
+            obj.addProperty("uri", track.getUri());
+        else if (track.hasGid() && uriPrefix != null)
+            obj.addProperty("uri", uriPrefix + new String(PlayableId.BASE62.encode(track.getGid().toByteArray(), 22)));
+
         return obj;
     }
 
@@ -81,7 +91,7 @@ public final class ProtoUtils {
         page.addProperty("page_url", "");
         page.addProperty("next_page_url", "");
         JsonArray tracksJson = new JsonArray(tracks.size());
-        for (ContextTrack t : tracks) tracksJson.add(trackToJson(t));
+        for (ContextTrack t : tracks) tracksJson.add(trackToJson(t, PlayableId.inferUriPrefix(ps.getContextUri())));
         page.add("tracks", tracksJson);
         page.add("metadata", mapToJson(ps.getPageMetadataMap()));
         pages.add(page);
@@ -106,7 +116,10 @@ public final class ProtoUtils {
     @NotNull
     public static ContextTrack jsonToContextTrack(@NotNull JsonObject obj) {
         ContextTrack.Builder builder = ContextTrack.newBuilder();
-        Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(builder::setUri);
+        Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(uri -> {
+            builder.setUri(uri);
+            builder.setGid(ByteString.copyFrom(PlayableId.fromUri(uri).getGid()));
+        });
         Optional.ofNullable(Utils.optString(obj, "uid", null)).ifPresent(builder::setUid);
 
         JsonObject metadata = obj.getAsJsonObject("metadata");
@@ -165,12 +178,12 @@ public final class ProtoUtils {
 
         Player.PlayOrigin.Builder builder = Player.PlayOrigin.newBuilder();
 
-        Optional.ofNullable(po.getFeatureIdentifier()).ifPresent(builder::setFeatureIdentifier);
-        Optional.ofNullable(po.getFeatureVersion()).ifPresent(builder::setFeatureVersion);
-        Optional.ofNullable(po.getViewUri()).ifPresent(builder::setViewUri);
-        Optional.ofNullable(po.getExternalReferrer()).ifPresent(builder::setExternalReferrer);
-        Optional.ofNullable(po.getReferrerIdentifier()).ifPresent(builder::setReferrerIdentifier);
-        Optional.ofNullable(po.getDeviceIdentifier()).ifPresent(builder::setDeviceIdentifier);
+        if (po.hasFeatureIdentifier()) builder.setFeatureIdentifier(po.getFeatureIdentifier());
+        if (po.hasFeatureVersion()) builder.setFeatureVersion(po.getFeatureVersion());
+        if (po.hasViewUri()) builder.setViewUri(po.getViewUri());
+        if (po.hasExternalReferrer()) builder.setExternalReferrer(po.getExternalReferrer());
+        if (po.hasReferrerIdentifier()) builder.setReferrerIdentifier(po.getReferrerIdentifier());
+        if (po.hasDeviceIdentifier()) builder.setDeviceIdentifier(po.getDeviceIdentifier());
 
         if (po.getFeatureClassesCount() > 0)
             for (String feature : po.getFeatureClassesList())
@@ -254,39 +267,49 @@ public final class ProtoUtils {
     }
 
     public static boolean isQueued(@NotNull ContextTrack track) {
-        String value = track.getMetadataOrDefault("is_queued", null);
-        if (value == null) return false;
-        else return Boolean.parseBoolean(value);
+        try {
+            return Boolean.parseBoolean(track.getMetadataOrThrow("is_queued"));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     public static void enrichTrack(@NotNull ContextTrack.Builder subject, @NotNull ContextTrack track) {
-        if (subject.hasUri() && track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
-            throw new IllegalArgumentException();
+        if (subject.hasUri() && track.hasUri() && !subject.getUri().isEmpty() && !track.getUri().isEmpty() && !Objects.equals(subject.getUri(), track.getUri()))
+            throw new IllegalArgumentException(subject.getUri() + " is not " + track.getUri());
 
         if (subject.hasGid() && track.hasGid() && !Objects.equals(subject.getGid(), track.getGid()))
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(Utils.bytesToHex(subject.getGid()) + " is not " + Utils.bytesToHex(track.getGid()));
 
         subject.putAllMetadata(track.getMetadataMap());
     }
 
     public static void enrichTrack(@NotNull Player.ProvidedTrack.Builder subject, @NotNull ContextTrack track) {
-        if (track.hasUri() && !Objects.equals(subject.getUri(), track.getUri()))
-            throw new IllegalArgumentException();
+        if (track.hasUri() && !track.getUri().isEmpty() && !Objects.equals(subject.getUri(), track.getUri()))
+            throw new IllegalArgumentException(subject.getUri() + " is not " + track.getUri());
 
         subject.putAllMetadata(track.getMetadataMap());
     }
 
     @Nullable
     @Contract("null -> null")
-    public static Player.ProvidedTrack convertToProvidedTrack(@Nullable ContextTrack track) {
+    public static Player.ProvidedTrack toProvidedTrack(@Nullable ContextTrack track) {
         if (track == null) return null;
 
         Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
         builder.setProvider("context");
-        Optional.ofNullable(track.getUri()).ifPresent(builder::setUri);
-        Optional.ofNullable(track.getUid()).ifPresent(builder::setUid);
-        Optional.ofNullable(track.getMetadataOrDefault("album_uri", null)).ifPresent(builder::setAlbumUri);
-        Optional.ofNullable(track.getMetadataOrDefault("artist_uri", null)).ifPresent(builder::setArtistUri);
+        if (track.hasUri() && !track.getUri().isEmpty()) builder.setUri(track.getUri());
+        if (track.hasUid()) builder.setUid(track.getUid());
+
+        try {
+            builder.setAlbumUri(track.getMetadataOrThrow("album_uri"));
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            builder.setArtistUri(track.getMetadataOrThrow("artist_uri"));
+        } catch (IllegalArgumentException ignored) {
+        }
 
         builder.putAllMetadata(track.getMetadataMap());
 
@@ -327,5 +350,57 @@ public final class ProtoUtils {
 
     public static void copyOverMetadata(@NotNull ContextTrack from, @NotNull Player.ProvidedTrack.Builder to) {
         to.putAllMetadata(from.getMetadataMap());
+    }
+
+    public static boolean trackEquals(ContextTrack first, ContextTrack second) {
+        if (first == null || second == null) return false;
+        if (first == second) return true;
+
+        if (first.hasUri() && !first.getUri().isEmpty() && second.hasUri() && !second.getUri().isEmpty())
+            return first.getUri().equals(second.getUri());
+
+        if (first.hasGid() && second.hasGid())
+            return first.getGid().equals(second.getGid());
+
+        if (first.hasUid() && !first.getUid().isEmpty() && second.hasUid() && !second.getUid().isEmpty())
+            return first.getUid().equals(second.getUid());
+
+        return false;
+    }
+
+    public static int indexOfTrack(List<ContextTrack> list, ContextTrack track) {
+        for (int i = 0; i < list.size(); i++)
+            if (trackEquals(list.get(i), track))
+                return i;
+
+        return -1;
+    }
+
+    public static boolean isTrack(Player.ProvidedTrack track, Metadata.Track metadata) {
+        return track.getUri().equals(PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    public static boolean isEpisode(Player.ProvidedTrack track, Metadata.Episode metadata) {
+        return track.getUri().equals(PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    @NotNull
+    public static String toString(ContextTrack track) {
+        return String.format("ContextTrack{uri: %s, uid: %s, gid: %s}", track.getUri(), track.getUid(), Utils.bytesToHex(track.getGid()));
+    }
+
+    @NotNull
+    public static String toString(Player.ProvidedTrack track) {
+        return String.format("ProvidedTrack{uri: %s, uid: %s}", track.getUri(), track.getUid());
+    }
+
+    @NotNull
+    public static String toString(Metadata.Track metadata) {
+        return String.format("Metadata.Track{%s,%s}", Utils.bytesToHex(metadata.getGid()), PlayableId.from(metadata).toSpotifyUri());
+    }
+
+    @NotNull
+    public static String toString(Metadata.Episode metadata) {
+        return String.format("Metadata.Episode{%s,%s}", Utils.bytesToHex(metadata.getGid()), PlayableId.from(metadata).toSpotifyUri());
     }
 }

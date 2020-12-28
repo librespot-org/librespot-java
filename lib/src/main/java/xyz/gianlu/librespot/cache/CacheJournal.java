@@ -138,7 +138,7 @@ class CacheJournal implements Closeable {
 
             int i = 0;
             while (true) {
-                io.seek(i * JOURNAL_ENTRY_SIZE);
+                io.seek((long) i * JOURNAL_ENTRY_SIZE);
 
                 int first = io.read();
                 if (first == -1) // EOF
@@ -178,7 +178,7 @@ class CacheJournal implements Closeable {
 
             int i = 0;
             while (true) {
-                io.seek(i * JOURNAL_ENTRY_SIZE);
+                io.seek((long) i * JOURNAL_ENTRY_SIZE);
 
                 int first = io.read();
                 if (first == -1) // EOF
@@ -208,7 +208,7 @@ class CacheJournal implements Closeable {
 
             int i = 0;
             while (true) {
-                io.seek(i * JOURNAL_ENTRY_SIZE);
+                io.seek((long) i * JOURNAL_ENTRY_SIZE);
 
                 int first = io.read();
                 if (first == 0 || first == -1) { // First empty spot or EOF
@@ -280,7 +280,7 @@ class CacheJournal implements Closeable {
                 if (index == -1) throw new IllegalStateException();
             }
 
-            io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + index * (MAX_HEADER_LENGTH + 1));
+            io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (long) index * (MAX_HEADER_LENGTH + 1));
             io.write(id);
             io.write(value.getBytes(StandardCharsets.US_ASCII));
         }
@@ -308,7 +308,7 @@ class CacheJournal implements Closeable {
             int index = findHeader(id);
             if (index == -1) return null;
 
-            io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + index * (MAX_HEADER_LENGTH + 1) + 1);
+            io.seek(offset + MAX_ID_LENGTH + MAX_CHUNKS_SIZE + (long) index * (MAX_HEADER_LENGTH + 1) + 1);
             byte[] read = new byte[MAX_HEADER_LENGTH];
             io.read(read);
 

@@ -1,8 +1,45 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
+to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.5.3] - 28-12-2020
+
+### Added
+
+- Dispatch session closing when using Zeroconf (5b53af7aa5c23a5ed5153e68c5b022aee63ca3e6)
+- Allow set volume with relative steps count (#273)
+
+### Changed
+
+- Improved thread usage (#249, #280)
+- Catch and log exceptions happening in command/message handling (352d6e3c0cc0a36ea676505e0f761f678f4b11b8,
+  3229d2cc72ad2c4d364f7c197b0aec38083d577a)
+
+### Fixed
+
+- Fixed parsing some payloads (f6191ff6636dd538b5ebf1090df4eaa9bd062110)
+- Fixed double reading of first chunk (e5a8ae712114c344aca43e5ec5f557f7ce9657b9)
+- Fixed proxy auth (#274)
+- Fixed playback not starting (#277, 26818c619e2fa6f0d4da9f4e96a8e913ccc0468d, abde6b64d68d49e637343560514efc2dca895815,
+  a79e78a716df74e582504b5d69df455404cef356)
+
+## [1.5.2] - 17-11-2020
+
+### Added
+
+- Added `Player#waitReady()` method (d3149d3843e066986524e14369c5871c22629810)
+- Added pass through endpoints for official Spotify API (#255)
+- Store and check hash of first chunk of cache data (9ab9f43a91ebbce0e9a3a3c6f3c55a714c756525)
+
+### Fixed
+
+- Fixed `UnsupportedOperationException` when starting playback (#251)
+- Close cache files correctly (e953129ed5f0dc4e9931660bd216267557d6010a, #253)
+- Fixed starting playback from API (#254)
+
 
 ## [1.5.2] - 17-11-2020
 ### Added

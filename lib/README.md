@@ -1,7 +1,6 @@
 # Library
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-lib/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-lib)
 
-
 This module contains all the necessary components to interact with the Spotify infrastructure, but doesn't require configuration files or additional system resources.
 
 ## Getting started

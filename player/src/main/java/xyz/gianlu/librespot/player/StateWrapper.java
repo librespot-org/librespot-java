@@ -40,6 +40,7 @@ import xyz.gianlu.librespot.player.state.RestrictionsManager.Action;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * @author Gianlu
@@ -335,8 +336,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     private synchronized void enrichWithMetadata(@NotNull Metadata.Track track) {
         if (state.getTrack() == null) throw new IllegalStateException();
-        if (!state.getTrack().getUri().equals(PlayableId.from(track).toSpotifyUri())) {
-            LOGGER.warn("Failed updating metadata: tracks do not match. {current: {}, expected: {}}", state.getTrack().getUri(), PlayableId.from(track).toSpotifyUri());
+        if (!ProtoUtils.isTrack(state.getTrack(), track)) {
+            LOGGER.warn("Failed updating metadata: tracks do not match. {current: {}, expected: {}}", ProtoUtils.toString(state.getTrack()), ProtoUtils.toString(track));
             return;
         }
 
@@ -346,7 +347,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         if (track.hasPopularity()) builder.putMetadata("popularity", String.valueOf(track.getPopularity()));
         if (track.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(track.getExplicit()));
         if (track.hasHasLyrics()) builder.putMetadata("has_lyrics", String.valueOf(track.getHasLyrics()));
-        if (track.hasName()) builder.putMetadata("title", String.valueOf(track.getName()));
+        if (track.hasName()) builder.putMetadata("title", track.getName());
         if (track.hasDiscNumber()) builder.putMetadata("album_disc_number", String.valueOf(track.getDiscNumber()));
 
         for (int i = 0; i < track.getArtistCount(); i++) {
@@ -396,8 +397,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     private synchronized void enrichWithMetadata(@NotNull Metadata.Episode episode) {
         if (state.getTrack() == null) throw new IllegalStateException();
-        if (!state.getTrack().getUri().equals(PlayableId.from(episode).toSpotifyUri())) {
-            LOGGER.warn("Failed updating metadata: episodes do not match. {current: {}, expected: {}}", state.getTrack().getUri(), PlayableId.from(episode).toSpotifyUri());
+        if (!ProtoUtils.isEpisode(state.getTrack(), episode)) {
+            LOGGER.warn("Failed updating metadata: episodes do not match. {current: {}, expected: {}}", ProtoUtils.toString(state.getTrack()), ProtoUtils.toString(episode));
             return;
         }
 
@@ -405,7 +406,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         ProvidedTrack.Builder builder = state.getTrackBuilder();
         if (episode.hasExplicit()) builder.putMetadata("is_explicit", String.valueOf(episode.getExplicit()));
-        if (episode.hasName()) builder.putMetadata("title", String.valueOf(episode.getName()));
+        if (episode.hasName()) builder.putMetadata("title", episode.getName());
 
         if (episode.hasShow()) {
             Metadata.Show show = episode.getShow();
@@ -441,7 +442,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         state.setOptions(ContextPlayerOptions.newBuilder().build());
 
         String sessionId = setContext(uri);
-        pages.putFirstPage(tracks);
+        pages.putFirstPage(tracks, uri);
         tracksKeeper.initializeStart();
         setPosition(0);
 
@@ -471,7 +472,20 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         String sessionId = setContext(ps.getContext());
 
         PlaybackOuterClass.Playback pb = cmd.getPlayback();
-        tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, ps.getCurrentUid()), pb.getCurrentTrack(), cmd.getQueue());
+        try {
+            tracksKeeper.initializeFrom(tracks -> {
+                for (int i = 0; i < tracks.size(); i++) {
+                    ContextTrack track = tracks.get(i);
+                    if ((track.hasUid() && ps.getCurrentUid().equals(track.getUid())) || ProtoUtils.trackEquals(track, pb.getCurrentTrack()))
+                        return i;
+                }
+
+                return -1;
+            }, pb.getCurrentTrack(), cmd.getQueue());
+        } catch (IllegalStateException ex) {
+            LOGGER.warn("Failed initializing tracks, falling back to start. {uid: {}}", ps.getCurrentUid());
+            tracksKeeper.initializeStart();
+        }
 
         state.setPositionAsOfTimestamp(pb.getPositionAsOfTimestamp());
         if (pb.getIsPaused()) state.setTimestamp(TimeProvider.currentTimeMillis());
@@ -491,16 +505,21 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         String trackUri = PlayCommandHelper.getSkipToUri(obj);
         Integer trackIndex = PlayCommandHelper.getSkipToIndex(obj);
 
-        if (trackUri != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
-        } else if (trackUid != null) {
-            tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
-        } else if (trackIndex != null) {
-            tracksKeeper.initializeFrom(tracks -> {
-                if (trackIndex < tracks.size()) return trackIndex;
-                else return -1;
-            }, null, null);
-        } else {
+        try {
+            if (trackUri != null && !trackUri.isEmpty()) {
+                tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUri(tracks, trackUri), null, null);
+            } else if (trackUid != null && !trackUid.isEmpty()) {
+                tracksKeeper.initializeFrom(tracks -> ProtoUtils.indexOfTrackByUid(tracks, trackUid), null, null);
+            } else if (trackIndex != null) {
+                tracksKeeper.initializeFrom(tracks -> {
+                    if (trackIndex < tracks.size()) return trackIndex;
+                    else return -1;
+                }, null, null);
+            } else {
+                tracksKeeper.initializeStart();
+            }
+        } catch (IllegalStateException ex) {
+            LOGGER.warn("Failed initializing tracks, falling back to start. {uri: {}, uid: {}, index: {}}", trackUri, trackUid, trackIndex);
             tracksKeeper.initializeStart();
         }
 
@@ -838,10 +857,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
     }
 
-    private interface TrackFinder {
-        int find(@NotNull List<ContextTrack> tracks);
-    }
-
     private static class PlayableIdWithIndex {
         private final PlayableId id;
         private final int index;
@@ -915,14 +930,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
             state.clearPrevTracks();
             for (int i = Math.max(0, index - MAX_PREV_TRACKS); i < index; i++)
-                state.addPrevTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+                state.addPrevTracks(ProtoUtils.toProvidedTrack(tracks.get(i)));
 
             state.clearNextTracks();
             for (ContextTrack track : queue)
-                state.addNextTracks(ProtoUtils.convertToProvidedTrack(track));
+                state.addNextTracks(ProtoUtils.toProvidedTrack(track));
 
             for (int i = index + 1; i < Math.min(tracks.size(), index + 1 + MAX_NEXT_TRACKS); i++)
-                state.addNextTracks(ProtoUtils.convertToProvidedTrack(tracks.get(i)));
+                state.addNextTracks(ProtoUtils.toProvidedTrack(tracks.get(i)));
         }
 
         void updateTrackDuration(int duration) {
@@ -961,8 +976,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
          * <b>This will also REMOVE a track from the queue if needed. Calling this twice will break the queue.</b>
          */
         private void updateState() {
-            if (isPlayingQueue) state.setTrack(ProtoUtils.convertToProvidedTrack(queue.remove()));
-            else state.setTrack(ProtoUtils.convertToProvidedTrack(tracks.get(getCurrentTrackIndex())));
+            if (isPlayingQueue) state.setTrack(ProtoUtils.toProvidedTrack(queue.remove()));
+            else state.setTrack(ProtoUtils.toProvidedTrack(tracks.get(getCurrentTrackIndex())));
 
             updateLikeDislike();
 
@@ -1015,7 +1030,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         synchronized void updateContext(@NotNull List<ContextPage> updatedPages) {
             List<ContextTrack> updatedTracks = ProtoUtils.join(updatedPages);
             for (ContextTrack track : updatedTracks) {
-                int index = ProtoUtils.indexOfTrackByUri(tracks, track.getUri());
+                int index = ProtoUtils.indexOfTrack(tracks, track);
                 if (index == -1) continue;
 
                 ContextTrack.Builder builder = tracks.get(index).toBuilder();
@@ -1030,10 +1045,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
 
         synchronized void initializeStart() throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
-            if (!pages.nextPage()) throw new IllegalStateException();
+            if (!cannotLoadMore) {
+                if (!pages.nextPage()) throw new IllegalStateException();
 
-            tracks.clear();
-            tracks.addAll(pages.currentPage());
+                tracks.clear();
+                tracks.addAll(pages.currentPage());
+            }
 
             checkComplete();
             if (!PlayableId.canPlaySomething(tracks))
@@ -1046,15 +1063,16 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             setCurrentTrackIndex(0);
         }
 
-        synchronized void initializeFrom(@NotNull TrackFinder finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
+        synchronized void initializeFrom(@NotNull Function<List<ContextTrack>, Integer> finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
             tracks.clear();
             queue.clear();
 
             while (true) {
                 if (pages.nextPage()) {
                     List<ContextTrack> newTracks = pages.currentPage();
-                    int index = finder.find(newTracks);
+                    int index = finder.apply(newTracks);
                     if (index == -1) {
+                        LOGGER.trace("Did not find track, going to next page.");
                         tracks.addAll(newTracks);
                         continue;
                     }
@@ -1063,6 +1081,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     tracks.addAll(newTracks);
 
                     setCurrentTrackIndex(index);
+                    LOGGER.trace("Initialized current track index to {}.", index);
                     break;
                 } else {
                     cannotLoadMore = true;
@@ -1081,7 +1100,11 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (!PlayableId.canPlaySomething(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
-            if (track != null) enrichCurrentTrack(track);
+            try {
+                if (track != null) enrichCurrentTrack(track);
+            } catch (IllegalArgumentException ex) {
+                LOGGER.warn("Failed updating current track metadata.", ex);
+            }
         }
 
         private void enrichCurrentTrack(@NotNull ContextTrack track) {
@@ -1093,17 +1116,17 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 ContextTrack.Builder current = tracks.get(index).toBuilder();
                 ProtoUtils.enrichTrack(current, track);
                 tracks.set(index, current.build());
-                state.setTrack(ProtoUtils.convertToProvidedTrack(current.build()));
+                state.setTrack(ProtoUtils.toProvidedTrack(current.build()));
             }
         }
 
-        synchronized void skipTo(@NotNull String uri) {
+        synchronized void skipTo(@NotNull ContextTrack track) {
             if (!queue.isEmpty()) {
                 List<ContextTrack> queueCopy = new ArrayList<>(queue);
 
                 Iterator<ContextTrack> iterator = queue.iterator();
                 while (iterator.hasNext()) {
-                    if (Objects.equals(iterator.next().getUri(), uri)) {
+                    if (ProtoUtils.trackEquals(iterator.next(), track)) {
                         isPlayingQueue = true;
                         updateState();
                         return;
@@ -1116,15 +1139,15 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 queue.addAll(queueCopy);
             }
 
-            int index = ProtoUtils.indexOfTrackByUri(tracks, uri);
-            if (index == -1) throw new IllegalStateException();
+            for (int i = 0; i < tracks.size(); i++) {
+                if (ProtoUtils.trackEquals(tracks.get(i), track)) {
+                    setCurrentTrackIndex(i);
+                    enrichCurrentTrack(track);
+                    return;
+                }
+            }
 
-            setCurrentTrackIndex(index);
-        }
-
-        synchronized void skipTo(@NotNull ContextTrack track) {
-            skipTo(track.getUri());
-            enrichCurrentTrack(track);
+            throw new IllegalStateException("Did not find track to skip to: " + ProtoUtils.toString(track));
         }
 
         /**
@@ -1354,6 +1377,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             for (int i = 0; i < items.size(); i++) {
                 Playlist4ApiProto.Item item = items.get(i);
                 tracks.add(i + from, ContextTrack.newBuilder()
+                        .setGid(ByteString.copyFrom(PlayableId.fromUri(item.getUri()).getGid()))
                         .setUri(item.getUri())
                         .build());
             }

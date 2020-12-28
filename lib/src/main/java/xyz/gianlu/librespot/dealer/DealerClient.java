@@ -94,7 +94,7 @@ public class DealerClient implements Closeable {
         String sender = payload.get("sent_by_device_id").getAsString();
 
         JsonObject command = payload.getAsJsonObject("command");
-        LOGGER.trace("Received request. {mid: {}, key: {}, pid: {}, sender: {}}", mid, key, pid, sender);
+        LOGGER.trace("Received request. {mid: {}, key: {}, pid: {}, sender: {}, command: {}}", mid, key, pid, sender, command);
 
         boolean interesting = false;
         synchronized (reqListeners) {
@@ -103,9 +103,14 @@ public class DealerClient implements Closeable {
                     RequestListener listener = reqListeners.get(midPrefix);
                     interesting = true;
                     asyncWorker.submit(() -> {
-                        RequestResult result = listener.onRequest(mid, pid, sender, command);
-                        if (conn != null) conn.sendReply(key, result);
-                        LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
+                        try {
+                            RequestResult result = listener.onRequest(mid, pid, sender, command);
+                            if (conn != null) conn.sendReply(key, result);
+                            LOGGER.debug("Handled request. {key: {}, result: {}}", key, result);
+                        } catch (Exception ex) {
+                            if (conn != null) conn.sendReply(key, RequestResult.UPSTREAM_ERROR);
+                            LOGGER.error("Failed handling request. {key: {}}", key, ex);
+                        }
                     });
                 }
             }
@@ -124,6 +129,9 @@ public class DealerClient implements Closeable {
             if ("application/json".equals(headers.get("Content-Type"))) {
                 if (payloads.size() > 1) throw new UnsupportedOperationException();
                 decodedPayload = payloads.get(0).getAsJsonObject().toString().getBytes();
+            } else if ("text/plain".equals(headers.get("Content-Type"))) {
+                if (payloads.size() > 1) throw new UnsupportedOperationException();
+                decodedPayload = payloads.get(0).getAsString().getBytes();
             } else {
                 String[] payloadsStr = new String[payloads.size()];
                 for (int i = 0; i < payloads.size(); i++) payloadsStr[i] = payloads.get(i).getAsString();
@@ -169,7 +177,9 @@ public class DealerClient implements Closeable {
                             try {
                                 listener.onMessage(uri, headers, decodedPayload);
                             } catch (IOException ex) {
-                                LOGGER.error("Failed dispatching message!", ex);
+                                LOGGER.error("Failed dispatching message! {uri: {}}", uri, ex);
+                            } catch (Exception ex) {
+                                LOGGER.error("Failed handling message! {uri: {}}", uri, ex);
                             }
                         });
                         dispatched = true;

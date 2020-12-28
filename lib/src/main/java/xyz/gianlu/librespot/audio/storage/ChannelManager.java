@@ -6,11 +6,12 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.PacketsManager;
+import xyz.gianlu.librespot.core.PacketsReceiver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -25,15 +26,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Gianlu
  */
-public class ChannelManager extends PacketsManager {
+public class ChannelManager implements Closeable, PacketsReceiver {
     public static final int CHUNK_SIZE = 128 * 1024;
     private static final Logger LOGGER = LogManager.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "channel-queue-" + r.hashCode()));
+    private final Session session;
 
     public ChannelManager(@NotNull Session session) {
-        super(session, "channels");
+        this.session = session;
     }
 
     void requestChunk(@NotNull ByteString fileId, int index, @NotNull AudioFile file) throws IOException {
@@ -59,12 +61,7 @@ public class ChannelManager extends PacketsManager {
     }
 
     @Override
-    protected void handle(@NotNull Packet packet) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected void appendToQueue(@NotNull Packet packet) {
+    public void dispatch(@NotNull Packet packet) {
         ByteBuffer payload = ByteBuffer.wrap(packet.payload);
         if (packet.is(Packet.Type.StreamChunkRes)) {
             short id = payload.getShort();
@@ -90,14 +87,8 @@ public class ChannelManager extends PacketsManager {
     }
 
     @Override
-    protected void exception(@NotNull Exception ex) {
-        LOGGER.fatal("Failed handling packet!", ex);
-    }
-
-    @Override
     public void close() {
         executorService.shutdown();
-        super.close();
     }
 
     public class Channel {

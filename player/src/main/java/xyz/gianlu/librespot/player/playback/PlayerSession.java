@@ -335,6 +335,11 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         else return queue.head().playbackId;
     }
 
+    @NotNull
+    public String sessionId() {
+        return sessionId;
+    }
+
     /**
      * Close the session by clearing the queue which will close all entries.
      */

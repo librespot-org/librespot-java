@@ -31,7 +31,18 @@ public class PlayerWrapper extends SessionWrapper {
     @NotNull
     public static PlayerWrapper fromZeroconf(@NotNull ZeroconfServer server, @NotNull PlayerConfiguration conf) {
         PlayerWrapper wrapper = new PlayerWrapper(conf);
-        server.addSessionListener(wrapper::set);
+        server.addSessionListener(new ZeroconfServer.SessionListener() {
+            @Override
+            public void sessionClosing(@NotNull Session session) {
+                if (wrapper.getSession() == session)
+                    wrapper.clear();
+            }
+
+            @Override
+            public void sessionChanged(@NotNull Session session) {
+                wrapper.set(session);
+            }
+        });
         return wrapper;
     }
 

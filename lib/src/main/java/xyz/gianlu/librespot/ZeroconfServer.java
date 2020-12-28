@@ -201,6 +201,8 @@ public class ZeroconfServer implements Closeable {
     }
 
     public void closeSession() throws IOException {
+        sessionListeners.forEach(l -> l.sessionClosing(session));
+
         if (session != null) session.close();
         session = null;
     }
@@ -377,6 +379,18 @@ public class ZeroconfServer implements Closeable {
     }
 
     public interface SessionListener {
+        /**
+         * The session instance is going to be closed after this call.
+         *
+         * @param session The old {@link Session}
+         */
+        void sessionClosing(@NotNull Session session);
+
+        /**
+         * The session instance changed. {@link #sessionClosing(Session)} has been already called.
+         *
+         * @param session The new {@link Session}
+         */
         void sessionChanged(@NotNull Session session);
     }
 

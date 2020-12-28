@@ -81,7 +81,7 @@ public final class TokenProvider {
         }
 
         public boolean expired() {
-            return timestamp + (expiresIn - TOKEN_EXPIRE_THRESHOLD) * 1000 < TimeProvider.currentTimeMillis();
+            return timestamp + (expiresIn - TOKEN_EXPIRE_THRESHOLD) * 1000L < TimeProvider.currentTimeMillis();
         }
 
         @Override
