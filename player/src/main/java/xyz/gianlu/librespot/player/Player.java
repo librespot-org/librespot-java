@@ -54,10 +54,10 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private final PlayerConfiguration conf;
     private final EventsDispatcher events;
     private final AudioSink sink;
+    private final Map<String, PlaybackMetrics> metrics = new HashMap<>(5);
     private StateWrapper state;
     private PlayerSession playerSession;
     private ScheduledFuture<?> releaseLineFuture = null;
-    private Map<String, PlaybackMetrics> metrics = new HashMap<>(5);
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull Session session) {
         this.conf = conf;
@@ -207,7 +207,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         state.updated();
 
         if (reason == null) {
-            metrics = null;
+            metrics.clear();
         } else if (playerSession != null) {
             endMetrics(playerSession.currentPlaybackId(), reason, playerSession.currentMetrics(), state.getPosition());
         }
@@ -501,14 +501,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             return;
         }
 
-        if (context.startsWith("spotify:search:")) {
-            LOGGER.info("Cannot load autoplay for search context: " + context);
-
-            state.setPosition(0);
-            state.setState(true, false, false);
-            state.updated();
-            return;
-        }
 
         String contextDesc = state.getContextMetadata("context_description");
 
@@ -540,8 +532,16 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
                 state.updated();
             }
         } catch (IOException | MercuryClient.MercuryException ex) {
-            LOGGER.fatal("Failed loading autoplay station!", ex);
-            panicState(null);
+            if (ex instanceof MercuryClient.MercuryException && ((MercuryClient.MercuryException) ex).code == 400) {
+                LOGGER.info("Cannot load autoplay for search context: " + context);
+
+                state.setPosition(0);
+                state.setState(true, true, false);
+                state.updated();
+            } else {
+                LOGGER.fatal("Failed loading autoplay station!", ex);
+                panicState(null);
+            }
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
             LOGGER.fatal("Cannot play local tracks!", ex);
             panicState(null);
