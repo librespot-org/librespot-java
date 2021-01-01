@@ -292,19 +292,14 @@ public final class ProtoUtils {
     }
 
     @Nullable
-    @Contract("null, _ -> null")
-    public static Player.ProvidedTrack toProvidedTrack(@Nullable ContextTrack track, String contextUri) {
+    @Contract("null -> null")
+    public static Player.ProvidedTrack toProvidedTrack(@Nullable ContextTrack track) {
         if (track == null) return null;
 
         Player.ProvidedTrack.Builder builder = Player.ProvidedTrack.newBuilder();
         builder.setProvider("context");
+        if (track.hasUri() && !track.getUri().isEmpty()) builder.setUri(track.getUri());
         if (track.hasUid()) builder.setUid(track.getUid());
-        if (track.hasUri() && !track.getUri().isEmpty()) {
-            builder.setUri(track.getUri());
-        } else if (track.hasGid()) {
-            String uriPrefix = PlayableId.inferUriPrefix(contextUri);
-            builder.setUri(uriPrefix + new String(PlayableId.BASE62.encode(track.getGid().toByteArray(), 22)));
-        }
 
         try {
             builder.setAlbumUri(track.getMetadataOrThrow("album_uri"));

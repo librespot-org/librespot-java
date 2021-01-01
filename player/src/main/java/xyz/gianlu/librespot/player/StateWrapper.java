@@ -930,14 +930,14 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
             state.clearPrevTracks();
             for (int i = Math.max(0, index - MAX_PREV_TRACKS); i < index; i++)
-                state.addPrevTracks(ProtoUtils.toProvidedTrack(tracks.get(i), getContextUri()));
+                state.addPrevTracks(ProtoUtils.toProvidedTrack(tracks.get(i)));
 
             state.clearNextTracks();
             for (ContextTrack track : queue)
-                state.addNextTracks(ProtoUtils.toProvidedTrack(track, getContextUri()));
+                state.addNextTracks(ProtoUtils.toProvidedTrack(track));
 
             for (int i = index + 1; i < Math.min(tracks.size(), index + 1 + MAX_NEXT_TRACKS); i++)
-                state.addNextTracks(ProtoUtils.toProvidedTrack(tracks.get(i), getContextUri()));
+                state.addNextTracks(ProtoUtils.toProvidedTrack(tracks.get(i)));
         }
 
         void updateTrackDuration(int duration) {
@@ -976,8 +976,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
          * <b>This will also REMOVE a track from the queue if needed. Calling this twice will break the queue.</b>
          */
         private void updateState() {
-            if (isPlayingQueue) state.setTrack(ProtoUtils.toProvidedTrack(queue.remove(), getContextUri()));
-            else state.setTrack(ProtoUtils.toProvidedTrack(tracks.get(getCurrentTrackIndex()), getContextUri()));
+            if (isPlayingQueue) state.setTrack(ProtoUtils.toProvidedTrack(queue.remove()));
+            else state.setTrack(ProtoUtils.toProvidedTrack(tracks.get(getCurrentTrackIndex())));
 
             updateLikeDislike();
 
@@ -1116,7 +1116,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 ContextTrack.Builder current = tracks.get(index).toBuilder();
                 ProtoUtils.enrichTrack(current, track);
                 tracks.set(index, current.build());
-                state.setTrack(ProtoUtils.toProvidedTrack(current.build(), getContextUri()));
+                state.setTrack(ProtoUtils.toProvidedTrack(current.build()));
             }
         }
 
