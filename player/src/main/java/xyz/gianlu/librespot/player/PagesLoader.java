@@ -54,7 +54,7 @@ public final class PagesLoader {
     private static void sanitizeTracks(List<ContextTrack> tracks, String uriPrefix) {
         for (int i = 0; i < tracks.size(); i++) {
             ContextTrack.Builder builder = tracks.get(i).toBuilder();
-            if (builder.hasUri() || !builder.hasGid()) continue;
+            if ((builder.hasUri() && !builder.getUri().isEmpty()) || !builder.hasGid()) continue;
 
             builder.setUri(uriPrefix + new String(PlayableId.BASE62.encode(builder.getGid().toByteArray(), 22)));
             tracks.set(i, builder.build());
