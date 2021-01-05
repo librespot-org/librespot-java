@@ -137,8 +137,9 @@ public final class PagesLoader {
     void putFirstPages(@NotNull List<ContextPage> pages, String contextUri) {
         if (currentPage != -1 || !this.pages.isEmpty()) throw new IllegalStateException();
         for (ContextPage page : pages) {
-            sanitizeTracks(page.getTracksList(), contextUri == null ? null : PlayableId.inferUriPrefix(contextUri));
-            this.pages.add(page);
+            List<ContextTrack> tracks = new ArrayList<>(page.getTracksList());
+            sanitizeTracks(tracks, contextUri == null ? null : PlayableId.inferUriPrefix(contextUri));
+            this.pages.add(page.toBuilder().clearTracks().addAllTracks(tracks).build());
         }
     }
 
