@@ -201,9 +201,10 @@ public class ZeroconfServer implements Closeable {
     }
 
     public void closeSession() throws IOException {
-        sessionListeners.forEach(l -> l.sessionClosing(session));
+        if (session == null) return;
 
-        if (session != null) session.close();
+        sessionListeners.forEach(l -> l.sessionClosing(session));
+        session.close();
         session = null;
     }
 
