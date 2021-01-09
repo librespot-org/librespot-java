@@ -291,12 +291,10 @@ public class ZeroconfServer implements Closeable {
         hmac.update("checksum".getBytes());
         byte[] checksumKey = hmac.doFinal();
 
-        hmac = Mac.getInstance("HmacSHA1");
         hmac.init(new SecretKeySpec(baseKey, "HmacSHA1"));
         hmac.update("encryption".getBytes());
         byte[] encryptionKey = hmac.doFinal();
 
-        hmac = Mac.getInstance("HmacSHA1");
         hmac.init(new SecretKeySpec(checksumKey, "HmacSHA1"));
         hmac.update(encrypted);
         byte[] mac = hmac.doFinal();

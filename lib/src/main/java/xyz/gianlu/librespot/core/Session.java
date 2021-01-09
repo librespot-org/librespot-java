@@ -262,7 +262,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         }
 
         byte[] dataArray = data.toByteArray();
-        mac = Mac.getInstance("HmacSHA1");
         mac.init(new SecretKeySpec(Arrays.copyOfRange(dataArray, 0, 0x14), "HmacSHA1"));
         mac.update(acc.array());
 
