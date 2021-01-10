@@ -354,7 +354,7 @@ public class ZeroconfServer implements Closeable {
             }
 
             sessionListeners.forEach(l -> l.sessionChanged(session));
-        } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException ex) {
+        } catch (Session.SpotifyAuthenticationException | MercuryClient.MercuryException | IOException | GeneralSecurityException ex) {
             LOGGER.fatal("Couldn't establish a new session.", ex);
 
             synchronized (connectionLock) {
