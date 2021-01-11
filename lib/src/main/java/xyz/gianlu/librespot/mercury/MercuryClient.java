@@ -347,11 +347,8 @@ public final class MercuryClient implements PacketsReceiver, Closeable {
     }
 
     public static class MercuryException extends Exception {
-        public final int code;
-
         private MercuryException(@NotNull Response response) {
             super(String.format("status: %d", response.statusCode));
-            this.code = response.statusCode;
         }
     }
 
