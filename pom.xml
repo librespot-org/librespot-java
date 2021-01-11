@@ -5,7 +5,7 @@
     <groupId>xyz.gianlu.librespot</groupId>
     <artifactId>librespot-java</artifactId>
     <packaging>pom</packaging>
-    <version>1.5.4-SNAPSHOT</version>
+    <version>1.5.4</version>
 
     <name>librespot-java</name>
     <description>Java port of librespot, the Open Source Spotify client library</description>

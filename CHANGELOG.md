@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 11-01-2021
+### Fixed
+- Fixed playback not starting (#281, #289, 0e85e1a52a1082dc1c63d79c432107bdeb9ed5b6)
+- Fixed instance stuck after failing to load autoplay (#284)
+- Do not report a null session to session listeners (#291)
+
+### Changed
+- Removed redundant calls to getInstance (#292)
+
+
 ## [1.5.3] - 28-12-2020
 ### Added
 - Dispatch session closing when using Zeroconf (5b53af7aa5c23a5ed5153e68c5b022aee63ca3e6)
@@ -21,6 +31,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixed proxy auth (#274)
 - Fixed playback not starting (#277, 26818c619e2fa6f0d4da9f4e96a8e913ccc0468d, abde6b64d68d49e637343560514efc2dca895815,
   a79e78a716df74e582504b5d69df455404cef356)
+
 
 ## [1.5.2] - 17-11-2020
 ### Added
