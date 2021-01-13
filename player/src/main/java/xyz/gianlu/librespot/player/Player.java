@@ -5,7 +5,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import com.spotify.metadata.Metadata;
 import com.spotify.transfer.TransferStateOuterClass;
-import com.sun.xml.internal.ws.util.CompletedFuture;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
@@ -240,9 +239,12 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
     @NotNull
     public Future<Player> ready() {
-        if (state.isReady()) return new CompletedFuture<>(this, null);
-
         CompletableFuture<Player> future = new CompletableFuture<>();
+        if (state.isReady()) {
+            future.complete(this);
+            return future;
+        }
+
         state.addListener(new DeviceStateHandler.Listener() {
             @Override
             public void ready() {
