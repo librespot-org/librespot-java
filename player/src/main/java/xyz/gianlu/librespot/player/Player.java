@@ -5,6 +5,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import com.spotify.metadata.Metadata;
 import com.spotify.transfer.TransferStateOuterClass;
+import com.sun.xml.internal.ws.util.CompletedFuture;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
@@ -46,7 +47,7 @@ import java.util.concurrent.*;
 /**
  * @author Gianlu
  */
-public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSession.Listener, AudioSink.Listener {
+public class Player implements Closeable, PlayerSession.Listener, AudioSink.Listener {
     public static final int VOLUME_MAX = 65536;
     private static final Logger LOGGER = LogManager.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
@@ -58,6 +59,7 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     private StateWrapper state;
     private PlayerSession playerSession;
     private ScheduledFuture<?> releaseLineFuture = null;
+    private DeviceStateHandler.Listener deviceStateListener;
 
     public Player(@NotNull PlayerConfiguration conf, @NotNull Session session) {
         this.conf = conf;
@@ -78,7 +80,76 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
 
     private void initState() {
         this.state = new StateWrapper(session, this, conf);
-        state.addListener(this);
+        state.addListener(deviceStateListener = new DeviceStateHandler.Listener() {
+            @Override
+            public void ready() {
+            }
+
+            @Override
+            public void command(DeviceStateHandler.@NotNull Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) throws InvalidProtocolBufferException {
+                LOGGER.debug("Received command: " + endpoint);
+
+                switch (endpoint) {
+                    case Play:
+                        handlePlay(data.obj());
+                        break;
+                    case Transfer:
+                        handleTransferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
+                        break;
+                    case Resume:
+                        handleResume();
+                        break;
+                    case Pause:
+                        handlePause();
+                        break;
+                    case SeekTo:
+                        handleSeek(data.valueInt());
+                        break;
+                    case SkipNext:
+                        handleSkipNext(data.obj(), TransitionInfo.skippedNext(state));
+                        break;
+                    case SkipPrev:
+                        handleSkipPrev();
+                        break;
+                    case SetRepeatingContext:
+                        state.setRepeatingContext(data.valueBool());
+                        state.updated();
+                        break;
+                    case SetRepeatingTrack:
+                        state.setRepeatingTrack(data.valueBool());
+                        state.updated();
+                        break;
+                    case SetShufflingContext:
+                        state.setShufflingContext(data.valueBool());
+                        state.updated();
+                        break;
+                    case AddToQueue:
+                        handleAddToQueue(data.obj());
+                        break;
+                    case SetQueue:
+                        handleSetQueue(data.obj());
+                        break;
+                    case UpdateContext:
+                        state.updateContext(PlayCommandHelper.getContext(data.obj()));
+                        state.updated();
+                        break;
+                    default:
+                        LOGGER.warn("Endpoint left unhandled: " + endpoint);
+                        break;
+                }
+            }
+
+            @Override
+            public void volumeChanged() {
+                sink.setVolume(state.getVolume());
+            }
+
+            @Override
+            public void notActive() {
+                events.inactiveSession(false);
+                sink.pause(true);
+            }
+        });
     }
 
     // ================================ //
@@ -168,16 +239,19 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
     }
 
     @NotNull
-    public Future<Player> waitReady() {
+    public Future<Player> ready() {
+        if (state.isReady()) return new CompletedFuture<>(this, null);
+
         CompletableFuture<Player> future = new CompletableFuture<>();
         state.addListener(new DeviceStateHandler.Listener() {
             @Override
             public void ready() {
+                state.removeListener(this);
                 future.complete(Player.this);
             }
 
             @Override
-            public void command(DeviceStateHandler.@NotNull Endpoint endpoint, DeviceStateHandler.@NotNull CommandBody data) {
+            public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) {
             }
 
             @Override
@@ -189,6 +263,13 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
             }
         });
         return future;
+    }
+
+    public void waitReady() throws InterruptedException {
+        try {
+            ready().get();
+        } catch (ExecutionException ignored) {
+        }
     }
 
 
@@ -270,75 +351,6 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         if (releaseLineFuture != null) {
             releaseLineFuture.cancel(true);
             releaseLineFuture = null;
-        }
-    }
-
-    @Override
-    public void ready() {
-    }
-
-    @Override
-    public void volumeChanged() {
-        sink.setVolume(state.getVolume());
-    }
-
-    @Override
-    public void notActive() {
-        events.inactiveSession(false);
-        sink.pause(true);
-    }
-
-    @Override
-    public void command(@NotNull DeviceStateHandler.Endpoint endpoint, @NotNull DeviceStateHandler.CommandBody data) throws InvalidProtocolBufferException {
-        LOGGER.debug("Received command: " + endpoint);
-
-        switch (endpoint) {
-            case Play:
-                handlePlay(data.obj());
-                break;
-            case Transfer:
-                handleTransferState(TransferStateOuterClass.TransferState.parseFrom(data.data()));
-                break;
-            case Resume:
-                handleResume();
-                break;
-            case Pause:
-                handlePause();
-                break;
-            case SeekTo:
-                handleSeek(data.valueInt());
-                break;
-            case SkipNext:
-                handleSkipNext(data.obj(), TransitionInfo.skippedNext(state));
-                break;
-            case SkipPrev:
-                handleSkipPrev();
-                break;
-            case SetRepeatingContext:
-                state.setRepeatingContext(data.valueBool());
-                state.updated();
-                break;
-            case SetRepeatingTrack:
-                state.setRepeatingTrack(data.valueBool());
-                state.updated();
-                break;
-            case SetShufflingContext:
-                state.setShufflingContext(data.valueBool());
-                state.updated();
-                break;
-            case AddToQueue:
-                handleAddToQueue(data.obj());
-                break;
-            case SetQueue:
-                handleSetQueue(data.obj());
-                break;
-            case UpdateContext:
-                state.updateContext(PlayCommandHelper.getContext(data.obj()));
-                state.updated();
-                break;
-            default:
-                LOGGER.warn("Endpoint left unhandled: " + endpoint);
-                break;
         }
     }
 
@@ -809,7 +821,8 @@ public class Player implements Closeable, DeviceStateHandler.Listener, PlayerSes
         events.listeners.clear();
 
         sink.close();
-        if (state != null) state.removeListener(this);
+        if (state != null && deviceStateListener != null)
+            state.removeListener(deviceStateListener);
 
         scheduler.shutdown();
         events.close();

@@ -294,6 +294,10 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         device.addListener(listener);
     }
 
+    public boolean isReady() {
+        return state.getIsSystemInitiated();
+    }
+
     @Override
     public synchronized void ready() {
         state.setIsSystemInitiated(true);
