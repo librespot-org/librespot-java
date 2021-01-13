@@ -44,6 +44,7 @@ You can subscribe for players events by creating a WebSocket connection to `/eve
 The currently available events are:
 - `contextChanged` The Spotify context URI changed
 - `trackChanged` The Spotify track URI changed
+- `playbackEnded` Playback has ended
 - `playbackPaused` Playback has been paused
 - `playbackResumed` Playback has been resumed
 - `volumeChanged` Playback volume changed

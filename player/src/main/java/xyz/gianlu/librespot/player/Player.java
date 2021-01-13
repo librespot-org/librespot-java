@@ -654,6 +654,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
     @Override
     public void trackPlayed(@NotNull String playbackId, @NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int when) {
         endMetrics(playbackId, endReason, playerMetrics, when);
+        events.playbackEnded();
     }
 
     @Override
@@ -832,6 +833,8 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
         void onContextChanged(@NotNull String newUri);
 
         void onTrackChanged(@NotNull PlayableId id, @Nullable TrackOrEpisode metadata);
+
+        void onPlaybackEnded();
 
         void onPlaybackPaused(long trackTime);
 
@@ -1029,6 +1032,11 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             else xmlValue = (value - Player.VOLUME_MAX) * 30.0f / (Player.VOLUME_MAX - 1);
             String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
+        }
+
+        void playbackEnded() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(l::onPlaybackEnded);
         }
 
         void playbackPaused() {

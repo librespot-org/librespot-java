@@ -51,6 +51,13 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
+    public void onPlaybackEnded() {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "playbackEnded");
+        dispatch(obj);
+    }
+
+    @Override
     public void onPlaybackPaused(long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackPaused");
