@@ -1,6 +1,7 @@
 package xyz.gianlu.librespot.api;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.api.handlers.InstanceHandler;
 import xyz.gianlu.librespot.api.handlers.PlayerHandler;
 
 /**
@@ -11,6 +12,7 @@ public class PlayerApiServer extends ApiServer {
         super(port, host, wrapper);
 
         handler.post("/player/{cmd}", new PlayerHandler(wrapper));
+        handler.post("/instance/{action}", InstanceHandler.forPlayer(this, wrapper)); // Overrides session only handler
         wrapper.setListener(events);
     }
 }
