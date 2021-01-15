@@ -60,7 +60,7 @@ public final class InstanceHandler {
 
             switch (action) {
                 case "terminate":
-                    server.stop();
+                    new Thread(server::stop).start();
                     break;
                 case "close":
                     session.close();
@@ -93,7 +93,7 @@ public final class InstanceHandler {
 
             switch (action) {
                 case "terminate":
-                    server.stop();
+                    new Thread(server::stop).start();
                     break;
                 case "close":
                     player.close();

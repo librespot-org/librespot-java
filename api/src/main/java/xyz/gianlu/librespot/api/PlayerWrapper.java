@@ -81,13 +81,13 @@ public class PlayerWrapper extends SessionWrapper {
 
     @Override
     protected void clear() {
-        super.clear();
-
         Player old = playerRef.get();
         if (old != null) old.close();
         playerRef.set(null);
 
         if (listener != null && old != null) listener.onPlayerCleared(old);
+
+        super.clear();
     }
 
     @Nullable

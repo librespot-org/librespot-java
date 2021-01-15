@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.core.Session;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -70,7 +71,14 @@ public class SessionWrapper {
     protected void clear() {
         Session old = sessionRef.get();
         sessionRef.set(null);
-        if (listener != null && old != null) listener.onSessionCleared(old);
+        if (old != null) {
+            try {
+                old.close();
+            } catch (IOException ignored) {
+            }
+
+            if (listener != null) listener.onSessionCleared(old);
+        }
     }
 
     @Nullable
