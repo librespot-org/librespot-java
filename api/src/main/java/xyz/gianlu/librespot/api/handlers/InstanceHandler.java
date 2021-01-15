@@ -60,6 +60,7 @@ public final class InstanceHandler {
 
             switch (action) {
                 case "terminate":
+                    exchange.endExchange();
                     new Thread(server::stop).start();
                     break;
                 case "close":
@@ -93,6 +94,7 @@ public final class InstanceHandler {
 
             switch (action) {
                 case "terminate":
+                    exchange.endExchange();
                     new Thread(server::stop).start();
                     break;
                 case "close":
