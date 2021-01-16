@@ -39,6 +39,10 @@ All the endpoints will respond with `200` if successful or:
 - `GET /profile/{user_id}/followers` Retrieve a list of profiles that are followers of the specified user
 - `GET /profile/{user_id}/following` Retrieve a list of profiles that the specified user is following
 
+### Instance
+- `POST /instance/terminate` Terminates the API server.
+- `POST /instance/close` Closes the current session (and player).
+
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.
 The currently available events are:

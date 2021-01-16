@@ -13,6 +13,7 @@ public class ApiServer {
     private static final Logger LOGGER = LogManager.getLogger(ApiServer.class);
     protected final RoutingHandler handler;
     protected final EventsHandler events = new EventsHandler();
+    private final SessionWrapper wrapper;
     private final int port;
     private final String host;
     private Undertow undertow = null;
@@ -20,6 +21,7 @@ public class ApiServer {
     public ApiServer(int port, @NotNull String host, @NotNull SessionWrapper wrapper) {
         this.port = port;
         this.host = host;
+        this.wrapper = wrapper;
         this.handler = new RoutingHandler()
                 .post("/metadata/{type}/{uri}", new MetadataHandler(wrapper, true))
                 .post("/metadata/{uri}", new MetadataHandler(wrapper, false))
@@ -27,6 +29,7 @@ public class ApiServer {
                 .post("/token/{scope}", new TokensHandler(wrapper))
                 .post("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
                 .post("/web-api/{endpoint}", new WebApiHandler(wrapper))
+                .post("/instance/{action}", InstanceHandler.forSession(this, wrapper))
                 .get("/events", events)
                 .setFallbackHandler(new PathHandler(ResponseCodeHandler.HANDLE_404)
                         .addPrefixPath("/web-api", new WebApiHandler(wrapper)));
@@ -43,11 +46,13 @@ public class ApiServer {
     }
 
     public void stop() {
+        wrapper.clear();
+
         if (undertow != null) {
             undertow.stop();
             undertow = null;
-        }
 
-        LOGGER.info("Server stopped!");
+            LOGGER.info("Server stopped!");
+        }
     }
 }

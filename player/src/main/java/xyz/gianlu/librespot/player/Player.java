@@ -829,6 +829,8 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
         scheduler.shutdown();
         events.close();
+
+        LOGGER.info("Closed player.");
     }
 
     public interface EventsListener {
