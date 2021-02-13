@@ -146,7 +146,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     }
 
     void setShufflingContext(boolean value) {
-        if (context == null) return;
+        if (context == null || tracksKeeper == null) return;
 
         boolean old = isShufflingContext();
         state.getOptionsBuilder().setShufflingContext(value && context.restrictions.can(Action.SHUFFLE));
