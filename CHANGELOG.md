@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 13-02-2021
+### Added
+- Added `playbackEnded` event to the API (#297)
+- Added `POST /instance/terminate` and `POST /instance/close` to the API (f83101059c94a636a94725619a1ea53eab2e574f, b288bd1785579af05ee4042e76cef0f801298998, 9fbe6431b961154c1efa14ad61a5dee48022377e)
+
+### Changed
+- `Player#waitReady()` now waits for the player to become ready, the old behaviour has been renamed to `Player#ready()` (dce26768eebf7e9e039ffabfceb80b66c1a9228b)
+
+
 ## [1.5.4] - 11-01-2021
 ### Fixed
 - Fixed playback not starting (#281, #289, 0e85e1a52a1082dc1c63d79c432107bdeb9ed5b6)
