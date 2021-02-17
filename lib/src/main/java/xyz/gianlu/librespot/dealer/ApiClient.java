@@ -2,6 +2,7 @@ package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.Message;
 import com.spotify.connectstate.Connect;
+import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
@@ -171,6 +172,16 @@ public class ApiClient {
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return EntityCanvazResponse.parseFrom(body.byteStream());
+        }
+    }
+
+    public ExtendedMetadata.BatchedExtensionResponse getExtendedMetadata(@NotNull ExtendedMetadata.BatchedEntityRequest req) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("POST", "/extended-metadata/v0/extended-metadata", null, protoBody(req))) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return ExtendedMetadata.BatchedExtensionResponse.parseFrom(body.byteStream());
         }
     }
 
