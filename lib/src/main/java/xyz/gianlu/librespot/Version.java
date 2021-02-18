@@ -53,7 +53,7 @@ public class Version {
                 .setProduct(Product.PRODUCT_CLIENT)
                 .addProductFlags(ProductFlags.PRODUCT_FLAG_NONE)
                 .setPlatform(Version.platform())
-                .setVersion(112800721)
+                .setVersion(115100382)
                 .build();
     }
 }
