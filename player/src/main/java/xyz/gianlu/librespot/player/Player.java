@@ -24,6 +24,7 @@ import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
+import xyz.gianlu.librespot.player.metadata.MetadataPipe;
 import xyz.gianlu.librespot.player.metrics.NewPlaybackIdEvent;
 import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
@@ -36,10 +37,7 @@ import xyz.gianlu.librespot.player.state.DeviceStateHandler.PlayCommandHelper;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -937,55 +935,6 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
         }
     }
 
-    private static class MetadataPipe {
-        private static final String TYPE_SSNC = "73736e63";
-        private static final String TYPE_CORE = "636f7265";
-        private static final String CODE_ASAR = "61736172";
-        private static final String CODE_ASAL = "6173616c";
-        private static final String CODE_MINM = "6d696e6d";
-        private static final String CODE_PVOL = "70766f6c";
-        private static final String CODE_PRGR = "70726772";
-        private static final String CODE_PICT = "50494354";
-        private final File file;
-        private FileOutputStream out;
-
-        MetadataPipe(@NotNull PlayerConfiguration conf) {
-            file = conf.metadataPipe;
-        }
-
-        void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
-            try {
-                send(type, code, payload == null ? null : payload.getBytes(StandardCharsets.UTF_8));
-            } catch (IOException ex) {
-                LOGGER.error("Failed sending metadata through pipe!", ex);
-            }
-        }
-
-        void safeSend(@NotNull String type, @NotNull String code, @Nullable byte[] payload) {
-            try {
-                send(type, code, payload);
-            } catch (IOException ex) {
-                LOGGER.error("Failed sending metadata through pipe!", ex);
-            }
-        }
-
-        private synchronized void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
-            if (file == null) return;
-            if (out == null) out = new FileOutputStream(file);
-
-            if (payload != null) {
-                out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
-                        payload.length, new String(Base64.getEncoder().encode(payload), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
-            } else {
-                out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
-            }
-        }
-
-        boolean enabled() {
-            return file != null;
-        }
-    }
-
     private class EventsDispatcher {
         private final MetadataPipe metadataPipe;
         private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
@@ -1121,7 +1070,6 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onInactiveSession(timeout));
         }
-
 
         private void panicState() {
             for (EventsListener l : new ArrayList<>(listeners))
