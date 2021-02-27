@@ -981,7 +981,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
         private void sendVolume(int value) {
             float xmlValue;
-            if (value == 0) xmlValue = 144.0f;
+            if (value == 0) xmlValue = -144.0f;
             else xmlValue = (value - Player.VOLUME_MAX) * 30.0f / (Player.VOLUME_MAX - 1);
             String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
