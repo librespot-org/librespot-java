@@ -144,15 +144,13 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payload);
             synchronized (this) {
-                deviceInfo.setVolume(cmd.getVolume());
                 if (cmd.hasCommandOptions()) {
                     putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
                             .clearLastCommandSentByDeviceId();
                 }
             }
 
-            LOGGER.trace("Update volume. {volume: {}/{}}", cmd.getVolume(), xyz.gianlu.librespot.player.Player.VOLUME_MAX);
-            notifyVolumeChange();
+            setVolume(cmd.getVolume());
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 

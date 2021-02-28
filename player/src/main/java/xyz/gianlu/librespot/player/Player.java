@@ -138,7 +138,9 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
             @Override
             public void volumeChanged() {
-                sink.setVolume(state.getVolume());
+                int vol = state.getVolume();
+                sink.setVolume(vol);
+                events.volumeChanged(vol);
             }
 
             @Override
@@ -178,8 +180,6 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
     public void setVolume(int val) {
         if (val < 0 || val > VOLUME_MAX)
             throw new IllegalArgumentException(String.valueOf(val));
-
-        events.volumeChanged(val);
 
         if (state == null) return;
         state.setVolume(val);
