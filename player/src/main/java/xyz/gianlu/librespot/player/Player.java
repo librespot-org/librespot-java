@@ -139,7 +139,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             @Override
             public void volumeChanged() {
                 int vol = state.getVolume();
-                sink.setVolume(vol);
+                if (conf.bypassSinkVolume) sink.setVolume(vol);
                 events.volumeChanged(vol);
             }
 

@@ -379,6 +379,7 @@ public final class FileConfiguration {
                 .setPreloadEnabled(config.get("preload.enabled"))
                 .setReleaseLineDelay(config.get("player.releaseLineDelay"))
                 .setVolumeSteps(config.get("player.volumeSteps"))
+                .setBypassSinkVolume(config.get("player.bypassSinkVolume"))
                 .build();
     }
 

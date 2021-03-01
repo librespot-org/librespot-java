@@ -51,7 +51,8 @@ public final class AudioSink implements Runnable, Closeable {
                 throw new IllegalArgumentException("Unknown output: " + conf.output);
         }
 
-        output.setVolume(conf.initialVolume);
+        if (conf.bypassSinkVolume) output.setVolume(Player.VOLUME_MAX);
+        else output.setVolume(conf.initialVolume);
 
         thread = new Thread(this, "player-audio-sink");
         thread.start();

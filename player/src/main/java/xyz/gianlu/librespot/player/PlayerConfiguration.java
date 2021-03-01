@@ -29,10 +29,11 @@ public final class PlayerConfiguration {
     // Volume
     public final int initialVolume;
     public final int volumeSteps;
+    public boolean bypassSinkVolume;
 
     private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
                                 AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
-                                int initialVolume, int volumeSteps) {
+                                int initialVolume, int volumeSteps, boolean bypassSinkVolume) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
         this.normalisationPregain = normalisationPregain;
@@ -47,6 +48,7 @@ public final class PlayerConfiguration {
         this.initialVolume = initialVolume;
         this.volumeSteps = volumeSteps;
         this.preloadEnabled = preloadEnabled;
+        this.bypassSinkVolume = bypassSinkVolume;
     }
 
     public final static class Builder {
@@ -69,6 +71,7 @@ public final class PlayerConfiguration {
         // Volume
         private int initialVolume = Player.VOLUME_MAX;
         private int volumeSteps = 64;
+        private boolean bypassSinkVolume = false;
 
         public Builder() {
         }
@@ -149,11 +152,16 @@ public final class PlayerConfiguration {
             return this;
         }
 
+        public Builder setBypassSinkVolume(boolean bypassSinkVolume) {
+            this.bypassSinkVolume = bypassSinkVolume;
+            return this;
+        }
+
         @Contract(value = " -> new", pure = true)
         public @NotNull PlayerConfiguration build() {
             return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
                     output, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
-                    initialVolume, volumeSteps);
+                    initialVolume, volumeSteps, bypassSinkVolume);
         }
     }
 }
