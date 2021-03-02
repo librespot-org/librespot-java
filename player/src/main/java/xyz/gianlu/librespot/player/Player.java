@@ -80,6 +80,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
         state.addListener(deviceStateListener = new DeviceStateHandler.Listener() {
             @Override
             public void ready() {
+                events.volumeChanged(state.getVolume());
             }
 
             @Override
@@ -139,7 +140,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             @Override
             public void volumeChanged() {
                 int vol = state.getVolume();
-                if (conf.bypassSinkVolume) sink.setVolume(vol);
+                if (!conf.bypassSinkVolume) sink.setVolume(vol);
                 events.volumeChanged(vol);
             }
 
