@@ -988,6 +988,10 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
         }
 
+        private void sendPipeFlush() {
+            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_PFLS);
+        }
+
         void playbackEnded() {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(l::onPlaybackEnded);
@@ -997,12 +1001,15 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackPaused(trackTime));
+
+            if (metadataPipe.enabled()) executorService.execute(this::sendPipeFlush);
         }
 
         void playbackResumed() {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackResumed(trackTime));
+
             if (metadataPipe.enabled()) {
                 executorService.execute(() -> {
                     sendTrackInfo();
@@ -1027,13 +1034,20 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             TrackOrEpisode metadata = currentMetadata();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackChanged(id, metadata));
+
+            if (metadataPipe.enabled()) executorService.execute(this::sendPipeFlush);
         }
 
         void seeked(int pos) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackSeeked(pos));
 
-            if (metadataPipe.enabled()) executorService.execute(this::sendProgress);
+            if (metadataPipe.enabled()) {
+                executorService.execute(() -> {
+                    sendPipeFlush();
+                    sendProgress();
+                });
+            }
         }
 
         void volumeChanged(@Range(from = 0, to = Player.VOLUME_MAX) int value) {

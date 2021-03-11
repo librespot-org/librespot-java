@@ -26,6 +26,7 @@ public final class MetadataPipe {
     public static final String CODE_PVOL = "70766f6c";
     public static final String CODE_PRGR = "70726772";
     public static final String CODE_PICT = "50494354";
+    public static final String CODE_PFLS = "70666C73";
     private static final Logger LOGGER = LogManager.getLogger(MetadataPipe.class);
     private final File file;
     private FileOutputStream out;
@@ -34,15 +35,12 @@ public final class MetadataPipe {
         file = conf.metadataPipe;
     }
 
-    public void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
-        if (!enabled())
-            return;
+    public void safeSend(@NotNull String type, @NotNull String code) {
+        safeSend(type, code, (String) null);
+    }
 
-        try {
-            send(type, code, payload == null ? null : payload.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException ex) {
-            LOGGER.error("Failed sending metadata through pipe!", ex);
-        }
+    public void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
+        safeSend(type, code, payload == null ? null : payload.getBytes(StandardCharsets.UTF_8));
     }
 
     public void safeSend(@NotNull String type, @NotNull String code, @Nullable byte[] payload) {
@@ -60,7 +58,7 @@ public final class MetadataPipe {
         if (file == null) return;
         if (out == null) out = new FileOutputStream(file);
 
-        if (payload != null) {
+        if (payload != null && payload.length > 0) {
             out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
                     payload.length, new String(Base64.getEncoder().encode(payload), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
         } else {
