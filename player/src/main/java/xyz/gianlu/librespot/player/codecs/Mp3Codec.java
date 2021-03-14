@@ -17,7 +17,7 @@ import java.nio.ByteOrder;
 /**
  * @author Gianlu
  */
-public class Mp3Codec extends Codec {
+public final class Mp3Codec extends Codec {
     private final byte[] buffer = new byte[2 * BUFFER_SIZE];
     private final Mp3InputStream in;
 

@@ -22,7 +22,7 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public class VorbisCodec extends Codec {
+public final class VorbisCodec extends Codec {
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private final StreamState joggStreamState = new StreamState();
     private final DspState jorbisDspState = new DspState();

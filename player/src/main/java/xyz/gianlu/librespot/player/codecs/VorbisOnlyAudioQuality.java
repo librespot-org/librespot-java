@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public class VorbisOnlyAudioQuality implements AudioQualityPicker {
+public final class VorbisOnlyAudioQuality implements AudioQualityPicker {
     private static final Logger LOGGER = LogManager.getLogger(VorbisOnlyAudioQuality.class);
     private final AudioQuality preferred;
 
