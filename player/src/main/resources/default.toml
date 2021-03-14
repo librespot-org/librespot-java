@@ -58,3 +58,18 @@ port = 0 # The proxy port
 auth = false # Whether authentication is enabled on the server
 username = "" # Basic auth username
 password = "" # Basic auth password
+
+[shell] ### Shell ###
+enabled = false # Shell events enabled
+onContextChanged = ""
+onTrackChanged = ""
+onPlaybackEnded = ""
+onPlaybackPaused = ""
+onPlaybackResumed = ""
+onTrackSeeked = ""
+onMetadataAvailable = ""
+onVolumeChanged = ""
+onInactiveSession = ""
+onPanicState = ""
+onConnectionDropped = ""
+onConnectionEstablished = ""

@@ -24,7 +24,7 @@ import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
-import xyz.gianlu.librespot.player.metadata.MetadataPipe;
+import xyz.gianlu.librespot.player.events.EventsMetadataPipe;
 import xyz.gianlu.librespot.player.metrics.NewPlaybackIdEvent;
 import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
@@ -804,7 +804,6 @@ public class Player implements Closeable {
         }
 
         state.close();
-        events.listeners.clear();
 
         sink.close();
         if (state != null && deviceStateListener != null)
@@ -925,7 +924,7 @@ public class Player implements Closeable {
         private final List<EventsListener> listeners = new ArrayList<>();
 
         EventsDispatcher(@NotNull PlayerConfiguration conf) {
-            if (conf.metadataPipe != null) listeners.add(new MetadataPipe(conf.metadataPipe));
+            if (conf.metadataPipe != null) listeners.add(new EventsMetadataPipe(conf.metadataPipe));
         }
 
         void playbackEnded() {
@@ -1000,6 +999,16 @@ public class Player implements Closeable {
 
         public void close() {
             executorService.shutdown();
+
+            for (EventsListener l : listeners) {
+                if (l instanceof Closeable) {
+                    try {
+                        ((Closeable) l).close();
+                    } catch (IOException ignored) {
+                    }
+                }
+            }
+
             listeners.clear();
         }
     }

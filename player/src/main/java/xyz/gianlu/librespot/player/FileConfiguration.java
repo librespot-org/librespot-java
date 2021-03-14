@@ -22,6 +22,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.events.EventsShell;
 
 import java.io.File;
 import java.io.FileReader;
@@ -33,7 +34,7 @@ import java.util.*;
 import java.util.function.Supplier;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
 public final class FileConfiguration {
     private static final Logger LOGGER = LogManager.getLogger(FileConfiguration.class);
@@ -297,6 +298,24 @@ public final class FileConfiguration {
         return config.get("api.host");
     }
 
+    public @NotNull EventsShell.Configuration toEventsShell() {
+        return new EventsShell.Configuration.Builder()
+                .setEnabled(config.get("shell.enabled"))
+                .setOnContextChanged(config.get("shell.onContextChanged"))
+                .setOnTrackChanged(config.get("shell.onTrackChanged"))
+                .setOnPlaybackEnded(config.get("shell.onPlaybackEnded"))
+                .setOnPlaybackPaused(config.get("shell.onPlaybackPaused"))
+                .setOnPlaybackResumed(config.get("shell.onPlaybackResumed"))
+                .setOnTrackSeeked(config.get("shell.onTrackSeeked"))
+                .setOnMetadataAvailable(config.get("shell.onMetadataAvailable"))
+                .setOnVolumeChanged(config.get("shell.onVolumeChanged"))
+                .setOnInactiveSession(config.get("shell.onInactiveSession"))
+                .setOnPanicState(config.get("shell.onPanicState"))
+                .setOnConnectionDropped(config.get("shell.onConnectionDropped"))
+                .setOnConnectionEstablished(config.get("shell.onConnectionEstablished"))
+                .build();
+    }
+
     @NotNull
     public ZeroconfServer.Builder initZeroconfBuilder() {
         ZeroconfServer.Builder builder = new ZeroconfServer.Builder(toSession())
@@ -373,7 +392,7 @@ public final class FileConfiguration {
                 .setMetadataPipe(metadataPipe())
                 .setMixerSearchKeywords(getStringArray("player.mixerSearchKeywords", ';'))
                 .setNormalisationPregain(normalisationPregain())
-                .setOutput(config.getEnum("player.output", AudioOutput.class))
+                .setOutput(config.getEnum("player.output", PlayerConfiguration.AudioOutput.class))
                 .setOutputPipe(outputPipe())
                 .setPreferredQuality(preferredQuality())
                 .setPreloadEnabled(config.get("preload.enabled"))

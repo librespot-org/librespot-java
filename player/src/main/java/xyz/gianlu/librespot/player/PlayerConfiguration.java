@@ -29,7 +29,7 @@ public final class PlayerConfiguration {
     // Volume
     public final int initialVolume;
     public final int volumeSteps;
-    public boolean bypassSinkVolume;
+    public final boolean bypassSinkVolume;
 
     private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
                                 AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
@@ -49,6 +49,10 @@ public final class PlayerConfiguration {
         this.volumeSteps = volumeSteps;
         this.preloadEnabled = preloadEnabled;
         this.bypassSinkVolume = bypassSinkVolume;
+    }
+
+    public enum AudioOutput {
+        MIXER, PIPE, STDOUT
     }
 
     public final static class Builder {

@@ -7,6 +7,7 @@ import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.player.events.EventsShell;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -22,6 +23,11 @@ public class Main {
         Thread.setDefaultUncaughtExceptionHandler(new Log4JUncaughtExceptionHandler());
 
         if (conf.authStrategy() == FileConfiguration.AuthStrategy.ZEROCONF) {
+            EventsShell eventsShell;
+            EventsShell.Configuration eventsShellConf = conf.toEventsShell();
+            if (eventsShellConf.enabled) eventsShell = new EventsShell(eventsShellConf);
+            else eventsShell = null;
+
             ZeroconfServer server = conf.initZeroconfBuilder().create();
             server.addSessionListener(new ZeroconfServer.SessionListener() {
                 Player lastPlayer = null;
@@ -40,6 +46,11 @@ public class Main {
                 @Override
                 public void sessionChanged(@NotNull Session session) {
                     lastPlayer = new Player(conf.toPlayer(), session);
+
+                    if (eventsShell != null) {
+                        session.addReconnectionListener(eventsShell);
+                        lastPlayer.addEventsListener(eventsShell);
+                    }
                 }
             });
 
@@ -61,6 +72,13 @@ public class Main {
                 } catch (IOException ignored) {
                 }
             }));
+
+            EventsShell.Configuration eventsShellConf = conf.toEventsShell();
+            if (eventsShellConf.enabled) {
+                EventsShell eventsShell = new EventsShell(eventsShellConf);
+                session.addReconnectionListener(eventsShell);
+                player.addEventsListener(eventsShell);
+            }
         }
     }
 }
