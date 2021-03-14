@@ -44,7 +44,7 @@ import java.util.concurrent.*;
 /**
  * @author Gianlu
  */
-public class Player implements Closeable, PlayerSession.Listener, AudioSink.Listener {
+public class Player implements Closeable {
     public static final int VOLUME_MAX = 65536;
     private static final Logger LOGGER = LogManager.getLogger(Player.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory((r) -> "release-line-scheduler-" + r.hashCode()));
@@ -62,7 +62,14 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
         this.conf = conf;
         this.session = session;
         this.events = new EventsDispatcher(conf);
-        this.sink = new AudioSink(conf, this);
+        this.sink = new AudioSink(conf, ex -> {
+            if (ex instanceof LineHelper.MixerException || ex instanceof LineUnavailableException)
+                LOGGER.fatal("An error with the mixer occurred. This is likely a configuration issue, please consult the project repository.", ex);
+            else
+                LOGGER.fatal("Sink error!", ex);
+
+            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+        });
 
         initState();
     }
@@ -315,7 +322,118 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             playerSession = null;
         }
 
-        playerSession = new PlayerSession(session, sink, conf, sessionId, this);
+        playerSession = new PlayerSession(session, sink, conf, sessionId, new PlayerSession.Listener() {
+            @Override
+            public void startedLoading() {
+                if (!state.isPaused()) {
+                    state.setBuffering(true);
+                    state.updated();
+                }
+            }
+
+            @Override
+            public void finishedLoading(@NotNull TrackOrEpisode metadata) {
+                state.enrichWithMetadata(metadata);
+                state.setBuffering(false);
+                state.updated();
+
+                events.metadataAvailable();
+            }
+
+            @Override
+            public void loadingError(@NotNull Exception ex) {
+                if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
+                    LOGGER.error("Can't load track (content restricted).", ex);
+                } else {
+                    LOGGER.fatal("Failed loading track.", ex);
+                    panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+                }
+            }
+
+            @Override
+            public void playbackError(@NotNull Exception ex) {
+                if (ex instanceof AbsChunkedInputStream.ChunkException)
+                    LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
+                else
+                    LOGGER.fatal("Playback error!", ex);
+
+                panicState(PlaybackMetrics.Reason.TRACK_ERROR);
+            }
+
+            @Override
+            public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull PlaybackMetrics.Reason startedReason) {
+                if (metadata != null) state.enrichWithMetadata(metadata);
+                state.setPlaybackId(playbackId);
+                state.setPosition(pos);
+                state.updated();
+
+                events.trackChanged();
+                events.metadataAvailable();
+
+                session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
+                startMetrics(playbackId, startedReason, pos);
+            }
+
+            @Override
+            public void trackPlayed(@NotNull String playbackId, @NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int when) {
+                endMetrics(playbackId, endReason, playerMetrics, when);
+                events.playbackEnded();
+            }
+
+            @Override
+            public void playbackHalted(int chunk) {
+                LOGGER.debug("Playback halted on retrieving chunk {}.", chunk);
+                state.setBuffering(true);
+                state.updated();
+
+                events.playbackHaltStateChanged(true);
+            }
+
+            @Override
+            public void playbackResumedFromHalt(int chunk, long diff) {
+                LOGGER.debug("Playback resumed, chunk {} retrieved, took {}ms.", chunk, diff);
+                state.setPosition(state.getPosition() - diff);
+                state.setBuffering(false);
+                state.updated();
+
+                events.playbackHaltStateChanged(false);
+            }
+
+            @Override
+            public @NotNull PlayableId currentPlayable() {
+                return state.getCurrentPlayableOrThrow();
+            }
+
+            @Override
+            public @Nullable PlayableId nextPlayable() {
+                NextPlayable next = state.nextPlayable(conf.autoplayEnabled);
+                if (next == NextPlayable.AUTOPLAY) {
+                    loadAutoplay();
+                    return null;
+                }
+
+                if (next.isOk()) {
+                    if (next != NextPlayable.OK_PLAY && next != NextPlayable.OK_REPEAT)
+                        sink.pause(false);
+
+                    return state.getCurrentPlayableOrThrow();
+                } else {
+                    LOGGER.fatal("Failed loading next song: " + next);
+                    panicState(PlaybackMetrics.Reason.END_PLAY);
+                    return null;
+                }
+            }
+
+            @Override
+            public @Nullable PlayableId nextPlayableDoNotSet() {
+                return state.nextPlayableDoNotSet();
+            }
+
+            @Override
+            public @NotNull Optional<Map<String, String>> metadataFor(@NotNull PlayableId playable) {
+                return state.metadataFor(playable);
+            }
+        });
         session.eventService().sendEvent(new NewSessionIdEvent(sessionId, state));
 
         loadTrack(play, trans);
@@ -587,100 +705,15 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
 
     // ================================ //
-    // ======== Player events ========= //
-    // ================================ //
-
-    @Override
-    public void startedLoading() {
-        if (!state.isPaused()) {
-            state.setBuffering(true);
-            state.updated();
-        }
-    }
-
-    @Override
-    public void finishedLoading(@NotNull TrackOrEpisode metadata) {
-        state.enrichWithMetadata(metadata);
-        state.setBuffering(false);
-        state.updated();
-
-        events.metadataAvailable();
-    }
-
-    @Override
-    public void sinkError(@NotNull Exception ex) {
-        if (ex instanceof LineHelper.MixerException || ex instanceof LineUnavailableException) {
-            LOGGER.fatal("An error with the mixer occurred. This is likely a configuration issue, please consult the project repository.", ex);
-        } else {
-            LOGGER.fatal("Sink error!", ex);
-        }
-
-        panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-    }
-
-    @Override
-    public void loadingError(@NotNull Exception ex) {
-        if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
-            LOGGER.error("Can't load track (content restricted).", ex);
-        } else {
-            LOGGER.fatal("Failed loading track.", ex);
-            panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-        }
-    }
-
-    @Override
-    public void playbackError(@NotNull Exception ex) {
-        if (ex instanceof AbsChunkedInputStream.ChunkException)
-            LOGGER.fatal("Failed retrieving chunk, playback failed!", ex);
-        else
-            LOGGER.fatal("Playback error!", ex);
-
-        panicState(PlaybackMetrics.Reason.TRACK_ERROR);
-    }
-
-    @Override
-    public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull PlaybackMetrics.Reason startedReason) {
-        if (metadata != null) state.enrichWithMetadata(metadata);
-        state.setPlaybackId(playbackId);
-        state.setPosition(pos);
-        state.updated();
-
-        events.trackChanged();
-        events.metadataAvailable();
-
-        session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
-        startMetrics(playbackId, startedReason, pos);
-    }
-
-    @Override
-    public void trackPlayed(@NotNull String playbackId, @NotNull PlaybackMetrics.Reason endReason, @NotNull PlayerMetrics playerMetrics, int when) {
-        endMetrics(playbackId, endReason, playerMetrics, when);
-        events.playbackEnded();
-    }
-
-    @Override
-    public void playbackHalted(int chunk) {
-        LOGGER.debug("Playback halted on retrieving chunk {}.", chunk);
-        state.setBuffering(true);
-        state.updated();
-
-        events.playbackHaltStateChanged(true);
-    }
-
-    @Override
-    public void playbackResumedFromHalt(int chunk, long diff) {
-        LOGGER.debug("Playback resumed, chunk {} retrieved, took {}ms.", chunk, diff);
-        state.setPosition(state.getPosition() - diff);
-        state.setBuffering(false);
-        state.updated();
-
-        events.playbackHaltStateChanged(false);
-    }
-
-
-    // ================================ //
     // =========== Getters ============ //
     // ================================ //
+
+    /**
+     * @return The current {@link PlayableId} or {@code null}
+     */
+    public @Nullable PlayableId currentPlayable() {
+        return state.getCurrentPlayable();
+    }
 
     /**
      * @return Whether the player is active
@@ -745,55 +778,6 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             else
                 throw new IOException(String.format("Bad response code. {id: %s, code: %d}", image.hexId(), resp.code()));
         }
-    }
-
-    /**
-     * @return The current content in the state
-     * @throws IllegalStateException If there is no current content set
-     */
-    @Override
-    public @NotNull PlayableId currentPlayable() {
-        return state.getCurrentPlayableOrThrow();
-    }
-
-    /**
-     * MUST not be called manually. This is used internally by {@link PlayerSession}.
-     */
-    @Override
-    public @Nullable PlayableId nextPlayable() {
-        NextPlayable next = state.nextPlayable(conf.autoplayEnabled);
-        if (next == NextPlayable.AUTOPLAY) {
-            loadAutoplay();
-            return null;
-        }
-
-        if (next.isOk()) {
-            if (next != NextPlayable.OK_PLAY && next != NextPlayable.OK_REPEAT)
-                sink.pause(false);
-
-            return state.getCurrentPlayableOrThrow();
-        } else {
-            LOGGER.fatal("Failed loading next song: " + next);
-            panicState(PlaybackMetrics.Reason.END_PLAY);
-            return null;
-        }
-    }
-
-    /**
-     * @return The next content that will be played.
-     */
-    @Override
-    public @Nullable PlayableId nextPlayableDoNotSet() {
-        return state.nextPlayableDoNotSet();
-    }
-
-    /**
-     * @param playable The content
-     * @return A map containing the metadata associated with this content
-     */
-    @Override
-    public @NotNull Optional<Map<String, String>> metadataFor(@NotNull PlayableId playable) {
-        return state.metadataFor(playable);
     }
 
     /**
@@ -864,7 +848,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
         public final ContextTrack current;
         public final List<ContextTrack> next;
 
-        public Tracks(@NotNull List<ContextTrack> previous, @Nullable ContextTrack current, @NotNull List<ContextTrack> next) {
+        Tracks(@NotNull List<ContextTrack> previous, @Nullable ContextTrack current, @NotNull List<ContextTrack> next) {
             this.previous = previous;
             this.current = current;
             this.next = next;

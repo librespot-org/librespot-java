@@ -72,12 +72,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
     }
 
     private static void current(HttpServerExchange exchange, @NotNull Player player) {
-        PlayableId id;
-        try {
-            id = player.currentPlayable();
-        } catch (IllegalStateException ex) {
-            id = null;
-        }
+        PlayableId id = player.currentPlayable();
 
         JsonObject obj = new JsonObject();
         if (id != null) obj.addProperty("current", id.toSpotifyUri());
@@ -100,7 +95,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
             }
 
             obj.add("episode", ProtobufToJson.convert(metadata.episode));
-        } else {
+        } else if (id != null) {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;
         }

@@ -36,7 +36,6 @@ import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.dealer.ApiClient;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.SubListener;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -57,7 +56,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author Gianlu
  */
-public final class Session implements Closeable, SubListener, DealerClient.MessageListener {
+public final class Session implements Closeable {
     private static final Logger LOGGER = LogManager.getLogger(Session.class);
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
@@ -339,8 +338,31 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         dealer.connect();
 
         LOGGER.info("Authenticated as {}!", apWelcome.getCanonicalUsername());
-        mercury().interestedIn("spotify:user:attributes:update", this);
-        dealer().addMessageListener(this, "hm://connect-state/v1/connect/logout");
+        mercury().interestedIn(resp -> {
+            if (resp.uri.equals("spotify:user:attributes:update")) {
+                UserAttributesUpdate attributesUpdate;
+                try {
+                    attributesUpdate = UserAttributesUpdate.parseFrom(resp.payload.stream());
+                } catch (IOException ex) {
+                    LOGGER.warn("Failed parsing user attributes update.", ex);
+                    return;
+                }
+
+                for (ExplicitContentPubsub.KeyValuePair pair : attributesUpdate.getPairsList()) {
+                    userAttributes.put(pair.getKey(), pair.getValue());
+                    LOGGER.trace("Updated user attribute: {} -> {}", pair.getKey(), pair.getValue());
+                }
+            }
+        }, "spotify:user:attributes:update");
+        dealer().addMessageListener((uri, headers, payload) -> {
+            if (uri.equals("hm://connect-state/v1/connect/logout")) {
+                try {
+                    close();
+                } catch (IOException ex) {
+                    LOGGER.error("Failed closing session due to logout.", ex);
+                }
+            }
+        }, "hm://connect-state/v1/connect/logout");
     }
 
     /**
@@ -731,35 +753,6 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
         return userAttributes.getOrDefault(key, fallback);
     }
 
-    @Override
-    public void event(@NotNull MercuryClient.Response resp) {
-        if (resp.uri.equals("spotify:user:attributes:update")) {
-            UserAttributesUpdate attributesUpdate;
-            try {
-                attributesUpdate = UserAttributesUpdate.parseFrom(resp.payload.stream());
-            } catch (IOException ex) {
-                LOGGER.warn("Failed parsing user attributes update.", ex);
-                return;
-            }
-
-            for (ExplicitContentPubsub.KeyValuePair pair : attributesUpdate.getPairsList()) {
-                userAttributes.put(pair.getKey(), pair.getValue());
-                LOGGER.trace("Updated user attribute: {} -> {}", pair.getKey(), pair.getValue());
-            }
-        }
-    }
-
-    @Override
-    public void onMessage(@NotNull String uri, @NotNull Map<String, String> headers, @NotNull byte[] payload) {
-        if (uri.equals("hm://connect-state/v1/connect/logout")) {
-            try {
-                close();
-            } catch (IOException ex) {
-                LOGGER.error("Failed closing session due to logout.", ex);
-            }
-        }
-    }
-
     public interface ReconnectionListener {
         void onConnectionDropped();
 
@@ -800,7 +793,7 @@ public final class Session implements Closeable, SubListener, DealerClient.Messa
             this.conf = conf;
         }
 
-        public AbsBuilder() {
+        protected AbsBuilder() {
             this(new Configuration.Builder().build());
         }
 
