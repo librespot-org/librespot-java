@@ -6,6 +6,7 @@ import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
+import xyz.gianlu.librespot.player.events.EventsShell;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -17,7 +18,8 @@ public class PlayerWrapper extends SessionWrapper {
     private final PlayerConfiguration conf;
     private Listener listener = null;
 
-    private PlayerWrapper(@NotNull PlayerConfiguration conf) {
+    private PlayerWrapper(@NotNull PlayerConfiguration conf, @NotNull EventsShell.Configuration shellConf) {
+        super(shellConf);
         this.conf = conf;
     }
 
@@ -29,8 +31,8 @@ public class PlayerWrapper extends SessionWrapper {
      * @return A wrapper that holds a changing session-player tuple
      */
     @NotNull
-    public static PlayerWrapper fromZeroconf(@NotNull ZeroconfServer server, @NotNull PlayerConfiguration conf) {
-        PlayerWrapper wrapper = new PlayerWrapper(conf);
+    public static PlayerWrapper fromZeroconf(@NotNull ZeroconfServer server, @NotNull PlayerConfiguration conf, @NotNull EventsShell.Configuration shellConf) {
+        PlayerWrapper wrapper = new PlayerWrapper(conf, shellConf);
         server.addSessionListener(new ZeroconfServer.SessionListener() {
             @Override
             public void sessionClosing(@NotNull Session session) {
@@ -54,8 +56,8 @@ public class PlayerWrapper extends SessionWrapper {
      * @return A wrapper that holds a never-changing session-player tuple
      */
     @NotNull
-    public static PlayerWrapper fromSession(@NotNull Session session, @NotNull PlayerConfiguration conf) {
-        PlayerWrapper wrapper = new PlayerWrapper(conf);
+    public static PlayerWrapper fromSession(@NotNull Session session, @NotNull PlayerConfiguration conf, @NotNull EventsShell.Configuration shellConf) {
+        PlayerWrapper wrapper = new PlayerWrapper(conf, shellConf);
         wrapper.sessionRef.set(session);
         wrapper.playerRef.set(new Player(conf, session));
         return wrapper;
@@ -76,6 +78,7 @@ public class PlayerWrapper extends SessionWrapper {
         Player player = new Player(conf, session);
         playerRef.set(player);
 
+        if (eventsShell != null) player.addEventsListener(eventsShell);
         if (listener != null) listener.onNewPlayer(player);
     }
 

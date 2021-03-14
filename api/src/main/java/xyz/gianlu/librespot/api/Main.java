@@ -32,9 +32,9 @@ public class Main {
     private static void withPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         PlayerWrapper wrapper;
         if (conf.authStrategy() == AuthStrategy.ZEROCONF)
-            wrapper = PlayerWrapper.fromZeroconf(conf.initZeroconfBuilder().create(), conf.toPlayer());
+            wrapper = PlayerWrapper.fromZeroconf(conf.initZeroconfBuilder().create(), conf.toPlayer(), conf.toEventsShell());
         else
-            wrapper = PlayerWrapper.fromSession(conf.initSessionBuilder().create(), conf.toPlayer());
+            wrapper = PlayerWrapper.fromSession(conf.initSessionBuilder().create(), conf.toPlayer(), conf.toEventsShell());
 
         PlayerApiServer server = new PlayerApiServer(port, host, wrapper);
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
@@ -44,9 +44,9 @@ public class Main {
     private static void withoutPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         SessionWrapper wrapper;
         if (conf.authStrategy() == AuthStrategy.ZEROCONF)
-            wrapper = SessionWrapper.fromZeroconf(conf.initZeroconfBuilder().create());
+            wrapper = SessionWrapper.fromZeroconf(conf.initZeroconfBuilder().create(), conf.toEventsShell());
         else
-            wrapper = SessionWrapper.fromSession(conf.initSessionBuilder().create());
+            wrapper = SessionWrapper.fromSession(conf.initSessionBuilder().create(), conf.toEventsShell());
 
         ApiServer server = new ApiServer(port, host, wrapper);
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));

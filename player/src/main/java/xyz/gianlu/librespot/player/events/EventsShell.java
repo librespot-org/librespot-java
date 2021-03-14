@@ -26,11 +26,15 @@ public final class EventsShell implements Player.EventsListener, Session.@NotNul
     }
 
     private void exec(String command) {
+        if (!this.conf.enabled)
+            return;
+
         if (command == null || command.trim().isEmpty())
             return;
 
         try {
-            runtime.exec(command.trim()).waitFor();
+            int exitCode = runtime.exec(command.trim()).waitFor();
+            LOGGER.trace("Executed shell command: {} -> {}", command, exitCode);
         } catch (IOException | InterruptedException ex) {
             LOGGER.error("Failed executing command: {}", command, ex);
         }
