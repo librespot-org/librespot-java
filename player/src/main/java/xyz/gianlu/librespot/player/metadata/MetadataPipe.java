@@ -4,7 +4,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
+import org.jetbrains.annotations.Range;
+import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.player.Player;
+import xyz.gianlu.librespot.player.TrackOrEpisode;
+import xyz.gianlu.librespot.player.mixing.AudioSink;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,36 +21,33 @@ import java.util.Base64;
  *
  * @author devgianlu
  */
-public final class MetadataPipe {
-    public static final String TYPE_SSNC = "73736e63";
-    public static final String TYPE_CORE = "636f7265";
-    public static final String CODE_ASAR = "61736172";
-    public static final String CODE_ASAL = "6173616c";
-    public static final String CODE_MINM = "6d696e6d";
-    public static final String CODE_PVOL = "70766f6c";
-    public static final String CODE_PRGR = "70726772";
-    public static final String CODE_PICT = "50494354";
-    public static final String CODE_PFLS = "70666C73";
+public final class MetadataPipe implements Player.EventsListener {
+    private static final String TYPE_SSNC = "73736e63";
+    private static final String TYPE_CORE = "636f7265";
+    private static final String CODE_ASAR = "61736172";
+    private static final String CODE_ASAL = "6173616c";
+    private static final String CODE_MINM = "6d696e6d";
+    private static final String CODE_PVOL = "70766f6c";
+    private static final String CODE_PRGR = "70726772";
+    private static final String CODE_PICT = "50494354";
+    private static final String CODE_PFLS = "70666C73";
     private static final Logger LOGGER = LogManager.getLogger(MetadataPipe.class);
     private final File file;
     private FileOutputStream out;
 
-    public MetadataPipe(@NotNull PlayerConfiguration conf) {
-        file = conf.metadataPipe;
+    public MetadataPipe(@NotNull File file) {
+        this.file = file;
     }
 
-    public void safeSend(@NotNull String type, @NotNull String code) {
+    private void safeSend(@NotNull String type, @NotNull String code) {
         safeSend(type, code, (String) null);
     }
 
-    public void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
+    private void safeSend(@NotNull String type, @NotNull String code, @Nullable String payload) {
         safeSend(type, code, payload == null ? null : payload.getBytes(StandardCharsets.UTF_8));
     }
 
-    public void safeSend(@NotNull String type, @NotNull String code, @Nullable byte[] payload) {
-        if (!enabled())
-            return;
-
+    private void safeSend(@NotNull String type, @NotNull String code, @Nullable byte[] payload) {
         try {
             send(type, code, payload);
         } catch (IOException ex) {
@@ -54,8 +55,24 @@ public final class MetadataPipe {
         }
     }
 
+    private void sendImage(@NotNull Player player) {
+        byte[] image;
+        try {
+            image = player.currentCoverImage();
+        } catch (IOException ex) {
+            LOGGER.warn("Failed downloading image.", ex);
+            return;
+        }
+
+        if (image == null) {
+            LOGGER.warn("No image found in metadata.");
+            return;
+        }
+
+        safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, image);
+    }
+
     private synchronized void send(@NotNull String type, @NotNull String code, @Nullable byte[] payload) throws IOException {
-        if (file == null) return;
         if (out == null) out = new FileOutputStream(file);
 
         if (payload != null && payload.length > 0) {
@@ -66,7 +83,88 @@ public final class MetadataPipe {
         }
     }
 
-    public boolean enabled() {
-        return file != null;
+    private void sendProgress(@NotNull Player player) {
+        TrackOrEpisode metadata = player.currentMetadata();
+        if (metadata == null) return;
+
+        String data = String.format("1/%.0f/%.0f", player.time() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1,
+                metadata.duration() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1);
+        safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
+    }
+
+    private void sendTrackInfo(@NotNull Player player) {
+        TrackOrEpisode metadata = player.currentMetadata();
+        if (metadata == null) return;
+
+        safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, metadata.getName());
+        safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, metadata.getAlbumName());
+        safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, metadata.getArtist());
+    }
+
+    private void sendVolume(int value) {
+        float xmlValue;
+        if (value == 0) xmlValue = -144.0f;
+        else xmlValue = (value - Player.VOLUME_MAX) * 30.0f / (Player.VOLUME_MAX - 1);
+        String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
+        safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
+    }
+
+    private void sendPipeFlush() {
+        safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_PFLS);
+    }
+
+    @Override
+    public void onContextChanged(@NotNull Player player, @NotNull String newUri) {
+    }
+
+    @Override
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+        sendPipeFlush();
+    }
+
+    @Override
+    public void onPlaybackEnded(@NotNull Player player) {
+    }
+
+    @Override
+    public void onPlaybackPaused(@NotNull Player player, long trackTime) {
+        sendPipeFlush();
+    }
+
+    @Override
+    public void onPlaybackResumed(@NotNull Player player, long trackTime) {
+        sendTrackInfo(player);
+        sendProgress(player);
+        sendImage(player);
+    }
+
+    @Override
+    public void onTrackSeeked(@NotNull Player player, long trackTime) {
+        sendPipeFlush();
+        sendProgress(player);
+    }
+
+    @Override
+    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
+        sendTrackInfo(player);
+        sendProgress(player);
+        sendImage(player);
+    }
+
+    @Override
+    public void onPlaybackHaltStateChanged(@NotNull Player player, boolean halted, long trackTime) {
+    }
+
+    @Override
+    public void onInactiveSession(@NotNull Player player, boolean timeout) {
+    }
+
+    @Override
+    public void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume) {
+        sendVolume((int) (volume * Player.VOLUME_MAX));
+    }
+
+    @Override
+    public void onPanicState(@NotNull Player player) {
     }
 }

@@ -833,27 +833,27 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
     }
 
     public interface EventsListener {
-        void onContextChanged(@NotNull String newUri);
+        void onContextChanged(@NotNull Player player, @NotNull String newUri);
 
-        void onTrackChanged(@NotNull PlayableId id, @Nullable TrackOrEpisode metadata);
+        void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata);
 
-        void onPlaybackEnded();
+        void onPlaybackEnded(@NotNull Player player);
 
-        void onPlaybackPaused(long trackTime);
+        void onPlaybackPaused(@NotNull Player player, long trackTime);
 
-        void onPlaybackResumed(long trackTime);
+        void onPlaybackResumed(@NotNull Player player, long trackTime);
 
-        void onTrackSeeked(long trackTime);
+        void onTrackSeeked(@NotNull Player player, long trackTime);
 
-        void onMetadataAvailable(@NotNull TrackOrEpisode metadata);
+        void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata);
 
-        void onPlaybackHaltStateChanged(boolean halted, long trackTime);
+        void onPlaybackHaltStateChanged(@NotNull Player player, boolean halted, long trackTime);
 
-        void onInactiveSession(boolean timeout);
+        void onInactiveSession(@NotNull Player player, boolean timeout);
 
-        void onVolumeChanged(@Range(from = 0, to = 1) float volume);
+        void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume);
 
-        void onPanicState();
+        void onPanicState(@NotNull Player player);
     }
 
     /**
@@ -937,86 +937,28 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
     }
 
     private class EventsDispatcher {
-        private final MetadataPipe metadataPipe;
         private final ExecutorService executorService = Executors.newSingleThreadExecutor(new NameThreadFactory((r) -> "player-events-" + r.hashCode()));
         private final List<EventsListener> listeners = new ArrayList<>();
 
         EventsDispatcher(@NotNull PlayerConfiguration conf) {
-            metadataPipe = new MetadataPipe(conf);
-        }
-
-        private void sendImage() {
-            byte[] image;
-            try {
-                image = currentCoverImage();
-            } catch (IOException ex) {
-                LOGGER.warn("Failed downloading image.", ex);
-                return;
-            }
-
-            if (image == null) {
-                LOGGER.warn("No image found in metadata.");
-                return;
-            }
-
-            metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PICT, image);
-        }
-
-        private void sendProgress() {
-            TrackOrEpisode metadata = currentMetadata();
-            if (metadata == null) return;
-
-            String data = String.format("1/%.0f/%.0f", state.getPosition() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1,
-                    metadata.duration() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1);
-            metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PRGR, data);
-        }
-
-        private void sendTrackInfo() {
-            TrackOrEpisode metadata = currentMetadata();
-            if (metadata == null) return;
-
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_MINM, metadata.getName());
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAL, metadata.getAlbumName());
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_ASAR, metadata.getArtist());
-        }
-
-        private void sendVolume(int value) {
-            float xmlValue;
-            if (value == 0) xmlValue = -144.0f;
-            else xmlValue = (value - Player.VOLUME_MAX) * 30.0f / (Player.VOLUME_MAX - 1);
-            String volData = String.format("%.2f,0.00,0.00,0.00", xmlValue);
-            metadataPipe.safeSend(MetadataPipe.TYPE_SSNC, MetadataPipe.CODE_PVOL, volData);
-        }
-
-        private void sendPipeFlush() {
-            metadataPipe.safeSend(MetadataPipe.TYPE_CORE, MetadataPipe.CODE_PFLS);
+            if (conf.metadataPipe != null) listeners.add(new MetadataPipe(conf.metadataPipe));
         }
 
         void playbackEnded() {
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(l::onPlaybackEnded);
+                executorService.execute(() -> l.onPlaybackEnded(Player.this));
         }
 
         void playbackPaused() {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onPlaybackPaused(trackTime));
-
-            if (metadataPipe.enabled()) executorService.execute(this::sendPipeFlush);
+                executorService.execute(() -> l.onPlaybackPaused(Player.this, trackTime));
         }
 
         void playbackResumed() {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onPlaybackResumed(trackTime));
-
-            if (metadataPipe.enabled()) {
-                executorService.execute(() -> {
-                    sendTrackInfo();
-                    sendProgress();
-                    sendImage();
-                });
-            }
+                executorService.execute(() -> l.onPlaybackResumed(Player.this, trackTime));
         }
 
         void contextChanged() {
@@ -1024,7 +966,7 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             if (uri == null) return;
 
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onContextChanged(uri));
+                executorService.execute(() -> l.onContextChanged(Player.this, uri));
         }
 
         void trackChanged() {
@@ -1033,30 +975,19 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
 
             TrackOrEpisode metadata = currentMetadata();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onTrackChanged(id, metadata));
-
-            if (metadataPipe.enabled()) executorService.execute(this::sendPipeFlush);
+                executorService.execute(() -> l.onTrackChanged(Player.this, id, metadata));
         }
 
         void seeked(int pos) {
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onTrackSeeked(pos));
-
-            if (metadataPipe.enabled()) {
-                executorService.execute(() -> {
-                    sendPipeFlush();
-                    sendProgress();
-                });
-            }
+                executorService.execute(() -> l.onTrackSeeked(Player.this, pos));
         }
 
         void volumeChanged(@Range(from = 0, to = Player.VOLUME_MAX) int value) {
             float volume = (float) value / Player.VOLUME_MAX;
 
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onVolumeChanged(volume));
-
-            if (metadataPipe.enabled()) executorService.execute(() -> sendVolume(value));
+                executorService.execute(() -> l.onVolumeChanged(Player.this, volume));
         }
 
         void metadataAvailable() {
@@ -1064,35 +995,28 @@ public class Player implements Closeable, PlayerSession.Listener, AudioSink.List
             if (metadata == null) return;
 
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onMetadataAvailable(metadata));
-
-            if (metadataPipe.enabled()) {
-                executorService.execute(() -> {
-                    sendTrackInfo();
-                    sendProgress();
-                    sendImage();
-                });
-            }
+                executorService.execute(() -> l.onMetadataAvailable(Player.this, metadata));
         }
 
         void playbackHaltStateChanged(boolean halted) {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onPlaybackHaltStateChanged(halted, trackTime));
+                executorService.execute(() -> l.onPlaybackHaltStateChanged(Player.this, halted, trackTime));
         }
 
         void inactiveSession(boolean timeout) {
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onInactiveSession(timeout));
+                executorService.execute(() -> l.onInactiveSession(Player.this, timeout));
         }
 
         private void panicState() {
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(l::onPanicState);
+                executorService.execute(() -> l.onPanicState(Player.this));
         }
 
         public void close() {
             executorService.shutdown();
+            listeners.clear();
         }
     }
 }

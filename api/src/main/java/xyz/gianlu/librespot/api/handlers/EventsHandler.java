@@ -30,7 +30,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onContextChanged(@NotNull String newUri) {
+    public void onContextChanged(@NotNull Player player, @NotNull String newUri) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "contextChanged");
         obj.addProperty("uri", newUri);
@@ -38,7 +38,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onTrackChanged(@NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackChanged");
         obj.addProperty("uri", id.toSpotifyUri());
@@ -51,14 +51,14 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onPlaybackEnded() {
+    public void onPlaybackEnded(@NotNull Player player) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackEnded");
         dispatch(obj);
     }
 
     @Override
-    public void onPlaybackPaused(long trackTime) {
+    public void onPlaybackPaused(@NotNull Player player, long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackPaused");
         obj.addProperty("trackTime", trackTime);
@@ -66,7 +66,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onPlaybackResumed(long trackTime) {
+    public void onPlaybackResumed(@NotNull Player player, long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackResumed");
         obj.addProperty("trackTime", trackTime);
@@ -74,7 +74,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onTrackSeeked(long trackTime) {
+    public void onTrackSeeked(@NotNull Player player, long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackSeeked");
         obj.addProperty("trackTime", trackTime);
@@ -82,7 +82,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onMetadataAvailable(@NotNull TrackOrEpisode metadata) {
+    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "metadataAvailable");
         if (metadata.track != null) obj.add("track", ProtobufToJson.convert(metadata.track));
@@ -91,7 +91,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onPlaybackHaltStateChanged(boolean halted, long trackTime) {
+    public void onPlaybackHaltStateChanged(@NotNull Player player, boolean halted, long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "playbackHaltStateChanged");
         obj.addProperty("trackTime", trackTime);
@@ -100,7 +100,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onInactiveSession(boolean timeout) {
+    public void onInactiveSession(@NotNull Player player, boolean timeout) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "inactiveSession");
         obj.addProperty("timeout", timeout);
@@ -108,7 +108,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onVolumeChanged(@Range(from = 0, to = 1) float volume) {
+    public void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "volumeChanged");
         obj.addProperty("value", volume);
@@ -116,7 +116,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onPanicState() {
+    public void onPanicState(@NotNull Player player) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "panic");
         dispatch(obj);
