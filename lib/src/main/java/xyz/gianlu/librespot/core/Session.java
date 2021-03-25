@@ -333,7 +333,6 @@ public final class Session implements Closeable {
             authLock.notifyAll();
         }
 
-        eventService.language(inner.preferredLocale);
         TimeProvider.init(this);
         dealer.connect();
 

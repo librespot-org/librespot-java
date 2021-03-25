@@ -47,17 +47,6 @@ public final class EventService implements Closeable {
         asyncWorker.submit(builder);
     }
 
-    /**
-     * Reports our language.
-     *
-     * @param lang The language (2 letters code)
-     */
-    public void language(@NotNull String lang) {
-        EventBuilder event = new EventBuilder(Type.LANGUAGE);
-        event.append(lang);
-        sendEvent(event);
-    }
-
     @Override
     public void close() {
         asyncWorker.close();
@@ -69,9 +58,7 @@ public final class EventService implements Closeable {
     }
 
     public enum Type {
-        LANGUAGE("812", "1"), FETCHED_FILE_ID("274", "3"), NEW_SESSION_ID("557", "3"),
-        NEW_PLAYBACK_ID("558", "1"), TRACK_PLAYED("372", "1"), TRACK_TRANSITION("12", "37"),
-        CDN_REQUEST("10", "20");
+        NEW_SESSION_ID("557", "3"), NEW_PLAYBACK_ID("558", "1"), TRACK_TRANSITION("12", "38");
 
         private final String id;
         private final String unknown;

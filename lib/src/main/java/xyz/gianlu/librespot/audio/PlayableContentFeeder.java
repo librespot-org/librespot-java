@@ -17,7 +17,6 @@ import xyz.gianlu.librespot.audio.format.AudioQualityPicker;
 import xyz.gianlu.librespot.audio.storage.AudioFileFetch;
 import xyz.gianlu.librespot.audio.storage.StorageFeedHelper;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.EventService;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.EpisodeId;
@@ -66,7 +65,6 @@ public final class PlayableContentFeeder {
             throw new IllegalArgumentException("Unknown content: " + id);
     }
 
-
     @NotNull
     private StorageResolveResponse resolveStorageInteractive(@NotNull ByteString fileId, boolean preload) throws IOException, MercuryClient.MercuryException {
         try (Response resp = session.api().send("GET", String.format(preload ? STORAGE_RESOLVE_INTERACTIVE_PREFETCH : STORAGE_RESOLVE_INTERACTIVE, Utils.bytesToHex(fileId)), null, null)) {
@@ -109,8 +107,6 @@ public final class PlayableContentFeeder {
     private LoadedStream loadStream(@NotNull Metadata.AudioFile file, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
         if (track == null && episode == null)
             throw new IllegalStateException();
-
-        session.eventService().sendEvent(new FetchedFileIdEvent(track != null ? PlayableId.from(track) : PlayableId.from(episode), file.getFileId()));
 
         StorageResolveResponse resp = resolveStorageInteractive(file.getFileId(), preload);
         switch (resp.getResult()) {
@@ -235,31 +231,6 @@ public final class PlayableContentFeeder {
                 return isInList(restriction.getCountriesForbidden(), countryCode);
 
             return false;
-        }
-    }
-
-    /**
-     * Event structure for fetching a file ID for some content.
-     *
-     * @author devgianlu
-     */
-    private static final class FetchedFileIdEvent implements EventService.GenericEvent {
-        private final PlayableId content;
-        private final ByteString fileId;
-
-        FetchedFileIdEvent(@NotNull PlayableId content, @NotNull ByteString fileId) {
-            this.content = content;
-            this.fileId = fileId;
-        }
-
-        @Override
-        public EventService.@NotNull EventBuilder build() {
-            EventService.EventBuilder event = new EventService.EventBuilder(EventService.Type.FETCHED_FILE_ID);
-            event.append('2').append('2');
-            event.append(Utils.bytesToHex(fileId).toLowerCase());
-            event.append(content.toSpotifyUri());
-            event.append('1').append('2').append('2');
-            return event;
         }
     }
 }

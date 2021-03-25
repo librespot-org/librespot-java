@@ -6,13 +6,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
-import xyz.gianlu.librespot.crypto.Packet;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper;
 import xyz.gianlu.librespot.player.state.DeviceStateHandler;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,7 +40,6 @@ public class PlaybackMetrics {
         this.referrerIdentifier = state.getPlayOrigin().getReferrerIdentifier();
         this.timestamp = TimeProvider.currentTimeMillis();
     }
-
 
     int firstValue() {
         if (intervals.isEmpty()) return 0;
@@ -86,22 +82,12 @@ public class PlaybackMetrics {
     }
 
     public void sendEvents(@NotNull Session session, @NotNull DeviceStateHandler device) {
-        int when = lastValue();
-
-        try {
-            session.send(Packet.Type.TrackEndedTime, ByteBuffer.allocate(5).put((byte) 1).putInt(when).array());
-        } catch (IOException ex) {
-            LOGGER.error("Failed sending TrackEndedTime packet.", ex);
-        }
-
         if (player == null || player.contentMetrics == null || device.getLastCommandSentByDeviceId() == null) {
             LOGGER.warn("Did not send event because of missing metrics: " + playbackId);
             return;
         }
 
         session.eventService().sendEvent(new TrackTransitionEvent(session.deviceId(), device.getLastCommandSentByDeviceId(), this));
-        session.eventService().sendEvent(new CdnRequestEvent(player, playbackId));
-        session.eventService().sendEvent(new TrackPlayedEvent(playbackId, id, intervals));
     }
 
     public enum Reason {
