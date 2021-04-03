@@ -10,7 +10,7 @@ All the endpoints will respond with `200` if successful or:
 - `503` If the session is reconnecting (`Retry-After` is always 10 seconds)
 
 ### Player
-- `POST /player/load` Load a track from a given URI. The request body should contain two parameters: `uri` and `play`.
+- `POST /player/load` Load a track from a given URI `uri`, can specify to start playing with `play` and to shuffle with `shuffle`.
 - `POST /player/play-pause` Toggle play/pause status. Useful when using a remote.
 - `POST /player/pause` Pause playback.
 - `POST /player/resume` Resume playback.
@@ -69,7 +69,7 @@ Use any endpoint from the [public Web API](https://developer.spotify.com/documen
 The method, body, and content type headers will pass through. Additionally, you can specify an `X-Spotify-Scope` header to override the requested scope, by default all will be requested.
 
 ## Examples
-`curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true" http://localhost:24879/player/load`
+`curl -X POST -d "uri=spotify:track:xxxxxxxxxxxxxxxxxxxxxx&play=true&shuffle=true" http://localhost:24879/player/load`
 
 `curl -X POST http://localhost:24879/metadata/track/spotify:track:xxxxxxxxxxxxxxxxxxxxxx`
 

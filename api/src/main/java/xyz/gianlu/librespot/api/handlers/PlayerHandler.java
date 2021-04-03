@@ -84,12 +84,13 @@ public final class PlayerHandler extends AbsPlayerHandler {
         }
     }
 
-    private static void load(HttpServerExchange exchange, @NotNull Player player, @Nullable String uri, boolean play) {
+    private static void load(HttpServerExchange exchange, @NotNull Player player, @Nullable String uri, boolean play, boolean shuffle) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
             return;
         }
 
+        player.setShuffle(shuffle);
         player.load(uri, play);
     }
 
@@ -210,7 +211,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
                 player.volumeDown();
                 return;
             case LOAD:
-                load(exchange, player, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"));
+                load(exchange, player, Utils.getFirstString(params, "uri"), Utils.getFirstBoolean(params, "play"), Utils.getFirstBoolean(params, "shuffle"));
                 return;
             case PLAY_PAUSE:
                 player.playPause();
