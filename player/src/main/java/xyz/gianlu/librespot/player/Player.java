@@ -193,6 +193,27 @@ public class Player implements Closeable {
         state.setVolume(val);
     }
 
+    public void setShuffle(boolean val) {
+        state.setShufflingContext(val);
+        state.updated();
+    }
+
+    public void setRepeat(boolean track, boolean context) {
+        if (track && context)
+            throw new IllegalArgumentException("Cannot repeat track and context simultaneously.");
+
+        if (track) {
+            state.setRepeatingTrack(true);
+        } else if (context) {
+            state.setRepeatingContext(true);
+        }else {
+            state.setRepeatingContext(false);
+            state.setRepeatingTrack(false);
+        }
+
+        state.updated();
+    }
+
     public void play() {
         handleResume();
     }

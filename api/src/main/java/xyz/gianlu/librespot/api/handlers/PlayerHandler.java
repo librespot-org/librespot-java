@@ -62,6 +62,28 @@ public final class PlayerHandler extends AbsPlayerHandler {
         }
     }
 
+    private static void setRepeat(HttpServerExchange exchange, @NotNull Player player, @Nullable String mode) {
+        if (mode == null) {
+            Utils.invalidParameter(exchange, "val");
+            return;
+        }
+
+        switch (mode) {
+            case "none":
+                player.setRepeat(false, false);
+                break;
+            case "context":
+                player.setRepeat(false, true);
+                break;
+            case "track":
+                player.setRepeat(true, false);
+                break;
+            default:
+                Utils.invalidParameter(exchange, "val", "Unknown mode");
+                break;
+        }
+    }
+
     private static void load(HttpServerExchange exchange, @NotNull Player player, @Nullable String uri, boolean play) {
         if (uri == null) {
             Utils.invalidParameter(exchange, "uri");
@@ -217,6 +239,12 @@ public final class PlayerHandler extends AbsPlayerHandler {
             case REMOVE_FROM_QUEUE:
                 removeFromQueue(exchange, player, Utils.getFirstString(params, "uri"));
                 break;
+            case SHUFFLE:
+                player.setShuffle(Utils.getFirstBoolean(params, "val"));
+                break;
+            case REPEAT:
+                setRepeat(exchange, player, Utils.getFirstString(params, "val"));
+                break;
             default:
                 throw new IllegalArgumentException(cmd.name());
         }
@@ -224,8 +252,8 @@ public final class PlayerHandler extends AbsPlayerHandler {
 
     private enum Command {
         LOAD("load"), PLAY_PAUSE("play-pause"), PAUSE("pause"), RESUME("resume"), TRACKS("tracks"),
-        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"), SEEK("seek"),
-        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"),
+        NEXT("next"), PREV("prev"), SET_VOLUME("set-volume"), SEEK("seek"), SHUFFLE("shuffle"),
+        VOLUME_UP("volume-up"), VOLUME_DOWN("volume-down"), CURRENT("current"), REPEAT("repeat"),
         ADD_TO_QUEUE("addToQueue"), REMOVE_FROM_QUEUE("removeFromQueue");
 
         private final String name;

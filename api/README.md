@@ -17,6 +17,8 @@ All the endpoints will respond with `200` if successful or:
 - `POST /player/next` Skip to next track.
 - `POST /player/prev` Skip to previous track.
 - `POST /player/seek` Seek to a given position in ms specified by `pos`.
+- `POST /player/shuffle` Set shuffle enabled or disabled accordingly to `val`.
+- `POST /player/repeat` Set repeating mode as specified by `val` (modes are `none`, `track`, `context`).
 - `POST /player/set-volume` Either set volume to a given `volume` value (from 0 to 65536), or change it by a `step` count (positive or negative).
 - `POST /player/volume-up` Up the volume a little bit.
 - `POST /player/volume-down` Lower the volume a little bit.
