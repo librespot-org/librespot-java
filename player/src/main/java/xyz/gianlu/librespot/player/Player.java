@@ -206,7 +206,7 @@ public class Player implements Closeable {
             state.setRepeatingTrack(true);
         } else if (context) {
             state.setRepeatingContext(true);
-        }else {
+        } else {
             state.setRepeatingContext(false);
             state.setRepeatingTrack(false);
         }
@@ -239,10 +239,12 @@ public class Player implements Closeable {
         handleSeek(pos);
     }
 
-    public void load(@NotNull String uri, boolean play) {
+    public void load(@NotNull String uri, boolean play, boolean shuffle) {
         try {
             String sessionId = state.loadContext(uri);
             events.contextChanged();
+
+            state.setShufflingContext(shuffle);
 
             loadSession(sessionId, play, true);
         } catch (IOException | MercuryClient.MercuryException ex) {

@@ -90,8 +90,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
             return;
         }
 
-        player.setShuffle(shuffle);
-        player.load(uri, play);
+        player.load(uri, play, shuffle);
     }
 
     private static void current(HttpServerExchange exchange, @NotNull Player player) {
