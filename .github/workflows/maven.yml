@@ -39,14 +39,16 @@ jobs:
       - name: Build with Maven
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
-      - name: Deploy with Maven
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: |
-          mvn deploy --settings .maven.xml -B -U -Possrh
-          mvn deploy --settings .maven.xml -B -U -Pgithub
+      - name: Deploy with Maven to OSSRH
+        run: mvn deploy --settings .maven.xml -B -U -Possrh
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      - name: Deploy with Maven to GitHub packages
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: mvn deploy --settings .maven.xml -B -U -Pgithub
+        env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create release
