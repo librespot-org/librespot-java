@@ -22,8 +22,8 @@ jobs:
           distribution: 'adopt'
       - name: Import GPG secrets
         run: |
-          echo $GPG_SECRET_KEYS | base64 --decode | gpg --import
-          echo $GPG_OWNERTRUST | base64 --decode | gpg --import-ownertrust
+          echo $GPG_SECRET_KEYS | base64 --decode | gpg --import --pinentry-mode loopback
+          echo $GPG_OWNERTRUST | base64 --decode | gpg --import-ownertrust --pinentry-mode loopback
         env:
           GPG_SECRET_KEYS: ${{ secrets.GPG_SECRET_KEYS }}
           GPG_OWNERTRUST: ${{ secrets.GPG_OWNERTRUST }}
