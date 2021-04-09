@@ -19,6 +19,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: 1.8
+          distribution: 'adopt'
       - name: Import GPG secrets
         run: |
           echo $GPG_SECRET_KEYS | base64 --decode | gpg --import
