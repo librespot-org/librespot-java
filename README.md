@@ -32,6 +32,9 @@ The `com.spotify` package is reserved for the generated files.
 ## Logging
 The application uses Log4J for logging purposes, the configuration file is placed inside `lib/src/main/resources`, `player/src/main/resources` or `api/src/main/resources` depending on what you're working with. You can also toggle the log level with `logLevel` option in the configuration.
 
+## Snapshots
+Snapshots for all variants are available [here](https://oss.sonatype.org/content/repositories/snapshots/xyz/gianlu/librespot/).
+
 ## Related Projects
 - [librespot](https://github.com/librespot-org/librespot)
 - [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
