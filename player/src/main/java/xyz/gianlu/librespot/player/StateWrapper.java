@@ -1068,6 +1068,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             else state.getOptionsBuilder().setShufflingContext(false); // Must do this directly!
 
             setCurrentTrackIndex(0);
+            if (getCurrentPlayable() instanceof UnsupportedId) {
+                boolean repeatTrack = isRepeatingTrack();
+                if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
+                nextPlayable(false);
+                state.getOptionsBuilder().setRepeatingTrack(repeatTrack);
+            }
         }
 
         synchronized void initializeFrom(@NotNull Function<List<ContextTrack>, Integer> finder, @Nullable ContextTrack track, @Nullable QueueOuterClass.Queue contextQueue) throws IOException, MercuryClient.MercuryException, AbsSpotifyContext.UnsupportedContextException {
@@ -1111,6 +1117,13 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 if (track != null) enrichCurrentTrack(track);
             } catch (IllegalArgumentException ex) {
                 LOGGER.warn("Failed updating current track metadata.", ex);
+            }
+
+            if (getCurrentPlayable() instanceof UnsupportedId) {
+                boolean repeatTrack = isRepeatingTrack();
+                if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
+                nextPlayable(false);
+                state.getOptionsBuilder().setRepeatingTrack(repeatTrack);
             }
         }
 
