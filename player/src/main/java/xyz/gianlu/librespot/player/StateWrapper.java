@@ -1003,9 +1003,12 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         }
 
         synchronized void removeFromQueue(@NotNull String uri) {
-            ByteString gid = ByteString.copyFrom(PlayableId.fromUri(uri).getGid());
+            ByteString gid;
+            PlayableId playable = PlayableId.fromUri(uri);
+            if (playable instanceof UnsupportedId) gid = null;
+            else gid = ByteString.copyFrom(playable.getGid());
 
-            if (queue.removeIf(track -> (track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && gid.equals(track.getGid())))) {
+            if (queue.removeIf(track -> (track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && track.getGid().equals(gid)))) {
                 updateTrackCount();
                 updatePrevNextTracks();
             }
@@ -1380,10 +1383,15 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
             for (int i = 0; i < items.size(); i++) {
                 Playlist4ApiProto.Item item = items.get(i);
-                tracks.add(i + from, ContextTrack.newBuilder()
-                        .setGid(ByteString.copyFrom(PlayableId.fromUri(item.getUri()).getGid()))
-                        .setUri(item.getUri())
-                        .build());
+                PlayableId playable = PlayableId.fromUri(item.getUri());
+
+                ContextTrack.Builder builder = ContextTrack.newBuilder()
+                        .setUri(item.getUri());
+
+                if (!(playable instanceof UnsupportedId))
+                    builder.setGid(ByteString.copyFrom(playable.getGid()));
+
+                tracks.add(i + from, builder.build());
             }
 
             if (!isPlayingQueue && from <= getCurrentTrackIndex())

@@ -34,12 +34,14 @@ public interface PlayableId {
     }
 
     static int indexOfTrack(@NotNull List<ContextTrack> tracks, @NotNull PlayableId id) {
-        ByteString gid = ByteString.copyFrom(id.getGid());
-        String uri = id.toSpotifyUri();
+        ByteString gid;
+        if (id instanceof UnsupportedId) gid = null;
+        else gid = ByteString.copyFrom(id.getGid());
 
+        String uri = id.toSpotifyUri();
         for (int i = 0; i < tracks.size(); i++) {
             ContextTrack track = tracks.get(i);
-            if ((track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && gid.equals(track.getGid())))
+            if ((track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && track.getGid().equals(gid)))
                 return i;
         }
 
@@ -103,8 +105,11 @@ public interface PlayableId {
     @NotNull String toSpotifyUri();
 
     default boolean matches(@NotNull ContextTrack current) {
-        if (current.hasUri()) return toSpotifyUri().equals(current.getUri());
-        else if (current.hasGid()) return Arrays.equals(current.getGid().toByteArray(), getGid());
-        else return false;
+        if (current.hasUri())
+            return toSpotifyUri().equals(current.getUri());
+        else if (current.hasGid() && !(this instanceof UnsupportedId))
+            return Arrays.equals(current.getGid().toByteArray(), getGid());
+        else
+            return false;
     }
 }

@@ -18,6 +18,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.metadata.PlayableId;
+import xyz.gianlu.librespot.metadata.UnsupportedId;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -116,10 +117,16 @@ public final class ProtoUtils {
     @NotNull
     public static ContextTrack jsonToContextTrack(@NotNull JsonObject obj) {
         ContextTrack.Builder builder = ContextTrack.newBuilder();
-        Optional.ofNullable(Utils.optString(obj, "uri", null)).ifPresent(uri -> {
+
+        String uri = Utils.optString(obj, "uri", null);
+        if (uri != null) {
             builder.setUri(uri);
-            builder.setGid(ByteString.copyFrom(PlayableId.fromUri(uri).getGid()));
-        });
+
+            PlayableId playable = PlayableId.fromUri(uri);
+            if (!(playable instanceof UnsupportedId))
+                builder.setGid(ByteString.copyFrom(playable.getGid()));
+        }
+
         Optional.ofNullable(Utils.optString(obj, "uid", null)).ifPresent(builder::setUid);
 
         JsonObject metadata = obj.getAsJsonObject("metadata");

@@ -1,5 +1,6 @@
 package xyz.gianlu.librespot.metadata;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -13,11 +14,13 @@ public final class UnsupportedId implements PlayableId {
     }
 
     @Override
+    @Contract("-> fail")
     public @NotNull byte[] getGid() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @Contract("-> fail")
     public @NotNull String hexId() {
         throw new UnsupportedOperationException();
     }
