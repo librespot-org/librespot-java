@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.audio.storage;
 
 import com.google.protobuf.ByteString;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsReceiver;
@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ChannelManager implements Closeable, PacketsReceiver {
     public static final int CHUNK_SIZE = 128 * 1024;
-    private static final Logger LOGGER = LogManager.getLogger(ChannelManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChannelManager.class);
     private final Map<Short, Channel> channels = new HashMap<>();
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory(r -> "channel-queue-" + r.hashCode()));
@@ -167,7 +167,7 @@ public class ChannelManager implements Closeable, PacketsReceiver {
                             break;
                         }
                     } catch (IOException ex) {
-                        LOGGER.fatal("Failed handling packet!", ex);
+                        LOGGER.error("Failed handling packet!", ex);
                     } catch (InterruptedException ex) {
                         break;
                     }

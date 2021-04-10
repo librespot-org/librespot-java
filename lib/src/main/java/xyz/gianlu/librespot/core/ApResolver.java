@@ -4,9 +4,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -25,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class ApResolver {
     private static final String BASE_URL = "http://apresolve.spotify.com/";
     private static final Map<String, List<String>> pool = new HashMap<>(3);
-    private static final Logger LOGGER = LogManager.getLogger(ApResolver.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApResolver.class);
     private static volatile boolean poolReady = false;
 
     public static void fillPool() throws IOException {

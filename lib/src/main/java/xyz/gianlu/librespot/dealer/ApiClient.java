@@ -6,10 +6,10 @@ import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
 import okhttp3.*;
 import okio.BufferedSink;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -24,7 +24,7 @@ import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
  * @author Gianlu
  */
 public class ApiClient {
-    private static final Logger LOGGER = LogManager.getLogger(ApiClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiClient.class);
     private final Session session;
     private final String baseUrl;
 

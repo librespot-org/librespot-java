@@ -6,10 +6,10 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.spotify.Mercury;
 import com.spotify.Pubsub;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.common.Utils;
@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Gianlu
  */
 public final class MercuryClient implements PacketsReceiver, Closeable {
-    private static final Logger LOGGER = LogManager.getLogger(MercuryClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MercuryClient.class);
     private static final int MERCURY_REQUEST_TIMEOUT = 3000;
     private final AtomicInteger seqHolder = new AtomicInteger(1);
     private final Map<Long, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
@@ -197,7 +197,7 @@ public final class MercuryClient implements PacketsReceiver, Closeable {
         try {
             header = Mercury.Header.parseFrom(partial.get(0));
         } catch (InvalidProtocolBufferException ex) {
-            LOGGER.fatal("Couldn't parse header! {bytes: {}}", Utils.bytesToHex(partial.get(0)));
+            LOGGER.error("Couldn't parse header! {bytes: {}}", Utils.bytesToHex(partial.get(0)));
             return;
         }
 

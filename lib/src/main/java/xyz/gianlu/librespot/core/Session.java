@@ -13,10 +13,10 @@ import okhttp3.*;
 import okio.BufferedSink;
 import okio.GzipSink;
 import okio.Okio;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -57,7 +57,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Gianlu
  */
 public final class Session implements Closeable {
-    private static final Logger LOGGER = LogManager.getLogger(Session.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Session.class);
     private static final byte[] serverKey = new byte[]{
             (byte) 0xac, (byte) 0xe0, (byte) 0x46, (byte) 0x0b, (byte) 0xff, (byte) 0xc2, (byte) 0x30, (byte) 0xaf, (byte) 0xf4, (byte) 0x6b, (byte) 0xfe, (byte) 0xc3,
             (byte) 0xbf, (byte) 0xbf, (byte) 0x86, (byte) 0x3d, (byte) 0xa1, (byte) 0x91, (byte) 0xc6, (byte) 0xcc, (byte) 0x33, (byte) 0x6c, (byte) 0x93, (byte) 0xa1,
@@ -1283,7 +1283,7 @@ public final class Session implements Closeable {
                     }
                 } catch (IOException | GeneralSecurityException ex) {
                     if (running) {
-                        LOGGER.fatal("Failed reading packet!", ex);
+                        LOGGER.error("Failed reading packet!", ex);
                         reconnect();
                     }
 
@@ -1305,7 +1305,7 @@ public final class Session implements Closeable {
                         try {
                             send(Packet.Type.Pong, packet.payload);
                         } catch (IOException ex) {
-                            LOGGER.fatal("Failed sending Pong!", ex);
+                            LOGGER.error("Failed sending Pong!", ex);
                         }
                         break;
                     case PongAck:

@@ -6,9 +6,9 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.commons.net.ntp.NTPUDPClient;
 import org.apache.commons.net.ntp.TimeInfo;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class TimeProvider {
     private static final AtomicLong offset = new AtomicLong(0);
-    private static final Logger LOGGER = LogManager.getLogger(TimeProvider.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TimeProvider.class);
     private static Method method = Method.NTP;
 
     private TimeProvider() {

@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.cache;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.GeneralWritableStream;
 import xyz.gianlu.librespot.audio.StreamId;
 import xyz.gianlu.librespot.common.Utils;
@@ -28,7 +28,7 @@ import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
  */
 public class CacheManager implements Closeable {
     private static final long CLEAN_UP_THRESHOLD = TimeUnit.DAYS.toMillis(7);
-    private static final Logger LOGGER = LogManager.getLogger(CacheManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CacheManager.class);
     /**
      * The header indicating when the file was last read or written to.
      */

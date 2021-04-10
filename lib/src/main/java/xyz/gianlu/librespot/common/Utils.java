@@ -5,11 +5,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.sound.sampled.Mixer;
 import java.io.ByteArrayOutputStream;
@@ -28,7 +28,7 @@ import java.util.*;
  */
 public final class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
-    private static final Logger LOGGER = LogManager.getLogger(Utils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
     private static final String randomString = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     private Utils() {

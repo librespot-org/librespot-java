@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.core;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.RawMercuryRequest;
@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  * @author Gianlu
  */
 public final class EventService implements Closeable {
-    private final static Logger LOGGER = LogManager.getLogger(EventService.class);
+    private final static Logger LOGGER = LoggerFactory.getLogger(EventService.class);
     private final AsyncWorker<EventBuilder> asyncWorker;
 
     EventService(@NotNull Session session) {
