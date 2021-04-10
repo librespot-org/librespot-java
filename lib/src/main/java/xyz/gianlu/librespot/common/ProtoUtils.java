@@ -12,11 +12,11 @@ import com.spotify.context.ContextPageOuterClass.ContextPage;
 import com.spotify.context.ContextPlayerOptionsOuterClass;
 import com.spotify.metadata.Metadata;
 import com.spotify.playlist4.Playlist4ApiProto;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.UnsupportedId;
 
@@ -31,7 +31,7 @@ import static com.spotify.context.PlayOriginOuterClass.PlayOrigin;
  * @author Gianlu
  */
 public final class ProtoUtils {
-    private static final Logger LOGGER = LogManager.getLogger(ProtoUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProtoUtils.class);
 
     private ProtoUtils() {
     }

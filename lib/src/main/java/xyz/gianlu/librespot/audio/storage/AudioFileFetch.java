@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.audio.storage;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
 import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.Utils;
@@ -19,7 +19,7 @@ import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
 public class AudioFileFetch implements AudioFile {
     public static final byte HEADER_SIZE = 0x3;
     public static final byte HEADER_CDN = 0x4;
-    private static final Logger LOGGER = LogManager.getLogger(AudioFileFetch.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioFileFetch.class);
     private final CacheManager.Handler cache;
     private int size = -1;
     private int chunks = -1;
@@ -65,7 +65,7 @@ public class AudioFileFetch implements AudioFile {
 
     @Override
     public synchronized void streamError(int chunkIndex, short code) {
-        LOGGER.fatal("Stream error, index: {}, code: {}", chunkIndex, code);
+        LOGGER.error("Stream error, index: {}, code: {}", chunkIndex, code);
 
         exception = AbsChunkedInputStream.ChunkException.fromStreamError(code);
         notifyAll();

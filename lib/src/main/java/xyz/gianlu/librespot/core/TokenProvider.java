@@ -2,10 +2,10 @@ package xyz.gianlu.librespot.core;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
@@ -20,7 +20,7 @@ import java.util.Objects;
  * @author Gianlu
  */
 public final class TokenProvider {
-    private final static Logger LOGGER = LogManager.getLogger(TokenProvider.class);
+    private final static Logger LOGGER = LoggerFactory.getLogger(TokenProvider.class);
     private final static int TOKEN_EXPIRE_THRESHOLD = 10;
     private final Session session;
     private final List<StoredToken> tokens = new ArrayList<>();

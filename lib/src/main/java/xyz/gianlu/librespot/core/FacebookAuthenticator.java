@@ -4,9 +4,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
@@ -24,7 +24,7 @@ import java.util.Base64;
  */
 public final class FacebookAuthenticator implements Closeable {
     private static final URL LOGIN_SPOTIFY;
-    private static final Logger LOGGER = LogManager.getLogger(FacebookAuthenticator.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FacebookAuthenticator.class);
     private static final byte[] EOL = new byte[]{'\r', '\n'};
 
     static {
@@ -75,7 +75,7 @@ public final class FacebookAuthenticator implements Closeable {
     private void authData(@NotNull String json) {
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
         if (!obj.get("error").isJsonNull()) {
-            LOGGER.fatal("Error during authentication: " + obj.get("error"));
+            LOGGER.error("Error during authentication: " + obj.get("error"));
             return;
         }
 
@@ -156,7 +156,7 @@ public final class FacebookAuthenticator implements Closeable {
                     }
                 }
             } catch (IOException ex) {
-                LOGGER.fatal("Failed polling Spotify credentials URL!", ex);
+                LOGGER.error("Failed polling Spotify credentials URL!", ex);
             }
         }
     }

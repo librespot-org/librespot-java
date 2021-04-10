@@ -1,9 +1,9 @@
 package xyz.gianlu.librespot.common;
 
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.concurrent.ExecutorService;
@@ -20,7 +20,7 @@ import java.util.function.Function;
  * @param <RES> Return type of our processor implementation
  */
 public class AsyncProcessor<REQ, RES> implements Closeable {
-    private static final Logger LOGGER = LogManager.getLogger(AsyncProcessor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncProcessor.class);
     private final String name;
     private final Function<REQ, RES> processor;
     private final ExecutorService executor;

@@ -4,10 +4,10 @@ import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
 import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.*;
 import xyz.gianlu.librespot.audio.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.audio.decrypt.AudioDecrypt;
@@ -33,7 +33,7 @@ import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
  * @author Gianlu
  */
 public class CdnManager {
-    private static final Logger LOGGER = LogManager.getLogger(CdnManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CdnManager.class);
     private final Session session;
 
     public CdnManager(@NotNull Session session) {
@@ -294,7 +294,7 @@ public class CdnManager {
                         return;
                     }
                 } catch (IOException | CacheManager.BadChunkHashException ex) {
-                    LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
+                    LOGGER.error("Failed requesting chunk from cache, index: {}", index, ex);
                 }
             }
 
@@ -302,7 +302,7 @@ public class CdnManager {
                 InternalResponse resp = request(index);
                 writeChunk(resp.buffer, index, false);
             } catch (IOException | CdnException ex) {
-                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
+                LOGGER.error("Failed requesting chunk from network, index: {}", index, ex);
                 internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }

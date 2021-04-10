@@ -7,10 +7,10 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.NameThreadFactory;
@@ -30,7 +30,7 @@ import java.util.zip.GZIPInputStream;
  * @author Gianlu
  */
 public class DealerClient implements Closeable {
-    private static final Logger LOGGER = LogManager.getLogger(DealerClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DealerClient.class);
     private final AsyncWorker<Runnable> asyncWorker;
     private final Session session;
     private final Map<String, RequestListener> reqListeners = new HashMap<>();
@@ -324,7 +324,7 @@ public class DealerClient implements Closeable {
             @Override
             public void onOpen(@NotNull WebSocket ws, @NotNull Response response) {
                 if (closed || scheduler.isShutdown()) {
-                    LOGGER.fatal("I wonder what happened here... Terminating. {closed: {}}", closed);
+                    LOGGER.error("I wonder what happened here... Terminating. {closed: {}}", closed);
                     return;
                 }
 

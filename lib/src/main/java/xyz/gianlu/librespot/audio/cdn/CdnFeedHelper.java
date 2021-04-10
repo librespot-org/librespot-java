@@ -5,10 +5,10 @@ import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.HaltListener;
 import xyz.gianlu.librespot.audio.NormalizationData;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
@@ -23,7 +23,7 @@ import java.io.InputStream;
  * @author Gianlu
  */
 public final class CdnFeedHelper {
-    private static final Logger LOGGER = LogManager.getLogger(CdnFeedHelper.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CdnFeedHelper.class);
 
     private CdnFeedHelper() {
     }

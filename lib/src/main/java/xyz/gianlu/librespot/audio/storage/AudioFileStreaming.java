@@ -2,10 +2,10 @@ package xyz.gianlu.librespot.audio.storage;
 
 import com.google.protobuf.ByteString;
 import com.spotify.metadata.Metadata;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.HaltListener;
@@ -28,7 +28,7 @@ import java.util.concurrent.Executors;
  * @author Gianlu
  */
 public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
-    private static final Logger LOGGER = LogManager.getLogger(AudioFileStreaming.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
     private final Metadata.AudioFile file;
     private final byte[] key;
@@ -72,7 +72,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             try {
                 session.channel().requestChunk(fileId, index, file);
             } catch (IOException ex) {
-                LOGGER.fatal("Failed requesting chunk from network, index: {}", index, ex);
+                LOGGER.error("Failed requesting chunk from network, index: {}", index, ex);
                 chunksBuffer.internalStream.notifyChunkError(index, new AbsChunkedInputStream.ChunkException(ex));
             }
         }
@@ -84,7 +84,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
             cacheHandler.readChunk(index, this);
             return true;
         } catch (IOException | CacheManager.BadChunkHashException ex) {
-            LOGGER.fatal("Failed requesting chunk from cache, index: {}", index, ex);
+            LOGGER.error("Failed requesting chunk from cache, index: {}", index, ex);
             return false;
         }
     }
@@ -147,7 +147,7 @@ public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
 
     @Override
     public void streamError(int chunkIndex, short code) {
-        LOGGER.fatal("Stream error, index: {}, code: {}", chunkIndex, code);
+        LOGGER.error("Stream error, index: {}, code: {}", chunkIndex, code);
         chunksBuffer.internalStream.notifyChunkError(chunkIndex, AbsChunkedInputStream.ChunkException.fromStreamError(code));
     }
 

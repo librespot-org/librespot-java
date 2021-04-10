@@ -1,10 +1,10 @@
 package xyz.gianlu.librespot.audio;
 
 import com.google.protobuf.ByteString;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsReceiver;
 import xyz.gianlu.librespot.core.Session;
@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class AudioKeyManager implements PacketsReceiver {
     private static final byte[] ZERO_SHORT = new byte[]{0, 0};
-    private static final Logger LOGGER = LogManager.getLogger(AudioKeyManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioKeyManager.class);
     private static final long AUDIO_KEY_REQUEST_TIMEOUT = 2000;
     private final AtomicInteger seqHolder = new AtomicInteger(0);
     private final Map<Integer, Callback> callbacks = Collections.synchronizedMap(new HashMap<>());
@@ -109,7 +109,7 @@ public final class AudioKeyManager implements PacketsReceiver {
 
         @Override
         public void error(short code) {
-            LOGGER.fatal("Audio key error, code: {}", code);
+            LOGGER.error("Audio key error, code: {}", code);
 
             synchronized (reference) {
                 reference.set(null);

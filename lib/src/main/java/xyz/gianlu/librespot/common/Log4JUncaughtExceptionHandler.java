@@ -1,17 +1,17 @@
 package xyz.gianlu.librespot.common;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author devgianlu
  */
 public class Log4JUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
-    private static final Logger LOGGER = LogManager.getLogger(Log4JUncaughtExceptionHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Log4JUncaughtExceptionHandler.class);
 
     @Override
     public void uncaughtException(@NotNull Thread t, Throwable e) {
-        LOGGER.fatal("[{}]", t.getName(), e);
+        LOGGER.error("[{}]", t.getName(), e);
     }
 }

@@ -6,11 +6,11 @@ import com.spotify.storage.StorageResolve.StorageResolveResponse;
 import okhttp3.HttpUrl;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.cdn.CdnFeedHelper;
 import xyz.gianlu.librespot.audio.cdn.CdnManager;
 import xyz.gianlu.librespot.audio.format.AudioQualityPicker;
@@ -30,7 +30,7 @@ import java.util.List;
  * @author Gianlu
  */
 public final class PlayableContentFeeder {
-    private static final Logger LOGGER = LogManager.getLogger(PlayableContentFeeder.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlayableContentFeeder.class);
     private static final String STORAGE_RESOLVE_INTERACTIVE = "/storage-resolve/files/audio/interactive/%s";
     private static final String STORAGE_RESOLVE_INTERACTIVE_PREFETCH = "/storage-resolve/files/audio/interactive_prefetch/%s";
     protected final Session session;
@@ -84,7 +84,7 @@ public final class PlayableContentFeeder {
             String country = session.countryCode();
             if (country != null) ContentRestrictedException.checkRestrictions(country, original.getRestrictionList());
 
-            LOGGER.fatal("Couldn't find playable track: " + id.toSpotifyUri());
+            LOGGER.error("Couldn't find playable track: " + id.toSpotifyUri());
             throw new FeederException();
         }
 
@@ -134,7 +134,7 @@ public final class PlayableContentFeeder {
     private LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         Metadata.AudioFile file = audioQualityPicker.getFile(track.getFileList());
         if (file == null) {
-            LOGGER.fatal("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(track.getFileList()));
+            LOGGER.error("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(track.getFileList()));
             throw new FeederException();
         }
 
@@ -150,7 +150,7 @@ public final class PlayableContentFeeder {
         } else {
             Metadata.AudioFile file = audioQualityPicker.getFile(episode.getAudioList());
             if (file == null) {
-                LOGGER.fatal("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(episode.getAudioList()));
+                LOGGER.error("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(episode.getAudioList()));
                 throw new FeederException();
             }
 
