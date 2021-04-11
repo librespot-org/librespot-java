@@ -22,6 +22,9 @@ enabled = true # Cache enabled
 dir = "./cache/"
 doCleanUp = true
 
+[network] ### Network ###
+connectionTimeout = 10 # If ping isn't received within this amount of seconds, reconnect
+
 [preload] ### Preload ###
 enabled = true # Preload enabled
 

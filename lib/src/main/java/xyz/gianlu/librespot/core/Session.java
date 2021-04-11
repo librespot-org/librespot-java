@@ -1023,11 +1023,14 @@ public final class Session implements Closeable {
         // Fetching
         public final boolean retryOnChunkError;
 
+        // Network
+        public final int connectionTimeout;
+
         private Configuration(boolean proxyEnabled, Proxy.Type proxyType, String proxyAddress, int proxyPort, boolean proxyAuth, String proxyUsername, String proxyPassword,
                               TimeProvider.Method timeSynchronizationMethod, int timeManualCorrection,
                               boolean cacheEnabled, File cacheDir, boolean doCacheCleanUp,
                               boolean storeCredentials, File storedCredentialsFile,
-                              boolean retryOnChunkError) {
+                              boolean retryOnChunkError, int connectionTimeout) {
             this.proxyEnabled = proxyEnabled;
             this.proxyType = proxyType;
             this.proxyAddress = proxyAddress;
@@ -1043,6 +1046,7 @@ public final class Session implements Closeable {
             this.storeCredentials = storeCredentials;
             this.storedCredentialsFile = storedCredentialsFile;
             this.retryOnChunkError = retryOnChunkError;
+            this.connectionTimeout = connectionTimeout;
         }
 
         public static final class Builder {
@@ -1070,6 +1074,9 @@ public final class Session implements Closeable {
 
             // Fetching
             private boolean retryOnChunkError;
+
+            // Network
+            private int connectionTimeout;
 
             public Builder() {
             }
@@ -1149,13 +1156,18 @@ public final class Session implements Closeable {
                 return this;
             }
 
+            public Builder setConnectionTimeout(int connectionTimeout) {
+                this.connectionTimeout = connectionTimeout;
+                return this;
+            }
+
             @NotNull
             public Configuration build() {
                 return new Configuration(proxyEnabled, proxyType, proxyAddress, proxyPort, proxyAuth, proxyUsername, proxyPassword,
                         timeSynchronizationMethod, timeManualCorrection,
                         cacheEnabled, cacheDir, doCacheCleanUp,
                         storeCredentials, storedCredentialsFile,
-                        retryOnChunkError);
+                        retryOnChunkError, connectionTimeout);
             }
         }
     }
@@ -1298,7 +1310,7 @@ public final class Session implements Closeable {
                         scheduledReconnect = scheduler.schedule(() -> {
                             LOGGER.warn("Socket timed out. Reconnecting...");
                             reconnect();
-                        }, 2 * 60 + 5, TimeUnit.SECONDS);
+                        }, 2 * 60 + configuration().connectionTimeout, TimeUnit.SECONDS);
 
                         TimeProvider.updateWithPing(packet.payload);
 
