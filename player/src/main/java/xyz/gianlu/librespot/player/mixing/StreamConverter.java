@@ -1,9 +1,9 @@
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.player.mixing;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
-import javax.sound.sampled.AudioFormat;
 import java.io.OutputStream;
 
 public final class StreamConverter extends OutputStream {
@@ -12,24 +12,22 @@ public final class StreamConverter extends OutputStream {
     private final int sampleSizeTo;
     private byte[] buffer;
 
-    private StreamConverter(@NotNull AudioFormat from, @NotNull AudioFormat to) {
+    private StreamConverter(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
         monoToStereo = from.getChannels() == 1 && to.getChannels() == 2;
         sampleSizeFrom = from.getSampleSizeInBits();
         sampleSizeTo = to.getSampleSizeInBits();
     }
 
-    public static boolean canConvert(@NotNull AudioFormat from, @NotNull AudioFormat to) {
+    public static boolean canConvert(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
         if (from.isBigEndian() || to.isBigEndian()) return false;
 
         if (from.matches(to)) return true;
         if (from.getEncoding() != to.getEncoding()) return false;
         return from.getSampleRate() == to.getSampleRate();
-        // It is possible to convert the sample size
-        // It is possible to convert the number of channels
     }
 
     @NotNull
-    public static StreamConverter converter(@NotNull AudioFormat from, @NotNull AudioFormat to) {
+    public static StreamConverter converter(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
         if (!canConvert(from, to))
             throw new UnsupportedOperationException(String.format("From '%s' to '%s'", from, to));
 

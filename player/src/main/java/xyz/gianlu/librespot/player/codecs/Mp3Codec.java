@@ -6,8 +6,8 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.NormalizationData;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
+import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
-import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,7 +29,7 @@ public final class Mp3Codec extends Codec {
 
         audioIn.mark(-1);
 
-        setAudioFormat(new AudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false));
+        setAudioFormat(new OutputAudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false));
     }
 
     private static void skipMp3Tags(@NotNull InputStream in) throws IOException {

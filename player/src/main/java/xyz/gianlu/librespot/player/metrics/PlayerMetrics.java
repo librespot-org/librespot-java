@@ -6,8 +6,7 @@ import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
-
-import javax.sound.sampled.AudioFormat;
+import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 /**
  * @author devgianlu
@@ -32,7 +31,7 @@ public final class PlayerMetrics {
             decodedLength = codec.decodedLength();
             decryptTime = codec.decryptTimeMs();
 
-            AudioFormat format = codec.getAudioFormat();
+            OutputAudioFormat format = codec.getAudioFormat();
             bitrate = (int) (format.getFrameRate() * format.getFrameSize());
 
             if (codec instanceof VorbisCodec) encoding = "vorbis";

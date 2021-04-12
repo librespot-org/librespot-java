@@ -13,9 +13,8 @@ import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.NormalizationData;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.mixing.LineHelper;
+import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
-import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -41,7 +40,7 @@ public final class VorbisCodec extends Codec {
     private int index;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) throws IOException, CodecException, LineHelper.MixerException {
+    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) throws IOException, CodecException {
         super(audioFile, normalizationData, conf, duration);
 
         this.joggSyncState.init();
@@ -59,7 +58,7 @@ public final class VorbisCodec extends Codec {
         pcmInfo = new float[1][][];
         pcmIndex = new int[jorbisInfo.channels];
 
-        setAudioFormat(new AudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false));
+        setAudioFormat(new OutputAudioFormat(jorbisInfo.rate, 16, jorbisInfo.channels, true, false));
     }
 
     /**

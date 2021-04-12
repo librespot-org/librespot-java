@@ -394,6 +394,7 @@ public final class FileConfiguration {
                 .setMixerSearchKeywords(getStringArray("player.mixerSearchKeywords", ';'))
                 .setNormalisationPregain(normalisationPregain())
                 .setOutput(config.getEnum("player.output", PlayerConfiguration.AudioOutput.class))
+                .setOutputClass(config.get("player.outputClass"))
                 .setOutputPipe(outputPipe())
                 .setPreferredQuality(preferredQuality())
                 .setPreloadEnabled(config.get("preload.enabled"))

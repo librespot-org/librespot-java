@@ -30,12 +30,10 @@ import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
 import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
-import xyz.gianlu.librespot.player.mixing.LineHelper;
 import xyz.gianlu.librespot.player.playback.PlayerSession;
 import xyz.gianlu.librespot.player.state.DeviceStateHandler;
 import xyz.gianlu.librespot.player.state.DeviceStateHandler.PlayCommandHelper;
 
-import javax.sound.sampled.LineUnavailableException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
@@ -63,11 +61,7 @@ public class Player implements Closeable {
         this.session = session;
         this.events = new EventsDispatcher(conf);
         this.sink = new AudioSink(conf, ex -> {
-            if (ex instanceof LineHelper.MixerException || ex instanceof LineUnavailableException)
-                LOGGER.fatal("An error with the mixer occurred. This is likely a configuration issue, please consult the project repository.", ex);
-            else
-                LOGGER.fatal("Sink error!", ex);
-
+            LOGGER.fatal("Sink error!", ex);
             panicState(PlaybackMetrics.Reason.TRACK_ERROR);
         });
 
