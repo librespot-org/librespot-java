@@ -46,9 +46,9 @@
     </properties>
 
     <modules>
-        <module>lib</module>
         <module>sink-api</module>
         <module>sink</module>
+        <module>lib</module>
         <module>player</module>
         <module>api</module>
     </modules>
