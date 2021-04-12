@@ -378,6 +378,7 @@ public final class FileConfiguration {
                 .setProxyUsername(config.get("proxy.username"))
                 .setProxyPassword(config.get("proxy.password"))
                 .setRetryOnChunkError(config.get("player.retryOnChunkError"))
+                .setConnectionTimeout(config.get("network.connectionTimeout"))
                 .build();
     }
 
