@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.events;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -32,7 +32,7 @@ public final class EventsMetadataPipe implements Player.EventsListener, Closeabl
     private static final String CODE_PRGR = "70726772";
     private static final String CODE_PICT = "50494354";
     private static final String CODE_PFLS = "70666C73";
-    private static final Logger LOGGER = LogManager.getLogger(EventsMetadataPipe.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EventsMetadataPipe.class);
     private final File file;
     private FileOutputStream out;
 

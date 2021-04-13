@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.playback;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
  * @author devgianlu
  */
 final class PlayerQueue implements Closeable {
-    private static final Logger LOGGER = LogManager.getLogger(PlayerQueue.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlayerQueue.class);
     private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "player-queue-" + r.hashCode()));
     private PlayerQueueEntry head = null;
 

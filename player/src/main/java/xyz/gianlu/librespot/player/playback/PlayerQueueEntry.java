@@ -1,8 +1,8 @@
 package xyz.gianlu.librespot.player.playback;
 
 import javazoom.jl.decoder.BitstreamException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.HaltListener;
@@ -43,7 +43,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     static final int INSTANT_PRELOAD = 1;
     static final int INSTANT_START_NEXT = 2;
     static final int INSTANT_END = 3;
-    private static final Logger LOGGER = LogManager.getLogger(PlayerQueueEntry.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlayerQueueEntry.class);
     final PlayableId playable;
     final String playbackId;
     private final PlayerConfiguration conf;

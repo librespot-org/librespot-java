@@ -21,6 +21,7 @@ jobs:
           java-version: '8'
           distribution: 'adopt'
       - name: Import GPG secrets
+        if: ${{ !startsWith(github.ref, 'refs/pull') }}
         run: |
           echo $GPG_SECRET_KEYS | base64 --decode > gpg-private-key.txt
           gpg --pinentry-mode loopback --import --batch gpg-private-key.txt
@@ -40,6 +41,7 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: mvn clean test -Pdebug -B -U -Dgpg.skip -Dmaven.javadoc.skip=true
       - name: Deploy with Maven to OSSRH
+        if: ${{ !startsWith(github.ref, 'refs/pull') }}
         run: mvn deploy --settings .maven.xml -B -U -Possrh
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
