@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.TrackOrEpisode;
-import xyz.gianlu.librespot.player.mixing.AudioSink;
+import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.Closeable;
 import java.io.File;
@@ -88,8 +88,9 @@ public final class EventsMetadataPipe implements Player.EventsListener, Closeabl
         TrackOrEpisode metadata = player.currentMetadata();
         if (metadata == null) return;
 
-        String data = String.format("1/%.0f/%.0f", player.time() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1,
-                metadata.duration() * AudioSink.DEFAULT_FORMAT.getSampleRate() / 1000 + 1);
+        String data = String.format("1/%.0f/%.0f",
+                player.time() * OutputAudioFormat.DEFAULT_FORMAT.getSampleRate() / 1000 + 1,
+                metadata.duration() * OutputAudioFormat.DEFAULT_FORMAT.getSampleRate() / 1000 + 1);
         safeSend(EventsMetadataPipe.TYPE_SSNC, EventsMetadataPipe.CODE_PRGR, data);
     }
 

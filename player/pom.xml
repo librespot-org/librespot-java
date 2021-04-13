@@ -55,6 +55,11 @@
             <artifactId>librespot-lib</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>xyz.gianlu.librespot</groupId>
+            <artifactId>librespot-sink-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Audio -->
         <dependency>
@@ -92,6 +97,13 @@
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
             <version>3.6.3</version>
+        </dependency>
+
+        <!-- Default sink -->
+        <dependency>
+            <groupId>xyz.gianlu.librespot</groupId>
+            <artifactId>librespot-sink</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 </project>

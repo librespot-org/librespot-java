@@ -22,6 +22,9 @@ enabled = true # Cache enabled
 dir = "./cache/"
 doCleanUp = true
 
+[network] ### Network ###
+connectionTimeout = 10 # If ping isn't received within this amount of seconds, reconnect
+
 [preload] ### Preload ###
 enabled = true # Preload enabled
 
@@ -39,7 +42,8 @@ volumeSteps = 64 # Number of volume notches
 logAvailableMixers = true # Log available mixers
 mixerSearchKeywords = "" # Mixer/backend search keywords (semicolon separated)
 crossfadeDuration = 0 # Crossfade overlap time (in milliseconds)
-output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT)
+output = "MIXER" # Audio output device (MIXER, PIPE, STDOUT, CUSTOM)
+outputClass = "" # Audio output Java class name
 releaseLineDelay = 20 # Release mixer line after set delay (in seconds)
 pipe = "" # Output raw (signed) PCM to this file (`player.output` must be PIPE)
 retryOnChunkError = true # Whether the player should retry fetching a chuck if it fails

@@ -11,7 +11,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sound.sampled.Mixer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -289,20 +288,6 @@ public final class Utils {
             first = false;
 
             builder.append(artist.getName());
-        }
-
-        return builder.toString();
-    }
-
-    @NotNull
-    public static String mixersToString(List<Mixer> list) {
-        StringBuilder builder = new StringBuilder();
-        boolean first = true;
-        for (Mixer mixer : list) {
-            if (!first) builder.append(", ");
-            first = false;
-
-            builder.append('\'').append(mixer.getMixerInfo().getName()).append('\'');
         }
 
         return builder.toString();

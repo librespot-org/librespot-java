@@ -378,6 +378,7 @@ public final class FileConfiguration {
                 .setProxyUsername(config.get("proxy.username"))
                 .setProxyPassword(config.get("proxy.password"))
                 .setRetryOnChunkError(config.get("player.retryOnChunkError"))
+                .setConnectionTimeout(config.get("network.connectionTimeout"))
                 .build();
     }
 
@@ -393,6 +394,7 @@ public final class FileConfiguration {
                 .setMixerSearchKeywords(getStringArray("player.mixerSearchKeywords", ';'))
                 .setNormalisationPregain(normalisationPregain())
                 .setOutput(config.getEnum("player.output", PlayerConfiguration.AudioOutput.class))
+                .setOutputClass(config.get("player.outputClass"))
                 .setOutputPipe(outputPipe())
                 .setPreferredQuality(preferredQuality())
                 .setPreloadEnabled(config.get("preload.enabled"))

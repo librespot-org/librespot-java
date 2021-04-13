@@ -1,11 +1,9 @@
-package xyz.gianlu.librespot.player.mixing;
+package xyz.gianlu.librespot.player.mixing.output;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.sound.sampled.*;
 import java.util.ArrayList;
@@ -15,10 +13,24 @@ import java.util.List;
 /**
  * @author Gianlu
  */
-public final class LineHelper {
-    private static final Logger LOGGER = LogManager.getLogger(LineHelper.class);
+final class LineHelper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LineHelper.class);
 
     private LineHelper() {
+    }
+
+    @NotNull
+    private static String mixersToString(List<Mixer> list) {
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (Mixer mixer : list) {
+            if (!first) builder.append(", ");
+            first = false;
+
+            builder.append('\'').append(mixer.getMixerInfo().getName()).append('\'');
+        }
+
+        return builder.toString();
     }
 
     @NotNull
@@ -50,21 +62,21 @@ public final class LineHelper {
         }
 
         if (list.size() > 1)
-            LOGGER.info("Multiple mixers available after keyword search: " + Utils.mixersToString(list));
+            LOGGER.info("Multiple mixers available after keyword search: " + mixersToString(list));
 
         return list.get(0);
     }
 
     @NotNull
-    public static SourceDataLine getLineFor(@NotNull PlayerConfiguration conf, @NotNull AudioFormat format) throws MixerException, LineUnavailableException {
+    static SourceDataLine getLineFor(@NotNull String[] searchKeywords, boolean logAvailableMixers, @NotNull AudioFormat format) throws MixerException, LineUnavailableException {
         DataLine.Info info = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
         List<Mixer> mixers = findSupportingMixersFor(info);
-        if (conf.logAvailableMixers) LOGGER.info("Available mixers: " + Utils.mixersToString(mixers));
-        Mixer mixer = findMixer(mixers, conf.mixerSearchKeywords);
+        if (logAvailableMixers) LOGGER.info("Available mixers: " + mixersToString(mixers));
+        Mixer mixer = findMixer(mixers, searchKeywords);
         return (SourceDataLine) mixer.getLine(info);
     }
 
-    public static class MixerException extends RuntimeException {
+    static class MixerException extends RuntimeException {
         MixerException(String message) {
             super(message);
         }

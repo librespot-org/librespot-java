@@ -20,6 +20,7 @@ public final class PlayerConfiguration {
 
     // Output
     public final AudioOutput output;
+    public final String outputClass;
     public final File outputPipe;
     public final File metadataPipe;
     public final String[] mixerSearchKeywords;
@@ -32,7 +33,7 @@ public final class PlayerConfiguration {
     public final boolean bypassSinkVolume;
 
     private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
-                                AudioOutput output, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
+                                AudioOutput output, String outputClass, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
                                 int initialVolume, int volumeSteps, boolean bypassSinkVolume) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
@@ -40,6 +41,7 @@ public final class PlayerConfiguration {
         this.autoplayEnabled = autoplayEnabled;
         this.crossfadeDuration = crossfadeDuration;
         this.output = output;
+        this.outputClass = outputClass;
         this.outputPipe = outputPipe;
         this.metadataPipe = metadataPipe;
         this.mixerSearchKeywords = mixerSearchKeywords;
@@ -52,7 +54,7 @@ public final class PlayerConfiguration {
     }
 
     public enum AudioOutput {
-        MIXER, PIPE, STDOUT
+        MIXER, PIPE, STDOUT, CUSTOM
     }
 
     public final static class Builder {
@@ -66,6 +68,7 @@ public final class PlayerConfiguration {
 
         // Output
         private AudioOutput output = AudioOutput.MIXER;
+        private String outputClass;
         private File outputPipe;
         private File metadataPipe;
         private String[] mixerSearchKeywords;
@@ -107,6 +110,11 @@ public final class PlayerConfiguration {
 
         public Builder setOutput(AudioOutput output) {
             this.output = output;
+            return this;
+        }
+
+        public Builder setOutputClass(String outputClass) {
+            this.outputClass = outputClass;
             return this;
         }
 
@@ -164,7 +172,7 @@ public final class PlayerConfiguration {
         @Contract(value = " -> new", pure = true)
         public @NotNull PlayerConfiguration build() {
             return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
-                    output, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
+                    output, outputClass, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
                     initialVolume, volumeSteps, bypassSinkVolume);
         }
     }
