@@ -3,8 +3,8 @@ package xyz.gianlu.librespot.player.crossfade;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.metadata.PlayableId;
@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CrossfadeController {
-    private static final Logger LOGGER = LogManager.getLogger(CrossfadeController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrossfadeController.class);
     private final String playbackId;
     private final int trackDuration;
     private final Map<Reason, FadeInterval> fadeOutMap = new HashMap<>(8);

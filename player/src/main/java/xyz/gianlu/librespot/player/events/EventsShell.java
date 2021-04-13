@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.events;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -16,7 +16,7 @@ import java.io.IOException;
  * @author devgianlu
  */
 public final class EventsShell implements Player.EventsListener, Session.@NotNull ReconnectionListener {
-    private static final Logger LOGGER = LogManager.getLogger(EventsShell.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EventsShell.class);
     private final Configuration conf;
     private final Runtime runtime;
 

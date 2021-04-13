@@ -1,7 +1,7 @@
 package xyz.gianlu.librespot.player.metrics;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.core.Session;
@@ -17,7 +17,7 @@ import java.util.List;
  * @author devgianlu
  */
 public class PlaybackMetrics {
-    private static final Logger LOGGER = LogManager.getLogger(PlaybackMetrics.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlaybackMetrics.class);
     public final PlayableId id;
     final String playbackId;
     final String featureVersion;

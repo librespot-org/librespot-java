@@ -13,8 +13,8 @@ import com.electronwill.nightconfig.core.io.ConfigWriter;
 import com.electronwill.nightconfig.toml.TomlParser;
 import com.spotify.connectstate.Connect;
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.ZeroconfServer;
@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * @author devgianlu
  */
 public final class FileConfiguration {
-    private static final Logger LOGGER = LogManager.getLogger(FileConfiguration.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileConfiguration.class);
 
     static {
         FormatDetector.registerExtension("properties", new PropertiesFormat());

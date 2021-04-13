@@ -9,8 +9,8 @@ import com.spotify.connectstate.Connect;
 import com.spotify.connectstate.Player;
 import com.spotify.context.ContextTrackOuterClass.ContextTrack;
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.Version;
@@ -34,7 +34,7 @@ import java.util.*;
  * @author Gianlu
  */
 public final class DeviceStateHandler implements Closeable, DealerClient.MessageListener, DealerClient.RequestListener {
-    private static final Logger LOGGER = LogManager.getLogger(DeviceStateHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeviceStateHandler.class);
 
     static {
         try {
@@ -155,7 +155,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
 
             long now = TimeProvider.currentTimeMillis();
-            LOGGER.trace("Received cluster update at {}: {}", () -> now, () -> TextFormat.shortDebugString(update));
+            LOGGER.trace("Received cluster update at {}: {}", now, TextFormat.shortDebugString(update));
 
             long ts = update.getCluster().getTimestamp() - 3000; // Workaround
             if (!session.deviceId().equals(update.getCluster().getActiveDeviceId()) && isActive() && now > startedPlayingAt() && ts > startedPlayingAt())
@@ -243,7 +243,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
         try {
             session.api().putConnectState(connectionId, req);
-            if (LOGGER.getLevel().isLessSpecificThan(Level.TRACE)) {
+            if (LOGGER.isTraceEnabled()) {
                 LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}, request: {}}", req.getClientSideTimestamp(),
                         Utils.truncateMiddle(connectionId, 10), req.getPutStateReason(), TextFormat.shortDebugString(putState));
             } else {
