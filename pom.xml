@@ -42,7 +42,7 @@
         <slf4j-api.version>1.7.30</slf4j-api.version>
         <log4j-core.version>2.13.3</log4j-core.version>
         <log4j-slf4j-impl.version>2.14.1</log4j-slf4j-impl.version>
-        <lmax-disruptor.version>3.4.2</lmax-disruptor.version>
+        <lmax-disruptor.version>3.4.3</lmax-disruptor.version>
     </properties>
 
     <modules>
