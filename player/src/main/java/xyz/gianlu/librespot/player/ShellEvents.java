@@ -1,26 +1,24 @@
-package xyz.gianlu.librespot.player.events;
+package xyz.gianlu.librespot.player;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
-import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 import java.io.IOException;
 
 /**
  * @author devgianlu
  */
-public final class EventsShell implements Player.EventsListener, Session.@NotNull ReconnectionListener {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EventsShell.class);
+public final class ShellEvents implements Player.EventsListener, Session.@NotNull ReconnectionListener {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ShellEvents.class);
     private final Configuration conf;
     private final Runtime runtime;
 
-    public EventsShell(@NotNull Configuration conf) {
+    public ShellEvents(@NotNull Configuration conf) {
         this.runtime = Runtime.getRuntime();
         this.conf = conf;
     }

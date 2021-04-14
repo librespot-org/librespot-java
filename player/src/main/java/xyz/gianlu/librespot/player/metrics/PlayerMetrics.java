@@ -16,6 +16,7 @@ public final class PlayerMetrics {
     public int decodedLength = 0;
     public int size = 0;
     public int bitrate = 0;
+    public float sampleRate = 0;
     public int duration = 0;
     public String encoding = null;
     public int fadeOverlap = 0;
@@ -33,6 +34,7 @@ public final class PlayerMetrics {
 
             OutputAudioFormat format = codec.getAudioFormat();
             bitrate = (int) (format.getFrameRate() * format.getFrameSize());
+            sampleRate = format.getSampleRate();
 
             if (codec instanceof VorbisCodec) encoding = "vorbis";
             else if (codec instanceof Mp3Codec) encoding = "mp3";

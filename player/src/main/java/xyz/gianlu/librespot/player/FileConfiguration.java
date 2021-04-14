@@ -13,16 +13,15 @@ import com.electronwill.nightconfig.core.io.ConfigWriter;
 import com.electronwill.nightconfig.toml.TomlParser;
 import com.spotify.connectstate.Connect;
 import org.apache.logging.log4j.Level;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.player.codecs.AudioQuality;
-import xyz.gianlu.librespot.player.events.EventsShell;
 
 import java.io.File;
 import java.io.FileReader;
@@ -298,8 +297,8 @@ public final class FileConfiguration {
         return config.get("api.host");
     }
 
-    public @NotNull EventsShell.Configuration toEventsShell() {
-        return new EventsShell.Configuration.Builder()
+    public @NotNull ShellEvents.Configuration toEventsShell() {
+        return new ShellEvents.Configuration.Builder()
                 .setEnabled(config.get("shell.enabled"))
                 .setOnContextChanged(config.get("shell.onContextChanged"))
                 .setOnTrackChanged(config.get("shell.onTrackChanged"))

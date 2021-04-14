@@ -8,15 +8,16 @@ import com.spotify.transfer.TransferStateOuterClass;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.dacp.DacpMetadataPipe;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.ImageId;
@@ -24,7 +25,6 @@ import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
-import xyz.gianlu.librespot.player.events.EventsMetadataPipe;
 import xyz.gianlu.librespot.player.metrics.NewPlaybackIdEvent;
 import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
@@ -787,7 +787,7 @@ public class Player implements Closeable {
             return null;
 
         try (Response resp = session.client().newCall(new Request.Builder()
-                .url(session.getUserAttribute("image-url", "http://i.scdn.co/image/{file_id}").replace("{file_id}", image.hexId())).build())
+                .url(session.getUserAttribute("image-url", "https://i.scdn.co/image/{file_id}").replace("{file_id}", image.hexId())).build())
                 .execute()) {
             ResponseBody body;
             if (resp.code() == 200 && (body = resp.body()) != null)
@@ -941,7 +941,81 @@ public class Player implements Closeable {
         private final List<EventsListener> listeners = new ArrayList<>();
 
         EventsDispatcher(@NotNull PlayerConfiguration conf) {
-            if (conf.metadataPipe != null) listeners.add(new EventsMetadataPipe(conf.metadataPipe));
+            if (conf.metadataPipe != null) {
+                DacpMetadataPipe dacpPipe = new DacpMetadataPipe(conf.metadataPipe);
+                listeners.add(new Player.EventsListener() {
+                    @Override
+                    public void onContextChanged(@NotNull Player player, @NotNull String newUri) {
+                    }
+
+                    @Override
+                    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+                        dacpPipe.sendPipeFlush();
+                    }
+
+                    @Override
+                    public void onPlaybackEnded(@NotNull Player player) {
+                    }
+
+                    @Override
+                    public void onPlaybackPaused(@NotNull Player player, long trackTime) {
+                        dacpPipe.sendPipeFlush();
+                    }
+
+                    @Override
+                    public void onPlaybackResumed(@NotNull Player player, long trackTime) {
+                        TrackOrEpisode metadata = player.currentMetadata();
+                        if (metadata == null) return;
+
+                        onMetadataAvailable(player, metadata);
+                    }
+
+                    @Override
+                    public void onTrackSeeked(@NotNull Player player, long trackTime) {
+                        dacpPipe.sendPipeFlush();
+
+                        TrackOrEpisode metadata = player.currentMetadata();
+                        if (metadata == null) return;
+
+                        PlayerMetrics playerMetrics = player.playerSession.currentMetrics();
+                        if (playerMetrics == null) return;
+
+                        dacpPipe.sendProgress(player.time(), metadata.duration(), playerMetrics.sampleRate);
+                    }
+
+                    @Override
+                    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
+                        dacpPipe.sendTrackInfo(metadata.getName(), metadata.getAlbumName(), metadata.getArtist());
+
+                        PlayerMetrics playerMetrics = player.playerSession.currentMetrics();
+                        if (playerMetrics != null)
+                            dacpPipe.sendProgress(player.time(), metadata.duration(), playerMetrics.sampleRate);
+
+                        try {
+                            dacpPipe.sendImage(currentCoverImage());
+                        } catch (IOException ex) {
+                            LOGGER.error("Failed getting cover image.", ex);
+                        }
+                    }
+
+                    @Override
+                    public void onPlaybackHaltStateChanged(@NotNull Player player, boolean halted, long trackTime) {
+                    }
+
+                    @Override
+                    public void onInactiveSession(@NotNull Player player, boolean timeout) {
+                    }
+
+                    @Override
+                    public void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume) {
+                        dacpPipe.sendVolume(volume);
+                    }
+
+                    @Override
+                    public void onPanicState(@NotNull Player player) {
+                    }
+                });
+            }
         }
 
         void playbackEnded() {

@@ -10,12 +10,12 @@
     <name>librespot-java</name>
     <description>Java port of librespot, the Open Source Spotify client library</description>
 
-    <url>http://github.com/librespot-org/librespot-java</url>
+    <url>https://github.com/librespot-org/librespot-java</url>
 
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
 
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/librespot-org/librespot-java.git</connection>
         <developerConnection>scm:git:ssh://github.com:librespot-org/librespot-java.git</developerConnection>
-        <url>http://github.com/librespot-org/librespot-java/</url>
+        <url>https://github.com/librespot-org/librespot-java/</url>
     </scm>
 
     <properties>
@@ -48,6 +48,7 @@
     <modules>
         <module>sink-api</module>
         <module>sink</module>
+        <module>dacp</module>
         <module>lib</module>
         <module>player</module>
         <module>api</module>

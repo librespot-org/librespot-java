@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.player.events.EventsShell;
+import xyz.gianlu.librespot.player.ShellEvents;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,11 +14,11 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class SessionWrapper {
     protected final AtomicReference<Session> sessionRef = new AtomicReference<>(null);
-    protected final EventsShell eventsShell;
+    protected final ShellEvents shellEvents;
     private Listener listener = null;
 
-    protected SessionWrapper(@NotNull EventsShell.Configuration shellConf) {
-        eventsShell = shellConf.enabled ? new EventsShell(shellConf) : null;
+    protected SessionWrapper(@NotNull ShellEvents.Configuration shellConf) {
+        shellEvents = shellConf.enabled ? new ShellEvents(shellConf) : null;
     }
 
     /**
@@ -28,7 +28,7 @@ public class SessionWrapper {
      * @return A wrapper that holds a changing session
      */
     @NotNull
-    public static SessionWrapper fromZeroconf(@NotNull ZeroconfServer server, @NotNull EventsShell.Configuration shellConf) {
+    public static SessionWrapper fromZeroconf(@NotNull ZeroconfServer server, @NotNull ShellEvents.Configuration shellConf) {
         SessionWrapper wrapper = new SessionWrapper(shellConf);
         server.addSessionListener(new ZeroconfServer.SessionListener() {
             @Override
@@ -52,7 +52,7 @@ public class SessionWrapper {
      * @return A wrapper that holds a never-changing session
      */
     @NotNull
-    public static SessionWrapper fromSession(@NotNull Session session, @NotNull EventsShell.Configuration shellConf) {
+    public static SessionWrapper fromSession(@NotNull Session session, @NotNull ShellEvents.Configuration shellConf) {
         SessionWrapper wrapper = new SessionWrapper(shellConf);
         wrapper.sessionRef.set(session);
         return wrapper;
@@ -68,7 +68,7 @@ public class SessionWrapper {
     protected void set(@NotNull Session session) {
         sessionRef.set(session);
         session.addCloseListener(this::clear);
-        if (eventsShell != null) session.addReconnectionListener(eventsShell);
+        if (shellEvents != null) session.addReconnectionListener(shellEvents);
         if (listener != null) listener.onNewSession(session);
     }
 

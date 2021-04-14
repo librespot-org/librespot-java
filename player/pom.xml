@@ -110,5 +110,12 @@
             <artifactId>librespot-sink</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- DACP -->
+        <dependency>
+            <groupId>xyz.gianlu.librespot</groupId>
+            <artifactId>librespot-dacp</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 </project>
