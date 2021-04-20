@@ -209,6 +209,12 @@ public final class FileConfiguration {
         }
     }
 
+    @Nullable
+    private File getFile(@NotNull String key) {
+        String path = config.get(key);
+        return path == null ? null : new File(path);
+    }
+
     @NotNull
     private String[] getStringArray(@NotNull String key, char separator) {
         String str = config.get(key);
@@ -216,7 +222,8 @@ public final class FileConfiguration {
         else return Utils.split(str, separator);
     }
 
-    private @NotNull AudioQuality preferredQuality() {
+    @NotNull
+    private AudioQuality preferredQuality() {
         try {
             return config.getEnum("player.preferredAudioQuality", AudioQuality.class);
         } catch (IllegalArgumentException ex) { // Retro-compatibility
@@ -236,13 +243,15 @@ public final class FileConfiguration {
         }
     }
 
-    private @Nullable File outputPipe() {
+    @Nullable
+    private File outputPipe() {
         String path = config.get("player.pipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    private @Nullable File metadataPipe() {
+    @Nullable
+    private File metadataPipe() {
         String path = config.get("player.metadataPipe");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
@@ -261,42 +270,51 @@ public final class FileConfiguration {
         }
     }
 
-    private @Nullable String deviceId() {
+    @Nullable
+    private String deviceId() {
         String val = config.get("deviceId");
         return val == null || val.isEmpty() ? null : val;
     }
 
-    private @NotNull String deviceName() {
+    @NotNull
+    private String deviceName() {
         return config.get("deviceName");
     }
 
-    private @NotNull Connect.DeviceType deviceType() {
+    @NotNull
+    private Connect.DeviceType deviceType() {
         return config.getEnum("deviceType", Connect.DeviceType.class);
     }
 
-    private @NotNull String preferredLocale() {
+    @NotNull
+    private String preferredLocale() {
         return config.get("preferredLocale");
     }
 
-    private @NotNull String authUsername() {
+    @NotNull
+    private String authUsername() {
         return config.get("auth.username");
     }
 
-    private @NotNull String authPassword() {
+    @NotNull
+    private String authPassword() {
         return config.get("auth.password");
     }
 
-    private @NotNull String authBlob() {
+    @NotNull
+    private String authBlob() {
         return config.get("auth.blob");
     }
 
-    private @Nullable File credentialsFile() {
+    @Nullable
+    private File credentialsFile() {
         String path = config.get("auth.credentialsFile");
         if (path == null || path.isEmpty()) return null;
         return new File(path);
     }
 
-    public @NotNull Level loggingLevel() {
+    @NotNull
+    public Level loggingLevel() {
         return Level.toLevel(config.get("logLevel"));
     }
 
@@ -309,11 +327,13 @@ public final class FileConfiguration {
         return config.get("api.port");
     }
 
-    public @NotNull String apiHost() {
+    @NotNull
+    public String apiHost() {
         return config.get("api.host");
     }
 
-    public @NotNull ShellEvents.Configuration toEventsShell() {
+    @NotNull
+    public ShellEvents.Configuration toEventsShell() {
         return new ShellEvents.Configuration.Builder()
                 .setEnabled(config.get("shell.enabled"))
                 .setOnContextChanged(config.get("shell.onContextChanged"))
@@ -379,7 +399,7 @@ public final class FileConfiguration {
     public Session.Configuration toSession() {
         return new Session.Configuration.Builder()
                 .setCacheEnabled(config.get("cache.enabled"))
-                .setCacheDir(new File((String) config.get("cache.dir")))
+                .setCacheDir(getFile("cache.dir"))
                 .setDoCacheCleanUp(config.get("cache.doCleanUp"))
                 .setStoreCredentials(config.get("auth.storeCredentials"))
                 .setStoredCredentialsFile(credentialsFile())
