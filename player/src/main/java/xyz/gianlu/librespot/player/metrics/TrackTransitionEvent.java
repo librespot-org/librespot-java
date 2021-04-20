@@ -57,7 +57,7 @@ public final class TrackTransitionEvent implements EventService.GenericEvent {
         event.append(String.valueOf(when)).append(String.valueOf(when));
         event.append('0').append(String.valueOf(metrics.player.bitrate));
         event.append(metrics.contextUri).append(metrics.player.encoding);
-        event.append(metrics.id.hexId()).append("");
+        event.append(metrics.id.hasGid() ? metrics.id.hexId() : "").append("");
         event.append('0').append(String.valueOf(metrics.timestamp)).append('0');
         event.append("context").append(metrics.referrerIdentifier).append(metrics.featureVersion);
         event.append("com.spotify").append(metrics.player.transition).append("none");

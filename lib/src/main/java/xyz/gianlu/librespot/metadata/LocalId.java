@@ -19,12 +19,12 @@ package xyz.gianlu.librespot.metadata;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public final class UnsupportedId implements PlayableId {
+public final class LocalId implements PlayableId {
     private final String uri;
 
-    UnsupportedId(@NotNull String uri) {
+    LocalId(@NotNull String uri) {
         this.uri = uri;
     }
 
@@ -38,9 +38,12 @@ public final class UnsupportedId implements PlayableId {
         return uri;
     }
 
-    @NotNull
+    public @NotNull String fileName() {
+        return uri.substring("spotify:local:".length());
+    }
+
     @Override
     public String toString() {
-        return "UnsupportedId{" + toSpotifyUri() + '}';
+        return "LocalId{" + toSpotifyUri() + "}";
     }
 }

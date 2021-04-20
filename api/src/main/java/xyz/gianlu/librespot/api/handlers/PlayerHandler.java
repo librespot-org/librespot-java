@@ -25,6 +25,7 @@ import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.EpisodeId;
+import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
 import xyz.gianlu.librespot.player.Player;
@@ -133,6 +134,8 @@ public final class PlayerHandler extends AbsPlayerHandler {
             }
 
             obj.add("episode", ProtobufToJson.convert(metadata.episode));
+        } else if (id instanceof LocalId) {
+            obj.addProperty("local", ((LocalId) id).fileName()); // TODO: Improve local files metadata
         } else if (id != null) {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;

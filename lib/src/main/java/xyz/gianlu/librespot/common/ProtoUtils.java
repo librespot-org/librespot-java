@@ -34,7 +34,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.metadata.PlayableId;
-import xyz.gianlu.librespot.metadata.UnsupportedId;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -139,8 +138,7 @@ public final class ProtoUtils {
             builder.setUri(uri);
 
             PlayableId playable = PlayableId.fromUri(uri);
-            if (!(playable instanceof UnsupportedId))
-                builder.setGid(ByteString.copyFrom(playable.getGid()));
+            if (playable.hasGid()) builder.setGid(ByteString.copyFrom(playable.getGid()));
         }
 
         Optional.ofNullable(Utils.optString(obj, "uid", null)).ifPresent(builder::setUid);

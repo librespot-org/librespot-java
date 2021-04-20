@@ -436,6 +436,7 @@ public final class FileConfiguration {
                 .setReleaseLineDelay(config.get("player.releaseLineDelay"))
                 .setVolumeSteps(config.get("player.volumeSteps"))
                 .setBypassSinkVolume(config.get("player.bypassSinkVolume"))
+                .setLocalFilesPath(getFile("player.localFilesPath"))
                 .build();
     }
 

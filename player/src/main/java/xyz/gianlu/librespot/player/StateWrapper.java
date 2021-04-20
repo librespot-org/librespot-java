@@ -54,6 +54,7 @@ import xyz.gianlu.librespot.player.state.RestrictionsManager;
 import xyz.gianlu.librespot.player.state.RestrictionsManager.Action;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
@@ -80,6 +81,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private final Session session;
     private final Player player;
     private final DeviceStateHandler device;
+    private final PlayerConfiguration conf;
     private AbsSpotifyContext context;
     private PagesLoader pages;
     private TracksKeeper tracksKeeper;
@@ -87,6 +89,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     StateWrapper(@NotNull Session session, @NotNull Player player, @NotNull PlayerConfiguration conf) {
         this.session = session;
         this.player = player;
+        this.conf = conf;
         this.device = new DeviceStateHandler(session, conf);
         this.state = initState(PlayerState.newBuilder());
 
@@ -124,14 +127,55 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return Base64.getEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private boolean shouldPlay(@NotNull ContextTrack track) {
-        if (!PlayableId.isSupported(track.getUri()) || !PlayableId.shouldPlay(track))
+    private boolean shouldPlay(@Nullable PlayableId id) {
+        if (id == null)
             return false;
 
-        boolean filterExplicit = Objects.equals(session.getUserAttribute("filter-explicit-content"), "1");
+        if (id instanceof UnsupportedId)
+            return false;
+
+        if (id instanceof LocalId) {
+            if (conf.localFilesPath == null)
+                return false;
+
+            File localFile = new File(conf.localFilesPath, ((LocalId) id).fileName());
+            return localFile.exists() && localFile.canRead();
+        }
+
+        return true;
+    }
+
+    private boolean shouldPlay(@NotNull ContextTrack track) {
+        if (!track.getMetadataOrDefault("force_remove_reasons", "").isEmpty())
+            return false;
+
+        if (track.hasUri()) {
+            if (PlayableId.isDelimiter(track.getUri()))
+                return false;
+
+            if (PlayableId.isLocal(track.getUri())) {
+                if (conf.localFilesPath == null)
+                    return false;
+
+                LocalId id = (LocalId) PlayableId.fromUri(track.getUri());
+                File localFile = new File(conf.localFilesPath, id.fileName());
+                if (!localFile.exists() || !localFile.canRead())
+                    return false;
+            }
+        }
+
+        boolean filterExplicit = "1".equals(session.getUserAttribute("filter-explicit-content"));
         if (!filterExplicit) return true;
 
         return !Boolean.parseBoolean(track.getMetadataOrDefault("is_explicit", "false"));
+    }
+
+    private boolean areAllUnplayable(List<ContextTrack> tracks) {
+        for (ContextTrack track : tracks)
+            if (shouldPlay(track))
+                return true;
+
+        return false;
     }
 
     boolean isActive() {
@@ -1021,8 +1065,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         synchronized void removeFromQueue(@NotNull String uri) {
             ByteString gid;
             PlayableId playable = PlayableId.fromUri(uri);
-            if (playable instanceof UnsupportedId) gid = null;
-            else gid = ByteString.copyFrom(playable.getGid());
+            if (playable.hasGid()) gid = ByteString.copyFrom(playable.getGid());
+            else gid = null;
 
             if (queue.removeIf(track -> (track.hasUri() && uri.equals(track.getUri())) || (track.hasGid() && track.getGid().equals(gid)))) {
                 updateTrackCount();
@@ -1076,7 +1120,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
 
             checkComplete();
-            if (!PlayableId.canPlaySomething(tracks))
+            if (areAllUnplayable(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
             boolean transformingShuffle = Boolean.parseBoolean(state.getContextMetadataOrDefault("transforming.shuffle", "true"));
@@ -1084,7 +1128,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             else state.getOptionsBuilder().setShufflingContext(false); // Must do this directly!
 
             setCurrentTrackIndex(0);
-            if (getCurrentPlayable() instanceof UnsupportedId) {
+            if (!shouldPlay(getCurrentPlayable())) {
                 boolean repeatTrack = isRepeatingTrack();
                 if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
                 nextPlayable(false);
@@ -1126,7 +1170,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
 
             checkComplete();
-            if (!PlayableId.canPlaySomething(tracks))
+            if (areAllUnplayable(tracks))
                 throw AbsSpotifyContext.UnsupportedContextException.cannotPlayAnything();
 
             try {
@@ -1135,7 +1179,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 LOGGER.warn("Failed updating current track metadata.", ex);
             }
 
-            if (getCurrentPlayable() instanceof UnsupportedId) {
+            if (!shouldPlay(getCurrentPlayable())) {
                 boolean repeatTrack = isRepeatingTrack();
                 if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
                 nextPlayable(false);
@@ -1417,7 +1461,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 ContextTrack.Builder builder = ContextTrack.newBuilder()
                         .setUri(item.getUri());
 
-                if (!(playable instanceof UnsupportedId))
+                if (playable.hasGid())
                     builder.setGid(ByteString.copyFrom(playable.getGid()));
 
                 tracks.add(i + from, builder.build());

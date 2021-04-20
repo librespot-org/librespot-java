@@ -69,6 +69,11 @@ public final class EpisodeId implements SpotifyId, PlayableId {
     }
 
     @Override
+    public boolean hasGid() {
+        return true;
+    }
+
+    @Override
     @NotNull
     public byte[] getGid() {
         return Utils.hexToBytes(hexId);

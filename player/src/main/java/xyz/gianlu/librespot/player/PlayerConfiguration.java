@@ -48,9 +48,12 @@ public final class PlayerConfiguration {
     public final int volumeSteps;
     public final boolean bypassSinkVolume;
 
+    // Local files
+    public final File localFilesPath;
+
     private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
                                 AudioOutput output, String outputClass, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
-                                int initialVolume, int volumeSteps, boolean bypassSinkVolume) {
+                                int initialVolume, int volumeSteps, boolean bypassSinkVolume, File localFilesPath) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
         this.normalisationPregain = normalisationPregain;
@@ -67,6 +70,7 @@ public final class PlayerConfiguration {
         this.volumeSteps = volumeSteps;
         this.preloadEnabled = preloadEnabled;
         this.bypassSinkVolume = bypassSinkVolume;
+        this.localFilesPath = localFilesPath;
     }
 
     public enum AudioOutput {
@@ -95,6 +99,9 @@ public final class PlayerConfiguration {
         private int initialVolume = Player.VOLUME_MAX;
         private int volumeSteps = 64;
         private boolean bypassSinkVolume = false;
+
+        // Local files
+        private File localFilesPath;
 
         public Builder() {
         }
@@ -185,11 +192,16 @@ public final class PlayerConfiguration {
             return this;
         }
 
+        public Builder setLocalFilesPath(File localFilesPath) {
+            this.localFilesPath = localFilesPath;
+            return this;
+        }
+
         @Contract(value = " -> new", pure = true)
         public @NotNull PlayerConfiguration build() {
             return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
                     output, outputClass, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
-                    initialVolume, volumeSteps, bypassSinkVolume);
+                    initialVolume, volumeSteps, bypassSinkVolume, localFilesPath);
         }
     }
 }

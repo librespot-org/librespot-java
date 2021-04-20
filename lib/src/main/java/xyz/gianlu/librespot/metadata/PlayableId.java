@@ -26,7 +26,6 @@ import xyz.gianlu.librespot.common.Utils;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 import static com.spotify.context.ContextTrackOuterClass.ContextTrack;
 
@@ -38,21 +37,17 @@ public interface PlayableId {
 
     @NotNull
     static PlayableId fromUri(@NotNull String uri) {
-        if (!isSupported(uri)) return new UnsupportedId(uri);
-
-        if (TrackId.PATTERN.matcher(uri).matches()) {
-            return TrackId.fromUri(uri);
-        } else if (EpisodeId.PATTERN.matcher(uri).matches()) {
-            return EpisodeId.fromUri(uri);
-        } else {
-            throw new IllegalArgumentException("Unknown uri: " + uri);
-        }
+        if (isDelimiter(uri)) return new UnsupportedId(uri);
+        else if (isLocal(uri)) return new LocalId(uri);
+        else if (TrackId.PATTERN.matcher(uri).matches()) return TrackId.fromUri(uri);
+        else if (EpisodeId.PATTERN.matcher(uri).matches()) return EpisodeId.fromUri(uri);
+        else throw new IllegalArgumentException("Unknown uri: " + uri);
     }
 
     static int indexOfTrack(@NotNull List<ContextTrack> tracks, @NotNull PlayableId id) {
         ByteString gid;
-        if (id instanceof UnsupportedId) gid = null;
-        else gid = ByteString.copyFrom(id.getGid());
+        if (id.hasGid()) gid = ByteString.copyFrom(id.getGid());
+        else gid = null;
 
         String uri = id.toSpotifyUri();
         for (int i = 0; i < tracks.size(); i++) {
@@ -64,26 +59,17 @@ public interface PlayableId {
         return -1;
     }
 
-    static boolean canPlaySomething(@NotNull List<ContextTrack> tracks) {
-        for (ContextTrack track : tracks)
-            if (PlayableId.isSupported(track.getUri()) && shouldPlay(track))
-                return true;
-
-        return false;
-    }
-
     @Nullable
     static PlayableId from(@NotNull Player.ProvidedTrack track) {
         return track.getUri().isEmpty() ? null : fromUri(track.getUri());
     }
 
-    static boolean isSupported(@NotNull String uri) {
-        return !uri.startsWith("spotify:local:") && !Objects.equals(uri, "spotify:delimiter")
-                && !Objects.equals(uri, "spotify:meta:delimiter");
+    static boolean isDelimiter(@NotNull String uri) {
+        return uri.equals("spotify:delimiter") || uri.equals("spotify:meta:delimiter");
     }
 
-    static boolean shouldPlay(@NotNull ContextTrack track) {
-        return track.getMetadataOrDefault("force_remove_reasons", "").isEmpty();
+    static boolean isLocal(@NotNull String uri) {
+        return uri.startsWith("spotify:local:");
     }
 
     @NotNull
@@ -114,16 +100,25 @@ public interface PlayableId {
 
     int hashCode();
 
-    @NotNull byte[] getGid();
+    /**
+     * @return Whether this {@link PlayableId} has a GID and hex ID.
+     */
+    boolean hasGid();
 
-    @NotNull String hexId();
+    default @NotNull byte[] getGid() {
+        throw new UnsupportedOperationException();
+    }
+
+    default @NotNull String hexId() {
+        throw new UnsupportedOperationException();
+    }
 
     @NotNull String toSpotifyUri();
 
     default boolean matches(@NotNull ContextTrack current) {
         if (current.hasUri())
             return toSpotifyUri().equals(current.getUri());
-        else if (current.hasGid() && !(this instanceof UnsupportedId))
+        else if (current.hasGid() && hasGid())
             return Arrays.equals(current.getGid().toByteArray(), getGid());
         else
             return false;

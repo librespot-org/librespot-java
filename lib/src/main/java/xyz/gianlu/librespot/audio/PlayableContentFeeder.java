@@ -36,6 +36,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.EpisodeId;
+import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
 
@@ -77,6 +78,8 @@ public final class PlayableContentFeeder {
             return loadTrack((TrackId) id, audioQualityPicker, preload, haltListener);
         else if (id instanceof EpisodeId)
             return loadEpisode((EpisodeId) id, audioQualityPicker, preload, haltListener);
+        else if (id instanceof LocalId)
+            throw new UnsupportedOperationException("Cannot play local files!"); // TODO: Play this
         else
             throw new IllegalArgumentException("Unknown content: " + id);
     }

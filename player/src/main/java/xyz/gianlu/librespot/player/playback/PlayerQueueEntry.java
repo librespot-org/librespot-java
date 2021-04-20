@@ -28,6 +28,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.EpisodeId;
+import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
@@ -116,6 +117,8 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         } else if (playable instanceof TrackId && stream.track != null) {
             LOGGER.info("Loaded track. {name: '{}', artists: '{}', uri: {}, id: {}}", stream.track.getName(),
                     Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), playbackId);
+        } else if (playable instanceof LocalId) {
+            LOGGER.info("Loaded local file. {filename: '{}', uri: {}, id: {}}", ((LocalId) playable).fileName(), playable.toSpotifyUri(), playbackId);
         }
 
         crossfade = new CrossfadeController(playbackId, metadata.duration(), listener.metadataFor(playable).orElse(Collections.emptyMap()), conf);
