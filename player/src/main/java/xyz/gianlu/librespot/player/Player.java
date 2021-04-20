@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
@@ -261,7 +262,7 @@ public class Player implements Closeable {
             LOGGER.error("Failed loading context!", ex);
             panicState(null);
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.error("Cannot play local tracks!", ex);
+            LOGGER.error("Cannot play context!", ex);
             panicState(null);
         }
     }
@@ -365,7 +366,7 @@ public class Player implements Closeable {
             }
 
             @Override
-            public void finishedLoading(@NotNull TrackOrEpisode metadata) {
+            public void finishedLoading(@NotNull MetadataWrapper metadata) {
                 state.enrichWithMetadata(metadata);
                 state.setBuffering(false);
                 state.updated();
@@ -394,7 +395,7 @@ public class Player implements Closeable {
             }
 
             @Override
-            public void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull PlaybackMetrics.Reason startedReason) {
+            public void trackChanged(@NotNull String playbackId, @Nullable MetadataWrapper metadata, int pos, @NotNull PlaybackMetrics.Reason startedReason) {
                 if (metadata != null) state.enrichWithMetadata(metadata);
                 state.setPlaybackId(playbackId);
                 state.setPosition(pos);
@@ -520,7 +521,7 @@ public class Player implements Closeable {
             LOGGER.error("Failed loading context!", ex);
             panicState(null);
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.error("Cannot play local tracks!", ex);
+            LOGGER.error("Cannot play context!", ex);
             panicState(null);
         }
     }
@@ -536,7 +537,7 @@ public class Player implements Closeable {
             LOGGER.error("Failed loading context!", ex);
             panicState(null);
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.error("Cannot play local tracks!", ex);
+            LOGGER.error("Cannot play context!", ex);
             panicState(null);
         }
     }
@@ -707,7 +708,7 @@ public class Player implements Closeable {
                 panicState(null);
             }
         } catch (AbsSpotifyContext.UnsupportedContextException ex) {
-            LOGGER.error("Cannot play local tracks!", ex);
+            LOGGER.error("Cannot play context!", ex);
             panicState(null);
         }
     }
@@ -767,7 +768,7 @@ public class Player implements Closeable {
      * @return The metadata for the current entry or {@code null} if not available.
      */
     @Nullable
-    public TrackOrEpisode currentMetadata() {
+    public MetadataWrapper currentMetadata() {
         return playerSession == null ? null : playerSession.currentMetadata();
     }
 
@@ -777,7 +778,7 @@ public class Player implements Closeable {
      */
     @Nullable
     public byte[] currentCoverImage() throws IOException {
-        TrackOrEpisode metadata = currentMetadata();
+        MetadataWrapper metadata = currentMetadata();
         if (metadata == null) return null;
 
         ImageId image = null;
@@ -851,7 +852,7 @@ public class Player implements Closeable {
     public interface EventsListener {
         void onContextChanged(@NotNull Player player, @NotNull String newUri);
 
-        void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata);
+        void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata);
 
         void onPlaybackEnded(@NotNull Player player);
 
@@ -861,7 +862,7 @@ public class Player implements Closeable {
 
         void onTrackSeeked(@NotNull Player player, long trackTime);
 
-        void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata);
+        void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata);
 
         void onPlaybackHaltStateChanged(@NotNull Player player, boolean halted, long trackTime);
 
@@ -965,7 +966,7 @@ public class Player implements Closeable {
                     }
 
                     @Override
-                    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+                    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
                         dacpPipe.sendPipeFlush();
                     }
 
@@ -980,7 +981,7 @@ public class Player implements Closeable {
 
                     @Override
                     public void onPlaybackResumed(@NotNull Player player, long trackTime) {
-                        TrackOrEpisode metadata = player.currentMetadata();
+                        MetadataWrapper metadata = player.currentMetadata();
                         if (metadata == null) return;
 
                         onMetadataAvailable(player, metadata);
@@ -990,7 +991,7 @@ public class Player implements Closeable {
                     public void onTrackSeeked(@NotNull Player player, long trackTime) {
                         dacpPipe.sendPipeFlush();
 
-                        TrackOrEpisode metadata = player.currentMetadata();
+                        MetadataWrapper metadata = player.currentMetadata();
                         if (metadata == null) return;
 
                         PlayerMetrics playerMetrics = player.playerSession.currentMetrics();
@@ -1000,7 +1001,7 @@ public class Player implements Closeable {
                     }
 
                     @Override
-                    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
+                    public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
                         dacpPipe.sendTrackInfo(metadata.getName(), metadata.getAlbumName(), metadata.getArtist());
 
                         PlayerMetrics playerMetrics = player.playerSession.currentMetrics();
@@ -1063,7 +1064,7 @@ public class Player implements Closeable {
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return;
 
-            TrackOrEpisode metadata = currentMetadata();
+            MetadataWrapper metadata = currentMetadata();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onTrackChanged(Player.this, id, metadata));
         }
@@ -1081,7 +1082,7 @@ public class Player implements Closeable {
         }
 
         void metadataAvailable() {
-            TrackOrEpisode metadata = currentMetadata();
+            MetadataWrapper metadata = currentMetadata();
             if (metadata == null) return;
 
             for (EventsListener l : new ArrayList<>(listeners))

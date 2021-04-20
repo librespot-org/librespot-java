@@ -30,8 +30,10 @@ import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.cdn.CdnFeedHelper;
 import xyz.gianlu.librespot.audio.cdn.CdnManager;
 import xyz.gianlu.librespot.audio.format.AudioQualityPicker;
+import xyz.gianlu.librespot.audio.format.SuperAudioFormat;
 import xyz.gianlu.librespot.audio.storage.AudioFileFetch;
 import xyz.gianlu.librespot.audio.storage.StorageFeedHelper;
+import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -40,8 +42,14 @@ import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
 
 /**
  * @author Gianlu
@@ -78,8 +86,6 @@ public final class PlayableContentFeeder {
             return loadTrack((TrackId) id, audioQualityPicker, preload, haltListener);
         else if (id instanceof EpisodeId)
             return loadEpisode((EpisodeId) id, audioQualityPicker, preload, haltListener);
-        else if (id instanceof LocalId)
-            throw new UnsupportedOperationException("Cannot play local files!"); // TODO: Play this
         else
             throw new IllegalArgumentException("Unknown content: " + id);
     }
@@ -177,27 +183,127 @@ public final class PlayableContentFeeder {
         }
     }
 
+    private static class FileAudioStream implements GeneralAudioStream {
+        private static final Logger LOGGER = LoggerFactory.getLogger(FileAudioStream.class);
+        private final File file;
+        private final RandomAccessFile raf;
+        private final byte[][] buffer;
+        private final int chunks;
+        private final int size;
+        private final boolean[] available;
+        private final boolean[] requested;
+        private final ExecutorService executorService = Executors.newCachedThreadPool(new NameThreadFactory((r) -> "file-async-" + r.hashCode()));
+
+        FileAudioStream(File file) throws IOException {
+            this.file = file;
+            this.raf = new RandomAccessFile(file, "r");
+
+            this.size = (int) raf.length();
+            this.chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+            this.buffer = new byte[chunks][];
+            this.available = new boolean[chunks];
+            this.requested = new boolean[chunks];
+        }
+
+        @Override
+        public @NotNull AbsChunkedInputStream stream() {
+            return new AbsChunkedInputStream(false) {
+                @Override
+                protected byte[][] buffer() {
+                    return buffer;
+                }
+
+                @Override
+                public int size() {
+                    return size;
+                }
+
+                @Override
+                protected boolean[] requestedChunks() {
+                    return requested;
+                }
+
+                @Override
+                protected boolean[] availableChunks() {
+                    return available;
+                }
+
+                @Override
+                protected int chunks() {
+                    return chunks;
+                }
+
+                @Override
+                protected void requestChunkFromStream(int index) {
+                    executorService.submit(() -> {
+                        try {
+                            raf.seek((long) index * CHUNK_SIZE);
+                            raf.read(buffer[index]);
+                            notifyChunkAvailable(index);
+                        } catch (IOException ex) {
+                            notifyChunkError(index, new ChunkException(ex));
+                        }
+                    });
+                }
+
+                @Override
+                public void streamReadHalted(int chunk, long time) {
+                    LOGGER.warn("Not dispatching stream read halted event {chunk: {}}", chunk);
+                }
+
+                @Override
+                public void streamReadResumed(int chunk, long time) {
+                    LOGGER.warn("Not dispatching stream read resumed event {chunk: {}}", chunk);
+                }
+            };
+        }
+
+        @Override
+        public @NotNull SuperAudioFormat codec() {
+            return SuperAudioFormat.MP3; // FIXME: Detect codec
+        }
+
+        @Override
+        public @NotNull String describe() {
+            return "{file: " + file.getAbsolutePath() + "}";
+        }
+
+        @Override
+        public int decryptTimeMs() {
+            return 0;
+        }
+    }
+
     public static class LoadedStream {
-        public final Metadata.Episode episode;
-        public final Metadata.Track track;
+        public final MetadataWrapper metadata;
         public final GeneralAudioStream in;
         public final NormalizationData normalizationData;
         public final Metrics metrics;
 
         public LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
-            this.track = track;
+            this.metadata = new MetadataWrapper(track, null, null);
             this.in = in;
             this.normalizationData = normalizationData;
             this.metrics = metrics;
-            this.episode = null;
         }
 
         public LoadedStream(@NotNull Metadata.Episode episode, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
-            this.episode = episode;
+            this.metadata = new MetadataWrapper(null, episode, null);
             this.in = in;
             this.normalizationData = normalizationData;
             this.metrics = metrics;
-            this.track = null;
+        }
+
+        private LoadedStream(@NotNull LocalId id, @NotNull GeneralAudioStream in) {
+            this.metadata = new MetadataWrapper(null, null, id);
+            this.in = in;
+            this.normalizationData = null;
+            this.metrics = new Metrics(null, false, 0);
+        }
+
+        @NotNull
+        public static LoadedStream forLocalFile(@NotNull LocalId id, @NotNull File file) throws IOException {
+            return new LoadedStream(id, new FileAudioStream(file));
         }
     }
 

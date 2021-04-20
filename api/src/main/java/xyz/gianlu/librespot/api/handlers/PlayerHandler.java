@@ -22,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.PlayerWrapper;
 import xyz.gianlu.librespot.api.Utils;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.EpisodeId;
@@ -29,7 +30,6 @@ import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.metadata.TrackId;
 import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 import java.util.Deque;
 import java.util.Map;
@@ -119,7 +119,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
         long time = player.time();
         obj.addProperty("trackTime", time);
 
-        TrackOrEpisode metadata = player.currentMetadata();
+        MetadataWrapper metadata = player.currentMetadata();
         if (id instanceof TrackId) {
             if (metadata == null || metadata.track == null) {
                 Utils.internalError(exchange, "Missing track metadata. Try again.");
@@ -135,7 +135,12 @@ public final class PlayerHandler extends AbsPlayerHandler {
 
             obj.add("episode", ProtobufToJson.convert(metadata.episode));
         } else if (id instanceof LocalId) {
-            obj.addProperty("local", ((LocalId) id).fileName()); // TODO: Improve local files metadata
+            JsonObject metadataObj = new JsonObject();
+            metadataObj.addProperty("name", ((LocalId) id).fileName());
+            metadataObj.addProperty("artist", ((LocalId) id).artist());
+            metadataObj.addProperty("album", ((LocalId) id).album());
+            metadataObj.addProperty("duration", ((LocalId) id).duration());
+            obj.add("local", metadataObj);
         } else if (id != null) {
             Utils.internalError(exchange, "Invalid PlayableId: " + id);
             return;

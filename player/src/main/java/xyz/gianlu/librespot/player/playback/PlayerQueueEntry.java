@@ -22,18 +22,16 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.HaltListener;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.audio.cdn.CdnManager;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.metadata.EpisodeId;
 import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
-import xyz.gianlu.librespot.metadata.TrackId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.StateWrapper;
-import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.codecs.Mp3Codec;
 import xyz.gianlu.librespot.player.codecs.VorbisCodec;
@@ -45,6 +43,7 @@ import xyz.gianlu.librespot.player.mixing.AudioSink;
 import xyz.gianlu.librespot.player.mixing.MixingLine;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
@@ -73,7 +72,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     CrossfadeController crossfade;
     PlaybackMetrics.Reason endReason = PlaybackMetrics.Reason.END_PLAY;
     private Codec codec;
-    private TrackOrEpisode metadata;
+    private MetadataWrapper metadata;
     private volatile boolean closed = false;
     private volatile MixingLine.MixingOutput output;
     private long playbackHaltedAt = 0;
@@ -108,17 +107,25 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      * @throws PlayableContentFeeder.ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
      */
     private void load(boolean preload) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
-        PlayableContentFeeder.LoadedStream stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(conf.preferredQuality), preload, this);
-        metadata = new TrackOrEpisode(stream.track, stream.episode);
+        PlayableContentFeeder.LoadedStream stream;
+        if (playable instanceof LocalId)
+            stream = PlayableContentFeeder.LoadedStream.forLocalFile((LocalId) playable,
+                    new File(conf.localFilesPath, ((LocalId) playable).fileName()));
+        else
+            stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(conf.preferredQuality), preload, this);
+
+        metadata = stream.metadata;
         contentMetrics = stream.metrics;
 
-        if (playable instanceof EpisodeId && stream.episode != null) {
-            LOGGER.info("Loaded episode. {name: '{}', uri: {}, id: {}}", stream.episode.getName(), playable.toSpotifyUri(), playbackId);
-        } else if (playable instanceof TrackId && stream.track != null) {
-            LOGGER.info("Loaded track. {name: '{}', artists: '{}', uri: {}, id: {}}", stream.track.getName(),
-                    Utils.artistsToString(stream.track.getArtistList()), playable.toSpotifyUri(), playbackId);
+        if (metadata.isEpisode() && metadata.episode != null) {
+            LOGGER.info("Loaded episode. {name: '{}', duration: {}, uri: {}, id: {}}", metadata.episode.getName(),
+                    metadata.episode.getDuration(), playable.toSpotifyUri(), playbackId);
+        } else if (metadata.isTrack() && metadata.track != null) {
+            LOGGER.info("Loaded track. {name: '{}', artists: '{}', duration: {}, uri: {}, id: {}}", metadata.track.getName(),
+                    Utils.artistsToString(metadata.track.getArtistList()), metadata.track.getDuration(), playable.toSpotifyUri(), playbackId);
         } else if (playable instanceof LocalId) {
-            LOGGER.info("Loaded local file. {filename: '{}', uri: {}, id: {}}", ((LocalId) playable).fileName(), playable.toSpotifyUri(), playbackId);
+            LOGGER.info("Loaded local file. {filename: '{}', duration: {}, uri: {}, id: {}}", ((LocalId) playable).fileName(),
+                    ((LocalId) playable).duration(), playable.toSpotifyUri(), playbackId);
         }
 
         crossfade = new CrossfadeController(playbackId, metadata.duration(), listener.metadataFor(playable).orElse(Collections.emptyMap()), conf);
@@ -146,10 +153,10 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     /**
      * Gets the metadata associated with this entry.
      *
-     * @return A {@link TrackOrEpisode} object or {@code null} if not loaded yet
+     * @return A {@link MetadataWrapper} object or {@code null} if not loaded yet
      */
     @Nullable
-    public TrackOrEpisode metadata() {
+    public MetadataWrapper metadata() {
         return metadata;
     }
 
@@ -459,9 +466,9 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
          * The track finished loading.
          *
          * @param entry    The {@link PlayerQueueEntry} that called this
-         * @param metadata The {@link TrackOrEpisode} object
+         * @param metadata The {@link MetadataWrapper} object
          */
-        void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull TrackOrEpisode metadata);
+        void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull MetadataWrapper metadata);
 
         /**
          * Get the metadata for this content.

@@ -21,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 
@@ -60,7 +61,7 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
     }
 
     @Override
-    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
         exec(conf.onTrackChanged);
     }
 
@@ -85,7 +86,7 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
     }
 
     @Override
-    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
+    public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
         exec(conf.onMetadataAvailable);
     }
 

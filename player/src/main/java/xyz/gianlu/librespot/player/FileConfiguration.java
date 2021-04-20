@@ -212,7 +212,7 @@ public final class FileConfiguration {
     @Nullable
     private File getFile(@NotNull String key) {
         String path = config.get(key);
-        return path == null ? null : new File(path);
+        return path == null || path.isEmpty() ? null : new File(path);
     }
 
     @NotNull

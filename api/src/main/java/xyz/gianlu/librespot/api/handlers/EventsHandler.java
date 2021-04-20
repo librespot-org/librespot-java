@@ -27,11 +27,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 import xyz.gianlu.librespot.api.PlayerWrapper;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.Player;
-import xyz.gianlu.librespot.player.TrackOrEpisode;
 
 public final class EventsHandler extends WebSocketProtocolHandshakeHandler implements Player.EventsListener, PlayerWrapper.Listener, Session.ReconnectionListener {
     private static final Logger LOGGER = LogManager.getLogger(EventsHandler.class);
@@ -54,7 +54,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable TrackOrEpisode metadata) {
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackChanged");
         obj.addProperty("uri", id.toSpotifyUri());
@@ -98,7 +98,7 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onMetadataAvailable(@NotNull Player player, @NotNull TrackOrEpisode metadata) {
+    public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "metadataAvailable");
         if (metadata.track != null) obj.add("track", ProtobufToJson.convert(metadata.track));

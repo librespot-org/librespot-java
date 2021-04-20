@@ -244,7 +244,7 @@ public class CdnManager {
 
                 String[] split = Utils.split(contentRange, '/');
                 size = Integer.parseInt(split[1]);
-                chunks = (int) Math.ceil((float) size / (float) CHUNK_SIZE);
+                chunks = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
                 if (cacheHandler != null)
                     cacheHandler.setHeader(AudioFileFetch.HEADER_SIZE, ByteBuffer.allocate(4).putInt(size / 4).array());

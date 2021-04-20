@@ -14,32 +14,36 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player;
+package xyz.gianlu.librespot.audio;
 
 import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 
 /**
  * @author devgianlu
  */
-public final class TrackOrEpisode {
+public final class MetadataWrapper {
     public final PlayableId id;
     public final Metadata.Track track;
     public final Metadata.Episode episode;
+    private final LocalId localTrack;
 
-    @Contract("null, null -> fail")
-    public TrackOrEpisode(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode) {
-        if (track == null && episode == null) throw new IllegalArgumentException();
+    @Contract("null, null, null -> fail")
+    public MetadataWrapper(@Nullable Metadata.Track track, @Nullable Metadata.Episode episode, @Nullable LocalId localTrack) {
+        if (track == null && episode == null && localTrack == null) throw new IllegalArgumentException();
 
         this.track = track;
         this.episode = episode;
+        this.localTrack = localTrack;
 
         if (track != null) id = PlayableId.from(track);
-        else id = PlayableId.from(episode);
+        else if (episode != null) id = PlayableId.from(episode);
+        else id = localTrack;
     }
 
     public boolean isTrack() {
@@ -50,11 +54,17 @@ public final class TrackOrEpisode {
         return episode != null;
     }
 
+    public boolean isLocalTrack() {
+        return localTrack != null;
+    }
+
     /**
      * @return The track/episode duration
      */
     public int duration() {
-        return track != null ? track.getDuration() : episode.getDuration();
+        if (track != null) return track.getDuration();
+        else if (episode != null) return episode.getDuration();
+        else return localTrack.duration();
     }
 
     /**
@@ -65,9 +75,11 @@ public final class TrackOrEpisode {
         if (track != null) {
             if (track.hasAlbum() && track.getAlbum().hasCoverGroup())
                 return track.getAlbum().getCoverGroup();
-        } else {
+        } else if (episode != null) {
             if (episode.hasCoverImage())
                 return episode.getCoverImage();
+        } else {
+            // TODO: Fetch album image from track file
         }
 
         return null;
@@ -78,7 +90,9 @@ public final class TrackOrEpisode {
      */
     @NotNull
     public String getName() {
-        return track != null ? track.getName() : episode.getName();
+        if (track != null) return track.getName();
+        else if (episode != null) return episode.getName();
+        else return localTrack.fileName();
     }
 
     /**
@@ -86,7 +100,9 @@ public final class TrackOrEpisode {
      */
     @NotNull
     public String getAlbumName() {
-        return track != null ? track.getAlbum().getName() : episode.getShow().getName();
+        if (track != null) return track.getAlbum().getName();
+        else if (episode != null) return episode.getShow().getName();
+        else return localTrack.album();
     }
 
     /**
@@ -94,6 +110,8 @@ public final class TrackOrEpisode {
      */
     @NotNull
     public String getArtist() {
-        return track != null ? Utils.artistsToString(track.getArtistList()) : episode.getShow().getPublisher();
+        if (track != null) return Utils.artistsToString(track.getArtistList());
+        else if (episode != null) return episode.getShow().getPublisher();
+        else return localTrack.artist();
     }
 }

@@ -21,12 +21,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.TrackOrEpisode;
 import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics.Reason;
@@ -190,7 +190,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
     }
 
     @Override
-    public void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull TrackOrEpisode metadata) {
+    public void finishedLoading(@NotNull PlayerQueueEntry entry, @NotNull MetadataWrapper metadata) {
         LOGGER.trace("{} finished loading.", entry);
         if (entry == queue.head()) listener.finishedLoading(metadata);
     }
@@ -331,7 +331,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
      * @return The metadata for the current head or {@code null} if not available.
      */
     @Nullable
-    public TrackOrEpisode currentMetadata() {
+    public MetadataWrapper currentMetadata() {
         if (queue.head() == null) return null;
         else return queue.head().metadata();
     }
@@ -414,9 +414,9 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         /**
          * The current track finished loading.
          *
-         * @param metadata The {@link TrackOrEpisode} object
+         * @param metadata The {@link MetadataWrapper} object
          */
-        void finishedLoading(@NotNull TrackOrEpisode metadata);
+        void finishedLoading(@NotNull MetadataWrapper metadata);
 
         /**
          * An error occurred during playback of the current track.
@@ -433,7 +433,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
          * @param pos           The position at which playback started
          * @param startedReason The reason why the current track changed
          */
-        void trackChanged(@NotNull String playbackId, @Nullable TrackOrEpisode metadata, int pos, @NotNull Reason startedReason);
+        void trackChanged(@NotNull String playbackId, @Nullable MetadataWrapper metadata, int pos, @NotNull Reason startedReason);
 
         /**
          * The current entry has finished playing.

@@ -39,6 +39,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.common.FisherYatesShuffle;
 import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
@@ -138,7 +139,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (conf.localFilesPath == null)
                 return false;
 
-            File localFile = new File(conf.localFilesPath, ((LocalId) id).fileName());
+            File localFile = new File(conf.localFilesPath, ((LocalId) id).fileName()); // FIXME
             return localFile.exists() && localFile.canRead();
         }
 
@@ -158,7 +159,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                     return false;
 
                 LocalId id = (LocalId) PlayableId.fromUri(track.getUri());
-                File localFile = new File(conf.localFilesPath, id.fileName());
+                File localFile = new File(conf.localFilesPath, id.fileName()); // FIXME
                 if (!localFile.exists() || !localFile.canRead())
                     return false;
             }
@@ -173,9 +174,9 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private boolean areAllUnplayable(List<ContextTrack> tracks) {
         for (ContextTrack track : tracks)
             if (shouldPlay(track))
-                return true;
+                return false;
 
-        return false;
+        return true;
     }
 
     boolean isActive() {
@@ -393,7 +394,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         device.setVolume(val);
     }
 
-    void enrichWithMetadata(@NotNull TrackOrEpisode metadata) {
+    void enrichWithMetadata(@NotNull MetadataWrapper metadata) {
         if (metadata.isTrack()) enrichWithMetadata(metadata.track);
         else if (metadata.isEpisode()) enrichWithMetadata(metadata.episode);
     }
@@ -1129,6 +1130,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
             setCurrentTrackIndex(0);
             if (!shouldPlay(getCurrentPlayable())) {
+                LOGGER.debug("Cannot play currently selected track, skipping: {}", getCurrentPlayable());
+
                 boolean repeatTrack = isRepeatingTrack();
                 if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
                 nextPlayable(false);
@@ -1180,6 +1183,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             }
 
             if (!shouldPlay(getCurrentPlayable())) {
+                LOGGER.debug("Cannot play currently selected track, skipping: {}", getCurrentPlayable());
+
                 boolean repeatTrack = isRepeatingTrack();
                 if (repeatTrack) state.getOptionsBuilder().setRepeatingTrack(false);
                 nextPlayable(false);
