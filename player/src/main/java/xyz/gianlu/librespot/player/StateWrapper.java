@@ -55,7 +55,6 @@ import xyz.gianlu.librespot.player.state.RestrictionsManager;
 import xyz.gianlu.librespot.player.state.RestrictionsManager.Action;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
@@ -128,24 +127,6 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
         return Base64.getEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private boolean shouldPlay(@Nullable PlayableId id) {
-        if (id == null)
-            return false;
-
-        if (id instanceof UnsupportedId)
-            return false;
-
-        if (id instanceof LocalId) {
-            if (conf.localFilesPath == null)
-                return false;
-
-            File localFile = new File(conf.localFilesPath, ((LocalId) id).fileName()); // FIXME
-            return localFile.exists() && localFile.canRead();
-        }
-
-        return true;
-    }
-
     private boolean shouldPlay(@NotNull ContextTrack track) {
         if (!track.getMetadataOrDefault("force_remove_reasons", "").isEmpty())
             return false;
@@ -154,15 +135,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             if (PlayableId.isDelimiter(track.getUri()))
                 return false;
 
-            if (PlayableId.isLocal(track.getUri())) {
-                if (conf.localFilesPath == null)
-                    return false;
-
-                LocalId id = (LocalId) PlayableId.fromUri(track.getUri());
-                File localFile = new File(conf.localFilesPath, id.fileName()); // FIXME
-                if (!localFile.exists() || !localFile.canRead())
-                    return false;
-            }
+            if (PlayableId.isLocal(track.getUri()))
+                return false;
         }
 
         boolean filterExplicit = "1".equals(session.getUserAttribute("filter-explicit-content"));
@@ -1129,7 +1103,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             else state.getOptionsBuilder().setShufflingContext(false); // Must do this directly!
 
             setCurrentTrackIndex(0);
-            if (!shouldPlay(getCurrentPlayable())) {
+            if (!shouldPlay(tracks.get(getCurrentTrackIndex()))) {
                 LOGGER.debug("Cannot play currently selected track, skipping: {}", getCurrentPlayable());
 
                 boolean repeatTrack = isRepeatingTrack();
@@ -1182,7 +1156,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
                 LOGGER.warn("Failed updating current track metadata.", ex);
             }
 
-            if (!shouldPlay(getCurrentPlayable())) {
+            if (!shouldPlay(tracks.get(getCurrentTrackIndex()))) {
                 LOGGER.debug("Cannot play currently selected track, skipping: {}", getCurrentPlayable());
 
                 boolean repeatTrack = isRepeatingTrack();

@@ -63,7 +63,7 @@ public final class LocalId implements PlayableId {
     }
 
     @NotNull
-    public String fileName() {
+    public String name() {
         try {
             return URLDecoder.decode(data[2], "UTF-8");
         } catch (UnsupportedEncodingException ex) {

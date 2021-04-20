@@ -110,7 +110,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         PlayableContentFeeder.LoadedStream stream;
         if (playable instanceof LocalId)
             stream = PlayableContentFeeder.LoadedStream.forLocalFile((LocalId) playable,
-                    new File(conf.localFilesPath, ((LocalId) playable).fileName()));
+                    new File(conf.localFilesPath, ((LocalId) playable).name()));
         else
             stream = session.contentFeeder().load(playable, new VorbisOnlyAudioQuality(conf.preferredQuality), preload, this);
 
@@ -124,7 +124,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             LOGGER.info("Loaded track. {name: '{}', artists: '{}', duration: {}, uri: {}, id: {}}", metadata.track.getName(),
                     Utils.artistsToString(metadata.track.getArtistList()), metadata.track.getDuration(), playable.toSpotifyUri(), playbackId);
         } else if (playable instanceof LocalId) {
-            LOGGER.info("Loaded local file. {filename: '{}', duration: {}, uri: {}, id: {}}", ((LocalId) playable).fileName(),
+            LOGGER.info("Loaded local file. {filename: '{}', duration: {}, uri: {}, id: {}}", ((LocalId) playable).name(),
                     ((LocalId) playable).duration(), playable.toSpotifyUri(), playbackId);
         }
 

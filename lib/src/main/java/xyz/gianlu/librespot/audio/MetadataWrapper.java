@@ -92,7 +92,7 @@ public final class MetadataWrapper {
     public String getName() {
         if (track != null) return track.getName();
         else if (episode != null) return episode.getName();
-        else return localTrack.fileName();
+        else return localTrack.name();
     }
 
     /**

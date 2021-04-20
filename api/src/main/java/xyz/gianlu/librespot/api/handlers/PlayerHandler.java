@@ -136,7 +136,7 @@ public final class PlayerHandler extends AbsPlayerHandler {
             obj.add("episode", ProtobufToJson.convert(metadata.episode));
         } else if (id instanceof LocalId) {
             JsonObject metadataObj = new JsonObject();
-            metadataObj.addProperty("name", ((LocalId) id).fileName());
+            metadataObj.addProperty("name", ((LocalId) id).name());
             metadataObj.addProperty("artist", ((LocalId) id).artist());
             metadataObj.addProperty("album", ((LocalId) id).album());
             metadataObj.addProperty("duration", ((LocalId) id).duration());
