@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * @author Gianlu
@@ -226,7 +227,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
-        putStateWorker.submit(putState.build());
+        try {
+        	putStateWorker.submit(putState.build());
+        } catch (RejectedExecutionException e){
+            LOGGER.debug("Failed to update state, ignoring.", e);
+        }
     }
 
     public synchronized int getVolume() {

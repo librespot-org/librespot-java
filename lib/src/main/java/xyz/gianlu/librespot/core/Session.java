@@ -452,6 +452,8 @@ public final class Session implements Closeable {
     public void close() throws IOException {
         LOGGER.info("Closing session. {deviceId: {}}", inner.deviceId);
 
+        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
+
         closing = true;
 
         scheduler.shutdownNow();
@@ -513,7 +515,11 @@ public final class Session implements Closeable {
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
-        cipherPair.sendEncoded(conn.out, cmd.val, payload);
+        try {
+        	cipherPair.sendEncoded(conn.out, cmd.val, payload);
+        } catch (NullPointerException e) {
+            throw new IOException(e);
+        }
     }
 
     private void waitAuthLock() {
@@ -692,6 +698,7 @@ public final class Session implements Closeable {
     }
 
     private void reconnect() {
+        if (!this.closing) {
         synchronized (reconnectionListeners) {
             reconnectionListeners.forEach(ReconnectionListener::onConnectionDropped);
         }
@@ -715,15 +722,18 @@ public final class Session implements Closeable {
             synchronized (reconnectionListeners) {
                 reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
             }
-        } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
-            conn = null;
-            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
-
-            try {
-                scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
-            } catch (RejectedExecutionException exx) {
-                LOGGER.info("Scheduler already shutdown, stopping reconnection", exx);
-            }
+            } catch (NullPointerException | IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+                if (!this.closing) {
+		            conn = null;
+		            LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
+		
+		            try {
+		                scheduler.schedule(this::reconnect, 10, TimeUnit.SECONDS);
+		            } catch (RejectedExecutionException exx) {
+		                LOGGER.info("Scheduler already shutdown, stopping reconnection", exx);
+		            }
+		        }
+		    }
         }
     }
 
@@ -1309,8 +1319,8 @@ public final class Session implements Closeable {
                         LOGGER.info("Skipping unknown command {cmd: 0x{}, payload: {}}", Integer.toHexString(packet.cmd), Utils.bytesToHex(packet.payload));
                         continue;
                     }
-                } catch (IOException | GeneralSecurityException ex) {
-                    if (running) {
+                } catch (IOException | GeneralSecurityException | NullPointerException ex) {
+                    if (running && !closing) {
                         LOGGER.error("Failed reading packet!", ex);
                         reconnect();
                     }
@@ -1318,7 +1328,7 @@ public final class Session implements Closeable {
                     break;
                 }
 
-                if (!running) break;
+                if (!running || closing) break;
 
                 switch (cmd) {
                     case Ping:
