@@ -388,7 +388,7 @@ public final class Session implements Closeable {
      *                   {@code true} for {@link Session#reconnect()}.
      */
     private void authenticatePartial(@NotNull Authentication.LoginCredentials credentials, boolean removeLock) throws IOException, GeneralSecurityException, SpotifyAuthenticationException {
-        if (cipherPair == null) throw new IllegalStateException("Connection not established!");
+        if (conn == null || cipherPair == null) throw new IllegalStateException("Connection not established!");
 
         Authentication.ClientResponseEncrypted clientResponseEncrypted = Authentication.ClientResponseEncrypted.newBuilder()
                 .setLoginCredentials(credentials)
@@ -408,7 +408,6 @@ public final class Session implements Closeable {
             apWelcome = Authentication.APWelcome.parseFrom(packet.payload);
 
             receiver = new Receiver();
-
 
             byte[] bytes0x0f = new byte[20];
             random().nextBytes(bytes0x0f);
@@ -451,6 +450,8 @@ public final class Session implements Closeable {
     @Override
     public void close() throws IOException {
         LOGGER.info("Closing session. {deviceId: {}}", inner.deviceId);
+
+        if (scheduledReconnect != null) scheduledReconnect.cancel(true);
 
         closing = true;
 
@@ -513,6 +514,9 @@ public final class Session implements Closeable {
     }
 
     private void sendUnchecked(Packet.Type cmd, byte[] payload) throws IOException {
+        if (conn == null)
+            throw new IOException("Cannot write to missing connection.");
+
         cipherPair.sendEncoded(conn.out, cmd.val, payload);
     }
 
@@ -692,6 +696,9 @@ public final class Session implements Closeable {
     }
 
     private void reconnect() {
+        if (closing)
+            return;
+
         synchronized (reconnectionListeners) {
             reconnectionListeners.forEach(ReconnectionListener::onConnectionDropped);
         }
@@ -716,6 +723,9 @@ public final class Session implements Closeable {
                 reconnectionListeners.forEach(ReconnectionListener::onConnectionEstablished);
             }
         } catch (IOException | GeneralSecurityException | SpotifyAuthenticationException ex) {
+            if (closing)
+                return;
+
             conn = null;
             LOGGER.error("Failed reconnecting, retrying in 10 seconds...", ex);
 
@@ -1310,7 +1320,7 @@ public final class Session implements Closeable {
                         continue;
                     }
                 } catch (IOException | GeneralSecurityException ex) {
-                    if (running) {
+                    if (running && !closing) {
                         LOGGER.error("Failed reading packet!", ex);
                         reconnect();
                     }
