@@ -66,6 +66,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private final Connect.PutStateRequest.Builder putState;
     private final AsyncWorker<Connect.PutStateRequest> putStateWorker;
     private volatile String connectionId = null;
+    private volatile boolean closing = false;
 
     public DeviceStateHandler(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         this.session = session;
@@ -228,9 +229,9 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
         try {
-        	putStateWorker.submit(putState.build());
-        } catch (RejectedExecutionException e){
-            LOGGER.debug("Failed to update state, ignoring.", e);
+            putStateWorker.submit(putState.build());
+        } catch (RejectedExecutionException ex) {
+            if (!closing) LOGGER.error("Failed to submit update state task.", ex);
         }
     }
 
@@ -249,6 +250,8 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
     @Override
     public void close() {
+        closing = true;
+
         session.dealer().removeMessageListener(this);
         session.dealer().removeRequestListener(this);
 
