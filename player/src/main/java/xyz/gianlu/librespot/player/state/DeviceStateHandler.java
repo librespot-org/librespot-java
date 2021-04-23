@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * @author Gianlu
@@ -65,6 +66,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private final Connect.PutStateRequest.Builder putState;
     private final AsyncWorker<Connect.PutStateRequest> putStateWorker;
     private volatile String connectionId = null;
+    private volatile boolean closing = false;
 
     public DeviceStateHandler(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         this.session = session;
@@ -226,7 +228,11 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 .setClientSideTimestamp(TimeProvider.currentTimeMillis())
                 .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
 
-        putStateWorker.submit(putState.build());
+        try {
+            putStateWorker.submit(putState.build());
+        } catch (RejectedExecutionException ex) {
+            if (!closing) LOGGER.error("Failed to submit update state task.", ex);
+        }
     }
 
     public synchronized int getVolume() {
@@ -244,6 +250,8 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
     @Override
     public void close() {
+        closing = true;
+
         session.dealer().removeMessageListener(this);
         session.dealer().removeRequestListener(this);
 

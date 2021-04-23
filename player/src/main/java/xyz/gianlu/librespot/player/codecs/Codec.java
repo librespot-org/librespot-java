@@ -44,7 +44,7 @@ public abstract class Codec implements Closeable {
     protected int seekZero = 0;
     private OutputAudioFormat format;
 
-    Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
+    public Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
         this.audioIn = audioFile.stream();
         this.audioFile = audioFile;
         this.duration = duration;

@@ -16,7 +16,6 @@
 
 package xyz.gianlu.librespot.player.playback;
 
-import javazoom.jl.decoder.BitstreamException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -33,8 +32,7 @@ import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.StateWrapper;
 import xyz.gianlu.librespot.player.codecs.Codec;
-import xyz.gianlu.librespot.player.codecs.Mp3Codec;
-import xyz.gianlu.librespot.player.codecs.VorbisCodec;
+import xyz.gianlu.librespot.player.codecs.Codecs;
 import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
@@ -132,20 +130,9 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         if (crossfade.hasAnyFadeOut() || conf.preloadEnabled)
             notifyInstant(INSTANT_PRELOAD, (int) (crossfade.fadeOutStartTimeMin() - TimeUnit.SECONDS.toMillis(20)));
 
-        switch (stream.in.codec()) {
-            case VORBIS:
-                codec = new VorbisCodec(stream.in, stream.normalizationData, conf, metadata.duration());
-                break;
-            case MP3:
-                try {
-                    codec = new Mp3Codec(stream.in, stream.normalizationData, conf, metadata.duration());
-                } catch (BitstreamException ex) {
-                    throw new IOException(ex);
-                }
-                break;
-            default:
-                throw new UnsupportedEncodingException(stream.in.codec().toString());
-        }
+        codec = Codecs.initCodec(stream.in.codec(), stream.in, stream.normalizationData, conf, metadata.duration());
+        if (codec == null)
+            throw new UnsupportedEncodingException(stream.in.codec().toString());
 
         LOGGER.trace("Loaded {} codec. {of: {}, format: {}, playbackId: {}}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId);
     }
