@@ -37,6 +37,7 @@ public final class PlayerConfiguration {
     // Output
     public final AudioOutput output;
     public final String outputClass;
+    public final Object[] outputClassParams;
     public final File outputPipe;
     public final File metadataPipe;
     public final String[] mixerSearchKeywords;
@@ -52,7 +53,7 @@ public final class PlayerConfiguration {
     public final File localFilesPath;
 
     private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
-                                AudioOutput output, String outputClass, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
+                                AudioOutput output, String outputClass, Object[] outputClassParams, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
                                 int initialVolume, int volumeSteps, boolean bypassSinkVolume, File localFilesPath) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
@@ -61,6 +62,7 @@ public final class PlayerConfiguration {
         this.crossfadeDuration = crossfadeDuration;
         this.output = output;
         this.outputClass = outputClass;
+        this.outputClassParams = outputClassParams;
         this.outputPipe = outputPipe;
         this.metadataPipe = metadataPipe;
         this.mixerSearchKeywords = mixerSearchKeywords;
@@ -89,6 +91,7 @@ public final class PlayerConfiguration {
         // Output
         private AudioOutput output = AudioOutput.MIXER;
         private String outputClass;
+        private Object[] outputClassParams;
         private File outputPipe;
         private File metadataPipe;
         private String[] mixerSearchKeywords;
@@ -138,6 +141,11 @@ public final class PlayerConfiguration {
 
         public Builder setOutputClass(String outputClass) {
             this.outputClass = outputClass;
+            return this;
+        }
+
+        public Builder setOutputClassParams(Object[] outputClassParams) {
+            this.outputClassParams = outputClassParams;
             return this;
         }
 
@@ -200,7 +208,7 @@ public final class PlayerConfiguration {
         @Contract(value = " -> new", pure = true)
         public @NotNull PlayerConfiguration build() {
             return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
-                    output, outputClass, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
+                    output, outputClass, outputClassParams, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
                     initialVolume, volumeSteps, bypassSinkVolume, localFilesPath);
         }
     }
