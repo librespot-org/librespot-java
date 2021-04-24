@@ -121,12 +121,22 @@ public abstract class Codec implements Closeable {
     }
 
     public static class CannotGetTimeException extends Exception {
-        CannotGetTimeException() {
+        public CannotGetTimeException(String message) {
+            super(message);
+        }
+
+        public CannotGetTimeException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
     public static class CodecException extends Exception {
-        CodecException() {
+        public CodecException(String message) {
+            super(message);
+        }
+
+        public CodecException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

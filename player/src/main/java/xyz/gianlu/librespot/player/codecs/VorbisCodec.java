@@ -117,7 +117,7 @@ public final class VorbisCodec extends Codec {
                 }
 
                 if (joggStreamState.pagein(joggPage) == -1)
-                    throw new CodecException();
+                    throw new CodecException("Failed reading page");
 
                 if (joggStreamState.packetout(joggPacket) == -1)
                     throw new HoleInDataException();
@@ -133,7 +133,7 @@ public final class VorbisCodec extends Codec {
             buffer = joggSyncState.data;
 
             if (count == 0 && !finished)
-                throw new CodecException();
+                throw new CodecException("Buffer under-run");
         }
     }
 
@@ -153,7 +153,7 @@ public final class VorbisCodec extends Codec {
             // Read more
         } else if (result == 1) {
             if (joggStreamState.pagein(joggPage) == -1)
-                throw new CodecException();
+                throw new CodecException("Failed reading page");
 
             if (joggPage.granulepos() == 0)
                 return -1;
@@ -244,8 +244,14 @@ public final class VorbisCodec extends Codec {
     }
 
     private static class NotVorbisException extends CodecException {
+        NotVorbisException() {
+            super("Data read is not vorbis data");
+        }
     }
 
     private static class HoleInDataException extends CodecException {
+        HoleInDataException() {
+            super("Hole in vorbis data");
+        }
     }
 }

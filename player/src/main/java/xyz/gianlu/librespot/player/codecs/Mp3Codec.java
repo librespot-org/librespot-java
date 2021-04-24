@@ -84,7 +84,7 @@ public final class Mp3Codec extends Codec {
 
     @Override
     public int time() throws CannotGetTimeException {
-        throw new CannotGetTimeException();
+        throw new CannotGetTimeException("No way to get time on MP3 stream");
     }
 
     @Override
