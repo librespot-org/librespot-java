@@ -37,9 +37,9 @@ import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazRequest;
 import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public class ApiClient {
+public final class ApiClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiClient.class);
     private final Session session;
     private final String baseUrl;
@@ -50,7 +50,7 @@ public class ApiClient {
     }
 
     @NotNull
-    private static RequestBody protoBody(@NotNull Message msg) {
+    public static RequestBody protoBody(@NotNull Message msg) {
         return new RequestBody() {
             @Override
             public MediaType contentType() {
