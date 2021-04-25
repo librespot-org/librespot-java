@@ -61,7 +61,9 @@ public final class AudioSink implements Runnable, Closeable {
                 if (conf.outputClass == null || conf.outputClass.isEmpty())
                     throw new IllegalArgumentException("Custom output sink class not configured!");
 
-                output = initCustomOutputSink(conf.outputClass, conf.outputClassParams);
+                Object[] params = conf.outputClassParams;
+                if (params == null) params = new Object[0];
+                output = initCustomOutputSink(conf.outputClass, params);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output);
