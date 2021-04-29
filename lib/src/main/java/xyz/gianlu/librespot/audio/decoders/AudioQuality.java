@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.decoders;
+package xyz.gianlu.librespot.audio.decoders;
 
 import com.spotify.metadata.Metadata.AudioFile;
 import org.jetbrains.annotations.NotNull;

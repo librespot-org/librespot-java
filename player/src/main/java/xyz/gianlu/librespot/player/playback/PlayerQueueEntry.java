@@ -20,10 +20,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.audio.DecodedAudioStream;
 import xyz.gianlu.librespot.audio.HaltListener;
 import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.audio.cdn.CdnManager;
+import xyz.gianlu.librespot.audio.decoders.Decoders;
+import xyz.gianlu.librespot.audio.decoders.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -33,8 +36,6 @@ import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.StateWrapper;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
 import xyz.gianlu.librespot.player.decoders.Decoder;
-import xyz.gianlu.librespot.player.decoders.Decoders;
-import xyz.gianlu.librespot.player.decoders.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
 import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
@@ -70,6 +71,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     CrossfadeController crossfade;
     PlaybackMetrics.Reason endReason = PlaybackMetrics.Reason.END_PLAY;
     private Decoder decoder;
+    private DecodedAudioStream audioStream;
     private MetadataWrapper metadata;
     private volatile boolean closed = false;
     private volatile MixingLine.MixingOutput output;
@@ -114,6 +116,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         metadata = stream.metadata;
         contentMetrics = stream.metrics;
+        audioStream = stream.in;
 
         if (metadata.isEpisode() && metadata.episode != null) {
             LOGGER.info("Loaded episode. {name: '{}', duration: {}, uri: {}, id: {}}", metadata.episode.getName(),
@@ -134,7 +137,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         if (stream.normalizationData == null || !conf.enableNormalisation) normalizationFactor = 1;
         else normalizationFactor = stream.normalizationData.getFactor(conf.normalisationPregain);
 
-        decoder = Decoders.initDecoder(stream.in.codec(), stream.in, normalizationFactor, metadata.duration());
+        decoder = Decoders.initDecoder(stream.in.codec(), stream.in.stream(), normalizationFactor, metadata.duration());
         if (decoder == null)
             throw new UnsupportedEncodingException(stream.in.codec().toString());
 
@@ -158,7 +161,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      */
     @NotNull
     PlayerMetrics metrics() {
-        return new PlayerMetrics(contentMetrics, crossfade, decoder);
+        return new PlayerMetrics(contentMetrics, crossfade, audioStream, decoder);
     }
 
     /**

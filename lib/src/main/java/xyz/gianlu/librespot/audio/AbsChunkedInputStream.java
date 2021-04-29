@@ -17,16 +17,16 @@
 package xyz.gianlu.librespot.audio;
 
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.player.decoders.SeekableInputStream;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public abstract class AbsChunkedInputStream extends InputStream implements HaltListener {
+public abstract class AbsChunkedInputStream extends SeekableInputStream implements HaltListener {
     private static final int PRELOAD_AHEAD = 3;
     private static final int PRELOAD_CHUNK_RETRIES = 2;
     private static final int MAX_CHUNK_TRIES = 128;
@@ -82,10 +82,12 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
         pos = mark;
     }
 
-    public final synchronized int pos() {
+    @Override
+    public final synchronized int position() {
         return pos;
     }
 
+    @Override
     public final synchronized void seek(int where) throws IOException {
         if (where < 0) throw new IllegalArgumentException();
         if (closed) throw new IOException("Stream is closed!");
@@ -260,6 +262,7 @@ public abstract class AbsChunkedInputStream extends InputStream implements HaltL
         }
     }
 
+    @Override
     public int decodedLength() {
         return decodedLength;
     }

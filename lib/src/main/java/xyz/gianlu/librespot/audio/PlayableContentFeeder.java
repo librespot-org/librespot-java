@@ -183,7 +183,7 @@ public final class PlayableContentFeeder {
         }
     }
 
-    private static class FileAudioStream implements GeneralAudioStream {
+    private static class FileAudioStream implements DecodedAudioStream {
         private static final Logger LOGGER = LoggerFactory.getLogger(FileAudioStream.class);
         private final File file;
         private final RandomAccessFile raf;
@@ -276,25 +276,25 @@ public final class PlayableContentFeeder {
 
     public static class LoadedStream {
         public final MetadataWrapper metadata;
-        public final GeneralAudioStream in;
+        public final DecodedAudioStream in;
         public final NormalizationData normalizationData;
         public final Metrics metrics;
 
-        public LoadedStream(@NotNull Metadata.Track track, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
+        public LoadedStream(@NotNull Metadata.Track track, @NotNull DecodedAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
             this.metadata = new MetadataWrapper(track, null, null);
             this.in = in;
             this.normalizationData = normalizationData;
             this.metrics = metrics;
         }
 
-        public LoadedStream(@NotNull Metadata.Episode episode, @NotNull GeneralAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
+        public LoadedStream(@NotNull Metadata.Episode episode, @NotNull DecodedAudioStream in, @Nullable NormalizationData normalizationData, @NotNull Metrics metrics) {
             this.metadata = new MetadataWrapper(null, episode, null);
             this.in = in;
             this.normalizationData = normalizationData;
             this.metrics = metrics;
         }
 
-        private LoadedStream(@NotNull LocalId id, @NotNull GeneralAudioStream in) {
+        private LoadedStream(@NotNull LocalId id, @NotNull DecodedAudioStream in) {
             this.metadata = new MetadataWrapper(null, null, id);
             this.in = in;
             this.normalizationData = null;

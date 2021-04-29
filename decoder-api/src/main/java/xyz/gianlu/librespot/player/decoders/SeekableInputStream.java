@@ -14,24 +14,26 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.audio;
+package xyz.gianlu.librespot.player.decoders;
 
-import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.audio.format.SuperAudioFormat;
-
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public interface GeneralAudioStream {
-    @NotNull
-    AbsChunkedInputStream stream();
+public abstract class SeekableInputStream extends InputStream {
+    public abstract int size();
 
-    @NotNull
-    SuperAudioFormat codec();
+    public abstract int position();
 
-    @NotNull
-    String describe();
+    public abstract void seek(int seekZero) throws IOException;
 
-    int decryptTimeMs();
+    public abstract long skip(long skip) throws IOException;
+
+    public abstract int read(byte[] buffer, int index, int length) throws IOException;
+
+    public abstract void close();
+
+    public abstract int decodedLength();
 }

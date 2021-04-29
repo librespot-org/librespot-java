@@ -19,8 +19,6 @@ package xyz.gianlu.librespot.player.decoders;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.Closeable;
@@ -28,22 +26,20 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
 public abstract class Decoder implements Closeable {
     public static final int BUFFER_SIZE = 2048;
     private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
-    protected final AbsChunkedInputStream audioIn;
+    protected final SeekableInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
-    private final GeneralAudioStream audioFile;
     protected volatile boolean closed = false;
     protected int seekZero = 0;
     private OutputAudioFormat format;
 
-    public Decoder(@NotNull GeneralAudioStream audioFile, float normalizationFactor, int duration) {
-        this.audioIn = audioFile.stream();
-        this.audioFile = audioFile;
+    public Decoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) {
+        this.audioIn = audioIn;
         this.duration = duration;
         this.normalizationFactor = normalizationFactor;
     }
@@ -104,14 +100,6 @@ public abstract class Decoder implements Closeable {
 
     public final int size() {
         return audioIn.size();
-    }
-
-    public final int decodedLength() {
-        return audioIn.decodedLength();
-    }
-
-    public final int decryptTimeMs() {
-        return audioFile.decryptTimeMs();
     }
 
     public static class CannotGetTimeException extends Exception {

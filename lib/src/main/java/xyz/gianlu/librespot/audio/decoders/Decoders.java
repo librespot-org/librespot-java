@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.decoders;
+package xyz.gianlu.librespot.audio.decoders;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
 import xyz.gianlu.librespot.audio.format.SuperAudioFormat;
+import xyz.gianlu.librespot.player.decoders.Decoder;
+import xyz.gianlu.librespot.player.decoders.SeekableInputStream;
 
 import java.util.*;
 
@@ -41,7 +42,7 @@ public final class Decoders {
     }
 
     @Nullable
-    public static Decoder initDecoder(@NotNull SuperAudioFormat format, @NotNull GeneralAudioStream audioFile, float normalizationFactor, int duration) {
+    public static Decoder initDecoder(@NotNull SuperAudioFormat format, @NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) {
         Set<Class<? extends Decoder>> set = decoders.get(format);
         if (set == null) return null;
 
@@ -50,7 +51,7 @@ public final class Decoders {
 
         try {
             Class<? extends Decoder> clazz = opt.get();
-            return clazz.getConstructor(GeneralAudioStream.class, float.class, int.class).newInstance(audioFile, normalizationFactor, duration);
+            return clazz.getConstructor(SeekableInputStream.class, float.class, int.class).newInstance(audioIn, normalizationFactor, duration);
         } catch (ReflectiveOperationException ex) {
             LOGGER.error("Failed initializing Codec instance for {}", format, ex);
             return null;

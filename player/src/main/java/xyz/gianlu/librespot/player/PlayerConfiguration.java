@@ -18,7 +18,7 @@ package xyz.gianlu.librespot.player;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.player.decoders.AudioQuality;
+import xyz.gianlu.librespot.audio.decoders.AudioQuality;
 
 import java.io.File;
 

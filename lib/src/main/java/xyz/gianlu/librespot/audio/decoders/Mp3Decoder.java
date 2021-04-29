@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.decoders;
+package xyz.gianlu.librespot.audio.decoders;
 
 import javazoom.jl.decoder.*;
 import org.jetbrains.annotations.NotNull;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
+import xyz.gianlu.librespot.player.decoders.Decoder;
+import xyz.gianlu.librespot.player.decoders.SeekableInputStream;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.IOException;
@@ -31,17 +32,16 @@ import java.nio.ByteOrder;
  * @author Gianlu
  */
 public final class Mp3Decoder extends Decoder {
-    private final byte[] buffer = new byte[2 * BUFFER_SIZE];
+    private final byte[] buffer = new byte[2 * Decoder.BUFFER_SIZE];
     private final Mp3InputStream in;
 
-    public Mp3Decoder(@NotNull GeneralAudioStream audioFile, float normalizationFactor, int duration) throws IOException, BitstreamException {
-        super(audioFile, normalizationFactor, duration);
+    public Mp3Decoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) throws IOException, BitstreamException {
+        super(audioIn, normalizationFactor, duration);
 
         skipMp3Tags(audioIn);
         this.in = new Mp3InputStream(audioIn, normalizationFactor);
 
         audioIn.mark(-1);
-
         setAudioFormat(new OutputAudioFormat(in.getSampleRate(), 16, in.getChannels(), true, false));
     }
 

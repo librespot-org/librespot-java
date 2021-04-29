@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
+import xyz.gianlu.librespot.audio.DecodedAudioStream;
 import xyz.gianlu.librespot.audio.HaltListener;
 import xyz.gianlu.librespot.audio.decrypt.AesAudioDecrypt;
 import xyz.gianlu.librespot.audio.decrypt.AudioDecrypt;
@@ -41,9 +41,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public class AudioFileStreaming implements AudioFile, GeneralAudioStream {
+public class AudioFileStreaming implements AudioFile, DecodedAudioStream {
     private static final Logger LOGGER = LoggerFactory.getLogger(AudioFileStreaming.class);
     private final CacheManager.Handler cacheHandler;
     private final Metadata.AudioFile file;
