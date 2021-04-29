@@ -20,7 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.player.codecs.Codec;
+import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.InputStream;
@@ -82,7 +82,7 @@ public final class MixingLine extends InputStream {
     @NotNull
     public MixingOutput firstOut() {
         if (fout == null) {
-            fcb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
+            fcb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4);
             fout = new FirstOutputStream();
         }
 
@@ -92,7 +92,7 @@ public final class MixingLine extends InputStream {
     @NotNull
     public MixingOutput secondOut() {
         if (sout == null) {
-            scb = new GainAwareCircularBuffer(Codec.BUFFER_SIZE * 4);
+            scb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4);
             sout = new SecondOutputStream();
         }
 

@@ -18,10 +18,10 @@ package xyz.gianlu.librespot.player.metrics;
 
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
-import xyz.gianlu.librespot.player.codecs.Codec;
-import xyz.gianlu.librespot.player.codecs.Mp3Codec;
-import xyz.gianlu.librespot.player.codecs.VorbisCodec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
+import xyz.gianlu.librespot.player.decoders.Decoder;
+import xyz.gianlu.librespot.player.decoders.Mp3Decoder;
+import xyz.gianlu.librespot.player.decoders.VorbisDecoder;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 /**
@@ -39,21 +39,21 @@ public final class PlayerMetrics {
     public String transition = "none";
     public int decryptTime = 0;
 
-    public PlayerMetrics(@Nullable PlayableContentFeeder.Metrics contentMetrics, @Nullable CrossfadeController crossfade, @Nullable Codec codec) {
+    public PlayerMetrics(@Nullable PlayableContentFeeder.Metrics contentMetrics, @Nullable CrossfadeController crossfade, @Nullable Decoder decoder) {
         this.contentMetrics = contentMetrics;
 
-        if (codec != null) {
-            size = codec.size();
-            duration = codec.duration();
-            decodedLength = codec.decodedLength();
-            decryptTime = codec.decryptTimeMs();
+        if (decoder != null) {
+            size = decoder.size();
+            duration = decoder.duration();
+            decodedLength = decoder.decodedLength();
+            decryptTime = decoder.decryptTimeMs();
 
-            OutputAudioFormat format = codec.getAudioFormat();
+            OutputAudioFormat format = decoder.getAudioFormat();
             bitrate = (int) (format.getFrameRate() * format.getFrameSize());
             sampleRate = format.getSampleRate();
 
-            if (codec instanceof VorbisCodec) encoding = "vorbis";
-            else if (codec instanceof Mp3Codec) encoding = "mp3";
+            if (decoder instanceof VorbisDecoder) encoding = "vorbis";
+            else if (decoder instanceof Mp3Decoder) encoding = "mp3";
         }
 
         if (crossfade != null) {

@@ -27,8 +27,8 @@ import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
+import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics.Reason;
 import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
@@ -258,7 +258,7 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
                         try {
                             int time = head.prev.getTime();
                             head.prev.notifyInstant(PlayerQueueEntry.INSTANT_END, ((CrossfadeController.PartialFadeInterval) fadeOut).end(time));
-                        } catch (Codec.CannotGetTimeException ex) {
+                        } catch (Decoder.CannotGetTimeException ex) {
                             head.prev.close();
                         }
                     } else {
@@ -338,9 +338,9 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
 
     /**
      * @return The time for the current head or {@code -1} if not available.
-     * @throws Codec.CannotGetTimeException If the head is available, but time cannot be retrieved
+     * @throws Decoder.CannotGetTimeException If the head is available, but time cannot be retrieved
      */
-    public int currentTime() throws Codec.CannotGetTimeException {
+    public int currentTime() throws Decoder.CannotGetTimeException {
         if (queue.head() == null) return -1;
         else return queue.head().getTime();
     }

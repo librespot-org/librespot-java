@@ -20,7 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.codecs.Codec;
+import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.mixing.output.*;
 
 import java.io.Closeable;
@@ -152,7 +152,7 @@ public final class AudioSink implements Runnable, Closeable {
 
     @Override
     public void run() {
-        byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
+        byte[] buffer = new byte[Decoder.BUFFER_SIZE * 2];
 
         boolean started = false;
         while (!closed) {

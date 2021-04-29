@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.player.decoders;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
-import xyz.gianlu.librespot.audio.NormalizationData;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.Closeable;
@@ -33,9 +30,9 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public abstract class Codec implements Closeable {
+public abstract class Decoder implements Closeable {
     public static final int BUFFER_SIZE = 2048;
-    private static final Logger LOGGER = LoggerFactory.getLogger(Codec.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
     protected final AbsChunkedInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
@@ -44,14 +41,11 @@ public abstract class Codec implements Closeable {
     protected int seekZero = 0;
     private OutputAudioFormat format;
 
-    public Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
+    public Decoder(@NotNull GeneralAudioStream audioFile, float normalizationFactor, int duration) {
         this.audioIn = audioFile.stream();
         this.audioFile = audioFile;
         this.duration = duration;
-        if (conf.enableNormalisation)
-            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf.normalisationPregain) : 1;
-        else
-            this.normalizationFactor = 1;
+        this.normalizationFactor = normalizationFactor;
     }
 
     public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
@@ -108,15 +102,15 @@ public abstract class Codec implements Closeable {
         return duration;
     }
 
-    public int size() {
+    public final int size() {
         return audioIn.size();
     }
 
-    public int decodedLength() {
+    public final int decodedLength() {
         return audioIn.decodedLength();
     }
 
-    public int decryptTimeMs() {
+    public final int decryptTimeMs() {
         return audioFile.decryptTimeMs();
     }
 

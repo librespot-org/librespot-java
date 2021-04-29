@@ -37,7 +37,7 @@ import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
-import xyz.gianlu.librespot.player.codecs.AudioQuality;
+import xyz.gianlu.librespot.player.decoders.AudioQuality;
 
 import java.io.File;
 import java.io.FileReader;

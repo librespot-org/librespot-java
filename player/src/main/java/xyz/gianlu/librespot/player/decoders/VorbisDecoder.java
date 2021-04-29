@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.player.decoders;
 
 import com.jcraft.jogg.Packet;
 import com.jcraft.jogg.Page;
@@ -25,10 +25,7 @@ import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.audio.GeneralAudioStream;
-import xyz.gianlu.librespot.audio.NormalizationData;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.IOException;
@@ -37,7 +34,7 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public final class VorbisCodec extends Codec {
+public final class VorbisDecoder extends Decoder {
     private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
     private final StreamState joggStreamState = new StreamState();
     private final DspState jorbisDspState = new DspState();
@@ -56,8 +53,8 @@ public final class VorbisCodec extends Codec {
     private int index;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) throws IOException, CodecException {
-        super(audioFile, normalizationData, conf, duration);
+    public VorbisDecoder(@NotNull GeneralAudioStream audioFile, float normalizationFactor, int duration) throws IOException, CodecException {
+        super(audioFile, normalizationFactor, duration);
 
         this.joggSyncState.init();
         this.joggSyncState.buffer(BUFFER_SIZE);
@@ -91,8 +88,8 @@ public final class VorbisCodec extends Codec {
     /**
      * Reads the body. All "holes" (-1) in data will stop the playback.
      *
-     * @throws Codec.CodecException if a decoding exception occurs
-     * @throws IOException          if an I/O exception occurs
+     * @throws Decoder.CodecException if a decoding exception occurs
+     * @throws IOException            if an I/O exception occurs
      */
     private void readHeader() throws IOException, CodecException {
         boolean finished = false;
@@ -140,7 +137,7 @@ public final class VorbisCodec extends Codec {
     /**
      * Reads the body. All "holes" (-1) are skipped, and the playback continues
      *
-     * @throws Codec.CodecException if a decoding exception occurs
+     * @throws Decoder.CodecException if a decoding exception occurs
      * @throws IOException          if an I/O exception occurs
      */
     @Override

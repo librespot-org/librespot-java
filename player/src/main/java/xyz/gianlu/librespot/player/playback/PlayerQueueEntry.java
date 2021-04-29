@@ -31,10 +31,10 @@ import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.StateWrapper;
-import xyz.gianlu.librespot.player.codecs.Codec;
-import xyz.gianlu.librespot.player.codecs.Codecs;
-import xyz.gianlu.librespot.player.codecs.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.crossfade.CrossfadeController;
+import xyz.gianlu.librespot.player.decoders.Decoder;
+import xyz.gianlu.librespot.player.decoders.Decoders;
+import xyz.gianlu.librespot.player.decoders.VorbisOnlyAudioQuality;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
 import xyz.gianlu.librespot.player.metrics.PlayerMetrics;
 import xyz.gianlu.librespot.player.mixing.AudioSink;
@@ -69,7 +69,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     private final Session session;
     CrossfadeController crossfade;
     PlaybackMetrics.Reason endReason = PlaybackMetrics.Reason.END_PLAY;
-    private Codec codec;
+    private Decoder decoder;
     private MetadataWrapper metadata;
     private volatile boolean closed = false;
     private volatile MixingLine.MixingOutput output;
@@ -104,7 +104,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      *
      * @throws PlayableContentFeeder.ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
      */
-    private void load(boolean preload) throws IOException, Codec.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
+    private void load(boolean preload) throws IOException, Decoder.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
         PlayableContentFeeder.LoadedStream stream;
         if (playable instanceof LocalId)
             stream = PlayableContentFeeder.LoadedStream.forLocalFile((LocalId) playable,
@@ -130,11 +130,15 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         if (crossfade.hasAnyFadeOut() || conf.preloadEnabled)
             notifyInstant(INSTANT_PRELOAD, (int) (crossfade.fadeOutStartTimeMin() - TimeUnit.SECONDS.toMillis(20)));
 
-        codec = Codecs.initCodec(stream.in.codec(), stream.in, stream.normalizationData, conf, metadata.duration());
-        if (codec == null)
+        float normalizationFactor;
+        if (stream.normalizationData == null || !conf.enableNormalisation) normalizationFactor = 1;
+        else normalizationFactor = stream.normalizationData.getFactor(conf.normalisationPregain);
+
+        decoder = Decoders.initDecoder(stream.in.codec(), stream.in, normalizationFactor, metadata.duration());
+        if (decoder == null)
             throw new UnsupportedEncodingException(stream.in.codec().toString());
 
-        LOGGER.trace("Loaded {} codec. {of: {}, format: {}, playbackId: {}}", stream.in.codec(), stream.in.describe(), codec.getAudioFormat(), playbackId);
+        LOGGER.trace("Loaded {} codec. {of: {}, format: {}, playbackId: {}}", stream.in.codec(), stream.in.describe(), decoder.getAudioFormat(), playbackId);
     }
 
     /**
@@ -154,17 +158,17 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      */
     @NotNull
     PlayerMetrics metrics() {
-        return new PlayerMetrics(contentMetrics, crossfade, codec);
+        return new PlayerMetrics(contentMetrics, crossfade, decoder);
     }
 
     /**
      * Returns the current position.
      *
      * @return The current position of the player or {@code -1} if not ready.
-     * @throws Codec.CannotGetTimeException If the time is unavailable for the codec being used.
+     * @throws Decoder.CannotGetTimeException If the time is unavailable for the codec being used.
      */
-    int getTime() throws Codec.CannotGetTimeException {
-        return codec == null ? -1 : codec.time();
+    int getTime() throws Decoder.CannotGetTimeException {
+        return decoder == null ? -1 : decoder.time();
     }
 
     /**
@@ -176,7 +180,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     int getTimeNoThrow() {
         try {
             return getTime();
-        } catch (Codec.CannotGetTimeException e) {
+        } catch (Decoder.CannotGetTimeException e) {
             return -1;
         }
     }
@@ -241,14 +245,14 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      * @param when       The time in milliseconds
      */
     void notifyInstant(int callbackId, int when) {
-        if (codec != null) {
+        if (decoder != null) {
             try {
-                int time = codec.time();
+                int time = decoder.time();
                 if (time >= when) {
                     listener.instantReached(this, callbackId, time);
                     return;
                 }
-            } catch (Codec.CannotGetTimeException ex) {
+            } catch (Decoder.CannotGetTimeException ex) {
                 return;
             }
         }
@@ -262,7 +266,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         try {
             load(preloaded);
-        } catch (IOException | PlayableContentFeeder.ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Codec.CodecException ex) {
+        } catch (IOException | PlayableContentFeeder.ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Decoder.CodecException ex) {
             close();
             listener.loadingError(this, ex, retried);
             LOGGER.trace("{} terminated at loading.", this, ex);
@@ -270,7 +274,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         }
 
         if (seekTime != -1) {
-            codec.seek(seekTime);
+            decoder.seek(seekTime);
             seekTime = -1;
         }
 
@@ -291,38 +295,38 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
             }
 
             if (closed) break;
-            output.toggle(true, codec.getAudioFormat());
+            output.toggle(true, decoder.getAudioFormat());
 
             if (seekTime != -1) {
-                codec.seek(seekTime);
+                decoder.seek(seekTime);
                 seekTime = -1;
             }
 
             if (canGetTime) {
                 try {
-                    int time = codec.time();
+                    int time = decoder.time();
                     if (!notifyInstants.isEmpty()) checkInstants(time);
                     if (output == null)
                         continue;
 
                     output.gain(crossfade.getGain(time));
-                } catch (Codec.CannotGetTimeException ex) {
+                } catch (Decoder.CannotGetTimeException ex) {
                     canGetTime = false;
                 }
             }
 
             try {
-                if (codec.writeSomeTo(output) == -1) {
+                if (decoder.writeSomeTo(output) == -1) {
                     try {
-                        int time = codec.time();
+                        int time = decoder.time();
                         LOGGER.debug("Player time offset is {}. {id: {}}", metadata.duration() - time, playbackId);
-                    } catch (Codec.CannotGetTimeException ignored) {
+                    } catch (Decoder.CannotGetTimeException ignored) {
                     }
 
                     close();
                     break;
                 }
-            } catch (IOException | Codec.CodecException ex) {
+            } catch (IOException | Decoder.CodecException ex) {
                 if (!closed) {
                     close();
                     listener.playbackError(this, ex);
@@ -367,7 +371,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         clearOutput();
 
         try {
-            if (codec != null) codec.close();
+            if (decoder != null) decoder.close();
         } catch (IOException ignored) {
         }
     }
