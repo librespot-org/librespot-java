@@ -57,7 +57,7 @@
         <protobuf.version>3.15.8</protobuf.version>
         <slf4j-api.version>1.7.30</slf4j-api.version>
         <log4j.version>2.14.1</log4j.version>
-        <lmax-disruptor.version>3.4.3</lmax-disruptor.version>
+        <lmax-disruptor.version>3.4.4</lmax-disruptor.version>
     </properties>
 
     <modules>
