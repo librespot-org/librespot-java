@@ -33,7 +33,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
-import java.util.Base64;
 
 /**
  * @author Gianlu
@@ -99,7 +98,7 @@ public final class FacebookAuthenticator implements Closeable {
         credentials = Authentication.LoginCredentials.newBuilder()
                 .setUsername(data.get("username").getAsString())
                 .setTyp(Authentication.AuthenticationType.forNumber(data.get("auth_type").getAsInt()))
-                .setAuthData(ByteString.copyFrom(Base64.getDecoder().decode(data.get("encoded_auth_blob").getAsString())))
+                .setAuthData(ByteString.copyFrom(Utils.fromBase64(data.get("encoded_auth_blob").getAsString())))
                 .build();
 
         synchronized (credentialsLock) {

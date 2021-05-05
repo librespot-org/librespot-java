@@ -164,7 +164,7 @@ public class ZeroconfServer implements Closeable {
     public static String getUsefulHostname() throws UnknownHostException {
         String host = InetAddress.getLocalHost().getHostName();
         if (Objects.equals(host, "localhost")) {
-            host = Base64.getEncoder().encodeToString(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
+            host = Utils.toBase64(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()).toByteArray()) + ".local";
             LOGGER.warn("Hostname cannot be `localhost`, temporary hostname: " + host);
             return host;
         }
@@ -239,7 +239,7 @@ public class ZeroconfServer implements Closeable {
         JsonObject info = DEFAULT_GET_INFO_FIELDS.deepCopy();
         info.addProperty("deviceID", inner.deviceId);
         info.addProperty("remoteName", inner.deviceName);
-        info.addProperty("publicKey", Base64.getEncoder().encodeToString(keys.publicKeyArray()));
+        info.addProperty("publicKey", Utils.toBase64(keys.publicKeyArray()));
         info.addProperty("deviceType", inner.deviceType.name().toUpperCase());
 
         synchronized (connectionLock) {
@@ -292,8 +292,8 @@ public class ZeroconfServer implements Closeable {
             }
         }
 
-        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Base64.getDecoder().decode(clientKeyStr)));
-        byte[] blobBytes = Base64.getDecoder().decode(blobStr);
+        byte[] sharedKey = Utils.toByteArray(keys.computeSharedKey(Utils.fromBase64(clientKeyStr)));
+        byte[] blobBytes = Utils.fromBase64(blobStr);
         byte[] iv = Arrays.copyOfRange(blobBytes, 0, 16);
         byte[] encrypted = Arrays.copyOfRange(blobBytes, 16, blobBytes.length - 20);
         byte[] checksum = Arrays.copyOfRange(blobBytes, blobBytes.length - 20, blobBytes.length);

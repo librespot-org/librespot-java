@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.NameThreadFactory;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
@@ -97,7 +98,7 @@ public class DealerClient implements Closeable {
         Map<String, String> headers = getHeaders(obj);
         JsonObject payload = obj.getAsJsonObject("payload");
         if ("gzip".equals(headers.get("Transfer-Encoding"))) {
-            byte[] gzip = Base64.getDecoder().decode(payload.get("compressed").getAsString());
+            byte[] gzip = Utils.fromBase64(payload.get("compressed").getAsString());
             try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzip)); Reader reader = new InputStreamReader(in)) {
                 payload = JsonParser.parseReader(reader).getAsJsonObject();
             } catch (IOException ex) {
