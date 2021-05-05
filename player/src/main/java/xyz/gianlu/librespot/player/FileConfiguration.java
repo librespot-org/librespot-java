@@ -379,7 +379,7 @@ public final class FileConfiguration {
                 builder.facebook();
                 break;
             case BLOB:
-                builder.blob(authUsername(), Base64.getDecoder().decode(authBlob()));
+                builder.blob(authUsername(), Utils.fromBase64(authBlob()));
                 break;
             case USER_PASS:
                 builder.userPass(authUsername(), authPassword());

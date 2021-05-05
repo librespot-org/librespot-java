@@ -21,13 +21,13 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.common.Utils;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 /**
  * Metadata pipe implementation following the Shairport Sync format (https://github.com/mikebrady/shairport-sync-metadata-reader).
@@ -73,7 +73,7 @@ public final class DacpMetadataPipe implements Closeable {
 
         if (payload != null && payload.length > 0) {
             out.write(String.format("<item><type>%s</type><code>%s</code><length>%d</length>\n<data encoding=\"base64\">%s</data></item>\n", type, code,
-                    payload.length, new String(Base64.getEncoder().encode(payload), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                    payload.length, Utils.toBase64(payload)).getBytes(StandardCharsets.UTF_8));
         } else {
             out.write(String.format("<item><type>%s</type><code>%s</code><length>0</length></item>\n", type, code).getBytes(StandardCharsets.UTF_8));
         }

@@ -124,7 +124,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private static String generateSessionId(@NotNull Random random) {
         byte[] bytes = new byte[16];
         random.nextBytes(bytes);
-        return Base64.getEncoder().withoutPadding().encodeToString(bytes);
+        return Utils.toBase64NoPadding(bytes);
     }
 
     private boolean shouldPlay(@NotNull ContextTrack track) {

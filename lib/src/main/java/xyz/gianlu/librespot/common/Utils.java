@@ -31,9 +31,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.util.*;
@@ -45,6 +48,8 @@ public final class Utils {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
     private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
     private static final String randomString = "abcdefghijklmnopqrstuvwxyz0123456789";
+    private static final String JAVA_UTIL_BASE_64 = "java.util.Base64";
+    private static final String ANDROID_UTIL_BASE_64 = "android.util.Base64";
 
     private Utils() {
     }
@@ -310,12 +315,70 @@ public final class Utils {
     }
 
     @NotNull
-    public static String toBase64(@NotNull ByteString bytes) {
-        return Base64.getEncoder().encodeToString(bytes.toByteArray());
+    public static String toBase64(@NotNull byte[] bytes, boolean padding) {
+        byte[] encodedBytes;
+        try {
+            Class<?> clazz = Class.forName(JAVA_UTIL_BASE_64);
+            final Method getEncoder = clazz.getDeclaredMethod("getEncoder");
+            Class<?> encoderClazz = Class.forName("java.util.Base64$Encoder");
+            Object encoder = getEncoder.invoke(null);
+            final Method withoutPadding = encoderClazz.getDeclaredMethod("withoutPadding");
+            if (!padding)
+                encoder = withoutPadding.invoke(encoder);
+            final Method encode = encoderClazz.getDeclaredMethod("encode", byte[].class);
+            encodedBytes = (byte[]) encode.invoke(encoder, bytes);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            try {
+                Class<?> clazz = Class.forName(ANDROID_UTIL_BASE_64);
+                final Method encode = clazz.getDeclaredMethod("encode", byte[].class, int.class);
+                int flags = 2; // Base64.NO_WRAP
+                if (!padding)
+                    flags |= 1; // Base64.NO_PADDING
+                encodedBytes = (byte[]) encode.invoke(null, bytes, flags); // Base64.NO_WRAP | Base64.NO_PADDING
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored2) {
+                throw new NoClassDefFoundError("Base64 not available");
+            }
+        }
+
+        return new String(encodedBytes, StandardCharsets.UTF_8);
     }
 
     @NotNull
-    public static ByteString fromBase64(@NotNull String str) {
-        return ByteString.copyFrom(Base64.getDecoder().decode(str.getBytes()));
+    public static String toBase64NoPadding(@NotNull byte[] bytes) {
+        return toBase64(bytes, false);
+    }
+
+    @NotNull
+    public static String toBase64(@NotNull byte[] bytes) {
+        return toBase64(bytes, true);
+    }
+
+    @NotNull
+    public static byte[] fromBase64(@NotNull String str) {
+        return fromBase64(str.getBytes());
+    }
+
+    @NotNull
+    public static byte[] fromBase64(@NotNull byte[] bytes) {
+        byte[] decodedBytes;
+        try {
+            Class<?> clazz = Class.forName(JAVA_UTIL_BASE_64);
+            final Method getDecoder = clazz.getDeclaredMethod("getDecoder");
+            final Object decoder = getDecoder.invoke(null);
+            Class<?> decoderClazz = Class.forName("java.util.Base64$Decoder");
+            final Method decode = decoderClazz.getDeclaredMethod("decode", byte[].class);
+            decodedBytes = (byte[]) decode.invoke(decoder, bytes);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            try {
+                Class<?> clazz = Class.forName(ANDROID_UTIL_BASE_64);
+                final Method decode = clazz.getDeclaredMethod("decode", byte[].class, int.class);
+                int flags = 0; // android.util.Base64.DEFAULT
+                decodedBytes = (byte[]) decode.invoke(null, bytes, flags);
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored2) {
+                throw new NoClassDefFoundError("Base64 not available");
+            }
+        }
+
+        return decodedBytes;
     }
 }

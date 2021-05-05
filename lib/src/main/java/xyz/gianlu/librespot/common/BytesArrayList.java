@@ -20,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -44,7 +43,7 @@ public class BytesArrayList implements Iterable<byte[]> {
     @NotNull
     public static InputStream streamBase64(@NotNull String[] payloads) {
         byte[][] decoded = new byte[payloads.length][];
-        for (int i = 0; i < decoded.length; i++) decoded[i] = Base64.getDecoder().decode(payloads[i]);
+        for (int i = 0; i < decoded.length; i++) decoded[i] = Utils.fromBase64(payloads[i]);
         return new BytesArrayList(decoded).stream();
     }
 

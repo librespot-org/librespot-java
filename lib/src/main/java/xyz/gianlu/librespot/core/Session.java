@@ -432,7 +432,7 @@ public final class Session implements Closeable {
 
                 JsonObject obj = new JsonObject();
                 obj.addProperty("username", apWelcome.getCanonicalUsername());
-                obj.addProperty("credentials", Utils.toBase64(reusable));
+                obj.addProperty("credentials", Utils.toBase64(reusable.toByteArray()));
                 obj.addProperty("type", reusableType.name());
 
                 if (inner.conf.storedCredentialsFile == null) throw new IllegalArgumentException();
@@ -883,7 +883,7 @@ public final class Session implements Closeable {
         }
 
         private static @NotNull Authentication.LoginCredentials decryptBlob(@NotNull String deviceId, @NotNull String username, byte[] encryptedBlob) throws GeneralSecurityException, IOException {
-            encryptedBlob = Base64.getDecoder().decode(encryptedBlob);
+            encryptedBlob = Utils.fromBase64(encryptedBlob);
 
             byte[] secret = MessageDigest.getInstance("SHA-1").digest(deviceId.getBytes());
             byte[] baseKey = PBKDF2.HmacSHA1(secret, username.getBytes(), 0x100, 20);
@@ -954,7 +954,7 @@ public final class Session implements Closeable {
                 loginCredentials = Authentication.LoginCredentials.newBuilder()
                         .setTyp(Authentication.AuthenticationType.valueOf(obj.get("type").getAsString()))
                         .setUsername(obj.get("username").getAsString())
-                        .setAuthData(Utils.fromBase64(obj.get("credentials").getAsString()))
+                        .setAuthData(ByteString.copyFrom(Utils.fromBase64(obj.get("credentials").getAsString())))
                         .build();
             }
 
