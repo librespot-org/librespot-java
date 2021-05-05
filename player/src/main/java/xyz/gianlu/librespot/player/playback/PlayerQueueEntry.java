@@ -146,7 +146,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         if (decoder == null)
             throw new UnsupportedEncodingException(stream.in.codec().toString());
 
-        LOGGER.trace("Loaded {} codec. {of: {}, format: {}, playbackId: {}}", stream.in.codec(), stream.in.describe(), decoder.getAudioFormat(), playbackId);
+        LOGGER.trace("Loaded {} decoder: {} {of: {}, format: {}, playbackId: {}}", stream.in.codec(), decoder.getClass().getSimpleName(), stream.in.describe(), decoder.getAudioFormat(), playbackId);
     }
 
     /**
