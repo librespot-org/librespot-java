@@ -106,7 +106,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
      *
      * @throws PlayableContentFeeder.ContentRestrictedException If the content cannot be retrieved because of restrictions (this condition won't change with a retry).
      */
-    private void load(boolean preload) throws IOException, Decoder.CodecException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
+    private void load(boolean preload) throws IOException, Decoder.DecoderException, MercuryClient.MercuryException, CdnManager.CdnException, PlayableContentFeeder.ContentRestrictedException {
         PlayableContentFeeder.LoadedStream stream;
         if (playable instanceof LocalId)
             stream = PlayableContentFeeder.LoadedStream.forLocalFile((LocalId) playable,
@@ -137,7 +137,12 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
         if (stream.normalizationData == null || !conf.enableNormalisation) normalizationFactor = 1;
         else normalizationFactor = stream.normalizationData.getFactor(conf.normalisationPregain);
 
-        decoder = Decoders.initDecoder(stream.in.codec(), stream.in.stream(), normalizationFactor, metadata.duration());
+        Iterator<Decoder> iter = Decoders.initDecoder(stream.in.codec(), stream.in.stream(), normalizationFactor, metadata.duration());
+        while (iter.hasNext()) {
+            decoder = iter.next();
+            if (decoder != null) break;
+        }
+
         if (decoder == null)
             throw new UnsupportedEncodingException(stream.in.codec().toString());
 
@@ -269,7 +274,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         try {
             load(preloaded);
-        } catch (IOException | PlayableContentFeeder.ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Decoder.CodecException ex) {
+        } catch (IOException | PlayableContentFeeder.ContentRestrictedException | CdnManager.CdnException | MercuryClient.MercuryException | Decoder.DecoderException ex) {
             close();
             listener.loadingError(this, ex, retried);
             LOGGER.trace("{} terminated at loading.", this, ex);
@@ -329,7 +334,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
                     close();
                     break;
                 }
-            } catch (IOException | Decoder.CodecException ex) {
+            } catch (IOException | Decoder.DecoderException ex) {
                 if (!closed) {
                     close();
                     listener.playbackError(this, ex);

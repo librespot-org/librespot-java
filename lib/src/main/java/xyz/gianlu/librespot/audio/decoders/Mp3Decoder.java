@@ -148,7 +148,7 @@ public final class Mp3Decoder extends Decoder {
 
                 try {
                     decoder.decodeFrame(header, bitstream);
-                } catch (DecoderException ex) {
+                } catch (javazoom.jl.decoder.DecoderException ex) {
                     throw new IOException(ex);
                 }
 

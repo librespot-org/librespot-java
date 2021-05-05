@@ -54,7 +54,7 @@ public final class VorbisDecoder extends Decoder {
     private int index;
     private long pcm_offset;
 
-    public VorbisDecoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) throws IOException, CodecException {
+    public VorbisDecoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) throws IOException, DecoderException {
         super(audioIn, normalizationFactor, duration);
 
         this.joggSyncState.init();
@@ -89,10 +89,10 @@ public final class VorbisDecoder extends Decoder {
     /**
      * Reads the body. All "holes" (-1) in data will stop the playback.
      *
-     * @throws Decoder.CodecException if a decoding exception occurs
-     * @throws IOException            if an I/O exception occurs
+     * @throws DecoderException if a decoding exception occurs
+     * @throws IOException      if an I/O exception occurs
      */
-    private void readHeader() throws IOException, CodecException {
+    private void readHeader() throws IOException, DecoderException {
         boolean finished = false;
         int packet = 1;
 
@@ -115,7 +115,7 @@ public final class VorbisDecoder extends Decoder {
                 }
 
                 if (joggStreamState.pagein(joggPage) == -1)
-                    throw new CodecException("Failed reading page");
+                    throw new DecoderException("Failed reading page");
 
                 if (joggStreamState.packetout(joggPacket) == -1)
                     throw new HoleInDataException();
@@ -131,18 +131,18 @@ public final class VorbisDecoder extends Decoder {
             buffer = joggSyncState.data;
 
             if (count == 0 && !finished)
-                throw new CodecException("Buffer under-run");
+                throw new DecoderException("Buffer under-run");
         }
     }
 
     /**
      * Reads the body. All "holes" (-1) are skipped, and the playback continues
      *
-     * @throws Decoder.CodecException if a decoding exception occurs
+     * @throws DecoderException if a decoding exception occurs
      * @throws IOException            if an I/O exception occurs
      */
     @Override
-    public synchronized int readInternal(@NotNull OutputStream out) throws IOException, CodecException {
+    public synchronized int readInternal(@NotNull OutputStream out) throws IOException, DecoderException {
         if (closed) return -1;
 
         int written = 0;
@@ -151,7 +151,7 @@ public final class VorbisDecoder extends Decoder {
             // Read more
         } else if (result == 1) {
             if (joggStreamState.pagein(joggPage) == -1)
-                throw new CodecException("Failed reading page");
+                throw new DecoderException("Failed reading page");
 
             if (joggPage.granulepos() == 0)
                 return -1;
@@ -241,13 +241,13 @@ public final class VorbisDecoder extends Decoder {
         }
     }
 
-    private static class NotVorbisException extends CodecException {
+    private static class NotVorbisException extends DecoderException {
         NotVorbisException() {
             super("Data read is not vorbis data");
         }
     }
 
-    private static class HoleInDataException extends CodecException {
+    private static class HoleInDataException extends DecoderException {
         HoleInDataException() {
             super("Hole in vorbis data");
         }

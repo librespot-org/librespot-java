@@ -24,13 +24,14 @@ import xyz.gianlu.librespot.audio.format.SuperAudioFormat;
 import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.decoders.SeekableInputStream;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
  * @author devgianlu
  */
 public final class Decoders {
-    private static final Map<SuperAudioFormat, HashSet<Class<? extends Decoder>>> decoders = new EnumMap<>(SuperAudioFormat.class);
+    private static final Map<SuperAudioFormat, List<Class<? extends Decoder>>> decoders = new EnumMap<>(SuperAudioFormat.class);
     private static final Logger LOGGER = LoggerFactory.getLogger(Decoders.class);
 
     static {
@@ -41,35 +42,54 @@ public final class Decoders {
     private Decoders() {
     }
 
-    @Nullable
-    public static Decoder initDecoder(@NotNull SuperAudioFormat format, @NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) {
-        Set<Class<? extends Decoder>> set = decoders.get(format);
-        if (set == null) return null;
+    @NotNull
+    public static Iterator<Decoder> initDecoder(@NotNull SuperAudioFormat format, @NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) {
+        List<Class<? extends Decoder>> list = decoders.get(format);
+        if (list == null) list = Collections.emptyList();
 
-        Optional<Class<? extends Decoder>> opt = set.stream().findFirst();
-        if (!opt.isPresent()) return null;
+        int seekZero = audioIn.position();
+        Iterator<Class<? extends Decoder>> iter = list.listIterator();
+        return new Iterator<Decoder>() {
+            @Override
+            public boolean hasNext() {
+                return iter.hasNext();
+            }
 
-        try {
-            Class<? extends Decoder> clazz = opt.get();
-            return clazz.getConstructor(SeekableInputStream.class, float.class, int.class).newInstance(audioIn, normalizationFactor, duration);
-        } catch (ReflectiveOperationException ex) {
-            LOGGER.error("Failed initializing Codec instance for {}", format, ex);
-            return null;
-        }
+            @Override
+            public @Nullable Decoder next() {
+                try {
+                    audioIn.seek(seekZero);
+                } catch (IOException ex) {
+                    LOGGER.error("Failed rewinding SeekableInputStream!", ex);
+                    return null;
+                }
+
+                try {
+                    Class<? extends Decoder> clazz = iter.next();
+                    return clazz.getConstructor(SeekableInputStream.class, float.class, int.class).newInstance(audioIn, normalizationFactor, duration);
+                } catch (ReflectiveOperationException ex) {
+                    LOGGER.error("Failed initializing Codec instance for {}", format, ex.getCause());
+                    return null;
+                }
+            }
+        };
+    }
+
+    public static void registerDecoder(@NotNull SuperAudioFormat format, int index, @NotNull Class<? extends Decoder> clazz) {
+        decoders.computeIfAbsent(format, (key) -> new ArrayList<>(5)).add(index, clazz);
     }
 
     public static void registerDecoder(@NotNull SuperAudioFormat format, @NotNull Class<? extends Decoder> clazz) {
-        decoders.computeIfAbsent(format, (key) -> new HashSet<>(5)).add(clazz);
-    }
-
-    public static void replaceDecoder(@NotNull SuperAudioFormat format, @NotNull Class<? extends Decoder> clazz) {
-        Set<Class<? extends Decoder>> set = decoders.get(format);
-        if (set != null) set.clear();
-        registerDecoder(format, clazz);
+        decoders.computeIfAbsent(format, (key) -> new ArrayList<>(5)).add(clazz);
     }
 
     public static void unregisterDecoder(@NotNull Class<? extends Decoder> clazz) {
-        for (Set<Class<? extends Decoder>> set : decoders.values())
-            set.remove(clazz);
+        for (List<Class<? extends Decoder>> list : decoders.values())
+            list.remove(clazz);
+    }
+
+    public static void removeDecoders(@NotNull SuperAudioFormat format) {
+        List<Class<? extends Decoder>> list = decoders.get(format);
+        if (list != null) list.clear();
     }
 }

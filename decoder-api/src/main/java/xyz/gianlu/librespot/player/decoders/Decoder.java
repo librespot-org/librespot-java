@@ -44,11 +44,11 @@ public abstract class Decoder implements Closeable {
         this.normalizationFactor = normalizationFactor;
     }
 
-    public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
+    public final int writeSomeTo(@NotNull OutputStream out) throws IOException, DecoderException {
         return readInternal(out);
     }
 
-    protected abstract int readInternal(@NotNull OutputStream out) throws IOException, CodecException;
+    protected abstract int readInternal(@NotNull OutputStream out) throws IOException, DecoderException;
 
     /**
      * @return Time in millis
@@ -112,12 +112,12 @@ public abstract class Decoder implements Closeable {
         }
     }
 
-    public static class CodecException extends Exception {
-        public CodecException(String message) {
+    public static class DecoderException extends Exception {
+        public DecoderException(String message) {
             super(message);
         }
 
-        public CodecException(String message, Throwable cause) {
+        public DecoderException(String message, Throwable cause) {
             super(message, cause);
         }
     }
