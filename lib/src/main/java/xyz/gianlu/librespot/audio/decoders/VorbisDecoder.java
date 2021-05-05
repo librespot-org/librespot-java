@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.audio.decoders;
 
 import com.jcraft.jogg.Packet;
 import com.jcraft.jogg.Page;
@@ -25,10 +25,8 @@ import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
-import xyz.gianlu.librespot.audio.NormalizationData;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
+import xyz.gianlu.librespot.player.decoders.Decoder;
+import xyz.gianlu.librespot.player.decoders.SeekableInputStream;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.IOException;
@@ -37,8 +35,8 @@ import java.io.OutputStream;
 /**
  * @author Gianlu
  */
-public final class VorbisCodec extends Codec {
-    private static final int CONVERTED_BUFFER_SIZE = BUFFER_SIZE * 2;
+public final class VorbisDecoder extends Decoder {
+    private static final int CONVERTED_BUFFER_SIZE = Decoder.BUFFER_SIZE * 2;
     private final StreamState joggStreamState = new StreamState();
     private final DspState jorbisDspState = new DspState();
     private final Block jorbisBlock = new Block(jorbisDspState);
@@ -56,15 +54,15 @@ public final class VorbisCodec extends Codec {
     private int index;
     private long pcm_offset;
 
-    public VorbisCodec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) throws IOException, CodecException {
-        super(audioFile, normalizationData, conf, duration);
+    public VorbisDecoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) throws IOException, CodecException {
+        super(audioIn, normalizationFactor, duration);
 
         this.joggSyncState.init();
-        this.joggSyncState.buffer(BUFFER_SIZE);
+        this.joggSyncState.buffer(Decoder.BUFFER_SIZE);
         this.buffer = joggSyncState.data;
 
         readHeader();
-        seekZero = audioIn.pos();
+        seekZero = audioIn.position();
 
         convertedBuffer = new byte[CONVERTED_BUFFER_SIZE];
 
@@ -91,15 +89,15 @@ public final class VorbisCodec extends Codec {
     /**
      * Reads the body. All "holes" (-1) in data will stop the playback.
      *
-     * @throws Codec.CodecException if a decoding exception occurs
-     * @throws IOException          if an I/O exception occurs
+     * @throws Decoder.CodecException if a decoding exception occurs
+     * @throws IOException            if an I/O exception occurs
      */
     private void readHeader() throws IOException, CodecException {
         boolean finished = false;
         int packet = 1;
 
         while (!finished) {
-            count = audioIn.read(buffer, index, BUFFER_SIZE);
+            count = audioIn.read(buffer, index, Decoder.BUFFER_SIZE);
             joggSyncState.wrote(count);
 
             int result = joggSyncState.pageout(joggPage);
@@ -117,7 +115,7 @@ public final class VorbisCodec extends Codec {
                 }
 
                 if (joggStreamState.pagein(joggPage) == -1)
-                    throw new CodecException();
+                    throw new CodecException("Failed reading page");
 
                 if (joggStreamState.packetout(joggPacket) == -1)
                     throw new HoleInDataException();
@@ -129,19 +127,19 @@ public final class VorbisCodec extends Codec {
                 else packet++;
             }
 
-            index = joggSyncState.buffer(BUFFER_SIZE);
+            index = joggSyncState.buffer(Decoder.BUFFER_SIZE);
             buffer = joggSyncState.data;
 
             if (count == 0 && !finished)
-                throw new CodecException();
+                throw new CodecException("Buffer under-run");
         }
     }
 
     /**
      * Reads the body. All "holes" (-1) are skipped, and the playback continues
      *
-     * @throws Codec.CodecException if a decoding exception occurs
-     * @throws IOException          if an I/O exception occurs
+     * @throws Decoder.CodecException if a decoding exception occurs
+     * @throws IOException            if an I/O exception occurs
      */
     @Override
     public synchronized int readInternal(@NotNull OutputStream out) throws IOException, CodecException {
@@ -153,7 +151,7 @@ public final class VorbisCodec extends Codec {
             // Read more
         } else if (result == 1) {
             if (joggStreamState.pagein(joggPage) == -1)
-                throw new CodecException();
+                throw new CodecException("Failed reading page");
 
             if (joggPage.granulepos() == 0)
                 return -1;
@@ -175,11 +173,11 @@ public final class VorbisCodec extends Codec {
                 return -1;
         }
 
-        index = joggSyncState.buffer(BUFFER_SIZE);
+        index = joggSyncState.buffer(Decoder.BUFFER_SIZE);
         buffer = joggSyncState.data;
         if (index == -1) return -1;
 
-        count = audioIn.read(buffer, index, BUFFER_SIZE);
+        count = audioIn.read(buffer, index, Decoder.BUFFER_SIZE);
         joggSyncState.wrote(count);
         if (count == 0) return -1;
 
@@ -222,7 +220,7 @@ public final class VorbisCodec extends Codec {
             long granulepos = joggPacket.granulepos;
             if (granulepos != -1 && joggPacket.e_o_s == 0) {
                 granulepos -= samples;
-                granulepos -= (long) BUFFER_SIZE * 6 * sampleSizeBytes(); // Account for buffer between the decoder and the player
+                granulepos -= (long) Decoder.BUFFER_SIZE * 6 * sampleSizeBytes(); // Account for buffer between the decoder and the player
                 pcm_offset = granulepos;
             }
         }
@@ -244,8 +242,14 @@ public final class VorbisCodec extends Codec {
     }
 
     private static class NotVorbisException extends CodecException {
+        NotVorbisException() {
+            super("Data read is not vorbis data");
+        }
     }
 
     private static class HoleInDataException extends CodecException {
+        HoleInDataException() {
+            super("Hole in vorbis data");
+        }
     }
 }

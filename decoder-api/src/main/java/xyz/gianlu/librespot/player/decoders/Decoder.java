@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.player.codecs;
+package xyz.gianlu.librespot.player.decoders;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.audio.AbsChunkedInputStream;
-import xyz.gianlu.librespot.audio.GeneralAudioStream;
-import xyz.gianlu.librespot.audio.NormalizationData;
-import xyz.gianlu.librespot.player.PlayerConfiguration;
 import xyz.gianlu.librespot.player.mixing.output.OutputAudioFormat;
 
 import java.io.Closeable;
@@ -31,27 +26,22 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public abstract class Codec implements Closeable {
+public abstract class Decoder implements Closeable {
     public static final int BUFFER_SIZE = 2048;
-    private static final Logger LOGGER = LoggerFactory.getLogger(Codec.class);
-    protected final AbsChunkedInputStream audioIn;
+    private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
+    protected final SeekableInputStream audioIn;
     protected final float normalizationFactor;
     protected final int duration;
-    private final GeneralAudioStream audioFile;
     protected volatile boolean closed = false;
     protected int seekZero = 0;
     private OutputAudioFormat format;
 
-    public Codec(@NotNull GeneralAudioStream audioFile, @Nullable NormalizationData normalizationData, @NotNull PlayerConfiguration conf, int duration) {
-        this.audioIn = audioFile.stream();
-        this.audioFile = audioFile;
+    public Decoder(@NotNull SeekableInputStream audioIn, float normalizationFactor, int duration) {
+        this.audioIn = audioIn;
         this.duration = duration;
-        if (conf.enableNormalisation)
-            this.normalizationFactor = normalizationData != null ? normalizationData.getFactor(conf.normalisationPregain) : 1;
-        else
-            this.normalizationFactor = 1;
+        this.normalizationFactor = normalizationFactor;
     }
 
     public final int writeSomeTo(@NotNull OutputStream out) throws IOException, CodecException {
@@ -108,25 +98,27 @@ public abstract class Codec implements Closeable {
         return duration;
     }
 
-    public int size() {
+    public final int size() {
         return audioIn.size();
     }
 
-    public int decodedLength() {
-        return audioIn.decodedLength();
-    }
-
-    public int decryptTimeMs() {
-        return audioFile.decryptTimeMs();
-    }
-
     public static class CannotGetTimeException extends Exception {
-        CannotGetTimeException() {
+        public CannotGetTimeException(String message) {
+            super(message);
+        }
+
+        public CannotGetTimeException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
     public static class CodecException extends Exception {
-        CodecException() {
+        public CodecException(String message) {
+            super(message);
+        }
+
+        public CodecException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

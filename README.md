@@ -18,6 +18,12 @@ Its main features are:
 - Zeroconf (Spotify Connect)
 - Gapless playback
 - Mixed playlists (cuepoints and transitions)
+- DACP metadata pipe
+- Execute commands for various events
+- Android compatible (see [librespot-android](https://github.com/devgianlu/librespot-android))
+- Optional HTTP API (see [librespot-api](api))
+- Supports custom sinks and decoders
+- Actively developed and up-to-date with the latest internal API
 
 ## The library
 The `lib` module provides all the necessary components and tools to interact with Spotify. More [here](lib).
@@ -39,6 +45,7 @@ Snapshots for all variants are available [here](https://oss.sonatype.org/content
 - [librespot](https://github.com/librespot-org/librespot)
 - [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
 - [spocon](https://github.com/spocon/spocon) - Install librespot-java from APT
+- [librespot-android](https://github.com/devgianlu/librespot-android) - Run librespot-java on your Android device
 
 # Special thanks
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust

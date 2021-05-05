@@ -100,18 +100,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Audio -->
-        <dependency>
-            <groupId>org.jcraft</groupId>
-            <artifactId>jorbis</artifactId>
-            <version>0.0.17</version>
-        </dependency>
-        <dependency>
-            <groupId>com.badlogicgames.jlayer</groupId>
-            <artifactId>jlayer</artifactId>
-            <version>1.0.2-gdx</version>
-        </dependency>
-
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>

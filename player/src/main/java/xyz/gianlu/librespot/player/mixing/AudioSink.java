@@ -20,7 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.player.Player;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
-import xyz.gianlu.librespot.player.codecs.Codec;
+import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.mixing.output.*;
 
 import java.io.Closeable;
@@ -61,7 +61,9 @@ public final class AudioSink implements Runnable, Closeable {
                 if (conf.outputClass == null || conf.outputClass.isEmpty())
                     throw new IllegalArgumentException("Custom output sink class not configured!");
 
-                output = initCustomOutputSink(conf.outputClass, conf.outputClassParams);
+                Object[] params = conf.outputClassParams;
+                if (params == null) params = new Object[0];
+                output = initCustomOutputSink(conf.outputClass, params);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output);
@@ -150,7 +152,7 @@ public final class AudioSink implements Runnable, Closeable {
 
     @Override
     public void run() {
-        byte[] buffer = new byte[Codec.BUFFER_SIZE * 2];
+        byte[] buffer = new byte[Decoder.BUFFER_SIZE * 2];
 
         boolean started = false;
         while (!closed) {

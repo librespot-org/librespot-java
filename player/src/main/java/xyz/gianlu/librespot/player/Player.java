@@ -40,8 +40,8 @@ import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.ImageId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 import xyz.gianlu.librespot.player.StateWrapper.NextPlayable;
-import xyz.gianlu.librespot.player.codecs.Codec;
 import xyz.gianlu.librespot.player.contexts.AbsSpotifyContext;
+import xyz.gianlu.librespot.player.decoders.Decoder;
 import xyz.gianlu.librespot.player.metrics.NewPlaybackIdEvent;
 import xyz.gianlu.librespot.player.metrics.NewSessionIdEvent;
 import xyz.gianlu.librespot.player.metrics.PlaybackMetrics;
@@ -577,7 +577,7 @@ public class Player implements Closeable {
             try {
                 if (playerSession != null)
                     state.setPosition(playerSession.currentTime());
-            } catch (Codec.CannotGetTimeException ex) {
+            } catch (Decoder.CannotGetTimeException ex) {
                 state.setPosition(state.getPosition());
             }
 
@@ -820,7 +820,7 @@ public class Player implements Closeable {
     public int time() {
         try {
             return playerSession == null ? -1 : playerSession.currentTime();
-        } catch (Codec.CannotGetTimeException ex) {
+        } catch (Decoder.CannotGetTimeException ex) {
             return -1;
         }
     }

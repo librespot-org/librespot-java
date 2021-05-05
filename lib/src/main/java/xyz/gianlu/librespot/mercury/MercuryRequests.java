@@ -35,7 +35,7 @@ import java.util.List;
  * @author Gianlu
  */
 public final class MercuryRequests {
-    private static final String KEYMASTER_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd";
+    public static final String KEYMASTER_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd";
 
     private MercuryRequests() {
     }
