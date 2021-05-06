@@ -37,6 +37,7 @@ import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
 
 import java.io.Closeable;
@@ -91,6 +92,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 .setDeviceId(session.deviceId())
                 .setDeviceType(session.deviceType())
                 .setDeviceSoftwareVersion(Version.versionString())
+                .setClientId(MercuryRequests.KEYMASTER_CLIENT_ID)
                 .setSpircVersion("3.2.6")
                 .setCapabilities(Connect.Capabilities.newBuilder()
                         .setCanBePlayer(true).setGaiaEqConnectId(true).setSupportsLogout(true)

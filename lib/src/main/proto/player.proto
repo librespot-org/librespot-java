@@ -34,6 +34,7 @@ message PlayerState {
     string entity_uri = 26;
     repeated ProvidedTrack reverse = 27;
     repeated ProvidedTrack future = 28;
+    PlaybackQuality playback_quality = 32;
 }
 
 message ProvidedTrack {
@@ -99,4 +100,36 @@ message ContextPlayerOptions {
 
 message Suppressions {
     repeated string providers = 1;
+}
+
+enum BitrateLevel {
+    unknown = 0;
+    low = 1;
+    normal = 2;
+    high = 3;
+    veryhigh = 4;
+    normalized = 5;
+}
+
+enum BitrateStrategy {
+    unknown_strategy = 0;
+    best_matching = 1;
+    backend_advised = 2;
+    offlined_file = 3;
+    cached_file = 4;
+    local_file = 5;
+}
+
+enum HiFiStatus {
+    none = 0;
+    off = 1;
+    on = 2;
+}
+
+message PlaybackQuality {
+    BitrateLevel bitrate_level = 1;
+    BitrateStrategy strategy = 2;
+    BitrateLevel target_bitrate_level = 3;
+    bool target_bitrate_available = 4;
+    HiFiStatus hifi_status = 5;
 }

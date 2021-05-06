@@ -18,6 +18,7 @@ message Device {
     DeviceInfo device_info = 1;
     PlayerState player_state = 2;
     PrivateDeviceInfo private_device_info = 3;
+    bytes transfer_data = 4; // TransferState
 }
 
 message Cluster {
@@ -26,6 +27,10 @@ message Cluster {
     PlayerState player_state = 3;
     map<string, DeviceInfo> device = 4;
     bytes transfer_data = 5;
+    uint64 transfer_data_timestamp = 6;
+    int64 not_playing_since_timestamp = 7;
+    bool need_full_player_state = 8;
+    int64 server_timestamp_ms = 9;
 }
 
 message PutStateRequest {
@@ -52,6 +57,10 @@ message SubscribeRequest {
 }
 
 message DeviceInfo {
+    message DeviceAliasesEntry {
+        uint32 key = 1;
+        DeviceAlias value = 2;
+    }
     bool can_play = 1;
     uint32 volume = 2;
     string name = 3;
@@ -66,6 +75,19 @@ message DeviceInfo {
     string brand = 14;
     string model = 15;
     map<string, string> metadata_map = 16;
+    string product_id = 17;
+    string deduplication_id = 18;
+    uint32 selected_alias_id = 19;
+    repeated DeviceAliasesEntry device_aliases = 20;
+    bool is_offline = 21;
+    string public_ip = 22;
+    string license = 23;
+}
+
+message DeviceAlias {
+    uint32 id = 1;
+    string name = 2;
+    bool is_group = 3;
 }
 
 message Capabilities {
@@ -90,7 +112,16 @@ message Capabilities {
     bool is_voice_enabled = 21;
     bool needs_full_player_state = 22;
     bool supports_gzip_pushes = 23;
+    bool supports_lossless_audio = 24;
+    bool supports_set_options_command = 25;
+    CapabilitySupportDetails supports_hifi = 26;
     // reserved 1, "supported_contexts";
+}
+
+message CapabilitySupportDetails {
+    bool fully_supported = 1;
+    bool user_eligible = 2;
+    bool device_supported = 3;
 }
 
 message ConnectCommandOptions {
@@ -135,12 +166,16 @@ enum PutStateReason {
     VOLUME_CHANGED = 5;
     PICKER_OPENED = 6;
     BECAME_INACTIVE = 7;
+    ALIAS_CHANGED = 8;
 }
 
 enum MemberType {
     SPIRC_V2 = 0;
     SPIRC_V3 = 1;
     CONNECT_STATE = 2;
+    CONNECT_STATE_EXTENDED = 5;
+    ACTIVE_DEVICE_TRACKER = 6;
+    PLAY_TOKEN = 7;
 }
 
 enum ClusterUpdateReason {
@@ -148,6 +183,8 @@ enum ClusterUpdateReason {
     DEVICES_DISAPPEARED = 1;
     DEVICE_STATE_CHANGED = 2;
     NEW_DEVICE_APPEARED = 3;
+    DEVICE_VOLUME_CHANGED = 4;
+    DEVICE_ALIAS_CHANGED = 5;
 }
 
 enum DeviceType {
