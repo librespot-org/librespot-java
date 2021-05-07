@@ -54,6 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * @author Gianlu
  */
 public class ZeroconfServer implements Closeable {
+    public static final String SERVICE = "spotify-connect";
     private final static int MAX_PORT = 65536;
     private final static int MIN_PORT = 1024;
     private static final Logger LOGGER = LoggerFactory.getLogger(ZeroconfServer.class);
@@ -154,7 +155,7 @@ public class ZeroconfServer implements Closeable {
         txt.put("CPath", "/");
         txt.put("VERSION", "1.0");
         txt.put("Stack", "SP");
-        Service service = new Service(inner.deviceName, "spotify-connect", listenPort);
+        Service service = new Service(inner.deviceName, SERVICE, listenPort);
         service.setText(txt);
 
         zeroconf.announce(service);

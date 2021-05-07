@@ -46,6 +46,7 @@ public class ApiServer {
                 .post("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
                 .post("/web-api/{endpoint}", new WebApiHandler(wrapper))
                 .post("/instance/{action}", InstanceHandler.forSession(this, wrapper))
+                .post("/discovery/{action}", new DiscoveryHandler())
                 .get("/events", events)
                 .setFallbackHandler(new PathHandler(ResponseCodeHandler.HANDLE_404)
                         .addPrefixPath("/web-api", new WebApiHandler(wrapper)));

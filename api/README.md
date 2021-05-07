@@ -45,6 +45,10 @@ All the endpoints will respond with `200` if successful or:
 - `POST /instance/terminate` Terminates the API server.
 - `POST /instance/close` Closes the current session (and player).
 
+### Discovery (Spotify Connect)
+- `POST /discovery/list` List all Spotify Connect devices on the network.
+
+
 ### Events
 You can subscribe for players events by creating a WebSocket connection to `/events`.
 The currently available events are:
