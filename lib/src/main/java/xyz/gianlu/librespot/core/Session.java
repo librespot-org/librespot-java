@@ -992,7 +992,7 @@ public final class Session implements Closeable {
          * Authenticates with your Facebook account, will prompt to open a link in the browser. This locks until completion.
          */
         @NotNull
-        public Builder facebook() throws IOException {
+        public Builder facebook() throws IOException, NoSuchAlgorithmException {
             try (FacebookAuthenticator authenticator = new FacebookAuthenticator()) {
                 loginCredentials = authenticator.lockUntilCredentials();
             } catch (InterruptedException ignored) {
