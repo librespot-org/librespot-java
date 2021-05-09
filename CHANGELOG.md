@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 09-05-2021
+### Added
+- Added extended metadata API (#311)
+- Added `player.bypassSinkVolume` to ignore volume events (#317)
+- Added support for shell events (#329)
+- Added API endpoints for repeat and shuffle toggle (7747677641993c012e72135ee3d38ea48591f326, #330)
+- Configurable connection timeout (#328)
+- Added artifact with `thin` classifier to `player` module (29e6dac909bf3a0a8ddeacd9e91a0f926b5cc664)
+- Added Login5 API code (#322)
+- Added `/discovery/list` API endpoint to list available Spotify Connect devices (#352)
+
+### Changed
+- Improved metadata DACP pipe (#317, 6a2679d8f2e26b31bbb85419fa524913d64ffe86, c10a1c82c90ba29454206587d793b1d706735a7d)
+- Use slf4j for logging in `lib` and `player` modules (#336, #338)
+- Moved sink code to `sink-api` and `sink` modules (#337) 
+- Moved DACP code to `dacp` module (7221b2b22b03652c4505ae2f750f40610b783bbd)
+- Refactored `PlayableId` and stream loading to prepare for local files playback (#208)
+- Moved decoder code to `decoder-api` module (#343, 34ec54647397c0495f5dddeb193c75b347cbb351, 77a558475d860bd5c672bc58dac7baeb17e219c6)
+- Centralize Base64 decoding/encoding (#351)
+
+### Fixed
+- Fixed unsupported tracks playback (#332)
+
 ## [1.5.5] - 13-02-2021
 ### Added
 - Added `playbackEnded` event to the API (#297)
