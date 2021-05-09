@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package spotify.playplay.proto;
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.playplay";
+
+message PlayPlayRequest {
+    optional int32 type = 1;
+    optional bytes gid = 2;
+    optional bool something2 = 4;
+    optional bool something3 = 5;
+    optional int64 timestamp = 6;
+}
+
+message PlayPlayResponse {
+    optional bytes key = 1;
+}

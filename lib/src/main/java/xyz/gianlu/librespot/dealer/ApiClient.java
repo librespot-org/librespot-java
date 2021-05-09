@@ -16,18 +16,21 @@
 
 package xyz.gianlu.librespot.dealer;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import com.spotify.connectstate.Connect;
 import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
+import com.spotify.playplay.Playplay;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.core.ApResolver;
+import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TimeProvider;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.*;
 
@@ -46,7 +49,7 @@ public final class ApiClient {
 
     public ApiClient(@NotNull Session session) {
         this.session = session;
-        this.baseUrl = "https://" + ApResolver.getRandomSpclient();
+        this.baseUrl = "https://spclient.wg.spotify.com"; // + ApResolver.getRandomSpclient();
     }
 
     @NotNull
@@ -69,6 +72,7 @@ public final class ApiClient {
         Request.Builder request = new Request.Builder();
         request.method(method, body);
         if (headers != null) request.headers(headers);
+        request.addHeader("Origin", "https://spclient.wg.spotify.com");
         request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
         request.url(baseUrl + suffix);
         return request.build();
@@ -198,6 +202,24 @@ public final class ApiClient {
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return ExtendedMetadata.BatchedExtensionResponse.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Playplay.PlayPlayResponse playPlay(@NotNull ByteString gid, @NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException {
+        Playplay.PlayPlayRequest req = Playplay.PlayPlayRequest.newBuilder()
+                .setType(3).setGid(gid)
+                .setTimestamp(TimeProvider.currentTimeMillis() / 1000)
+                .setSomething2(true)
+                .setSomething3(true)
+                .build();
+
+        try (Response resp = send("POST", "/playplay/v1/key/" + Utils.bytesToHex(fileId).toLowerCase(), null, protoBody(req))) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Playplay.PlayPlayResponse.parseFrom(body.byteStream());
         }
     }
 
