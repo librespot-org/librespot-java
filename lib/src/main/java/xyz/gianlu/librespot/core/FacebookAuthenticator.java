@@ -20,58 +20,59 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
 import com.spotify.Authentication;
+import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.Version;
-import xyz.gianlu.librespot.common.NetUtils;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 
-import javax.net.ssl.SSLSocketFactory;
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Gianlu
  */
 public final class FacebookAuthenticator implements Closeable {
-    private static final URL LOGIN_SPOTIFY;
     private static final Logger LOGGER = LoggerFactory.getLogger(FacebookAuthenticator.class);
-    private static final byte[] EOL = new byte[]{'\r', '\n'};
-
-    static {
-        try {
-            LOGIN_SPOTIFY = new URL("https://login2.spotify.com/v1/config");
-        } catch (MalformedURLException ex) {
-            throw new IllegalArgumentException(ex);
-        }
-    }
-
-    private final String credentialsUrl;
+    private static final int REDIRECT_PORT = 4381;
+    private static final String REDIRECT_URI = "http://127.0.0.1:4381/login";
     private final Object credentialsLock = new Object();
-    private HttpPolling polling;
+    private final HttpServer httpServer;
+    private final byte[] codeChallenge = new byte[32];
+    private final OkHttpClient client = new OkHttpClient();
     private Authentication.LoginCredentials credentials = null;
 
-    FacebookAuthenticator() throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) LOGIN_SPOTIFY.openConnection();
-        try (Reader reader = new InputStreamReader(conn.getInputStream())) {
-            conn.connect();
-            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
-            credentialsUrl = obj.get("credentials_url").getAsString();
-            String loginUrl = obj.get("login_url").getAsString();
-            LOGGER.info("Visit {} in your browser.", loginUrl);
-            startPolling();
-        } finally {
-            conn.disconnect();
-        }
-    }
+    FacebookAuthenticator() throws IOException, NoSuchAlgorithmException {
+        ThreadLocalRandom.current().nextBytes(codeChallenge);
 
-    private void startPolling() throws IOException {
-        polling = new HttpPolling();
-        new Thread(polling, "facebook-auth-polling").start();
+        HttpUrl authUrl = HttpUrl.get("https://accounts.spotify.com/authorize").newBuilder()
+                .addQueryParameter("client_id", MercuryRequests.KEYMASTER_CLIENT_ID)
+                .addQueryParameter("response_type", "code")
+                .addQueryParameter("redirect_uri", REDIRECT_URI)
+                .addQueryParameter("scope", "app-remote-control,playlist-modify,playlist-modify-private,playlist-modify-public,playlist-read,playlist-read-collaborative,playlist-read-private,streaming,ugc-image-upload,user-follow-modify,user-follow-read,user-library-modify,user-library-read,user-modify,user-modify-playback-state,user-modify-private,user-personalized,user-read-birthdate,user-read-currently-playing,user-read-email,user-read-play-history,user-read-playback-position,user-read-playback-state,user-read-private,user-read-recently-played,user-top-read")
+                .addQueryParameter("code_challenge", Utils.toBase64(MessageDigest.getInstance("SHA-256").digest(codeChallenge)))
+                .addQueryParameter("code_challenge_method", "S256")
+                .build();
+
+        HttpUrl url = HttpUrl.get("https://accounts.spotify.com/login").newBuilder()
+                .addQueryParameter("continue", authUrl.toString())
+                .addQueryParameter("method", "facebook")
+                .build();
+
+        LOGGER.info("Visit {} in your browser.", url);
+
+        httpServer = new HttpServer();
+        new Thread(httpServer, "facebook-auth-server").start();
     }
 
     @NotNull
@@ -84,94 +85,105 @@ public final class FacebookAuthenticator implements Closeable {
 
     @Override
     public void close() throws IOException {
-        if (polling != null) polling.stop();
+        if (httpServer != null) httpServer.stop();
     }
 
-    private void authData(@NotNull String json) {
-        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-        if (!obj.get("error").isJsonNull()) {
-            LOGGER.error("Error during authentication: " + obj.get("error"));
-            return;
-        }
-
-        JsonObject data = obj.getAsJsonObject("credentials");
-        credentials = Authentication.LoginCredentials.newBuilder()
-                .setUsername(data.get("username").getAsString())
-                .setTyp(Authentication.AuthenticationType.forNumber(data.get("auth_type").getAsInt()))
-                .setAuthData(ByteString.copyFrom(Utils.fromBase64(data.get("encoded_auth_blob").getAsString())))
-                .build();
-
-        synchronized (credentialsLock) {
-            credentialsLock.notifyAll();
-        }
-    }
-
-    private class HttpPolling implements Runnable {
-        private final String host;
-        private final String path;
-        private final Socket socket;
+    private class HttpServer implements Runnable {
+        private final ServerSocket serverSocket;
         private volatile boolean shouldStop = false;
+        private volatile Socket currentClient = null;
 
-        HttpPolling() throws IOException {
-            URL url = new URL(credentialsUrl);
-            path = url.getPath() + "?" + url.getQuery();
-            host = url.getHost();
-
-            socket = SSLSocketFactory.getDefault().createSocket(host, url.getDefaultPort());
+        HttpServer() throws IOException {
+            serverSocket = new ServerSocket(REDIRECT_PORT);
         }
 
         private void stop() throws IOException {
             shouldStop = true;
-            socket.close();
+            if (currentClient != null) currentClient.close();
         }
 
         @Override
         public void run() {
-            try {
-                OutputStream out = socket.getOutputStream();
-                DataInputStream in = new DataInputStream(socket.getInputStream());
+            while (!shouldStop) {
+                try {
+                    currentClient = serverSocket.accept();
+                    handle(currentClient);
+                    currentClient.close();
+                } catch (IOException ex) {
+                    if (shouldStop) break;
 
-                while (!shouldStop) {
-                    out.write("GET ".getBytes());
-                    out.write(path.getBytes());
-                    out.write(" HTTP/1.1".getBytes());
-                    out.write(EOL);
-                    out.write("Host: ".getBytes());
-                    out.write(host.getBytes());
-                    out.write(EOL);
-                    out.write("User-Agent: ".getBytes());
-                    out.write(Version.versionString().getBytes());
-                    out.write(EOL);
-                    out.write("Accept: */*".getBytes());
-                    out.write(EOL);
-                    out.write(EOL);
-                    out.flush();
-
-                    NetUtils.StatusLine sl = NetUtils.parseStatusLine(Utils.readLine(in));
-                    int length = 0;
-                    String header;
-                    while (!(header = Utils.readLine(in)).isEmpty()) {
-                        if (header.startsWith("Content-Length") && sl.statusCode == 200)
-                            length = Integer.parseInt(header.substring(16));
-                    }
-
-                    if (sl.statusCode == 200) {
-                        String json;
-                        if (length != 0) {
-                            byte[] buffer = new byte[length];
-                            in.readFully(buffer);
-                            json = new String(buffer);
-                        } else {
-                            json = Utils.readLine(in);
-                        }
-
-                        LOGGER.trace("Received authentication data: " + json);
-                        authData(json);
-                        break;
-                    }
+                    LOGGER.error("Failed handling incoming connection.", ex);
                 }
+            }
+        }
+
+        private void handle(@NotNull Socket socket) throws IOException {
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+            OutputStream out = socket.getOutputStream();
+
+            String[] requestLine = Utils.split(Utils.readLine(in), ' ');
+            if (requestLine.length != 3) {
+                LOGGER.warn("Unexpected request line: " + Arrays.toString(requestLine));
+                return;
+            }
+
+            String method = requestLine[0];
+            String path = requestLine[1];
+            String httpVersion = requestLine[2];
+
+            //noinspection StatementWithEmptyBody
+            while (!Utils.readLine(in).isEmpty()) ;
+
+            if (method.equals("GET") && path.startsWith("/login")) {
+                String[] split = path.split("\\?code=");
+                if (split.length != 2) {
+                    LOGGER.warn("Missing code parameter in request: {}", path);
+                    return;
+                }
+
+                handleLogin(httpVersion, out, split[1]);
+            } else {
+                LOGGER.warn("Received unknown request: {} {}", method, path);
+                out.write(String.format("%s 404 Not Found\r\n\r\n", httpVersion).getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        private void handleLogin(String httpVersion, OutputStream out, String code) throws IOException {
+            System.out.println(Utils.toBase64(codeChallenge));
+
+            JsonObject credentialsJson;
+            try (Response resp = client.newCall(new Request.Builder().url("https://accounts.spotify.com/api/token")
+                    .post(new FormBody.Builder()
+                            .add("grant_type", "authorization_code")
+                            .add("client_id", MercuryRequests.KEYMASTER_CLIENT_ID)
+                            .add("redirect_uri", REDIRECT_URI)
+                            .add("code_verifier", Utils.toBase64(codeChallenge))
+                            .add("code", code)
+                            .build()).build()).execute()) {
+                if (resp.code() != 200) {
+                    LOGGER.error("Bad response code from token endpoint: {}", resp.code());
+                    return;
+                }
+
+                ResponseBody body = resp.body();
+                if (body == null) throw new IOException("Empty body!");
+
+                credentialsJson = JsonParser.parseString(body.string()).getAsJsonObject();
             } catch (IOException ex) {
-                LOGGER.error("Failed polling Spotify credentials URL!", ex);
+                LOGGER.error("Token endpoint request failed.", ex);
+                out.write(String.format("%s 500 Internal Server Error", httpVersion).getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+
+            System.out.println(credentialsJson);
+
+            credentials = Authentication.LoginCredentials.newBuilder()
+                    .setTyp(Authentication.AuthenticationType.AUTHENTICATION_FACEBOOK_TOKEN)
+                    .setAuthData(ByteString.copyFrom(credentialsJson.get("access_token").getAsString(), StandardCharsets.UTF_8))
+                    .build();
+
+            synchronized (credentialsLock) {
+                credentialsLock.notifyAll();
             }
         }
     }
