@@ -1,5 +1,5 @@
 # librespot-java
-[![Build Status](https://travis-ci.com/librespot-org/librespot-java.svg?branch=dev)](https://travis-ci.com/librespot-org/librespot-java)
+[![Maven build / deploy](https://github.com/librespot-org/librespot-java/actions/workflows/maven.yml/badge.svg?branch=dev)](https://github.com/librespot-org/librespot-java/actions/workflows/maven.yml)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1ec8ca04e5054558a089bc7f640079a6)](https://www.codacy.com/manual/devgianlu/librespot-java?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=librespot-org/librespot-java&amp;utm_campaign=Badge_Grade)
 [![time tracker](https://wakatime.com/badge/github/librespot-org/librespot-java.svg)](https://wakatime.com/badge/github/librespot-org/librespot-java)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
