@@ -37,10 +37,10 @@ import java.util.Map;
  */
 public final class DiscoveryHandler implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryHandler.class);
-    private final Zeroconf zeroconf;
+    private final Zeroconf.DiscoveredServices discoverer;
 
     public DiscoveryHandler() {
-        zeroconf = new Zeroconf()
+        Zeroconf zeroconf = new Zeroconf()
                 .setUseIpv4(true)
                 .setUseIpv6(false);
 
@@ -49,6 +49,8 @@ public final class DiscoveryHandler implements HttpHandler {
         } catch (IOException ex) {
             LOGGER.error("Failed adding network interfaces for Zeroconf.", ex);
         }
+
+        discoverer = zeroconf.discover(ZeroconfServer.SERVICE, "tcp", ".local");
     }
 
     @Override
@@ -69,7 +71,7 @@ public final class DiscoveryHandler implements HttpHandler {
         switch (action) {
             case "list":
                 JsonArray array = new JsonArray();
-                for (DiscoveredService service : zeroconf.discover(ZeroconfServer.SERVICE, "tcp", ".local")) {
+                for (DiscoveredService service : discoverer.getServices()) {
                     JsonObject obj = new JsonObject();
                     obj.addProperty("name", service.name);
                     obj.addProperty("target", service.target);
