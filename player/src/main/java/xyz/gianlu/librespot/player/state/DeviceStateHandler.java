@@ -68,6 +68,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     private final AsyncWorker<Connect.PutStateRequest> putStateWorker;
     private volatile String connectionId = null;
     private volatile boolean closing = false;
+    private String lastCommandSentByDeviceId;
 
     public DeviceStateHandler(@NotNull Session session, @NotNull PlayerConfiguration conf) {
         this.session = session;
@@ -162,13 +163,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
             updateConnectionId(headers.get("Spotify-Connection-Id"));
         } else if (Objects.equals(uri, "hm://connect-state/v1/connect/volume")) {
             Connect.SetVolumeCommand cmd = Connect.SetVolumeCommand.parseFrom(payload);
-            synchronized (this) {
-                if (cmd.hasCommandOptions()) {
-                    putState.setLastCommandMessageId(cmd.getCommandOptions().getMessageId())
-                            .clearLastCommandSentByDeviceId();
-                }
-            }
-
             setVolume(cmd.getVolume());
         } else if (Objects.equals(uri, "hm://connect-state/v1/cluster")) {
             Connect.ClusterUpdate update = Connect.ClusterUpdate.parseFrom(payload);
@@ -188,7 +182,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     @NotNull
     @Override
     public RequestResult onRequest(@NotNull String mid, int pid, @NotNull String sender, @NotNull JsonObject command) {
-        putState.setLastCommandMessageId(pid).setLastCommandSentByDeviceId(sender);
+        lastCommandSentByDeviceId = sender;
 
         Endpoint endpoint = Endpoint.parse(command.get("endpoint").getAsString());
         notifyCommand(endpoint, new CommandBody(command));
@@ -197,7 +191,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
 
     @Nullable
     public synchronized String getLastCommandSentByDeviceId() {
-        return putState.getLastCommandSentByDeviceId();
+        return lastCommandSentByDeviceId;
     }
 
     private synchronized long startedPlayingAt() {
@@ -223,12 +217,18 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
     public synchronized void updateState(@NotNull Connect.PutStateReason reason, int playerTime, @NotNull Player.PlayerState state) {
         if (connectionId == null) throw new IllegalStateException();
 
-        if (playerTime == -1) putState.clearHasBeenPlayingForMs();
-        else putState.setHasBeenPlayingForMs(playerTime);
+        long timestamp = TimeProvider.currentTimeMillis();
+
+        if (playerTime == -1)
+            putState.clearHasBeenPlayingForMs();
+        else
+            putState.setHasBeenPlayingForMs(Math.min(playerTime, timestamp - putState.getStartedPlayingAt()));
 
         putState.setPutStateReason(reason)
-                .setClientSideTimestamp(TimeProvider.currentTimeMillis())
-                .getDeviceBuilder().setDeviceInfo(deviceInfo).setPlayerState(state);
+                .setClientSideTimestamp(timestamp)
+                .getDeviceBuilder()
+                .setDeviceInfo(deviceInfo)
+                .setPlayerState(state);
 
         try {
             putStateWorker.submit(putState.build());
@@ -267,6 +267,8 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
      * @param req The {@link Connect.PutStateRequest}
      */
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
+        System.out.println(req);
+
         try {
             session.api().putConnectState(connectionId, req);
             if (LOGGER.isTraceEnabled()) {
