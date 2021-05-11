@@ -1,0 +1,48 @@
+syntax = "proto2";
+
+package spotify.clienttoken.proto;
+
+option optimize_for = CODE_SIZE;
+option java_package = "com.spotify.clienttoken";
+
+message ClientTokenRequest {
+    optional bool something = 1;
+    optional ClientTokenRequestBody body = 2;
+}
+
+message ClientTokenRequestBody {
+    message SystemInfo {
+        message DataInner {
+            optional int32 something1 = 1;
+            optional int32 something3 = 3;
+            optional int32 something4 = 4;
+            optional int32 something6 = 6;
+            optional int32 something7 = 7;
+            optional int32 something8 = 8;
+            optional bool something10 = 10;
+        }
+        message Data {
+          optional DataInner data = 4;
+        }
+        optional Data data = 1;
+        optional string machine_id = 2;
+    }
+    optional string version = 1;
+    optional string client_id = 2;
+    optional SystemInfo system_info = 3;
+}
+
+message ClientTokenResponse {
+    optional bool something = 1;
+    optional ClientTokenResponseBody body = 2;
+}
+
+message ClientTokenResponseBody {
+    message Authority {
+        optional string name = 1;
+    }
+    optional string client_token = 1;
+    optional int32 something2 = 2;
+    optional int32 something3 = 3;
+    optional Authority authority = 4;
+}
