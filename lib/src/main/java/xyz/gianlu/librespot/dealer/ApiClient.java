@@ -29,6 +29,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
@@ -73,8 +74,8 @@ public final class ApiClient {
     @NotNull
     private Request buildRequest(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
         if (clientToken == null) {
-            clientToken = clientToken().getBody().getClientToken();
-            System.out.println(clientToken); // FIXME
+            Clienttoken.ClientTokenResponse resp = clientToken();
+            clientToken = resp.getBody().getClientToken();
         }
 
         Request.Builder request = new Request.Builder();
@@ -82,14 +83,10 @@ public final class ApiClient {
         if (headers != null) request.headers(headers);
         request.addHeader("Origin", "https://spclient.wg.spotify.com");
         request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
-        // request.addHeader("client-token", clientToken);
         request.addHeader("Host", "spclient.wg.spotify.com");
+        request.addHeader("client-token", clientToken);
         request.url(baseUrl + suffix);
         return request.build();
-    }
-
-    public void sendAsync(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body, @NotNull Callback callback) throws IOException, MercuryClient.MercuryException {
-        session.client().newCall(buildRequest(method, suffix, headers, body)).enqueue(callback);
     }
 
     /**
@@ -234,12 +231,12 @@ public final class ApiClient {
     }
 
     @NotNull
-    public Clienttoken.ClientTokenResponse clientToken() throws IOException {
+    private Clienttoken.ClientTokenResponse clientToken() throws IOException {
         Clienttoken.ClientTokenRequest protoReq = Clienttoken.ClientTokenRequest.newBuilder()
                 .setSomething(true)
                 .setBody(Clienttoken.ClientTokenRequestBody.newBuilder()
                         .setClientId(MercuryRequests.KEYMASTER_CLIENT_ID)
-                        .setVersion("1.1.58.820.g2ae50076")
+                        .setVersion(Version.versionNumber())
                         .setSystemInfo(Clienttoken.ClientTokenRequestBody.SystemInfo.newBuilder()
                                 .setData(Clienttoken.ClientTokenRequestBody.SystemInfo.Data.newBuilder()
                                         .setData(Clienttoken.ClientTokenRequestBody.SystemInfo.DataInner.newBuilder()
@@ -252,18 +249,15 @@ public final class ApiClient {
                                                 .setSomething10(true)
                                                 .build())
                                         .build())
-                                .setMachineId("S-1-5-21-3717087417-2376252627-207414014")
+                                .setMachineId("S-1-5-21-3717087417-2376252627-207414014") // FIXME
                                 .build())
                         .build())
                 .build();
 
         Request.Builder req = new Request.Builder()
                 .url("https://clienttoken.spotify.com/v1/clienttoken")
-                .header("Origin", "https://clienttoken.spotify.com")
-                .header("User-Agent", "Spotify/115800820 Win32/0 (PC desktop)")
-                .header("Host", "clienttoken.spotify.com")
-                .header("Content-Type", "application/x-protobuf")
                 .header("Accept", "application/x-protobuf")
+                .header("Content-Encoding", "")
                 .post(protoBody(protoReq));
 
         try (Response resp = session.client().newCall(req.build()).execute()) {
