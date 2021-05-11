@@ -21,11 +21,14 @@ import com.google.gson.JsonObject;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.zeroconf.DiscoveredService;
 import xyz.gianlu.zeroconf.Zeroconf;
 
+import java.io.IOException;
 import java.util.Deque;
 import java.util.Map;
 
@@ -33,10 +36,19 @@ import java.util.Map;
  * @author devgianlu
  */
 public final class DiscoveryHandler implements HttpHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryHandler.class);
     private final Zeroconf zeroconf;
 
     public DiscoveryHandler() {
-        zeroconf = new Zeroconf();
+        zeroconf = new Zeroconf()
+                .setUseIpv4(true)
+                .setUseIpv6(false);
+
+        try {
+            zeroconf.addAllNetworkInterfaces();
+        } catch (IOException ex) {
+            LOGGER.error("Failed adding network interfaces for Zeroconf.", ex);
+        }
     }
 
     @Override
