@@ -280,7 +280,7 @@ public class Player implements Closeable {
     @NotNull
     public Future<Player> ready() {
         CompletableFuture<Player> future = new CompletableFuture<>();
-        if (state.isReady()) {
+        if (isReady()) {
             future.complete(this);
             return future;
         }
@@ -754,6 +754,13 @@ public class Player implements Closeable {
      */
     public boolean isActive() {
         return state != null && state.isActive();
+    }
+
+    /**
+     * @return Whether the player is ready
+     */
+    public boolean isReady() {
+        return state != null && state.isReady();
     }
 
     /**
