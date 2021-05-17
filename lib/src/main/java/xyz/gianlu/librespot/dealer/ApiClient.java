@@ -18,7 +18,8 @@ package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
-import com.spotify.clienttoken.Clienttoken;
+import com.spotify.clienttoken.data.v0.Connectivity;
+import com.spotify.clienttoken.http.v0.ClientToken;
 import com.spotify.connectstate.Connect;
 import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
@@ -74,8 +75,9 @@ public final class ApiClient {
     @NotNull
     private Request buildRequest(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
         if (clientToken == null) {
-            Clienttoken.ClientTokenResponse resp = clientToken();
-            clientToken = resp.getBody().getClientToken();
+            ClientToken.ClientTokenResponse resp = clientToken();
+            clientToken = resp.getGrantedToken().getToken();
+            LOGGER.debug("Updated client token: {}", clientToken);
         }
 
         Request.Builder request = new Request.Builder();
@@ -231,15 +233,16 @@ public final class ApiClient {
     }
 
     @NotNull
-    private Clienttoken.ClientTokenResponse clientToken() throws IOException {
-        Clienttoken.ClientTokenRequest protoReq = Clienttoken.ClientTokenRequest.newBuilder()
-                .setSomething(true)
-                .setBody(Clienttoken.ClientTokenRequestBody.newBuilder()
+    private ClientToken.ClientTokenResponse clientToken() throws IOException {
+        ClientToken.ClientTokenRequest protoReq = ClientToken.ClientTokenRequest.newBuilder()
+                .setRequestType(ClientToken.ClientTokenRequestType.REQUEST_CLIENT_DATA_REQUEST)
+                .setClientData(ClientToken.ClientDataRequest.newBuilder()
                         .setClientId(MercuryRequests.KEYMASTER_CLIENT_ID)
-                        .setVersion(Version.versionNumber())
-                        .setSystemInfo(Clienttoken.ClientTokenRequestBody.SystemInfo.newBuilder()
-                                .setData(Clienttoken.ClientTokenRequestBody.SystemInfo.Data.newBuilder()
-                                        .setData(Clienttoken.ClientTokenRequestBody.SystemInfo.DataInner.newBuilder()
+                        .setClientVersion(Version.versionNumber())
+                        .setConnectivitySdkData(Connectivity.ConnectivitySdkData.newBuilder()
+                                .setDeviceId(session.deviceId())
+                                .setPlatformSpecificData(Connectivity.PlatformSpecificData.newBuilder()
+                                        .setWindows(Connectivity.NativeWindowsData.newBuilder()
                                                 .setSomething1(10)
                                                 .setSomething3(21370)
                                                 .setSomething4(2)
@@ -249,7 +252,6 @@ public final class ApiClient {
                                                 .setSomething10(true)
                                                 .build())
                                         .build())
-                                .setMachineId("S-1-5-21-3717087417-2376252627-207414014") // FIXME
                                 .build())
                         .build())
                 .build();
@@ -265,7 +267,7 @@ public final class ApiClient {
 
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
-            return Clienttoken.ClientTokenResponse.parseFrom(body.byteStream());
+            return ClientToken.ClientTokenResponse.parseFrom(body.byteStream());
         }
     }
 
