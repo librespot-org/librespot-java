@@ -271,6 +271,10 @@ public final class ApiClient {
         }
     }
 
+    public void setClientToken(@NotNull String clientToken) {
+        this.clientToken = clientToken;
+    }
+
     public static class StatusCodeException extends IOException {
         public final int code;
 
