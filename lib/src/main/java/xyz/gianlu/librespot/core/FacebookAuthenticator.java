@@ -40,7 +40,7 @@ import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
 public final class FacebookAuthenticator implements Closeable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FacebookAuthenticator.class);
@@ -48,25 +48,27 @@ public final class FacebookAuthenticator implements Closeable {
     private static final String REDIRECT_URI = "http://127.0.0.1:4381/login";
     private final Object credentialsLock = new Object();
     private final HttpServer httpServer;
-    private final byte[] codeChallenge = new byte[32];
+    private final String codeChallenge;
     private final OkHttpClient client = new OkHttpClient();
     private Authentication.LoginCredentials credentials = null;
 
     FacebookAuthenticator() throws IOException, NoSuchAlgorithmException {
-        ThreadLocalRandom.current().nextBytes(codeChallenge);
+        codeChallenge = Utils.randomString(ThreadLocalRandom.current(), 48);
 
         HttpUrl authUrl = HttpUrl.get("https://accounts.spotify.com/authorize").newBuilder()
                 .addQueryParameter("client_id", MercuryRequests.KEYMASTER_CLIENT_ID)
                 .addQueryParameter("response_type", "code")
                 .addQueryParameter("redirect_uri", REDIRECT_URI)
                 .addQueryParameter("scope", "app-remote-control,playlist-modify,playlist-modify-private,playlist-modify-public,playlist-read,playlist-read-collaborative,playlist-read-private,streaming,ugc-image-upload,user-follow-modify,user-follow-read,user-library-modify,user-library-read,user-modify,user-modify-playback-state,user-modify-private,user-personalized,user-read-birthdate,user-read-currently-playing,user-read-email,user-read-play-history,user-read-playback-position,user-read-playback-state,user-read-private,user-read-recently-played,user-top-read")
-                .addQueryParameter("code_challenge", Utils.toBase64(MessageDigest.getInstance("SHA-256").digest(codeChallenge)))
+                .addQueryParameter("code_challenge", Utils.toBase64(MessageDigest.getInstance("SHA-256").digest(codeChallenge.getBytes(StandardCharsets.UTF_8)), true, false))
                 .addQueryParameter("code_challenge_method", "S256")
                 .build();
 
         HttpUrl url = HttpUrl.get("https://accounts.spotify.com/login").newBuilder()
                 .addQueryParameter("continue", authUrl.toString())
                 .addQueryParameter("method", "facebook")
+                .addQueryParameter("utm_source", "librespot-java")
+                .addQueryParameter("utm_medium", "desktop")
                 .build();
 
         LOGGER.info("Visit {} in your browser.", url);
@@ -142,22 +144,20 @@ public final class FacebookAuthenticator implements Closeable {
                 }
 
                 handleLogin(httpVersion, out, split[1]);
-            } else {
+            } else if (!path.equals("/favicon.ico")) {
                 LOGGER.warn("Received unknown request: {} {}", method, path);
                 out.write(String.format("%s 404 Not Found\r\n\r\n", httpVersion).getBytes(StandardCharsets.UTF_8));
             }
         }
 
         private void handleLogin(String httpVersion, OutputStream out, String code) throws IOException {
-            System.out.println(Utils.toBase64(codeChallenge));
-
             JsonObject credentialsJson;
             try (Response resp = client.newCall(new Request.Builder().url("https://accounts.spotify.com/api/token")
                     .post(new FormBody.Builder()
                             .add("grant_type", "authorization_code")
                             .add("client_id", MercuryRequests.KEYMASTER_CLIENT_ID)
                             .add("redirect_uri", REDIRECT_URI)
-                            .add("code_verifier", Utils.toBase64(codeChallenge))
+                            .add("code_verifier", codeChallenge)
                             .add("code", code)
                             .build()).build()).execute()) {
                 if (resp.code() != 200) {
@@ -171,20 +171,20 @@ public final class FacebookAuthenticator implements Closeable {
                 credentialsJson = JsonParser.parseString(body.string()).getAsJsonObject();
             } catch (IOException ex) {
                 LOGGER.error("Token endpoint request failed.", ex);
-                out.write(String.format("%s 500 Internal Server Error", httpVersion).getBytes(StandardCharsets.UTF_8));
+                out.write(String.format("%s 500 Internal Server Error\r\n\r\n", httpVersion).getBytes(StandardCharsets.UTF_8));
                 return;
             }
 
-            System.out.println(credentialsJson);
-
             credentials = Authentication.LoginCredentials.newBuilder()
-                    .setTyp(Authentication.AuthenticationType.AUTHENTICATION_FACEBOOK_TOKEN)
+                    .setTyp(Authentication.AuthenticationType.AUTHENTICATION_SPOTIFY_TOKEN)
                     .setAuthData(ByteString.copyFrom(credentialsJson.get("access_token").getAsString(), StandardCharsets.UTF_8))
                     .build();
 
             synchronized (credentialsLock) {
                 credentialsLock.notifyAll();
             }
+
+            out.write(String.format("%s 302 Found\r\nLocation: https://open.spotify.com/desktop/auth/success\r\n\r\n", httpVersion).getBytes(StandardCharsets.UTF_8));
         }
     }
 }
