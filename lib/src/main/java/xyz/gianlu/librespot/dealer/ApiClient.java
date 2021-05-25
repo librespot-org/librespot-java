@@ -215,21 +215,27 @@ public final class ApiClient {
     }
 
     @NotNull
-    public Playplay.PlayPlayResponse playPlay(@NotNull ByteString gid, @NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException {
-        Playplay.PlayPlayRequest req = Playplay.PlayPlayRequest.newBuilder()
-                .setType(3).setGid(gid)
+    public byte[] playPlay(@NotNull ByteString gid, @NotNull ByteString fileId) throws IOException, MercuryClient.MercuryException {
+        Playplay.PlayPlayLicenseRequest req = Playplay.PlayPlayLicenseRequest.newBuilder()
+                .setVersion(3)
+                .setCacheId(ByteString.EMPTY) // FIXME
                 .setTimestamp(TimeProvider.currentTimeMillis() / 1000)
-                .setSomething2(true)
-                .setSomething3(true)
+                .setInteractivity(Playplay.Interactivity.INTERACTIVE)
+                .setContentType(Playplay.ContentType.AUDIO_TRACK)
                 .build();
 
+        byte[] obfuscatedKey;
         try (Response resp = send("POST", "/playplay/v1/key/" + Utils.bytesToHex(fileId).toLowerCase(), null, protoBody(req))) {
             StatusCodeException.checkStatus(resp);
 
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
-            return Playplay.PlayPlayResponse.parseFrom(body.byteStream());
+
+            obfuscatedKey = Playplay.PlayPlayLicenseResponse.parseFrom(body.byteStream()).getObfuscatedKey().toByteArray();
         }
+
+        // FIXME: Deobfuscate the key
+        return obfuscatedKey;
     }
 
     @NotNull
@@ -271,7 +277,7 @@ public final class ApiClient {
         }
     }
 
-    public void setClientToken(@NotNull String clientToken) {
+    public void setClientToken(@Nullable String clientToken) {
         this.clientToken = clientToken;
     }
 

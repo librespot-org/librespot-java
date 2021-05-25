@@ -53,8 +53,11 @@ public final class CdnFeedHelper {
     public static @NotNull LoadedStream loadTrack(@NotNull Session session, Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file,
                                                   @NotNull HttpUrl url, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.api().playPlay(track.getGid(), file.getFileId()).getKey().toByteArray();
+        byte[] key = session.api().playPlay(track.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
+
+        byte[] oldKey = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
+        System.out.println("OLD: " + Utils.bytesToHex(oldKey) + ", NEW: " + Utils.bytesToHex(key));
 
         CdnManager.Streamer streamer = session.cdn().streamFile(file, key, url, haltListener);
         InputStream in = streamer.stream();
@@ -85,7 +88,7 @@ public final class CdnFeedHelper {
 
     public static @NotNull LoadedStream loadEpisode(@NotNull Session session, Metadata.@NotNull Episode episode, @NotNull Metadata.AudioFile file, @NotNull HttpUrl url, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.api().playPlay(episode.getGid(), file.getFileId()).getKey().toByteArray();
+        byte[] key = session.api().playPlay(episode.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
 
         CdnManager.Streamer streamer = session.cdn().streamFile(file, key, url, haltListener);

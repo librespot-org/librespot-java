@@ -39,7 +39,7 @@ public final class StorageFeedHelper {
 
     public static @NotNull PlayableContentFeeder.LoadedStream loadTrack(@NotNull Session session, @NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.api().playPlay(track.getGid(), file.getFileId()).getKey().toByteArray();
+        byte[] key = session.api().playPlay(track.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
 
         AudioFileStreaming stream = new AudioFileStreaming(session, file, key, haltListener);
@@ -56,7 +56,7 @@ public final class StorageFeedHelper {
 
     public static @NotNull PlayableContentFeeder.LoadedStream loadEpisode(@NotNull Session session, Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.api().playPlay(episode.getGid(), file.getFileId()).getKey().toByteArray();
+        byte[] key = session.api().playPlay(episode.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
 
         AudioFileStreaming stream = new AudioFileStreaming(session, file, key, haltListener);
