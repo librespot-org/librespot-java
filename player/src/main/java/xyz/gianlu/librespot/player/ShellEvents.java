@@ -40,7 +40,7 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
         this.conf = conf;
     }
 
-    private void exec(String command) {
+    private void exec(String command, String... envp) {
         if (!this.conf.enabled)
             return;
 
@@ -48,7 +48,7 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
             return;
 
         try {
-            int exitCode = runtime.exec(command.trim()).waitFor();
+            int exitCode = runtime.exec(command.trim(), envp).waitFor();
             LOGGER.trace("Executed shell command: {} -> {}", command, exitCode);
         } catch (IOException | InterruptedException ex) {
             LOGGER.error("Failed executing command: {}", command, ex);
@@ -57,12 +57,16 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
 
     @Override
     public void onContextChanged(@NotNull Player player, @NotNull String newUri) {
-        exec(conf.onContextChanged);
+        exec(conf.onContextChanged, "CONTEXT_URI=" + newUri);
     }
 
     @Override
     public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
-        exec(conf.onTrackChanged);
+        exec(conf.onTrackChanged, "TRACK_URI=" + id.toSpotifyUri(),
+                "NAME=" + (metadata == null ? "" : metadata.getName()),
+                "ARTIST=" + (metadata == null ? "" : metadata.getArtist()),
+                "ALBUM=" + (metadata == null ? "" : metadata.getAlbumName()),
+                "DURATION=" + (metadata == null ? "" : metadata.duration()));
     }
 
     @Override
@@ -72,22 +76,24 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
 
     @Override
     public void onPlaybackPaused(@NotNull Player player, long trackTime) {
-        exec(conf.onPlaybackPaused);
+        exec(conf.onPlaybackPaused, "POSITION=" + trackTime);
     }
 
     @Override
     public void onPlaybackResumed(@NotNull Player player, long trackTime) {
-        exec(conf.onPlaybackResumed);
+        exec(conf.onPlaybackResumed, "POSITION=" + trackTime);
     }
 
     @Override
     public void onTrackSeeked(@NotNull Player player, long trackTime) {
-        exec(conf.onTrackSeeked);
+        exec(conf.onTrackSeeked, "POSITION=" + trackTime);
     }
 
     @Override
     public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
-        exec(conf.onMetadataAvailable);
+        exec(conf.onMetadataAvailable, "TRACK_URI=" + metadata.id.toSpotifyUri(),
+                "NAME=" + metadata.getName(), "ARTIST=" + metadata.getArtist(),
+                "ALBUM=" + metadata.getAlbumName(), "DURATION=" + metadata.duration());
     }
 
     @Override
@@ -101,7 +107,7 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
 
     @Override
     public void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume) {
-        exec(conf.onVolumeChanged);
+        exec(conf.onVolumeChanged, "VOLUME=" + Math.round(volume * 100f));
     }
 
     @Override
