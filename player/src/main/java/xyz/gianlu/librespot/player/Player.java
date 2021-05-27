@@ -974,7 +974,6 @@ public class Player implements Closeable {
 
                     @Override
                     public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
-                        dacpPipe.sendPipeFlush();
                     }
 
                     @Override
