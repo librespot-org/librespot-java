@@ -54,9 +54,10 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
-    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackChanged");
+        obj.addProperty("userInitiated", userInitiated);
         obj.addProperty("uri", id.toSpotifyUri());
         if (metadata != null) {
             if (metadata.track != null) obj.add("track", ProtobufToJson.convert(metadata.track));

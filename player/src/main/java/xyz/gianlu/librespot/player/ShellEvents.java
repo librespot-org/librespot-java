@@ -30,7 +30,7 @@ import java.io.IOException;
 /**
  * @author devgianlu
  */
-public final class ShellEvents implements Player.EventsListener, Session.@NotNull ReconnectionListener {
+public final class ShellEvents implements Player.EventsListener, Session.ReconnectionListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShellEvents.class);
     private final Configuration conf;
     private final Runtime runtime;
@@ -61,12 +61,13 @@ public final class ShellEvents implements Player.EventsListener, Session.@NotNul
     }
 
     @Override
-    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
+    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated) {
         exec(conf.onTrackChanged, "TRACK_URI=" + id.toSpotifyUri(),
                 "NAME=" + (metadata == null ? "" : metadata.getName()),
                 "ARTIST=" + (metadata == null ? "" : metadata.getArtist()),
                 "ALBUM=" + (metadata == null ? "" : metadata.getAlbumName()),
-                "DURATION=" + (metadata == null ? "" : metadata.duration()));
+                "DURATION=" + (metadata == null ? "" : metadata.duration()),
+                "IS_USER=" + userInitiated);
     }
 
     @Override
