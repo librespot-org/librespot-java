@@ -401,7 +401,7 @@ public class Player implements Closeable {
                 state.setPosition(pos);
                 state.updated();
 
-                events.trackChanged();
+                events.trackChanged(false);
                 events.metadataAvailable();
 
                 session.eventService().sendEvent(new NewPlaybackIdEvent(state.getSessionId(), playbackId));
@@ -495,7 +495,7 @@ public class Player implements Closeable {
         state.setState(true, !play, true);
         state.updated();
 
-        events.trackChanged();
+        events.trackChanged(true);
         if (play) events.playbackResumed();
         else events.playbackPaused();
 
@@ -859,7 +859,7 @@ public class Player implements Closeable {
     public interface EventsListener {
         void onContextChanged(@NotNull Player player, @NotNull String newUri);
 
-        void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata);
+        void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated);
 
         void onPlaybackEnded(@NotNull Player player);
 
@@ -973,7 +973,8 @@ public class Player implements Closeable {
                     }
 
                     @Override
-                    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata) {
+                    public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated) {
+                        if (userInitiated) dacpPipe.sendPipeFlush();
                     }
 
                     @Override
@@ -1066,13 +1067,13 @@ public class Player implements Closeable {
                 executorService.execute(() -> l.onContextChanged(Player.this, uri));
         }
 
-        void trackChanged() {
+        void trackChanged(boolean userInitiated) {
             PlayableId id = state.getCurrentPlayable();
             if (id == null) return;
 
             MetadataWrapper metadata = currentMetadata();
             for (EventsListener l : new ArrayList<>(listeners))
-                executorService.execute(() -> l.onTrackChanged(Player.this, id, metadata));
+                executorService.execute(() -> l.onTrackChanged(Player.this, id, metadata, userInitiated));
         }
 
         void seeked(int pos) {
