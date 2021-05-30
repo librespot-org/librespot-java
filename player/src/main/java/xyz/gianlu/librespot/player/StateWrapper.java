@@ -57,6 +57,10 @@ import xyz.gianlu.librespot.player.state.RestrictionsManager.Action;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -80,16 +84,16 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
     private final PlayerState.Builder state;
     private final Session session;
     private final Player player;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final DeviceStateHandler device;
-    private final PlayerConfiguration conf;
     private AbsSpotifyContext context;
     private PagesLoader pages;
     private TracksKeeper tracksKeeper;
+    private Future<?> volumeChangedFuture = null;
 
     StateWrapper(@NotNull Session session, @NotNull Player player, @NotNull PlayerConfiguration conf) {
         this.session = session;
         this.player = player;
-        this.conf = conf;
         this.device = new DeviceStateHandler(session, conf);
         this.state = initState(PlayerState.newBuilder());
 
@@ -347,7 +351,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
     @Override
     public synchronized void volumeChanged() {
-        device.updateState(Connect.PutStateReason.VOLUME_CHANGED, player.time(), state.build());
+        if (volumeChangedFuture != null) volumeChangedFuture.cancel(false);
+        volumeChangedFuture = scheduler.schedule(() -> device.updateState(Connect.PutStateReason.VOLUME_CHANGED, player.time(), state.build()), 500, TimeUnit.MILLISECONDS);
     }
 
     @Override
