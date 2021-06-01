@@ -66,6 +66,7 @@ password = "" # Basic auth password
 
 [shell] ### Shell ###
 enabled = false # Shell events enabled
+executeWithBash = false # Execute the command with `bash -c`
 onContextChanged = ""
 onTrackChanged = ""
 onPlaybackEnded = ""

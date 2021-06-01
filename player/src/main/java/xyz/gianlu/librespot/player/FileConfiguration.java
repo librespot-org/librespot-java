@@ -45,7 +45,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.function.Supplier;
 
 /**
@@ -336,6 +339,7 @@ public final class FileConfiguration {
     public ShellEvents.Configuration toEventsShell() {
         return new ShellEvents.Configuration.Builder()
                 .setEnabled(config.get("shell.enabled"))
+                .setExecuteWithBash(config.get("shell.executeWithBash"))
                 .setOnContextChanged(config.get("shell.onContextChanged"))
                 .setOnTrackChanged(config.get("shell.onTrackChanged"))
                 .setOnPlaybackEnded(config.get("shell.onPlaybackEnded"))

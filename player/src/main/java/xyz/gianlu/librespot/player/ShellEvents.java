@@ -48,7 +48,10 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             return;
 
         try {
-            int exitCode = runtime.exec(command.trim(), envp).waitFor();
+            Process p;
+            if (conf.executeWithBash) p = runtime.exec(new String[]{"/bin/bash", "-c", command.trim()}, envp);
+            else p = runtime.exec(command.trim(), envp);
+            int exitCode = p.waitFor();
             LOGGER.trace("Executed shell command: {} -> {}", command, exitCode);
         } catch (IOException | InterruptedException ex) {
             LOGGER.error("Failed executing command: {}", command, ex);
@@ -128,6 +131,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
     public static class Configuration {
         public final boolean enabled;
+        public final boolean executeWithBash;
         public final String onContextChanged;
         public final String onTrackChanged;
         public final String onPlaybackEnded;
@@ -141,10 +145,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public final String onConnectionDropped;
         public final String onConnectionEstablished;
 
-        public Configuration(boolean enabled, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
+        public Configuration(boolean enabled, boolean executeWithBash, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
                              String onPlaybackResumed, String onTrackSeeked, String onMetadataAvailable, String onVolumeChanged,
                              String onInactiveSession, String onPanicState, String onConnectionDropped, String onConnectionEstablished) {
             this.enabled = enabled;
+            this.executeWithBash = executeWithBash;
             this.onContextChanged = onContextChanged;
             this.onTrackChanged = onTrackChanged;
             this.onPlaybackEnded = onPlaybackEnded;
@@ -161,6 +166,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
         public static class Builder {
             private boolean enabled = false;
+            private boolean executeWithBash = false;
             private String onContextChanged = "";
             private String onTrackChanged = "";
             private String onPlaybackEnded = "";
@@ -179,6 +185,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
             public Builder setEnabled(boolean enabled) {
                 this.enabled = enabled;
+                return this;
+            }
+
+            public Builder setExecuteWithBash(boolean executeWithBash) {
+                this.executeWithBash = executeWithBash;
                 return this;
             }
 
@@ -244,7 +255,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
             @NotNull
             public Configuration build() {
-                return new Configuration(enabled, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
+                return new Configuration(enabled, executeWithBash, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
                         onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished);
             }
         }
