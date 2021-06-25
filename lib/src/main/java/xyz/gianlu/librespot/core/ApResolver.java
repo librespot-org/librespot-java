@@ -48,6 +48,12 @@ public final class ApResolver {
         if (!poolReady) request("accesspoint", "dealer", "spclient");
     }
 
+    public static void refreshPool() throws IOException {
+        poolReady = false;
+        pool.clear();
+        request("accesspoint", "dealer", "spclient");
+    }
+
     @NotNull
     private static List<String> getUrls(@NotNull JsonObject body, @NotNull String type) {
         JsonArray aps = body.getAsJsonArray(type);

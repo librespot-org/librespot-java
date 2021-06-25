@@ -704,6 +704,8 @@ public final class Session implements Closeable {
         }
 
         try {
+            ApResolver.refreshPool();
+
             if (conn != null) {
                 conn.socket.close();
                 receiver.stop();
