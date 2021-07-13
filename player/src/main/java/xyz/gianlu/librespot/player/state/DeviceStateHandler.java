@@ -267,8 +267,6 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
      * @param req The {@link Connect.PutStateRequest}
      */
     private void putConnectState(@NotNull Connect.PutStateRequest req) {
-        System.out.println(req);
-
         try {
             session.api().putConnectState(connectionId, req);
             if (LOGGER.isTraceEnabled()) {
