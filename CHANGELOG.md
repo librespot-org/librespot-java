@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 18-07-2021
+### Added
+- Added `/discovery/list` API endpoint (#352)
+- Added environment variables to shell event hooks (#368)
+- Added `shell.executeWithBash` configuration option (#368)
+
+### Changed
+- Space volume events 500ms apart (#369)
+
+### Fixed
+- Removed redundant pfls message (#361)
+- Refresh AP pool before reconnecting (591fb92db5931d611779ab83f9747f4decaea3f7)
+
 ## [1.6.0] - 09-05-2021
 ### Added
 - Added extended metadata API (#311)
