@@ -1262,10 +1262,8 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
 
         @NotNull
         synchronized NextPlayable nextPlayable(boolean autoplayEnabled) throws IOException, MercuryClient.MercuryException {
-            if (isRepeatingTrack()) {
-                setRepeatingTrack(false);
+            if (isRepeatingTrack())
                 return NextPlayable.OK_REPEAT;
-            }
 
             if (!queue.isEmpty()) {
                 isPlayingQueue = true;
