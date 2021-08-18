@@ -411,6 +411,7 @@ public final class FileConfiguration {
                 .setTimeManualCorrection(config.get("time.manualCorrection"))
                 .setProxyEnabled(config.get("proxy.enabled"))
                 .setProxyType(config.getEnum("proxy.type", Proxy.Type.class))
+                .setProxySSL(config.get("proxy.ssl"))
                 .setProxyAddress(config.get("proxy.address"))
                 .setProxyPort(config.get("proxy.port"))
                 .setProxyAuth(config.get("proxy.auth"))

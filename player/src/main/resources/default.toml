@@ -58,6 +58,7 @@ host = "0.0.0.0" # API listen interface (`api` module only)
 [proxy] ### Proxy ###
 enabled = false # Whether the proxy is enabled
 type = "HTTP" # The proxy type (HTTP, SOCKS)
+ssl = false # Connect to proxy using SSL (HTTP only)
 address = "" # The proxy hostname
 port = 0 # The proxy port
 auth = false # Whether authentication is enabled on the server

@@ -56,6 +56,8 @@ import xyz.gianlu.librespot.mercury.MercuryClient;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocketFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -155,6 +157,10 @@ public final class Session implements Closeable {
                                 .build();
                     }
                 });
+            }
+            if (conf.proxyType == Proxy.Type.HTTP && conf.proxySSL) {
+                // builder.socketFactory(SSLSocketFactory.getDefault()) throws an error on some okhttp versions
+                builder.socketFactory(new DelegatingSocketFactory(SSLSocketFactory.getDefault()));
             }
         }
 
@@ -1029,6 +1035,7 @@ public final class Session implements Closeable {
         // Proxy
         public final boolean proxyEnabled;
         public final Proxy.Type proxyType;
+        public final boolean proxySSL;
         public final String proxyAddress;
         public final int proxyPort;
         public final boolean proxyAuth;
@@ -1054,13 +1061,15 @@ public final class Session implements Closeable {
         // Network
         public final int connectionTimeout;
 
-        private Configuration(boolean proxyEnabled, Proxy.Type proxyType, String proxyAddress, int proxyPort, boolean proxyAuth, String proxyUsername, String proxyPassword,
+        private Configuration(boolean proxyEnabled, Proxy.Type proxyType, boolean proxySSL, String proxyAddress,
+                              int proxyPort, boolean proxyAuth, String proxyUsername, String proxyPassword,
                               TimeProvider.Method timeSynchronizationMethod, int timeManualCorrection,
                               boolean cacheEnabled, File cacheDir, boolean doCacheCleanUp,
                               boolean storeCredentials, File storedCredentialsFile,
                               boolean retryOnChunkError, int connectionTimeout) {
             this.proxyEnabled = proxyEnabled;
             this.proxyType = proxyType;
+            this.proxySSL = proxySSL;
             this.proxyAddress = proxyAddress;
             this.proxyPort = proxyPort;
             this.proxyAuth = proxyAuth;
@@ -1081,6 +1090,7 @@ public final class Session implements Closeable {
             // Proxy
             private boolean proxyEnabled = false;
             private Proxy.Type proxyType;
+            private boolean proxySSL = false;
             private String proxyAddress;
             private int proxyPort;
             private boolean proxyAuth;
@@ -1116,6 +1126,11 @@ public final class Session implements Closeable {
 
             public Builder setProxyType(Proxy.Type proxyType) {
                 this.proxyType = proxyType;
+                return this;
+            }
+
+            public Builder setProxySSL(boolean proxySSL) {
+                this.proxySSL = proxySSL;
                 return this;
             }
 
@@ -1191,7 +1206,8 @@ public final class Session implements Closeable {
 
             @NotNull
             public Configuration build() {
-                return new Configuration(proxyEnabled, proxyType, proxyAddress, proxyPort, proxyAuth, proxyUsername, proxyPassword,
+                return new Configuration(proxyEnabled, proxyType, proxySSL, proxyAddress, proxyPort, proxyAuth,
+                        proxyUsername, proxyPassword,
                         timeSynchronizationMethod, timeManualCorrection,
                         cacheEnabled, cacheDir, doCacheCleanUp,
                         storeCredentials, storedCredentialsFile,
@@ -1245,7 +1261,12 @@ public final class Session implements Closeable {
 
             switch (conf.proxyType) {
                 case HTTP:
-                    Socket sock = new Socket(conf.proxyAddress, conf.proxyPort);
+                    Socket sock;
+                    if (conf.proxySSL) {
+                        sock = SSLSocketFactory.getDefault().createSocket(conf.proxyAddress, conf.proxyPort);
+                    } else{
+                        sock = new Socket(conf.proxyAddress, conf.proxyPort);
+                    }
                     OutputStream out = sock.getOutputStream();
                     DataInputStream in = new DataInputStream(sock.getInputStream());
 
@@ -1264,7 +1285,7 @@ public final class Session implements Closeable {
                         // Read all headers
                     }
 
-                    LOGGER.info("Successfully connected to the HTTP proxy.");
+                    LOGGER.info(String.format("Successfully connected to the %s proxy.", conf.proxySSL ? "HTTPS" : "HTTP"));
                     return new ConnectionHolder(sock);
                 case SOCKS:
                     if (conf.proxyAuth) {
@@ -1398,5 +1419,51 @@ public final class Session implements Closeable {
 
             LOGGER.trace("Session.Receiver stopped");
         }
+    }
+
+    /**
+     * A {@link SocketFactory} that delegates calls. Sockets can be configured after creation by
+     * overriding {@link #configureSocket(java.net.Socket)}.
+     *
+     * Copy/pasted from okhttp3 tests sources for HTTPS proxy support
+     */
+    public static class DelegatingSocketFactory extends SocketFactory {
+      private final SocketFactory delegate;
+
+      public DelegatingSocketFactory(SocketFactory delegate) {
+        this.delegate = delegate;
+      }
+
+      @Override public Socket createSocket() throws IOException {
+        Socket socket = delegate.createSocket();
+        return configureSocket(socket);
+      }
+
+      @Override public Socket createSocket(String host, int port) throws IOException {
+        Socket socket = delegate.createSocket(host, port);
+        return configureSocket(socket);
+      }
+
+      @Override public Socket createSocket(String host, int port, InetAddress localAddress,
+          int localPort) throws IOException {
+        Socket socket = delegate.createSocket(host, port, localAddress, localPort);
+        return configureSocket(socket);
+      }
+
+      @Override public Socket createSocket(InetAddress host, int port) throws IOException {
+        Socket socket = delegate.createSocket(host, port);
+        return configureSocket(socket);
+      }
+
+      @Override public Socket createSocket(InetAddress host, int port, InetAddress localAddress,
+          int localPort) throws IOException {
+        Socket socket = delegate.createSocket(host, port, localAddress, localPort);
+        return configureSocket(socket);
+      }
+
+      protected Socket configureSocket(Socket socket) throws IOException {
+        // No-op by default.
+        return socket;
+      }
     }
 }
