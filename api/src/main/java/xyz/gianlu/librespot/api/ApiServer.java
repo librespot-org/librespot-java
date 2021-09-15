@@ -45,6 +45,7 @@ public class ApiServer {
                 .post("/token/{scope}", new TokensHandler(wrapper))
                 .post("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
                 .post("/web-api/{endpoint}", new WebApiHandler(wrapper))
+                .get("/instance", InstanceHandler.forSession(this, wrapper))
                 .post("/instance/{action}", InstanceHandler.forSession(this, wrapper))
                 .post("/discovery/{action}", new DiscoveryHandler())
                 .get("/events", events)

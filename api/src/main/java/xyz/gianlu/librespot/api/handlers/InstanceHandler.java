@@ -16,7 +16,10 @@
 
 package xyz.gianlu.librespot.api.handlers;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import io.undertow.server.HttpServerExchange;
+import io.undertow.util.Headers;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.gianlu.librespot.api.ApiServer;
@@ -55,6 +58,16 @@ public final class InstanceHandler {
         return action;
     }
 
+    private static String getInstanceInfo(@NotNull Session session) throws JsonSyntaxException {
+        JsonObject infoObj = new JsonObject();
+        infoObj.addProperty("device_id", session.deviceId());
+        infoObj.addProperty("device_name", session.deviceName());
+        infoObj.addProperty("device_type", session.deviceType().toString());
+        infoObj.addProperty("country_code", session.countryCode());
+        infoObj.addProperty("preferred_locale", session.preferredLocale());
+        return infoObj.toString();
+    }
+
     private static class SessionHandler extends AbsSessionHandler {
         private final ApiServer server;
 
@@ -71,19 +84,31 @@ public final class InstanceHandler {
                 return;
             }
 
-            String action = getAction(exchange);
-            if (action == null) return;
+            String requestMethod = exchange.getRequestMethod().toString();
+            switch(requestMethod) {
+                case "GET":
+                    String info = getInstanceInfo(session);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(info);
+                    return;
+                case "POST":
+                    String action = getAction(exchange);
+                    if (action == null) return;
 
-            switch (action) {
-                case "terminate":
-                    exchange.endExchange();
-                    new Thread(server::stop).start();
-                    break;
-                case "close":
-                    session.close();
+                    switch (action) {
+                        case "terminate":
+                            exchange.endExchange();
+                            new Thread(server::stop).start();
+                            break;
+                        case "close":
+                            session.close();
+                            break;
+                        default:
+                            Utils.invalidParameter(exchange, "action");
+                            break;
+                    }
                     break;
                 default:
-                    Utils.invalidParameter(exchange, "action");
                     break;
             }
         }
@@ -105,20 +130,31 @@ public final class InstanceHandler {
                 return;
             }
 
-            String action = getAction(exchange);
-            if (action == null) return;
+            String requestMethod = exchange.getRequestMethod().toString();
+            switch(requestMethod) {
+                case "GET":
+                    String info = getInstanceInfo(session);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(info);
+                    return;
+                case "POST":
+                    String action = getAction(exchange);
+                    if (action == null) return;
 
-            switch (action) {
-                case "terminate":
-                    exchange.endExchange();
-                    new Thread(server::stop).start();
-                    break;
-                case "close":
-                    player.close();
-                    session.close();
+                    switch (action) {
+                        case "terminate":
+                            exchange.endExchange();
+                            new Thread(server::stop).start();
+                            break;
+                        case "close":
+                            session.close();
+                            break;
+                        default:
+                            Utils.invalidParameter(exchange, "action");
+                            break;
+                    }
                     break;
                 default:
-                    Utils.invalidParameter(exchange, "action");
                     break;
             }
         }
