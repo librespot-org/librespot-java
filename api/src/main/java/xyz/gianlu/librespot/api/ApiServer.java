@@ -35,6 +35,8 @@ public class ApiServer {
     private Undertow undertow = null;
 
     public ApiServer(int port, @NotNull String host, @NotNull SessionWrapper wrapper) {
+        AbsSessionHandler instanceHandler = InstanceHandler.forSession(this, wrapper);
+
         this.port = port;
         this.host = host;
         this.wrapper = wrapper;
@@ -45,7 +47,8 @@ public class ApiServer {
                 .post("/token/{scope}", new TokensHandler(wrapper))
                 .post("/profile/{user_id}/{action}", new ProfileHandler(wrapper))
                 .post("/web-api/{endpoint}", new WebApiHandler(wrapper))
-                .post("/instance/{action}", InstanceHandler.forSession(this, wrapper))
+                .get("/instance", instanceHandler)
+                .post("/instance/{action}", instanceHandler)
                 .post("/discovery/{action}", new DiscoveryHandler())
                 .get("/events", events)
                 .setFallbackHandler(new PathHandler(ResponseCodeHandler.HANDLE_404)

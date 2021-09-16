@@ -42,6 +42,7 @@ All the endpoints will respond with `200` if successful or:
 - `GET /profile/{user_id}/following` Retrieve a list of profiles that the specified user is following
 
 ### Instance
+- `GET /instance` Returns a json model that contains basic information about the current session; `device_id`, `device_name`,`device_type`, `country_code`, and `preferred_locale`
 - `POST /instance/terminate` Terminates the API server.
 - `POST /instance/close` Closes the current session (and player).
 
