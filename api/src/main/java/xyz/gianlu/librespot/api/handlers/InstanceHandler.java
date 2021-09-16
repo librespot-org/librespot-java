@@ -104,7 +104,7 @@ public final class InstanceHandler {
                             session.close();
                             break;
                         default:
-                            Utils.invalidParameter(exchange, "action");
+                            Utils.methodNotAllowed(exchange);
                             break;
                     }
                     break;
@@ -150,7 +150,7 @@ public final class InstanceHandler {
                             session.close();
                             break;
                         default:
-                            Utils.invalidParameter(exchange, "action");
+                            Utils.methodNotAllowed(exchange);
                             break;
                     }
                     break;

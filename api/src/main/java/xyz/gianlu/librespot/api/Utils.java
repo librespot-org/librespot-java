@@ -83,4 +83,9 @@ public final class Utils {
         exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
         exchange.getResponseSender().send(String.format(INTERNAL_ERROR_BODY, reason));
     }
+
+    public static void methodNotAllowed(@NotNull HttpServerExchange exchange) {
+        exchange.setStatusCode(StatusCodes.METHOD_NOT_ALLOWED);
+        exchange.getResponseSender().send(StatusCodes.METHOD_NOT_ALLOWED_STRING);
+    }
 }
