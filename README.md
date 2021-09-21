@@ -46,6 +46,7 @@ Snapshots for all variants are available [here](https://oss.sonatype.org/content
 - [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
 - [spocon](https://github.com/spocon/spocon) - Install librespot-java from APT
 - [librespot-android](https://github.com/devgianlu/librespot-android) - Run librespot-java on your Android device
+- [MMM-LibrespotJava](https://github.com/l3d00m/MMM-LibrespotJava) - Show the current librespot-java playback on your [MagicMirror](https://github.com/MichMich/MagicMirror)
 
 # Special thanks
 - All the developers of [librespot](https://github.com/librespot-org/librespot) which started this project in Rust
