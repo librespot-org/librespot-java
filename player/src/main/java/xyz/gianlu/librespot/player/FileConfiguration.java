@@ -352,6 +352,8 @@ public final class FileConfiguration {
                 .setOnPanicState(config.get("shell.onPanicState"))
                 .setOnConnectionDropped(config.get("shell.onConnectionDropped"))
                 .setOnConnectionEstablished(config.get("shell.onConnectionEstablished"))
+                .setOnStartedLoading(config.get("shell.onStartedLoading"))
+                .setOnFinishedLoading(config.get("shell.onFinishedLoading"))
                 .build();
     }
 
