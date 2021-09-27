@@ -120,6 +120,16 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
     }
 
     @Override
+    public void onStartedLoading(@NotNull Player player) {
+        exec(conf.onStartedLoading);
+    }
+
+    @Override
+    public void onFinishedLoading(@NotNull Player player) {
+        exec(conf.onFinishedLoading);
+    }
+
+    @Override
     public void onConnectionDropped() {
         exec(conf.onConnectionDropped);
     }
@@ -144,10 +154,13 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public final String onPanicState;
         public final String onConnectionDropped;
         public final String onConnectionEstablished;
+        public final String onStartedLoading;
+        public final String onFinishedLoading;
 
         public Configuration(boolean enabled, boolean executeWithBash, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
                              String onPlaybackResumed, String onTrackSeeked, String onMetadataAvailable, String onVolumeChanged,
-                             String onInactiveSession, String onPanicState, String onConnectionDropped, String onConnectionEstablished) {
+                             String onInactiveSession, String onPanicState, String onConnectionDropped, String onConnectionEstablished,
+                             String onStartedLoading, String onFinishedLoading) {
             this.enabled = enabled;
             this.executeWithBash = executeWithBash;
             this.onContextChanged = onContextChanged;
@@ -162,6 +175,8 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             this.onPanicState = onPanicState;
             this.onConnectionDropped = onConnectionDropped;
             this.onConnectionEstablished = onConnectionEstablished;
+            this.onStartedLoading = onStartedLoading;
+            this.onFinishedLoading = onFinishedLoading;
         }
 
         public static class Builder {
@@ -179,6 +194,8 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             private String onPanicState = "";
             private String onConnectionDropped = "";
             private String onConnectionEstablished = "";
+            private String onStartedLoading = "";
+            private String onFinishedLoading = "";
 
             public Builder() {
             }
@@ -253,10 +270,21 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
                 return this;
             }
 
+            public Builder setOnStartedLoading(String onStartedLoading) {
+                this.onStartedLoading = onStartedLoading;
+                return this;
+            }
+
+            public Builder setOnFinishedLoading(String onFinishedLoading) {
+                this.onFinishedLoading = onFinishedLoading;
+                return this;
+            }
+
             @NotNull
             public Configuration build() {
                 return new Configuration(enabled, executeWithBash, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
-                        onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished);
+                        onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished,
+                        onStartedLoading, onFinishedLoading);
             }
         }
     }

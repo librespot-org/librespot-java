@@ -363,6 +363,8 @@ public class Player implements Closeable {
                     state.setBuffering(true);
                     state.updated();
                 }
+
+                events.startedLoading();
             }
 
             @Override
@@ -371,6 +373,7 @@ public class Player implements Closeable {
                 state.setBuffering(false);
                 state.updated();
 
+                events.finishedLoading();
                 events.metadataAvailable();
             }
 
@@ -878,6 +881,10 @@ public class Player implements Closeable {
         void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume);
 
         void onPanicState(@NotNull Player player);
+
+        void onStartedLoading(@NotNull Player player);
+
+        void onFinishedLoading(@NotNull Player player);
     }
 
     /**
@@ -1038,6 +1045,14 @@ public class Player implements Closeable {
                     @Override
                     public void onPanicState(@NotNull Player player) {
                     }
+
+                    @Override
+                    public void onStartedLoading(@NotNull Player player) {
+                    }
+
+                    @Override
+                    public void onFinishedLoading(@NotNull Player player) {
+                    }
                 });
             }
         }
@@ -1065,6 +1080,16 @@ public class Player implements Closeable {
 
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onContextChanged(Player.this, uri));
+        }
+
+        void startedLoading() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onStartedLoading(Player.this));
+        }
+
+        void finishedLoading() {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onFinishedLoading(Player.this));
         }
 
         void trackChanged(boolean userInitiated) {

@@ -140,6 +140,14 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
+    public void onStartedLoading(@NotNull Player player) {
+    }
+
+    @Override
+    public void onFinishedLoading(@NotNull Player player) {
+    }
+
+    @Override
     public void onSessionCleared(@NotNull Session old) {
         old.removeReconnectionListener(this);
 
