@@ -33,7 +33,6 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static xyz.gianlu.librespot.audio.storage.ChannelManager.CHUNK_SIZE;
@@ -55,7 +54,7 @@ public class CacheManager implements Closeable {
     private static final int HEADER_HASH = 253;
     private final File parent;
     private final CacheJournal journal;
-    private final Map<String, Handler> fileHandlers = new ConcurrentHashMap<>();
+    private final Map<String, Handler> fileHandlers = Collections.synchronizedMap(new HashMap<>());
 
     public CacheManager(@NotNull Session.Configuration conf) throws IOException {
         if (!conf.cacheEnabled) {
