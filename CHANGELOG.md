@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 11-12-2021
+### Added
+- Added HTTPS proxy support (#390)
+- Added `GET /instance` API endpoint (#403)
+
+### Fixed 
+- Fixed track repeat behavior (#383)
+- Fixed cache synchronization issue (b3d61f4c3bb7398e2f2246f6aa274f8d903c492b)
+- Minimize audio pop when using pipe (#389)
+- Fix CVE-2021-44228 (#438)
+
 ## [1.6.1] - 18-07-2021
 ### Added
 - Added `/discovery/list` API endpoint (#352)
