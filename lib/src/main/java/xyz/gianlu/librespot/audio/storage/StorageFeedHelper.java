@@ -24,6 +24,7 @@ import xyz.gianlu.librespot.audio.NormalizationData;
 import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
+import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,9 +37,9 @@ public final class StorageFeedHelper {
     private StorageFeedHelper() {
     }
 
-    public static @NotNull PlayableContentFeeder.LoadedStream loadTrack(@NotNull Session session, @NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException {
+    public static @NotNull PlayableContentFeeder.LoadedStream loadTrack(@NotNull Session session, @NotNull Metadata.Track track, @NotNull Metadata.AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.audioKey().getAudioKey(track.getGid(), file.getFileId());
+        byte[] key = session.api().playPlay(track.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
 
         AudioFileStreaming stream = new AudioFileStreaming(session, file, key, haltListener);
@@ -53,9 +54,9 @@ public final class StorageFeedHelper {
         return new PlayableContentFeeder.LoadedStream(track, stream, normalizationData, new PlayableContentFeeder.Metrics(file.getFileId(), preload, preload ? -1 : audioKeyTime));
     }
 
-    public static @NotNull PlayableContentFeeder.LoadedStream loadEpisode(@NotNull Session session, Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException {
+    public static @NotNull PlayableContentFeeder.LoadedStream loadEpisode(@NotNull Session session, Metadata.@NotNull Episode episode, Metadata.@NotNull AudioFile file, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException {
         long start = System.currentTimeMillis();
-        byte[] key = session.audioKey().getAudioKey(episode.getGid(), file.getFileId());
+        byte[] key = session.api().playPlay(episode.getGid(), file.getFileId());
         int audioKeyTime = (int) (System.currentTimeMillis() - start);
 
         AudioFileStreaming stream = new AudioFileStreaming(session, file, key, haltListener);
