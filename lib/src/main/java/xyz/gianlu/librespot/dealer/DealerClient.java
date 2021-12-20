@@ -31,7 +31,6 @@ import xyz.gianlu.librespot.common.AsyncWorker;
 import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.core.ApResolver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 
@@ -76,7 +75,7 @@ public class DealerClient implements Closeable {
      */
     public synchronized void connect() throws IOException, MercuryClient.MercuryException {
         conn = new ConnectionHolder(session, new Request.Builder()
-                .url(String.format("wss://%s/?access_token=%s", ApResolver.getRandomDealer(), session.tokens().get("playlist-read")))
+                .url(String.format("wss://%s/?access_token=%s", session.apResolver().getRandomDealer(), session.tokens().get("playlist-read")))
                 .build());
     }
 

@@ -20,15 +20,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,29 +40,36 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class ApResolver {
     private static final String BASE_URL = "http://apresolve.spotify.com/";
-    private static final Map<String, List<String>> pool = new HashMap<>(3);
     private static final Logger LOGGER = LoggerFactory.getLogger(ApResolver.class);
-    private static volatile boolean poolReady = false;
 
-    public static void fillPool() throws IOException {
-        if (!poolReady) request("accesspoint", "dealer", "spclient");
+    private final OkHttpClient client;
+    private final Map<String, List<String>> pool = new HashMap<>(3);
+    private volatile boolean poolReady = false;
+
+    public ApResolver(OkHttpClient client) throws IOException {
+        this.client = client;
+        fillPool();
     }
 
-    public static void refreshPool() throws IOException {
-        poolReady = false;
-        pool.clear();
+    private void fillPool() throws IOException {
         request("accesspoint", "dealer", "spclient");
     }
 
+    public void refreshPool() throws IOException {
+        poolReady = false;
+        pool.clear();
+        fillPool();
+    }
+
     @NotNull
-    private static List<String> getUrls(@NotNull JsonObject body, @NotNull String type) {
+    private List<String> getUrls(@NotNull JsonObject body, @NotNull String type) {
         JsonArray aps = body.getAsJsonArray(type);
         List<String> list = new ArrayList<>(aps.size());
         for (JsonElement ap : aps) list.add(ap.getAsString());
         return list;
     }
 
-    private static void request(@NotNull String... types) throws IOException {
+    private void request(@NotNull String... types) throws IOException {
         if (types.length == 0) throw new IllegalArgumentException();
 
         StringBuilder url = new StringBuilder(BASE_URL + "?");
@@ -71,28 +78,29 @@ public final class ApResolver {
             url.append("type=").append(types[i]);
         }
 
-        HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
-        conn.connect();
+        Request request = new Request.Builder()
+                .url(url.toString())
+                .build();
+        Response response = client.newCall(request).execute();
+        if (response.isSuccessful()) {
+            try (Reader reader = response.body().charStream()) {
+                JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+                HashMap<String, List<String>> map = new HashMap<>();
+                for (String type : types)
+                    map.put(type, getUrls(obj, type));
 
-        try (Reader reader = new InputStreamReader(conn.getInputStream())) {
-            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
-            HashMap<String, List<String>> map = new HashMap<>();
-            for (String type : types)
-                map.put(type, getUrls(obj, type));
+                synchronized (pool) {
+                    pool.putAll(map);
+                    poolReady = true;
+                    pool.notifyAll();
+                }
 
-            synchronized (pool) {
-                pool.putAll(map);
-                poolReady = true;
-                pool.notifyAll();
+                LOGGER.info("Loaded aps into pool: " + pool);
             }
-
-            LOGGER.info("Loaded aps into pool: " + pool);
-        } finally {
-            conn.disconnect();
         }
     }
 
-    private static void waitForPool() {
+    private void waitForPool() {
         if (!poolReady) {
             synchronized (pool) {
                 try {
@@ -105,7 +113,7 @@ public final class ApResolver {
     }
 
     @NotNull
-    private static String getRandomOf(@NotNull String type) {
+    private String getRandomOf(@NotNull String type) {
         waitForPool();
 
         List<String> urls = pool.get(type);
@@ -114,17 +122,17 @@ public final class ApResolver {
     }
 
     @NotNull
-    public static String getRandomDealer() {
+    public String getRandomDealer() {
         return getRandomOf("dealer");
     }
 
     @NotNull
-    public static String getRandomSpclient() {
+    public String getRandomSpclient() {
         return getRandomOf("spclient");
     }
 
     @NotNull
-    public static String getRandomAccesspoint() {
+    public String getRandomAccesspoint() {
         return getRandomOf("accesspoint");
     }
 }
