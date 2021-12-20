@@ -56,7 +56,7 @@
         <gson.version>2.8.9</gson.version>
         <protobuf.version>3.19.1</protobuf.version>
         <slf4j-api.version>1.7.32</slf4j-api.version>
-        <log4j.version>2.15.0</log4j.version>
+        <log4j.version>2.17.0</log4j.version>
         <lmax-disruptor.version>3.4.4</lmax-disruptor.version>
     </properties>
 
