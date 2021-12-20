@@ -62,8 +62,7 @@ public final class ApResolver {
         return list;
     }
 
-    @NotNull
-    private static Map<String, List<String>> request(@NotNull String... types) throws IOException {
+    private static void request(@NotNull String... types) throws IOException {
         if (types.length == 0) throw new IllegalArgumentException();
 
         StringBuilder url = new StringBuilder(BASE_URL + "?");
@@ -88,8 +87,6 @@ public final class ApResolver {
             }
 
             LOGGER.info("Loaded aps into pool: " + pool);
-
-            return map;
         } finally {
             conn.disconnect();
         }
