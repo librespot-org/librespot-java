@@ -62,7 +62,7 @@ public final class ApResolver {
     }
 
     @NotNull
-    private List<String> getUrls(@NotNull JsonObject body, @NotNull String type) {
+    private static List<String> getUrls(@NotNull JsonObject body, @NotNull String type) {
         JsonArray aps = body.getAsJsonArray(type);
         List<String> list = new ArrayList<>(aps.size());
         for (JsonElement ap : aps) list.add(ap.getAsString());
