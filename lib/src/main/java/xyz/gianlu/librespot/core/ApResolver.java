@@ -23,6 +23,7 @@ import com.google.gson.JsonParser;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,9 +82,10 @@ public final class ApResolver {
         Request request = new Request.Builder()
                 .url(url.toString())
                 .build();
-        Response response = client.newCall(request).execute();
-        if (response.isSuccessful()) {
-            try (Reader reader = response.body().charStream()) {
+        try (Response response = client.newCall(request).execute()) {
+            ResponseBody body = response.body();
+            if (body == null) throw new IOException("No body");
+            try (Reader reader = body.charStream()) {
                 JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
                 HashMap<String, List<String>> map = new HashMap<>();
                 for (String type : types)
