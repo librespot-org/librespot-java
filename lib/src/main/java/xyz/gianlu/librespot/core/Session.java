@@ -100,6 +100,7 @@ public final class Session implements Closeable {
             (byte) 0xeb, (byte) 0x00, (byte) 0x06, (byte) 0xa2, (byte) 0x5a, (byte) 0xee, (byte) 0xa1, (byte) 0x1b, (byte) 0x13, (byte) 0x87, (byte) 0x3c, (byte) 0xd7,
             (byte) 0x19, (byte) 0xe6, (byte) 0x55, (byte) 0xbd
     };
+    private final ApResolver apResolver;
     private final DiffieHellman keys;
     private final Inner inner;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NameThreadFactory(r -> "session-scheduler-" + r.hashCode()));
@@ -128,11 +129,13 @@ public final class Session implements Closeable {
     private volatile boolean closing = false;
     private volatile ScheduledFuture<?> scheduledReconnect = null;
 
-    private Session(@NotNull Inner inner, @NotNull String addr) throws IOException {
+    private Session(@NotNull Inner inner) throws IOException {
         this.inner = inner;
         this.keys = new DiffieHellman(inner.random);
-        this.conn = ConnectionHolder.create(addr, inner.conf);
         this.client = createClient(inner.conf);
+        this.apResolver = new ApResolver(client);
+        String addr = apResolver.getRandomAccesspoint();
+        this.conn = ConnectionHolder.create(addr, inner.conf);
 
         LOGGER.info("Created new session! {deviceId: {}, ap: {}, proxy: {}} ", inner.deviceId, addr, inner.conf.proxyEnabled);
     }
@@ -567,6 +570,11 @@ public final class Session implements Closeable {
     }
 
     @NotNull
+    public ApResolver apResolver() {
+        return apResolver;
+    }
+
+    @NotNull
     public MercuryClient mercury() {
         waitAuthLock();
         if (mercuryClient == null) throw new IllegalStateException("Session isn't authenticated!");
@@ -710,14 +718,14 @@ public final class Session implements Closeable {
         }
 
         try {
-            ApResolver.refreshPool();
+            apResolver.refreshPool();
 
             if (conn != null) {
                 conn.socket.close();
                 receiver.stop();
             }
 
-            conn = ConnectionHolder.create(ApResolver.getRandomAccesspoint(), inner.conf);
+            conn = ConnectionHolder.create(apResolver.getRandomAccesspoint(), inner.conf);
             connect();
             authenticatePartial(Authentication.LoginCredentials.newBuilder()
                     .setUsername(apWelcome.getCanonicalUsername())
@@ -1021,10 +1029,9 @@ public final class Session implements Closeable {
             if (loginCredentials == null)
                 throw new IllegalStateException("You must select an authentication method.");
 
-            ApResolver.fillPool();
             TimeProvider.init(conf);
 
-            Session session = new Session(new Inner(deviceType, deviceName, deviceId, preferredLocale, conf), ApResolver.getRandomAccesspoint());
+            Session session = new Session(new Inner(deviceType, deviceName, deviceId, preferredLocale, conf));
             session.connect();
             session.authenticate(loginCredentials);
             return session;
@@ -1253,9 +1260,9 @@ public final class Session implements Closeable {
 
         @NotNull
         static ConnectionHolder create(@NotNull String addr, @NotNull Configuration conf) throws IOException {
-            int colon = addr.indexOf(':');
-            String apAddr = addr.substring(0, colon);
-            int apPort = Integer.parseInt(addr.substring(colon + 1));
+            String[] split = addr.split(":");
+            String apAddr = split[0];
+            int apPort = Integer.parseInt(split[1]);
             if (!conf.proxyEnabled || conf.proxyType == Proxy.Type.DIRECT)
                 return new ConnectionHolder(new Socket(apAddr, apPort));
 

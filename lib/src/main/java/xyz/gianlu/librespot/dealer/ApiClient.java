@@ -46,7 +46,7 @@ public final class ApiClient {
 
     public ApiClient(@NotNull Session session) {
         this.session = session;
-        this.baseUrl = "https://" + ApResolver.getRandomSpclient();
+        this.baseUrl = "https://" + session.apResolver().getRandomSpclient();
     }
 
     @NotNull
