@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package xyz.gianlu.librespot.dealer;
 
 import com.google.protobuf.Message;
+import com.spotify.clienttoken.data.v0.Connectivity;
+import com.spotify.clienttoken.http.v0.ClientToken;
 import com.spotify.connectstate.Connect;
 import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
@@ -26,9 +28,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.core.ApResolver;
+import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.*;
 
 import java.io.IOException;
@@ -43,6 +46,7 @@ public final class ApiClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiClient.class);
     private final Session session;
     private final String baseUrl;
+    private String clientToken = null;
 
     public ApiClient(@NotNull Session session) {
         this.session = session;
@@ -54,7 +58,7 @@ public final class ApiClient {
         return new RequestBody() {
             @Override
             public MediaType contentType() {
-                return MediaType.get("application/protobuf");
+                return MediaType.get("application/x-protobuf");
             }
 
             @Override
@@ -66,10 +70,17 @@ public final class ApiClient {
 
     @NotNull
     private Request buildRequest(@NotNull String method, @NotNull String suffix, @Nullable Headers headers, @Nullable RequestBody body) throws IOException, MercuryClient.MercuryException {
+        if (clientToken == null) {
+            ClientToken.ClientTokenResponse resp = clientToken();
+            clientToken = resp.getGrantedToken().getToken();
+            LOGGER.debug("Updated client token: {}", clientToken);
+        }
+
         Request.Builder request = new Request.Builder();
         request.method(method, body);
         if (headers != null) request.headers(headers);
         request.addHeader("Authorization", "Bearer " + session.tokens().get("playlist-read"));
+        request.addHeader("client-token", clientToken);
         request.url(baseUrl + suffix);
         return request.build();
     }
@@ -199,6 +210,49 @@ public final class ApiClient {
             if ((body = resp.body()) == null) throw new IOException();
             return ExtendedMetadata.BatchedExtensionResponse.parseFrom(body.byteStream());
         }
+    }
+
+    @NotNull
+    private ClientToken.ClientTokenResponse clientToken() throws IOException {
+        ClientToken.ClientTokenRequest protoReq = ClientToken.ClientTokenRequest.newBuilder()
+                .setRequestType(ClientToken.ClientTokenRequestType.REQUEST_CLIENT_DATA_REQUEST)
+                .setClientData(ClientToken.ClientDataRequest.newBuilder()
+                        .setClientId(MercuryRequests.KEYMASTER_CLIENT_ID)
+                        .setClientVersion(Version.versionNumber())
+                        .setConnectivitySdkData(Connectivity.ConnectivitySdkData.newBuilder()
+                                .setDeviceId(session.deviceId())
+                                .setPlatformSpecificData(Connectivity.PlatformSpecificData.newBuilder()
+                                        .setWindows(Connectivity.NativeWindowsData.newBuilder()
+                                                .setSomething1(10)
+                                                .setSomething3(21370)
+                                                .setSomething4(2)
+                                                .setSomething6(9)
+                                                .setSomething7(332)
+                                                .setSomething8(34404)
+                                                .setSomething10(true)
+                                                .build())
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+
+        Request.Builder req = new Request.Builder()
+                .url("https://clienttoken.spotify.com/v1/clienttoken")
+                .header("Accept", "application/x-protobuf")
+                .header("Content-Encoding", "")
+                .post(protoBody(protoReq));
+
+        try (Response resp = session.client().newCall(req.build()).execute()) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body = resp.body();
+            if (body == null) throw new IOException();
+            return ClientToken.ClientTokenResponse.parseFrom(body.byteStream());
+        }
+    }
+
+    public void setClientToken(@Nullable String clientToken) {
+        this.clientToken = clientToken;
     }
 
     public static class StatusCodeException extends IOException {

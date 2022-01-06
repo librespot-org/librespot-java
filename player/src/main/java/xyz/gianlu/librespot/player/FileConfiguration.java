@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -279,6 +279,12 @@ public final class FileConfiguration {
         return val == null || val.isEmpty() ? null : val;
     }
 
+    @Nullable
+    private String clientToken() {
+        String val = config.get("clientToken");
+        return val == null || val.isEmpty() ? null : val;
+    }
+
     @NotNull
     private String deviceName() {
         return config.get("deviceName");
@@ -363,6 +369,7 @@ public final class FileConfiguration {
                 .setPreferredLocale(preferredLocale())
                 .setDeviceType(deviceType())
                 .setDeviceName(deviceName())
+                .setClientToken(clientToken())
                 .setDeviceId(deviceId())
                 .setListenPort(config.get("zeroconf.listenPort"));
 
@@ -378,6 +385,7 @@ public final class FileConfiguration {
                 .setPreferredLocale(preferredLocale())
                 .setDeviceType(deviceType())
                 .setDeviceName(deviceName())
+                .setClientToken(clientToken())
                 .setDeviceId(deviceId());
 
         switch (authStrategy()) {

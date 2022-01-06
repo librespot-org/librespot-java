@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -826,6 +826,7 @@ public final class Session implements Closeable {
     public static abstract class AbsBuilder<T extends AbsBuilder> {
         protected final Configuration conf;
         protected String deviceId = null;
+        protected String clientToken = null;
         protected String deviceName = "librespot-java";
         protected Connect.DeviceType deviceType = Connect.DeviceType.COMPUTER;
         protected String preferredLocale = "en";
@@ -871,6 +872,16 @@ public final class Session implements Closeable {
                 throw new IllegalArgumentException("Device ID must be 40 chars long.");
 
             this.deviceId = deviceId;
+            return (T) this;
+        }
+
+        /**
+         * Sets the client token. If empty, it will be retrieved.
+         *
+         * @param token A 168 bytes Base64 encoded string
+         */
+        public T setClientToken(@Nullable String token) {
+            this.clientToken = token;
             return (T) this;
         }
 
@@ -1034,6 +1045,7 @@ public final class Session implements Closeable {
             Session session = new Session(new Inner(deviceType, deviceName, deviceId, preferredLocale, conf));
             session.connect();
             session.authenticate(loginCredentials);
+            session.api().setClientToken(clientToken);
             return session;
         }
     }
