@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import xyz.gianlu.librespot.audio.PlayableContentFeeder;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.dacp.DacpMetadataPipe;
+import xyz.gianlu.librespot.json.StationsWrapper;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.ImageId;
@@ -684,7 +685,7 @@ public class Player implements Closeable {
 
                 LOGGER.debug("Loading context for autoplay, uri: {}", newContext);
             } else if (resp.statusCode == 204) {
-                MercuryRequests.StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
+                StationsWrapper station = session.mercury().sendSync(MercuryRequests.getStationFor(context));
                 String sessionId = state.loadContextWithTracks(station.uri(), station.tracks());
                 state.setContextMetadata("context_description", contextDesc);
 
@@ -814,7 +815,7 @@ public class Player implements Closeable {
             return null;
 
         try (Response resp = session.client().newCall(new Request.Builder()
-                .url(session.getUserAttribute("image-url", "https://i.scdn.co/image/{file_id}").replace("{file_id}", image.hexId())).build())
+                        .url(session.getUserAttribute("image-url", "https://i.scdn.co/image/{file_id}").replace("{file_id}", image.hexId())).build())
                 .execute()) {
             ResponseBody body;
             if (resp.code() == 200 && (body = resp.body()) != null)

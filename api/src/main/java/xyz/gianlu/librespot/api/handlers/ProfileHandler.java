@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package xyz.gianlu.librespot.api.handlers;
 
+import com.google.gson.JsonObject;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
 import org.apache.logging.log4j.LogManager;
@@ -24,10 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
 
-import java.io.IOException;
 import java.util.Deque;
 import java.util.Map;
 
@@ -36,19 +34,6 @@ public final class ProfileHandler extends AbsSessionHandler {
 
     public ProfileHandler(@NotNull SessionWrapper wrapper) {
         super(wrapper);
-    }
-
-    private static void profileAction(@NotNull HttpServerExchange exchange, @NotNull Session session, @NotNull String userId, @NotNull String action) throws IOException {
-        String uri = String.format("hm://user-profile-view/v2/desktop/profile/%s/%s", userId, action);
-
-        try {
-            MercuryRequests.GenericJson resp = session.mercury().sendSync(MercuryRequests.getGenericJson(uri));
-            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
-            exchange.getResponseSender().send(resp.toString());
-        } catch (MercuryClient.MercuryException ex) {
-            Utils.internalError(exchange, ex);
-            LOGGER.error("Failed handling api request. {uri: {}}", uri, ex);
-        }
     }
 
     @Override
@@ -72,10 +57,20 @@ public final class ProfileHandler extends AbsSessionHandler {
             return;
         }
 
+        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+
         switch (action) {
             case "followers":
+                JsonObject followers = session.api().getUserFollowers(userId);
+                exchange.getResponseSender().send(followers.toString());
+                break;
             case "following":
-                profileAction(exchange, session, userId, action);
+                JsonObject following = session.api().getUserFollowing(userId);
+                exchange.getResponseSender().send(following.toString());
+                break;
+            case "profile":
+                JsonObject profile = session.api().getUserProfile(userId, null, null);
+                exchange.getResponseSender().send(profile.toString());
                 break;
             default:
                 Utils.invalidParameter(exchange, "action");

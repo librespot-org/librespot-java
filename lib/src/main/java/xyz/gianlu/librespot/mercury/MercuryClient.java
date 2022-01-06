@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.PacketsReceiver;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.crypto.Packet;
+import xyz.gianlu.librespot.json.JsonWrapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -104,15 +105,6 @@ public final class MercuryClient implements PacketsReceiver, Closeable {
         Response resp = sendSync(request.request);
         if (resp.statusCode >= 200 && resp.statusCode < 300) return request.instantiate(resp);
         else throw new MercuryException(resp);
-    }
-
-    @NotNull
-    public <P extends Message> ProtoWrapperResponse<P> sendSync(@NotNull ProtobufMercuryRequest<P> request) throws IOException, MercuryException {
-        Response resp = sendSync(request.request);
-        if (resp.statusCode >= 200 && resp.statusCode < 300)
-            return new ProtoWrapperResponse<>(request.parser.parseFrom(resp.payload.stream()));
-        else
-            throw new MercuryException(resp);
     }
 
     public <W extends JsonWrapper> void send(@NotNull JsonMercuryRequest<W> request, @NotNull JsonCallback<W> callback) {

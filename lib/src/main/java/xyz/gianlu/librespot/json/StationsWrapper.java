@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,30 @@
  * limitations under the License.
  */
 
-package xyz.gianlu.librespot.mercury;
+package xyz.gianlu.librespot.json;
 
 import com.google.gson.JsonObject;
+import com.spotify.context.ContextTrackOuterClass;
 import org.jetbrains.annotations.NotNull;
+import xyz.gianlu.librespot.common.ProtoUtils;
+
+import java.util.List;
 
 /**
- * @author Gianlu
+ * @author devgianlu
  */
-public abstract class JsonWrapper {
-    public final JsonObject obj;
-
-    public JsonWrapper(@NotNull JsonObject obj) {
-        this.obj = obj;
+public final class StationsWrapper extends JsonWrapper {
+    public StationsWrapper(@NotNull JsonObject obj) {
+        super(obj);
     }
 
-    @Override
-    public String toString() {
-        return obj.toString();
+    @NotNull
+    public String uri() {
+        return obj.get("uri").getAsString();
+    }
+
+    @NotNull
+    public List<ContextTrackOuterClass.ContextTrack> tracks() {
+        return ProtoUtils.jsonToContextTracks(obj.getAsJsonArray("tracks"));
     }
 }

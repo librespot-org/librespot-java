@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.Utils;
+import xyz.gianlu.librespot.json.GenericJson;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 
@@ -65,7 +66,7 @@ public final class TokenProvider {
         }
 
         LOGGER.debug("Token expired or not suitable, requesting again. {scopes: {}, oldToken: {}}", Arrays.asList(scopes), token);
-        MercuryRequests.GenericJson resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
+        GenericJson resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
         token = new StoredToken(resp.obj);
 
         LOGGER.debug("Updated token successfully! {scopes: {}, newToken: {}}", Arrays.asList(scopes), token);

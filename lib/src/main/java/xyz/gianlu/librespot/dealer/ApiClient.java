@@ -16,12 +16,15 @@
 
 package xyz.gianlu.librespot.dealer;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.Message;
 import com.spotify.clienttoken.data.v0.Connectivity;
 import com.spotify.clienttoken.http.v0.ClientToken;
 import com.spotify.connectstate.Connect;
 import com.spotify.extendedmetadata.ExtendedMetadata;
 import com.spotify.metadata.Metadata;
+import com.spotify.playlist4.Playlist4ApiProto;
 import okhttp3.*;
 import okio.BufferedSink;
 import org.jetbrains.annotations.NotNull;
@@ -30,11 +33,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.Version;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.json.StationsWrapper;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.*;
 
 import java.io.IOException;
+import java.util.List;
 
 import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazRequest;
 import static com.spotify.canvaz.CanvazOuterClass.EntityCanvazResponse;
@@ -202,6 +207,7 @@ public final class ApiClient {
         }
     }
 
+    @NotNull
     public ExtendedMetadata.BatchedExtensionResponse getExtendedMetadata(@NotNull ExtendedMetadata.BatchedEntityRequest req) throws IOException, MercuryClient.MercuryException {
         try (Response resp = send("POST", "/extended-metadata/v0/extended-metadata", null, protoBody(req))) {
             StatusCodeException.checkStatus(resp);
@@ -209,6 +215,99 @@ public final class ApiClient {
             ResponseBody body;
             if ((body = resp.body()) == null) throw new IOException();
             return ExtendedMetadata.BatchedExtensionResponse.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public Playlist4ApiProto.SelectedListContent getPlaylist(@NotNull PlaylistId id) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/playlist/v2/playlist/" + id.id(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return Playlist4ApiProto.SelectedListContent.parseFrom(body.byteStream());
+        }
+    }
+
+    @NotNull
+    public JsonObject getUserProfile(@NotNull String id, @Nullable Integer playlistLimit, @Nullable Integer artistLimit) throws IOException, MercuryClient.MercuryException {
+        StringBuilder url = new StringBuilder();
+        url.append("/user-profile-view/v3/profile/");
+        url.append(id);
+
+        if (playlistLimit != null || artistLimit != null) {
+            url.append("?");
+
+            if (playlistLimit != null) {
+                url.append("playlist_limit=");
+                url.append(playlistLimit);
+                if (artistLimit != null)
+                    url.append("&");
+            }
+
+            if (artistLimit != null) {
+                url.append("artist_limit=");
+                url.append(artistLimit);
+            }
+        }
+
+        try (Response resp = send("GET", url.toString(), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return JsonParser.parseReader(body.charStream()).getAsJsonObject();
+        }
+    }
+
+    @NotNull
+    public JsonObject getUserFollowers(@NotNull String id) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/user-profile-view/v3/profile/" + id + "/followers", null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return JsonParser.parseReader(body.charStream()).getAsJsonObject();
+        }
+    }
+
+    @NotNull
+    public JsonObject getUserFollowing(@NotNull String id) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/user-profile-view/v3/profile/" + id + "/following", null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return JsonParser.parseReader(body.charStream()).getAsJsonObject();
+        }
+    }
+
+    @NotNull
+    public JsonObject getRadioForTrack(@NotNull PlayableId id) throws IOException, MercuryClient.MercuryException {
+        try (Response resp = send("GET", "/inspiredby-mix/v2/seed_to_playlist/" + id.toSpotifyUri() + "?response-format=json", null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return JsonParser.parseReader(body.charStream()).getAsJsonObject();
+        }
+    }
+
+    @NotNull
+    public StationsWrapper getApolloStation(@NotNull String context, @NotNull List<String> prevTracks, int count, boolean autoplay) throws IOException, MercuryClient.MercuryException {
+        StringBuilder prevTracksStr = new StringBuilder();
+        for (int i = 0; i < prevTracks.size(); i++) {
+            if (i != 0) prevTracksStr.append(",");
+            prevTracksStr.append(prevTracks.get(i));
+        }
+
+        try (Response resp = send("GET", String.format("/radio-apollo/v3/stations/%s?count=%d&prev_tracks=%s&autoplay=%b", context, count, prevTracksStr, autoplay), null, null)) {
+            StatusCodeException.checkStatus(resp);
+
+            ResponseBody body;
+            if ((body = resp.body()) == null) throw new IOException();
+            return new StationsWrapper(JsonParser.parseReader(body.charStream()).getAsJsonObject());
         }
     }
 

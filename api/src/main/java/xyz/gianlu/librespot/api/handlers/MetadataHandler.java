@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 devgianlu
+ * Copyright 2022 devgianlu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.dealer.ApiClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.metadata.*;
 
 import java.io.IOException;
@@ -122,15 +121,7 @@ public final class MetadataHandler extends AbsSessionHandler {
 
     @NotNull
     private JsonObject handlePlaylist(@NotNull Session session, @NotNull String uri) throws IOException, MercuryClient.MercuryException {
-        JsonObject obj = new JsonObject();
-        obj.add("tracks", session.mercury().sendSync(MercuryRequests.getPlaylist(PlaylistId.fromUri(uri))).json());
-
-        try {
-            obj.add("annotations", session.mercury().sendSync(MercuryRequests.getPlaylistAnnotation(PlaylistId.fromUri(uri))).json());
-        } catch (MercuryClient.MercuryException ignored) {
-        }
-
-        return obj;
+        return ProtobufToJson.convert(session.api().getPlaylist(PlaylistId.fromUri(uri)));
     }
 
     private enum MetadataType {
