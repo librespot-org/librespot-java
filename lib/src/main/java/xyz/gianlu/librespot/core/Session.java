@@ -963,6 +963,16 @@ public final class Session implements Closeable {
         }
 
         /**
+         * Authenticates with a custom {@link com.spotify.Authentication.LoginCredentials} object.
+         *
+         * @param credentials The credentials
+         */
+        public Builder credentials(@NotNull Authentication.LoginCredentials credentials) {
+            loginCredentials = credentials;
+            return this;
+        }
+
+        /**
          * Authenticates with stored credentials. Tries to read the file specified in the configuration.
          */
         public Builder stored() throws IOException {
@@ -1283,7 +1293,7 @@ public final class Session implements Closeable {
                     Socket sock;
                     if (conf.proxySSL) {
                         sock = SSLSocketFactory.getDefault().createSocket(conf.proxyAddress, conf.proxyPort);
-                    } else{
+                    } else {
                         sock = new Socket(conf.proxyAddress, conf.proxyPort);
                     }
                     OutputStream out = sock.getOutputStream();
@@ -1330,6 +1340,57 @@ public final class Session implements Closeable {
                 default:
                     throw new UnsupportedOperationException();
             }
+        }
+    }
+
+    /**
+     * A {@link SocketFactory} that delegates calls. Sockets can be configured after creation by
+     * overriding {@link #configureSocket(java.net.Socket)}.
+     * <p>
+     * Copy/pasted from okhttp3 tests sources for HTTPS proxy support
+     */
+    public static class DelegatingSocketFactory extends SocketFactory {
+        private final SocketFactory delegate;
+
+        public DelegatingSocketFactory(SocketFactory delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Socket createSocket() throws IOException {
+            Socket socket = delegate.createSocket();
+            return configureSocket(socket);
+        }
+
+        @Override
+        public Socket createSocket(String host, int port) throws IOException {
+            Socket socket = delegate.createSocket(host, port);
+            return configureSocket(socket);
+        }
+
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localAddress,
+                                   int localPort) throws IOException {
+            Socket socket = delegate.createSocket(host, port, localAddress, localPort);
+            return configureSocket(socket);
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port) throws IOException {
+            Socket socket = delegate.createSocket(host, port);
+            return configureSocket(socket);
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port, InetAddress localAddress,
+                                   int localPort) throws IOException {
+            Socket socket = delegate.createSocket(host, port, localAddress, localPort);
+            return configureSocket(socket);
+        }
+
+        protected Socket configureSocket(Socket socket) throws IOException {
+            // No-op by default.
+            return socket;
         }
     }
 
@@ -1438,51 +1499,5 @@ public final class Session implements Closeable {
 
             LOGGER.trace("Session.Receiver stopped");
         }
-    }
-
-    /**
-     * A {@link SocketFactory} that delegates calls. Sockets can be configured after creation by
-     * overriding {@link #configureSocket(java.net.Socket)}.
-     *
-     * Copy/pasted from okhttp3 tests sources for HTTPS proxy support
-     */
-    public static class DelegatingSocketFactory extends SocketFactory {
-      private final SocketFactory delegate;
-
-      public DelegatingSocketFactory(SocketFactory delegate) {
-        this.delegate = delegate;
-      }
-
-      @Override public Socket createSocket() throws IOException {
-        Socket socket = delegate.createSocket();
-        return configureSocket(socket);
-      }
-
-      @Override public Socket createSocket(String host, int port) throws IOException {
-        Socket socket = delegate.createSocket(host, port);
-        return configureSocket(socket);
-      }
-
-      @Override public Socket createSocket(String host, int port, InetAddress localAddress,
-          int localPort) throws IOException {
-        Socket socket = delegate.createSocket(host, port, localAddress, localPort);
-        return configureSocket(socket);
-      }
-
-      @Override public Socket createSocket(InetAddress host, int port) throws IOException {
-        Socket socket = delegate.createSocket(host, port);
-        return configureSocket(socket);
-      }
-
-      @Override public Socket createSocket(InetAddress host, int port, InetAddress localAddress,
-          int localPort) throws IOException {
-        Socket socket = delegate.createSocket(host, port, localAddress, localPort);
-        return configureSocket(socket);
-      }
-
-      protected Socket configureSocket(Socket socket) throws IOException {
-        // No-op by default.
-        return socket;
-      }
     }
 }
