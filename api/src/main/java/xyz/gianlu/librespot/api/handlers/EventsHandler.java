@@ -91,6 +91,14 @@ public final class EventsHandler extends WebSocketProtocolHandshakeHandler imple
     }
 
     @Override
+    public void onPlaybackFailed(@NotNull Player player, Exception e) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("event", "playbackFailed");
+        obj.addProperty("exception", e.getMessage());
+        dispatch(obj);
+    }
+
+    @Override
     public void onTrackSeeked(@NotNull Player player, long trackTime) {
         JsonObject obj = new JsonObject();
         obj.addProperty("event", "trackSeeked");

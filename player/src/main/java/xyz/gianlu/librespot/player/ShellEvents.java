@@ -89,6 +89,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
     }
 
     @Override
+    public void onPlaybackFailed(@NotNull Player player, Exception e) {
+        exec(conf.onPlaybackFailed, "EXCEPTION=" + e.getMessage());
+    }
+
+    @Override
     public void onTrackSeeked(@NotNull Player player, long trackTime) {
         exec(conf.onTrackSeeked, "POSITION=" + trackTime);
     }
@@ -147,6 +152,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public final String onPlaybackEnded;
         public final String onPlaybackPaused;
         public final String onPlaybackResumed;
+        public final String onPlaybackFailed;
         public final String onTrackSeeked;
         public final String onMetadataAvailable;
         public final String onVolumeChanged;
@@ -158,7 +164,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public final String onFinishedLoading;
 
         public Configuration(boolean enabled, boolean executeWithBash, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
-                             String onPlaybackResumed, String onTrackSeeked, String onMetadataAvailable, String onVolumeChanged,
+                             String onPlaybackResumed, String onPlaybackFailed, String onTrackSeeked, String onMetadataAvailable, String onVolumeChanged,
                              String onInactiveSession, String onPanicState, String onConnectionDropped, String onConnectionEstablished,
                              String onStartedLoading, String onFinishedLoading) {
             this.enabled = enabled;
@@ -168,6 +174,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             this.onPlaybackEnded = onPlaybackEnded;
             this.onPlaybackPaused = onPlaybackPaused;
             this.onPlaybackResumed = onPlaybackResumed;
+            this.onPlaybackFailed = onPlaybackFailed;
             this.onTrackSeeked = onTrackSeeked;
             this.onMetadataAvailable = onMetadataAvailable;
             this.onVolumeChanged = onVolumeChanged;
@@ -187,6 +194,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             private String onPlaybackEnded = "";
             private String onPlaybackPaused = "";
             private String onPlaybackResumed = "";
+            private String onPlaybackFailed = "";
             private String onTrackSeeked = "";
             private String onMetadataAvailable = "";
             private String onVolumeChanged = "";
@@ -232,6 +240,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
             public Builder setOnPlaybackResumed(String command) {
                 this.onPlaybackResumed = command;
+                return this;
+            }
+
+            public Builder setOnPlaybackFailed(String command) {
+                this.onPlaybackFailed = command;
                 return this;
             }
 
@@ -283,7 +296,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
             @NotNull
             public Configuration build() {
                 return new Configuration(enabled, executeWithBash, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
-                        onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished,
+                        onPlaybackFailed, onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished,
                         onStartedLoading, onFinishedLoading);
             }
         }
