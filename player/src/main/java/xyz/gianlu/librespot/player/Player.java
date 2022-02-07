@@ -380,6 +380,7 @@ public class Player implements Closeable {
 
             @Override
             public void loadingError(@NotNull Exception ex) {
+                events.playbackFailed(ex);
                 if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
                     LOGGER.error("Can't load track (content restricted).", ex);
                 } else {
@@ -871,6 +872,8 @@ public class Player implements Closeable {
 
         void onPlaybackResumed(@NotNull Player player, long trackTime);
 
+        void onPlaybackFailed(@NotNull Player player, Exception e);
+
         void onTrackSeeked(@NotNull Player player, long trackTime);
 
         void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata);
@@ -1002,6 +1005,10 @@ public class Player implements Closeable {
                     }
 
                     @Override
+                    public void onPlaybackFailed(@NotNull Player player, Exception e) {
+                    }
+
+                    @Override
                     public void onTrackSeeked(@NotNull Player player, long trackTime) {
                         dacpPipe.sendPipeFlush();
 
@@ -1073,6 +1080,11 @@ public class Player implements Closeable {
             long trackTime = state.getPosition();
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackResumed(Player.this, trackTime));
+        }
+
+        void playbackFailed(Exception ex) {
+            for (EventsListener l : new ArrayList<>(listeners))
+                executorService.execute(() -> l.onPlaybackFailed(Player.this, ex));
         }
 
         void contextChanged() {

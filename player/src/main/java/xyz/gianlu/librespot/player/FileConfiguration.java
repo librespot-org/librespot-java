@@ -351,6 +351,7 @@ public final class FileConfiguration {
                 .setOnPlaybackEnded(config.get("shell.onPlaybackEnded"))
                 .setOnPlaybackPaused(config.get("shell.onPlaybackPaused"))
                 .setOnPlaybackResumed(config.get("shell.onPlaybackResumed"))
+                .setOnPlaybackFailed(config.get("shell.onPlaybackFailed"))
                 .setOnTrackSeeked(config.get("shell.onTrackSeeked"))
                 .setOnMetadataAvailable(config.get("shell.onMetadataAvailable"))
                 .setOnVolumeChanged(config.get("shell.onVolumeChanged"))
