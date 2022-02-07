@@ -872,7 +872,7 @@ public class Player implements Closeable {
 
         void onPlaybackResumed(@NotNull Player player, long trackTime);
 
-        void onPlaybackFailed(@NotNull Player player, Exception e);
+        void onPlaybackFailed(@NotNull Player player, @NotNull Exception e);
 
         void onTrackSeeked(@NotNull Player player, long trackTime);
 
@@ -1005,7 +1005,7 @@ public class Player implements Closeable {
                     }
 
                     @Override
-                    public void onPlaybackFailed(@NotNull Player player, Exception e) {
+                    public void onPlaybackFailed(@NotNull Player player, @NotNull Exception e) {
                     }
 
                     @Override
@@ -1082,7 +1082,7 @@ public class Player implements Closeable {
                 executorService.execute(() -> l.onPlaybackResumed(Player.this, trackTime));
         }
 
-        void playbackFailed(Exception ex) {
+        void playbackFailed(@NotNull Exception ex) {
             for (EventsListener l : new ArrayList<>(listeners))
                 executorService.execute(() -> l.onPlaybackFailed(Player.this, ex));
         }
