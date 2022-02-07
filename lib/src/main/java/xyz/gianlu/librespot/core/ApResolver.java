@@ -85,20 +85,18 @@ public final class ApResolver {
         try (Response response = client.newCall(request).execute()) {
             ResponseBody body = response.body();
             if (body == null) throw new IOException("No body");
-            try (Reader reader = body.charStream()) {
-                JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
-                HashMap<String, List<String>> map = new HashMap<>();
-                for (String type : types)
-                    map.put(type, getUrls(obj, type));
+            JsonObject obj = JsonParser.parseReader(body.charStream()).getAsJsonObject();
+            HashMap<String, List<String>> map = new HashMap<>();
+            for (String type : types)
+                map.put(type, getUrls(obj, type));
 
-                synchronized (pool) {
-                    pool.putAll(map);
-                    poolReady = true;
-                    pool.notifyAll();
-                }
-
-                LOGGER.info("Loaded aps into pool: " + pool);
+            synchronized (pool) {
+                pool.putAll(map);
+                poolReady = true;
+                pool.notifyAll();
             }
+
+            LOGGER.info("Loaded aps into pool: " + pool);
         }
     }
 
