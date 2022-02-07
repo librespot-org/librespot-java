@@ -380,9 +380,9 @@ public class Player implements Closeable {
 
             @Override
             public void loadingError(@NotNull Exception ex) {
+                events.playbackFailed(ex);
                 if (ex instanceof PlayableContentFeeder.ContentRestrictedException) {
                     LOGGER.error("Can't load track (content restricted).", ex);
-                    events.playbackFailed(ex);
                 } else {
                     LOGGER.error("Failed loading track.", ex);
                     panicState(PlaybackMetrics.Reason.TRACK_ERROR);
