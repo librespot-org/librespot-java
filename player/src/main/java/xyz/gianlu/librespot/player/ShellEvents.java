@@ -90,7 +90,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
     @Override
     public void onPlaybackFailed(@NotNull Player player, Exception e) {
-        exec(conf.onPlaybackFailed, "EXCEPTION=" + e.getMessage());
+        exec(conf.onPlaybackFailed, "EXCEPTION=" + e.getClass().getCanonicalName(), "MESSAGE=" + e.getMessage());
     }
 
     @Override
