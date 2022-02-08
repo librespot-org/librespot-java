@@ -345,6 +345,15 @@ public class PlayerSession implements Closeable, PlayerQueueEntry.Listener {
         else return queue.head().getTime();
     }
 
+    /**
+     * @return The seek time for the current head or {@code -1} if not available.
+     * @throws Decoder.CannotGetTimeException If the head is available, but time cannot be retrieved
+     */
+    public int currentSeekTime() throws Decoder.CannotGetTimeException {
+        if (queue.head() == null) return -1;
+        else return queue.head().getSeekTime();
+    }
+
     @Nullable
     public String currentPlaybackId() {
         if (queue.head() == null) return null;
