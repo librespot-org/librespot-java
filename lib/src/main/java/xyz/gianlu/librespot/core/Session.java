@@ -718,12 +718,12 @@ public final class Session implements Closeable {
         }
 
         try {
-            apResolver.refreshPool();
-
             if (conn != null) {
-                conn.socket.close();
                 receiver.stop();
+                conn.socket.close();
             }
+
+            apResolver.refreshPool();
 
             conn = ConnectionHolder.create(apResolver.getRandomAccesspoint(), inner.conf);
             connect();
