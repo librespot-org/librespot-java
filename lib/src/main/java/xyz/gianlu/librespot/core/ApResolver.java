@@ -29,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -70,35 +69,42 @@ public final class ApResolver {
         return list;
     }
 
-    private void request(@NotNull String... types) throws IOException {
-        if (types.length == 0) throw new IllegalArgumentException();
 
+private void request(@NotNull String... types) throws IOException {
+    if (types.length == 0) throw new IllegalArgumentException();
+
+    Request request = createRequest(types);
+
+    try (Response response = client.newCall(request).execute()) {
+        ResponseBody body = response.body();
+        if (body == null) throw new IOException("No body");
+        JsonObject obj = JsonParser.parseReader(body.charStream()).getAsJsonObject();
+        HashMap<String, List<String>> map = new HashMap<>();
+        for (String type : types)
+            map.put(type, getUrls(obj, type));
+
+        synchronized (pool) {
+            pool.putAll(map);
+            poolReady = true;
+            pool.notifyAll();
+        }
+
+        LOGGER.info("Loaded aps into pool: " + pool);
+    }
+}
+
+    private Request createRequest(String[] types) {
         StringBuilder url = new StringBuilder(BASE_URL + "?");
         for (int i = 0; i < types.length; i++) {
             if (i != 0) url.append("&");
             url.append("type=").append(types[i]);
         }
 
-        Request request = new Request.Builder()
+        return new Request.Builder()
                 .url(url.toString())
                 .build();
-        try (Response response = client.newCall(request).execute()) {
-            ResponseBody body = response.body();
-            if (body == null) throw new IOException("No body");
-            JsonObject obj = JsonParser.parseReader(body.charStream()).getAsJsonObject();
-            HashMap<String, List<String>> map = new HashMap<>();
-            for (String type : types)
-                map.put(type, getUrls(obj, type));
-
-            synchronized (pool) {
-                pool.putAll(map);
-                poolReady = true;
-                pool.notifyAll();
-            }
-
-            LOGGER.info("Loaded aps into pool: " + pool);
-        }
     }
+
 
     private void waitForPool() {
         if (!poolReady) {

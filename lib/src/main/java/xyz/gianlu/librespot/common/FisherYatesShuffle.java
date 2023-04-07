@@ -83,19 +83,31 @@ public final class FisherYatesShuffle<I> {
      * @param to   top bound index (exclusive).
      */
     public void unshuffle(@NotNull List<I> list, int from, int to) {
-        if (currentSeed == 0) throw new IllegalStateException("Current seed is zero!");
-        if (sizeForSeed != to - from) throw new IllegalStateException("Size mismatch! Cannot unshuffle.");
+        if (currentSeed == 0) {
+            throw new IllegalStateException("Current seed is zero!");
+        }
+        if (sizeForSeed != to - from) {
+            throw new IllegalStateException("Size mismatch! Cannot unshuffle.");
+        }
 
         int size = to - from;
         int[] exchanges = getShuffleExchanges(size, currentSeed);
+
+        int swapsNeeded = size - 1;
         for (int i = 1; i < size; i++) {
             int n = exchanges[size - i - 1];
             Collections.swap(list, from + n, from + i);
+
+            swapsNeeded--;
+            if (swapsNeeded == 0) {
+                break;
+            }
         }
 
         currentSeed = 0;
         sizeForSeed = -1;
     }
+
 
     public boolean canUnshuffle(int size) {
         return currentSeed != 0 && sizeForSeed == size;

@@ -90,26 +90,70 @@ public class CrossfadeController {
             fadeInMap.put(Reason.BACK_BTN, new FadeInterval(backFadeInStartTime, backFadeInDuration, new LinearIncreasingInterpolator()));
     }
 
-    private void populateFadeOut(@NotNull Map<String, String> metadata) {
-        int fadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
-        int fadeOutStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
-        JsonArray fadeOutCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
-        if (fadeOutCurves.size() > 1) throw new UnsupportedOperationException(fadeOutCurves.toString());
 
-        if (fadeOutDuration != 0 && fadeOutCurves.size() > 0)
-            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(fadeOutStartTime, fadeOutDuration, LookupInterpolator.fromJson(getFadeCurve(fadeOutCurves))));
-        else if (defaultFadeDuration > 0)
-            fadeOutMap.put(Reason.TRACK_DONE, new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator()));
+abstract class Fade {
+    protected Reason reason;
+    protected Map<String, String> metadata;
 
-
-        int backFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.backbtn.fade_out_duration", "-1"));
-        if (backFadeOutDuration > 0)
-            fadeOutMap.put(Reason.BACK_BTN, new PartialFadeInterval(backFadeOutDuration, new LinearDecreasingInterpolator()));
-
-        int fwdFadeOutDuration = Integer.parseInt(metadata.getOrDefault("audio.fwdbtn.fade_out_duration", "-1"));
-        if (fwdFadeOutDuration > 0)
-            fadeOutMap.put(Reason.FORWARD_BTN, new PartialFadeInterval(fwdFadeOutDuration, new LinearDecreasingInterpolator()));
+    public Fade(Reason reason, Map<String, String> metadata) {
+        this.reason = reason;
+        this.metadata = metadata;
     }
+
+    abstract void populateFade();
+}
+    class TrackDoneFade extends Fade {
+        public TrackDoneFade(Reason reason, Map<String, String> metadata) {
+            super(reason, metadata);
+        }
+
+        @Override
+        void populateFade() {
+            int fadeDuration = Integer.parseInt(metadata.getOrDefault("audio.fade_out_duration", "-1"));
+            int fadeStartTime = Integer.parseInt(metadata.getOrDefault("audio.fade_out_start_time", "-1"));
+            JsonArray fadeCurves = JsonParser.parseString(metadata.getOrDefault("audio.fade_out_curves", "[]")).getAsJsonArray();
+            if (fadeCurves.size() > 1) throw new UnsupportedOperationException(fadeCurves.toString());
+
+            if (fadeDuration != 0 && fadeCurves.size() > 0)
+                fadeOutMap.put(reason, new FadeInterval(fadeStartTime, fadeDuration, LookupInterpolator.fromJson(getFadeCurve(fadeCurves))));
+            else if (defaultFadeDuration > 0)
+                fadeOutMap.put(reason, new FadeInterval(trackDuration - defaultFadeDuration, defaultFadeDuration, new LinearDecreasingInterpolator()));
+        }
+    }
+
+    class PartialFade extends Fade {
+        private String fadeType;
+
+        public PartialFade(Reason reason, Map<String, String> metadata, String fadeType) {
+            super(reason, metadata);
+            this.fadeType = fadeType;
+        }
+
+        @Override
+        void populateFade() {
+            int fadeOutDuration = Integer.parseInt(metadata.getOrDefault(String.format("audio.%s.fade_out_duration", fadeType), "-1"));
+            if (fadeOutDuration > 0)
+                fadeOutMap.put(reason, new PartialFadeInterval(fadeOutDuration, new LinearDecreasingInterpolator()));
+        }
+    }
+    private void populateFadeOut(@NotNull Map<String, String> metadata) {
+        Fade fade;
+
+        if (metadata.containsKey("audio.fade_out_duration")) {
+            fade = new TrackDoneFade(Reason.TRACK_DONE, metadata);
+        } else {
+            if (metadata.containsKey("audio.backbtn.fade_out_duration")) {
+                fade = new PartialFade(Reason.BACK_BTN, metadata, "backbtn");
+            } else if (metadata.containsKey("audio.fwdbtn.fade_out_duration")) {
+                fade = new PartialFade(Reason.FORWARD_BTN, metadata, "fwdbtn");
+            } else {
+                return;
+            }
+        }
+
+        fade.populateFade();
+    }
+
 
     /**
      * Get the gain at this specified position, switching out intervals if needed.

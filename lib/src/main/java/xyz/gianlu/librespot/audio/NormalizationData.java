@@ -48,19 +48,20 @@ public class NormalizationData {
     }
 
     @NotNull
-    public static NormalizationData read(@NotNull InputStream in) throws IOException {
-        DataInputStream dataIn = new DataInputStream(in);
-        dataIn.mark(16);
-        if (dataIn.skipBytes(144) != 144) throw new IOException();
+    public static NormalizationData read(@NotNull InputStream input) throws IOException {
+        DataInputStream inputDataStream = new DataInputStream(input);
+        inputDataStream.mark(16);
+        if (inputDataStream.skipBytes(144) != 144) throw new IOException();
 
-        byte[] data = new byte[4 * 4];
-        dataIn.readFully(data);
-        dataIn.reset();
+        byte[] floatData = new byte[4 * 4];
+        inputDataStream.readFully(floatData);
+        inputDataStream.reset();
 
-        ByteBuffer buffer = ByteBuffer.wrap(data);
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
-        return new NormalizationData(buffer.getFloat(), buffer.getFloat(), buffer.getFloat(), buffer.getFloat());
+        ByteBuffer floatBuffer = ByteBuffer.wrap(floatData);
+        floatBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        return new NormalizationData(floatBuffer.getFloat(), floatBuffer.getFloat(), floatBuffer.getFloat(), floatBuffer.getFloat());
     }
+
 
     public float getFactor(float normalisationPregain) {
         float normalisationFactor = (float) Math.pow(10, (track_gain_db + normalisationPregain) / 20);
