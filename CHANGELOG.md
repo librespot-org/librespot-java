@@ -5,12 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 17-05-2023
+### Added
+- Added client token support (08b7890ed0fadc072052958945ac64e784232ac5)
+- Added onPlaybackFailed callback (#449, #460)
+
+### Fixed
+- Make AP resolver use configured proxy (#441)
+- Refresh AP pool after stopping the receiver (#464)
+- Bumped client version to fix PremiumAccountRequired (#614, #615)
+
+### Changed
+- Migrate some APIs to their HTTP equivalent (6b45130cf26d47ab538abe265cf351096faccc2c)
+- Updated two years of dependencies
+
 ## [1.6.2] - 11-12-2021
 ### Added
 - Added HTTPS proxy support (#390)
 - Added `GET /instance` API endpoint (#403)
 
-### Fixed 
+### Fixed
 - Fixed track repeat behavior (#383)
 - Fixed cache synchronization issue (b3d61f4c3bb7398e2f2246f6aa274f8d903c492b)
 - Minimize audio pop when using pipe (#389)

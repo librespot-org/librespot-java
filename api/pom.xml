@@ -21,7 +21,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>1.6.3-SNAPSHOT</version>
+        <version>1.6.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
