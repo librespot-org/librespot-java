@@ -56,6 +56,48 @@ public class CacheManager implements Closeable {
     private final CacheJournal journal;
     private final Map<String, Handler> fileHandlers = Collections.synchronizedMap(new HashMap<>());
 
+
+public class CacheMaintenance {
+    private final CacheJournal journal;
+    private final File parent;
+    private final boolean doCacheCleanUp;
+
+    public CacheMaintenance(CacheJournal journal, File parent, boolean doCacheCleanUp) {
+        this.journal = journal;
+        this.parent = parent;
+        this.doCacheCleanUp = doCacheCleanUp;
+    }
+
+    public void performMaintenance() {
+        try {
+            List<String> entries = journal.getEntries();
+            Iterator<String> iter = entries.iterator();
+            while (iter.hasNext()) {
+                String id = iter.next();
+                if (!exists(parent, id)) {
+                    iter.remove();
+                    journal.remove(id);
+                }
+            }
+
+            if (doCacheCleanUp) {
+                for (String id : entries) {
+                    JournalHeader header = journal.getHeader(id, HEADER_TIMESTAMP);
+                    if (header == null) continue;
+
+                    long timestamp = new BigInteger(header.value).longValue() * 1000;
+                    if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
+                        remove(id);
+                }
+            }
+
+            LOGGER.info("There are {} cached entries.", entries.size());
+        } catch (IOException ex) {
+            LOGGER.warn("Failed performing maintenance operations.", ex);
+        }
+    }
+}
+
     public CacheManager(@NotNull Session.Configuration conf) throws IOException {
         if (!conf.cacheEnabled) {
             parent = null;
@@ -69,35 +111,10 @@ public class CacheManager implements Closeable {
 
         journal = new CacheJournal(parent);
 
-        new Thread(() -> {
-            try {
-                List<String> entries = journal.getEntries();
-                Iterator<String> iter = entries.iterator();
-                while (iter.hasNext()) {
-                    String id = iter.next();
-                    if (!exists(parent, id)) {
-                        iter.remove();
-                        journal.remove(id);
-                    }
-                }
-
-                if (conf.doCacheCleanUp) {
-                    for (String id : entries) {
-                        JournalHeader header = journal.getHeader(id, HEADER_TIMESTAMP);
-                        if (header == null) continue;
-
-                        long timestamp = new BigInteger(header.value).longValue() * 1000;
-                        if (System.currentTimeMillis() - timestamp > CLEAN_UP_THRESHOLD)
-                            remove(id);
-                    }
-                }
-
-                LOGGER.info("There are {} cached entries.", entries.size());
-            } catch (IOException ex) {
-                LOGGER.warn("Failed performing maintenance operations.", ex);
-            }
-        }, "cache-maintenance").start();
+        CacheMaintenance cacheMaintenance = new CacheMaintenance(journal, parent, conf.doCacheCleanUp);
+        new Thread(() -> cacheMaintenance.performMaintenance(), "cache-maintenance").start();
     }
+
 
     @NotNull
     private static File getCacheFile(@NotNull File parent, @NotNull String hex) throws IOException {

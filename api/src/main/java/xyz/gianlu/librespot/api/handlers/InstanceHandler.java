@@ -131,32 +131,36 @@ public final class InstanceHandler {
             }
 
             String requestMethod = exchange.getRequestMethod().toString();
-            switch(requestMethod) {
+            switch (requestMethod) {
                 case "GET":
                     String info = getInstanceInfo(session);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getResponseSender().send(info);
-                    return;
+                    break;
                 case "POST":
-                    String action = getAction(exchange);
-                    if (action == null) return;
-
-                    switch (action) {
-                        case "terminate":
-                            exchange.endExchange();
-                            new Thread(server::stop).start();
-                            break;
-                        case "close":
-                            session.close();
-                            break;
-                        default:
-                            Utils.methodNotAllowed(exchange);
-                            break;
-                    }
+                    handlePostRequest(exchange, session, player);
                     break;
                 default:
                     break;
             }
         }
+
+        private void handlePostRequest(@NotNull HttpServerExchange exchange, @NotNull Session session, @NotNull Player player) throws Exception {
+            String action = getAction(exchange);
+            if (action == null) return;
+
+            switch (action) {
+                case "terminate":
+                    exchange.endExchange();
+                    new Thread(server::stop).start();
+                    break;
+                case "close":
+                    session.close();
+                    break;
+                default:
+                    Utils.methodNotAllowed(exchange);
+                    break;
+            }
+        }
     }
-}
+    }
