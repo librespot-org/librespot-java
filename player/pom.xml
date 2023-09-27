@@ -133,7 +133,7 @@
         <dependency>
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
-            <version>3.6.6</version>
+            <version>3.6.7</version>
         </dependency>
 
         <!-- Default sink -->
