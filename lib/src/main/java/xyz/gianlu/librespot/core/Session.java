@@ -70,6 +70,8 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
 
 /**
  * @author Gianlu
@@ -144,6 +146,14 @@ public final class Session implements Closeable {
     private static OkHttpClient createClient(@NotNull Configuration conf) {
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         builder.retryOnConnectionFailure(true);
+        builder.hostnameVerifier(new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                if (hostname.toLowerCase().endsWith("spotifycdn.com") && session.getPeerHost().toLowerCase().endsWith("spotifycdn.com"))
+                    return true;
+                return hostname.equalsIgnoreCase(session.getPeerHost());
+            }
+        });
 
         if (conf.proxyEnabled && conf.proxyType != Proxy.Type.DIRECT) {
             builder.proxy(new Proxy(conf.proxyType, new InetSocketAddress(conf.proxyAddress, conf.proxyPort)));
