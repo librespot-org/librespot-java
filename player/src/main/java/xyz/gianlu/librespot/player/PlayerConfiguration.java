@@ -29,6 +29,7 @@ public final class PlayerConfiguration {
     // Audio
     public final AudioQuality preferredQuality;
     public final boolean enableNormalisation;
+    public final boolean useAlbumGain;
     public final float normalisationPregain;
     public final boolean autoplayEnabled;
     public final int crossfadeDuration;
@@ -52,11 +53,12 @@ public final class PlayerConfiguration {
     // Local files
     public final File localFilesPath;
 
-    private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
+    private PlayerConfiguration(AudioQuality preferredQuality, boolean enableNormalisation, boolean useAlbumGain, float normalisationPregain, boolean autoplayEnabled, int crossfadeDuration, boolean preloadEnabled,
                                 AudioOutput output, String outputClass, Object[] outputClassParams, File outputPipe, File metadataPipe, String[] mixerSearchKeywords, boolean logAvailableMixers, int releaseLineDelay,
                                 int initialVolume, int volumeSteps, boolean bypassSinkVolume, File localFilesPath) {
         this.preferredQuality = preferredQuality;
         this.enableNormalisation = enableNormalisation;
+        this.useAlbumGain = useAlbumGain;
         this.normalisationPregain = normalisationPregain;
         this.autoplayEnabled = autoplayEnabled;
         this.crossfadeDuration = crossfadeDuration;
@@ -83,6 +85,7 @@ public final class PlayerConfiguration {
         // Audio
         private AudioQuality preferredQuality = AudioQuality.NORMAL;
         private boolean enableNormalisation = true;
+        private boolean useAlbumGain = false;
         private float normalisationPregain = 3.0f;
         private boolean autoplayEnabled = true;
         private int crossfadeDuration = 0;
@@ -116,6 +119,11 @@ public final class PlayerConfiguration {
 
         public Builder setEnableNormalisation(boolean enableNormalisation) {
             this.enableNormalisation = enableNormalisation;
+            return this;
+        }
+
+        public Builder setUseAlbumGain(boolean useAlbumGain) {
+            this.useAlbumGain = useAlbumGain;
             return this;
         }
 
@@ -207,7 +215,7 @@ public final class PlayerConfiguration {
 
         @Contract(value = " -> new", pure = true)
         public @NotNull PlayerConfiguration build() {
-            return new PlayerConfiguration(preferredQuality, enableNormalisation, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
+            return new PlayerConfiguration(preferredQuality, enableNormalisation, useAlbumGain, normalisationPregain, autoplayEnabled, crossfadeDuration, preloadEnabled,
                     output, outputClass, outputClassParams, outputPipe, metadataPipe, mixerSearchKeywords, logAvailableMixers, releaseLineDelay,
                     initialVolume, volumeSteps, bypassSinkVolume, localFilesPath);
         }

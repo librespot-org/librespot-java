@@ -439,6 +439,7 @@ public final class FileConfiguration {
                 .setAutoplayEnabled(config.get("player.autoplayEnabled"))
                 .setCrossfadeDuration(config.get("player.crossfadeDuration"))
                 .setEnableNormalisation(config.get("player.enableNormalisation"))
+                .setUseAlbumGain(config.get("player.useAlbumGain"))
                 .setInitialVolume(config.get("player.initialVolume"))
                 .setLogAvailableMixers(config.get("player.logAvailableMixers"))
                 .setMetadataPipe(metadataPipe())
