@@ -52,7 +52,6 @@ public final class CdnFeedHelper {
             selectedUrl = resp.getCdnurl(session.random().nextInt(resp.getCdnurlCount()));
         }
         return HttpUrl.get(selectedUrl);
-        // return HttpUrl.get(resp.getCdnurl(session.random().nextInt(resp.getCdnurlCount())));
     }
 
     public static @NotNull LoadedStream loadTrack(@NotNull Session session, Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file,
