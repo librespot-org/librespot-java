@@ -46,7 +46,12 @@ public final class CdnFeedHelper {
 
     @NotNull
     private static HttpUrl getUrl(@NotNull Session session, @NotNull StorageResolveResponse resp) {
-        return HttpUrl.get(resp.getCdnurl(session.random().nextInt(resp.getCdnurlCount())));
+        String selectedUrl = resp.getCdnurl(session.random().nextInt(resp.getCdnurlCount()));
+        while (selectedUrl.contains("audio4-gm-fb")) {
+            LOGGER.warn("getUrl picked CDN with known issues {} (forcing re-selection)", selectedUrl );
+            selectedUrl = resp.getCdnurl(session.random().nextInt(resp.getCdnurlCount()));
+        }
+        return HttpUrl.get(selectedUrl);
     }
 
     public static @NotNull LoadedStream loadTrack(@NotNull Session session, Metadata.@NotNull Track track, Metadata.@NotNull AudioFile file,
