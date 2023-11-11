@@ -135,7 +135,7 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
 
         float normalizationFactor;
         if (stream.normalizationData == null || !conf.enableNormalisation) normalizationFactor = 1;
-        else normalizationFactor = stream.normalizationData.getFactor(conf.normalisationPregain);
+        else normalizationFactor = stream.normalizationData.getFactor(conf.normalisationPregain, conf.useAlbumGain);
 
         Iterator<Decoder> iter = Decoders.initDecoder(stream.in.codec(), stream.in.stream(), normalizationFactor, metadata.duration());
         while (iter.hasNext()) {
