@@ -55,7 +55,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <gson.version>2.10.1</gson.version>
         <protobuf.version>3.25.0</protobuf.version>
-        <slf4j-api.version>2.0.9</slf4j-api.version>
+        <slf4j-api.version>2.0.11</slf4j-api.version>
         <log4j.version>2.21.1</log4j.version>
         <lmax-disruptor.version>3.4.4</lmax-disruptor.version>
     </properties>
