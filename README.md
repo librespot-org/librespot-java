@@ -9,7 +9,7 @@
 We (the librespot-org organization and me) **DO NOT** encourage piracy and **DO NOT** support any form of downloader/recorder designed with the help of this repository and in general anything that goes against the Spotify ToS. If you're brave enough to put at risk this entire project, just don't publish it. This is meant to provide support for all those devices that are not officially supported by Spotify.
 
 > [!WARNING]  
-> `librespot-java` is no longer being actively developed. Development efforts have been moved to [go-librespot](https://github.com/devgianlu/go-librespot) to provide a better experience for embedded devices. No features or big fixes will be done here. If you are not using a feature specific to this project, you are encouraged to move to `go-librespot`.
+> `librespot-java` is no longer being actively developed. Development efforts have been moved to [go-librespot](https://github.com/devgianlu/go-librespot) to provide a better experience for embedded devices. No features or fixes requiring a lot of effort will be done here. If you are not using a feature specific to this project, you are encouraged to move to `go-librespot`.
 
 ## Features
 This client is pretty much capable of playing anything that's available on Spotify. 
@@ -44,6 +44,7 @@ The application uses Log4J for logging purposes, the configuration file is place
 Snapshots for all variants are available [here](https://oss.sonatype.org/content/repositories/snapshots/xyz/gianlu/librespot/).
 
 ## Related Projects
+- [go-librespot](https://github.com/devgianlu/go-librespot)
 - [librespot](https://github.com/librespot-org/librespot)
 - [ansible-role-librespot](https://github.com/xMordax/ansible-role-librespot/tree/master) - Ansible role that will build, install and configure librespot-java.
 - [spocon](https://github.com/spocon/spocon) - Install librespot-java from APT
