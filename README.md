@@ -1,6 +1,5 @@
 # librespot-java
 [![Maven build / deploy](https://github.com/librespot-org/librespot-java/actions/workflows/maven.yml/badge.svg?branch=dev)](https://github.com/librespot-org/librespot-java/actions/workflows/maven.yml)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1ec8ca04e5054558a089bc7f640079a6)](https://www.codacy.com/manual/devgianlu/librespot-java?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=librespot-org/librespot-java&amp;utm_campaign=Badge_Grade)
 [![time tracker](https://wakatime.com/badge/github/librespot-org/librespot-java.svg)](https://wakatime.com/badge/github/librespot-org/librespot-java)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java/badge.svg)](https://maven-badges.herokuapp.com/maven-central/xyz.gianlu.librespot/librespot-java)
 
@@ -8,6 +7,9 @@
 
 ## Disclaimer!
 We (the librespot-org organization and me) **DO NOT** encourage piracy and **DO NOT** support any form of downloader/recorder designed with the help of this repository and in general anything that goes against the Spotify ToS. If you're brave enough to put at risk this entire project, just don't publish it. This is meant to provide support for all those devices that are not officially supported by Spotify.
+
+> [!WARNING]  
+> `librespot-java` is no longer being actively developed. Development efforts have been moved to [go-librespot](https://github.com/devgianlu/go-librespot) to provide a better experience for embedded devices. No features or big fixes will be done here. If you are not using a feature specific to this project, you are encouraged to move to `go-librespot`.
 
 ## Features
 This client is pretty much capable of playing anything that's available on Spotify. 
@@ -23,7 +25,7 @@ Its main features are:
 - Android compatible (see [librespot-android](https://github.com/devgianlu/librespot-android))
 - Optional HTTP API (see [librespot-api](api))
 - Supports custom sinks and decoders
-- Actively developed and up-to-date with the latest internal API
+- ~~Actively developed and up-to-date with the latest internal API~~
 
 ## The library
 The `lib` module provides all the necessary components and tools to interact with Spotify. More [here](lib).
