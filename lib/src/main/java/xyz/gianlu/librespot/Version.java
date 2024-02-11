@@ -32,7 +32,7 @@ public class Version {
         String version = pkg.getImplementationVersion();
         if (version == null) version = pkg.getSpecificationVersion();
         if (version != null) VERSION = version;
-        else VERSION = "?.?.?";
+        else VERSION = "0.0.0";
     }
 
     @NotNull
