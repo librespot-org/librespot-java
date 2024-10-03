@@ -341,6 +341,9 @@ public final class Session implements Closeable {
     private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
         authenticatePartial(credentials, false);
 
+        if (credentials.getTyp() == Authentication.AuthenticationType.AUTHENTICATION_SPOTIFY_TOKEN)
+            reconnect();
+
         synchronized (authLock) {
             mercuryClient = new MercuryClient(this);
             tokenProvider = new TokenProvider(this);
