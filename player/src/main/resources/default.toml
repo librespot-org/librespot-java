@@ -6,7 +6,7 @@ preferredLocale = "en" ### Preferred locale ###
 logLevel = "TRACE" ### Log level (OFF, FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL) ###
 
 [auth] ### Authentication ###
-strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK, STORED)
+strategy = "ZEROCONF" # Strategy (USER_PASS, ZEROCONF, BLOB, FACEBOOK, STORED, OAUTH)
 username = "" # Spotify username (BLOB, USER_PASS only)
 password = "" # Spotify password (USER_PASS only)
 blob = "" # Spotify authentication blob Base64-encoded (BLOB only)
