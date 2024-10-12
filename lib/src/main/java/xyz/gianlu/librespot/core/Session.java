@@ -71,6 +71,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static xyz.gianlu.librespot.mercury.MercuryRequests.KEYMASTER_CLIENT_ID;
+
 /**
  * @author Gianlu
  */
@@ -340,6 +342,9 @@ public final class Session implements Closeable {
      */
     private void authenticate(@NotNull Authentication.LoginCredentials credentials) throws IOException, GeneralSecurityException, SpotifyAuthenticationException, MercuryClient.MercuryException {
         authenticatePartial(credentials, false);
+
+        if (credentials.getTyp() == Authentication.AuthenticationType.AUTHENTICATION_SPOTIFY_TOKEN)
+            reconnect();
 
         synchronized (authLock) {
             mercuryClient = new MercuryClient(this);
@@ -999,6 +1004,21 @@ public final class Session implements Closeable {
         }
 
         /**
+         * Authenticates via OAuth flow, will prompt to open a link in the browser. This locks until completion.
+         */
+        public Builder oauth() throws IOException {
+            if (conf.storeCredentials && conf.storedCredentialsFile.exists())
+                return stored();
+
+            try (OAuth oauth = new OAuth(KEYMASTER_CLIENT_ID, "http://127.0.0.1:5588/login")) {
+                loginCredentials = oauth.flow();
+            } catch (InterruptedException ignored) {
+            }
+
+            return this;
+        }
+
+        /**
          * Authenticates with your Facebook account, will prompt to open a link in the browser. This locks until completion.
          */
         @NotNull
@@ -1031,8 +1051,11 @@ public final class Session implements Closeable {
          *
          * @param username Your Spotify username
          * @param password Your Spotify password
+         *
+         * @deprecated Use OAuth instead
          */
         @NotNull
+        @Deprecated
         public Builder userPass(@NotNull String username, @NotNull String password) {
             loginCredentials = Authentication.LoginCredentials.newBuilder()
                     .setUsername(username)
