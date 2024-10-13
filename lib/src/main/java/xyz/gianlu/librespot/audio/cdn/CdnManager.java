@@ -158,6 +158,10 @@ public class CdnManager {
 
             if (fileId != null) {
                 String tokenStr = url.queryParameter("__token__");
+                // Existing format: https://aud...bcf?__token__=exp=1697904087~hmac=80...99
+                String expiresStr = url.queryParameter("Expires");
+                // New https://aud...bcf?Expires=1697904086~FullPath~hmac=fT...Q=
+
                 if (tokenStr != null && !tokenStr.isEmpty()) {
                     Long expireAt = null;
                     String[] split = tokenStr.split("~");
@@ -178,6 +182,18 @@ public class CdnManager {
                     }
 
                     expiration = expireAt * 1000;
+                    
+                } else if ( expiresStr != null && !expiresStr.isEmpty()) {
+                    Long expireAt = null;
+                    String expiresStrVal = expiresStr.split("~")[0];
+                    expireAt = Long.parseLong(expiresStrVal);
+                    if (expireAt == null) {
+                        expiration = -1;
+                        LOGGER.warn("Invalid Expires param in CDN url: " + url);
+                    }
+
+                    expiration = expireAt * 1000;
+
                 } else {
                     String param = url.queryParameterName(0);
                     int i = param.indexOf('_');
