@@ -40,7 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * @author Gianlu
  */
 public final class ApResolver {
-    private static final String BASE_URL = "http://apresolve.spotify.com/";
+    private static final String BASE_URL = "https://apresolve.spotify.com/";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApResolver.class);
 
     private final OkHttpClient client;
