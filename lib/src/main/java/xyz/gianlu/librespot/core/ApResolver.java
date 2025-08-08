@@ -128,7 +128,8 @@ public final class ApResolver {
 
     @NotNull
     public String getRandomSpclient() {
-        return getRandomOf("spclient");
+        return "spclient.wg.spotify.com:443";
+        //return getRandomOf("spclient");
     }
 
     @NotNull
