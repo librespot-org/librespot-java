@@ -26,8 +26,8 @@ import xyz.gianlu.librespot.api.SessionWrapper;
 import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.common.ProtobufToJson;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.dealer.ApiClient;
-import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.*;
 
 import java.io.IOException;
@@ -91,7 +91,7 @@ public final class MetadataHandler extends AbsSessionHandler {
 
             Utils.internalError(exchange, ex);
             LOGGER.error("Failed handling api request. {type: {}, uri: {}, code: {}}", type, uri, ex.code, ex);
-        } catch (IOException | MercuryClient.MercuryException ex) {
+        } catch (IOException | TokenProvider.TokenException ex) {
             Utils.internalError(exchange, ex);
             LOGGER.error("Failed handling api request. {type: {}, uri: {}}", type, uri, ex);
         } catch (IllegalArgumentException ex) {
@@ -100,7 +100,7 @@ public final class MetadataHandler extends AbsSessionHandler {
     }
 
     @NotNull
-    private JsonObject handle(@NotNull Session session, @NotNull MetadataType type, @NotNull String uri) throws IOException, MercuryClient.MercuryException, IllegalArgumentException {
+    private JsonObject handle(@NotNull Session session, @NotNull MetadataType type, @NotNull String uri) throws IOException, TokenProvider.TokenException, IllegalArgumentException {
         switch (type) {
             case ALBUM:
                 return ProtobufToJson.convert(session.api().getMetadata4Album(AlbumId.fromUri(uri)));
@@ -120,7 +120,7 @@ public final class MetadataHandler extends AbsSessionHandler {
     }
 
     @NotNull
-    private JsonObject handlePlaylist(@NotNull Session session, @NotNull String uri) throws IOException, MercuryClient.MercuryException {
+    private JsonObject handlePlaylist(@NotNull Session session, @NotNull String uri) throws IOException, TokenProvider.TokenException {
         return ProtobufToJson.convert(session.api().getPlaylist(PlaylistId.fromUri(uri)));
     }
 

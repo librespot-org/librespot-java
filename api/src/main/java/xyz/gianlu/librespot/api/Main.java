@@ -21,7 +21,7 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.player.FileConfiguration;
 import xyz.gianlu.librespot.player.FileConfiguration.AuthStrategy;
 
@@ -33,7 +33,7 @@ import java.security.GeneralSecurityException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
+    public static void main(String[] args) throws IOException, TokenProvider.TokenException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         FileConfiguration conf = new FileConfiguration(args);
         Configurator.setRootLevel(conf.loggingLevel());
         Thread.setDefaultUncaughtExceptionHandler(new Log4JUncaughtExceptionHandler());
@@ -45,7 +45,7 @@ public class Main {
         else withPlayer(port, host, conf);
     }
 
-    private static void withPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
+    private static void withPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, TokenProvider.TokenException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         PlayerWrapper wrapper;
         if (conf.authStrategy() == AuthStrategy.ZEROCONF)
             wrapper = PlayerWrapper.fromZeroconf(conf.initZeroconfBuilder().create(), conf.toPlayer(), conf.toEventsShell());
@@ -57,7 +57,7 @@ public class Main {
         server.start();
     }
 
-    private static void withoutPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, MercuryClient.MercuryException, GeneralSecurityException, Session.SpotifyAuthenticationException {
+    private static void withoutPlayer(int port, @NotNull String host, @NotNull FileConfiguration conf) throws IOException, TokenProvider.TokenException, GeneralSecurityException, Session.SpotifyAuthenticationException {
         SessionWrapper wrapper;
         if (conf.authStrategy() == AuthStrategy.ZEROCONF)
             wrapper = SessionWrapper.fromZeroconf(conf.initZeroconfBuilder().create(), conf.toEventsShell());

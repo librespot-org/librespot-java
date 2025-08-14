@@ -20,12 +20,8 @@ import com.google.gson.JsonObject;
 import io.undertow.server.HttpServerExchange;
 import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.api.SessionWrapper;
-import xyz.gianlu.librespot.api.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TokenProvider;
-
-import java.util.Deque;
-import java.util.Map;
 
 public final class TokensHandler extends AbsSessionHandler {
 
@@ -41,14 +37,7 @@ public final class TokensHandler extends AbsSessionHandler {
             return;
         }
 
-        Map<String, Deque<String>> params = Utils.readParameters(exchange);
-        String scope = Utils.getFirstString(params, "scope");
-        if (scope == null) {
-            Utils.invalidParameter(exchange, "scope");
-            return;
-        }
-
-        TokenProvider.StoredToken token = session.tokens().getToken(scope);
+        TokenProvider.StoredToken token = session.tokens().getToken();
         JsonObject obj = new JsonObject();
         obj.addProperty("token", token.accessToken);
         obj.addProperty("timestamp", token.timestamp);

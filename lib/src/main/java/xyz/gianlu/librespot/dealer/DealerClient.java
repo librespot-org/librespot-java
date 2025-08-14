@@ -32,7 +32,7 @@ import xyz.gianlu.librespot.common.BytesArrayList;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TokenProvider;
 
 import java.io.*;
 import java.util.*;
@@ -73,9 +73,9 @@ public class DealerClient implements Closeable {
     /**
      * Creates a new WebSocket client. <b>Intended for internal use only!</b>
      */
-    public synchronized void connect() throws IOException, MercuryClient.MercuryException {
+    public synchronized void connect() throws IOException, TokenProvider.TokenException {
         conn = new ConnectionHolder(session, new Request.Builder()
-                .url(String.format("wss://%s/?access_token=%s", session.apResolver().getRandomDealer(), session.tokens().get("playlist-read")))
+                .url(String.format("wss://%s/?access_token=%s", session.apResolver().getRandomDealer(), session.tokens().get()))
                 .build());
     }
 
@@ -273,7 +273,7 @@ public class DealerClient implements Closeable {
 
             try {
                 connect();
-            } catch (IOException | MercuryClient.MercuryException ex) {
+            } catch (IOException | TokenProvider.TokenException ex) {
                 LOGGER.error("Failed reconnecting, retrying...", ex);
                 connectionInvalided();
             }

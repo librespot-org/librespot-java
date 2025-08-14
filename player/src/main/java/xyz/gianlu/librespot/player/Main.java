@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import xyz.gianlu.librespot.ZeroconfServer;
 import xyz.gianlu.librespot.common.Log4JUncaughtExceptionHandler;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TokenProvider;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -32,7 +32,7 @@ import java.security.GeneralSecurityException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, MercuryClient.MercuryException {
+    public static void main(String[] args) throws IOException, GeneralSecurityException, Session.SpotifyAuthenticationException, TokenProvider.TokenException {
         FileConfiguration conf = new FileConfiguration(args);
         Configurator.setRootLevel(conf.loggingLevel());
         Thread.setDefaultUncaughtExceptionHandler(new Log4JUncaughtExceptionHandler());
