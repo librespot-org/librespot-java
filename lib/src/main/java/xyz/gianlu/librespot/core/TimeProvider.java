@@ -25,7 +25,6 @@ import org.apache.commons.net.ntp.TimeInfo;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.gianlu.librespot.mercury.MercuryClient;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -101,7 +100,7 @@ public final class TimeProvider {
                 LOGGER.error("Failed notifying server of time request! {code: {}, msg: {}}", resp.code(), resp.message());
                 return;
             }
-        } catch (IOException | MercuryClient.MercuryException ex) {
+        } catch (IOException | TokenProvider.TokenException ex) {
             LOGGER.error("Failed notifying server of time request!", ex);
             return;
         }
@@ -122,7 +121,7 @@ public final class TimeProvider {
             }
 
             LOGGER.info("Loaded time offset from melody: {}ms", diff);
-        } catch (IOException | MercuryClient.MercuryException ex) {
+        } catch (IOException | TokenProvider.TokenException ex) {
             LOGGER.error("Failed requesting time!", ex);
         }
     }

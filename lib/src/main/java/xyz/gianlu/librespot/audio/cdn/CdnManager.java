@@ -34,7 +34,7 @@ import xyz.gianlu.librespot.cache.CacheManager;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TokenProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,7 +88,7 @@ public class CdnManager {
      * This is used only to RENEW the url if needed.
      */
     @NotNull
-    private HttpUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, CdnException, MercuryClient.MercuryException {
+    private HttpUrl getAudioUrl(@NotNull ByteString fileId) throws IOException, CdnException, TokenProvider.TokenException {
         try (Response resp = session.api().send("GET", String.format("/storage-resolve/files/audio/interactive/%s", Utils.bytesToHex(fileId)), null, null)) {
             if (resp.code() != 200)
                 throw new IOException(resp.code() + ": " + resp.message());
@@ -145,7 +145,7 @@ public class CdnManager {
             if (expiration <= System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)) {
                 try {
                     url = getAudioUrl(fileId);
-                } catch (IOException | MercuryClient.MercuryException ex) {
+                } catch (IOException | TokenProvider.TokenException ex) {
                     throw new CdnException(ex);
                 }
             }

@@ -16,22 +16,17 @@
 
 package xyz.gianlu.librespot.core;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.protobuf.ByteString;
+import com.spotify.login5v3.Credentials;
+import com.spotify.login5v3.Login5;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.common.Utils;
-import xyz.gianlu.librespot.json.GenericJson;
-import xyz.gianlu.librespot.mercury.MercuryClient;
-import xyz.gianlu.librespot.mercury.MercuryRequests;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * @author Gianlu
@@ -40,61 +35,76 @@ public final class TokenProvider {
     private final static Logger LOGGER = LoggerFactory.getLogger(TokenProvider.class);
     private final static int TOKEN_EXPIRE_THRESHOLD = 10;
     private final Session session;
-    private final List<StoredToken> tokens = new ArrayList<>();
+    private StoredToken token = null;
 
     TokenProvider(@NotNull Session session) {
         this.session = session;
     }
 
-    @Nullable
-    private StoredToken findTokenWithAllScopes(String[] scopes) {
-        for (StoredToken token : tokens)
-            if (token.hasScopes(scopes))
-                return token;
-
-        return null;
-    }
-
     @NotNull
-    public synchronized StoredToken getToken(@NotNull String... scopes) throws IOException, MercuryClient.MercuryException {
-        if (scopes.length == 0) throw new IllegalArgumentException();
-
-        StoredToken token = findTokenWithAllScopes(scopes);
-        if (token != null) {
-            if (token.expired()) tokens.remove(token);
-            else return token;
+    public synchronized StoredToken getToken() throws IOException, TokenException {
+        if (this.token != null) {
+            if (this.token.expired()) this.token = null;
+            else return this.token;
         }
 
-        LOGGER.debug("Token expired or not suitable, requesting again. {scopes: {}, oldToken: {}}", Arrays.asList(scopes), token);
-        GenericJson resp = session.mercury().sendSync(MercuryRequests.requestToken(session.deviceId(), String.join(",", scopes)));
-        token = new StoredToken(resp.obj);
+        LOGGER.debug("Token expired or not suitable, requesting again. {oldToken: {}}", this.token);
 
-        LOGGER.debug("Updated token successfully! {scopes: {}, newToken: {}}", Arrays.asList(scopes), token);
-        tokens.add(token);
+        try {
+            Login5Api api = new Login5Api(session);
+            Login5.LoginResponse resp = api.login5(
+                    Login5.LoginRequest.newBuilder()
+                            .setStoredCredential(Credentials.StoredCredential.newBuilder()
+                                    .setUsername(session.username())
+                                    .setData(ByteString.copyFrom(session.apWelcome().getReusableAuthCredentials().toByteArray()))
+                                    .build())
+                            .build()
+            );
+            if (!resp.hasOk()) throw new TokenException(resp.getError().getNumber());
+            Login5.LoginOk okResponse = resp.getOk();
 
-        return token;
+            JsonObject tokenBuilder = new JsonObject();
+            tokenBuilder.addProperty("accessToken", okResponse.getAccessToken());
+            tokenBuilder.addProperty("expiresIn", okResponse.getAccessTokenExpiresIn());
+            tokenBuilder.addProperty("tokenType", "Bearer");
+
+            this.token = new StoredToken(tokenBuilder);
+
+            LOGGER.debug("Updated token successfully! {newToken: {}}", this.token);
+
+            return this.token;
+        }catch (NoSuchAlgorithmException e) {
+            throw new IOException(e);
+        }
     }
 
     @NotNull
-    public String get(@NotNull String scope) throws IOException, MercuryClient.MercuryException {
-        return getToken(scope).accessToken;
+    public String get() throws IOException, TokenException {
+        return getToken().accessToken;
+    }
+
+    public static class TokenException extends Exception {
+        private final int code;
+
+        private TokenException(int code) {
+            super("Error while requesting token! Code: " + code);
+            this.code = code;
+        }
+
+        public int getCode() {
+            return code;
+        }
     }
 
     public static class StoredToken {
         public final int expiresIn;
         public final String accessToken;
-        public final String[] scopes;
         public final long timestamp;
 
         private StoredToken(@NotNull JsonObject obj) {
             timestamp = TimeProvider.currentTimeMillis();
             expiresIn = obj.get("expiresIn").getAsInt();
             accessToken = obj.get("accessToken").getAsString();
-
-            JsonArray scopesArray = obj.getAsJsonArray("scope");
-            scopes = new String[scopesArray.size()];
-            for (int i = 0; i < scopesArray.size(); i++)
-                scopes[i] = scopesArray.get(i).getAsString();
         }
 
         public boolean expired() {
@@ -106,25 +116,8 @@ public final class TokenProvider {
             return "StoredToken{" +
                     "expiresIn=" + expiresIn +
                     ", accessToken='" + Utils.truncateMiddle(accessToken, 12) +
-                    "', scopes=" + Arrays.toString(scopes) +
                     ", timestamp=" + timestamp +
                     '}';
-        }
-
-        public boolean hasScope(@NotNull String scope) {
-            for (String s : scopes)
-                if (Objects.equals(s, scope))
-                    return true;
-
-            return false;
-        }
-
-        public boolean hasScopes(String[] sc) {
-            for (String s : sc)
-                if (!hasScope(s))
-                    return false;
-
-            return true;
         }
     }
 }

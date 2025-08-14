@@ -34,9 +34,9 @@ import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.dealer.DealerClient.RequestResult;
-import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.mercury.MercuryRequests;
 import xyz.gianlu.librespot.player.PlayerConfiguration;
 
@@ -276,7 +276,7 @@ public final class DeviceStateHandler implements Closeable, DealerClient.Message
                 LOGGER.info("Put state. {ts: {}, connId: {}, reason: {}}", req.getClientSideTimestamp(),
                         Utils.truncateMiddle(connectionId, 10), req.getPutStateReason());
             }
-        } catch (IOException | MercuryClient.MercuryException ex) {
+        } catch (IOException | TokenProvider.TokenException ex) {
             LOGGER.error("Failed updating state.", ex);
         }
     }

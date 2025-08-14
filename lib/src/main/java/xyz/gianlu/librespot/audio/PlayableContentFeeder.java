@@ -36,7 +36,7 @@ import xyz.gianlu.librespot.audio.storage.StorageFeedHelper;
 import xyz.gianlu.librespot.common.NameThreadFactory;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
-import xyz.gianlu.librespot.mercury.MercuryClient;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.metadata.EpisodeId;
 import xyz.gianlu.librespot.metadata.LocalId;
 import xyz.gianlu.librespot.metadata.PlayableId;
@@ -81,7 +81,7 @@ public final class PlayableContentFeeder {
     }
 
     @NotNull
-    public final LoadedStream load(@NotNull PlayableId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws CdnManager.CdnException, ContentRestrictedException, MercuryClient.MercuryException, IOException {
+    public final LoadedStream load(@NotNull PlayableId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws CdnManager.CdnException, ContentRestrictedException, TokenProvider.TokenException, IOException {
         if (id instanceof TrackId)
             return loadTrack((TrackId) id, audioQualityPicker, preload, haltListener);
         else if (id instanceof EpisodeId)
@@ -91,7 +91,7 @@ public final class PlayableContentFeeder {
     }
 
     @NotNull
-    private StorageResolveResponse resolveStorageInteractive(@NotNull ByteString fileId, boolean preload) throws IOException, MercuryClient.MercuryException {
+    private StorageResolveResponse resolveStorageInteractive(@NotNull ByteString fileId, boolean preload) throws IOException, TokenProvider.TokenException {
         try (Response resp = session.api().send("GET", String.format(preload ? STORAGE_RESOLVE_INTERACTIVE_PREFETCH : STORAGE_RESOLVE_INTERACTIVE, Utils.bytesToHex(fileId)), null, null)) {
             if (resp.code() != 200) throw new IOException(resp.code() + ": " + resp.message());
 
@@ -102,7 +102,7 @@ public final class PlayableContentFeeder {
         }
     }
 
-    private @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException, ContentRestrictedException, CdnManager.CdnException {
+    private @NotNull LoadedStream loadTrack(@NotNull TrackId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, TokenProvider.TokenException, ContentRestrictedException, CdnManager.CdnException {
         Metadata.Track original = session.api().getMetadata4Track(id);
         Metadata.Track track = pickAlternativeIfNecessary(original);
         if (track == null) {
@@ -129,7 +129,7 @@ public final class PlayableContentFeeder {
 
     @NotNull
     @Contract("_, null, null, _, _ -> fail")
-    private LoadedStream loadStream(@NotNull Metadata.AudioFile file, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    private LoadedStream loadStream(@NotNull Metadata.AudioFile file, @Nullable Metadata.Track track, @Nullable Metadata.Episode episode, boolean preload, @Nullable HaltListener haltListener) throws IOException, TokenProvider.TokenException, CdnManager.CdnException {
         if (track == null && episode == null)
             throw new IllegalStateException();
 
@@ -156,7 +156,7 @@ public final class PlayableContentFeeder {
     }
 
     @NotNull
-    private LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, MercuryClient.MercuryException {
+    private LoadedStream loadTrack(@NotNull Metadata.Track track, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, CdnManager.CdnException, TokenProvider.TokenException {
         Metadata.AudioFile file = audioQualityPicker.getFile(track.getFileList());
         if (file == null) {
             LOGGER.error("Couldn't find any suitable audio file, available: {}", Utils.formatsToString(track.getFileList()));
@@ -167,7 +167,7 @@ public final class PlayableContentFeeder {
     }
 
     @NotNull
-    private LoadedStream loadEpisode(@NotNull EpisodeId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, MercuryClient.MercuryException, CdnManager.CdnException {
+    private LoadedStream loadEpisode(@NotNull EpisodeId id, @NotNull AudioQualityPicker audioQualityPicker, boolean preload, @Nullable HaltListener haltListener) throws IOException, TokenProvider.TokenException, CdnManager.CdnException {
         Metadata.Episode episode = session.api().getMetadata4Episode(id);
 
         if (episode.hasExternalUrl()) {

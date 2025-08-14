@@ -45,6 +45,7 @@ import xyz.gianlu.librespot.common.ProtoUtils;
 import xyz.gianlu.librespot.common.Utils;
 import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.core.TimeProvider;
+import xyz.gianlu.librespot.core.TokenProvider;
 import xyz.gianlu.librespot.dealer.DealerClient;
 import xyz.gianlu.librespot.mercury.MercuryClient;
 import xyz.gianlu.librespot.metadata.*;
@@ -254,7 +255,7 @@ public class StateWrapper implements DeviceStateHandler.Listener, DealerClient.M
             else throw new IllegalArgumentException();
 
             LOGGER.debug("Updated context with transforming information!");
-        } catch (MercuryClient.MercuryException | IOException ex) {
+        } catch (TokenProvider.TokenException | IOException ex) {
             LOGGER.warn("Failed loading cuepoints!", ex);
         }
     }
