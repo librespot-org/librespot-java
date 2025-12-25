@@ -315,16 +315,23 @@ public final class Utils {
     }
 
     @NotNull
-    public static String toBase64(@NotNull byte[] bytes, boolean padding) {
+    public static String toBase64(@NotNull byte[] bytes, boolean url, boolean padding) {
         byte[] encodedBytes;
         try {
             Class<?> clazz = Class.forName(JAVA_UTIL_BASE_64);
-            final Method getEncoder = clazz.getDeclaredMethod("getEncoder");
+
+            Method getEncoder;
+            if (url) getEncoder = clazz.getDeclaredMethod("getUrlEncoder");
+            else getEncoder = clazz.getDeclaredMethod("getEncoder");
+
             Class<?> encoderClazz = Class.forName("java.util.Base64$Encoder");
             Object encoder = getEncoder.invoke(null);
-            final Method withoutPadding = encoderClazz.getDeclaredMethod("withoutPadding");
-            if (!padding)
+
+            if (!padding) {
+                Method withoutPadding = encoderClazz.getDeclaredMethod("withoutPadding");
                 encoder = withoutPadding.invoke(encoder);
+            }
+
             final Method encode = encoderClazz.getDeclaredMethod("encode", byte[].class);
             encodedBytes = (byte[]) encode.invoke(encoder, bytes);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
@@ -334,6 +341,8 @@ public final class Utils {
                 int flags = 2; // Base64.NO_WRAP
                 if (!padding)
                     flags |= 1; // Base64.NO_PADDING
+                if (url)
+                    flags |= 8; // Base64.URL_SAFE
                 encodedBytes = (byte[]) encode.invoke(null, bytes, flags); // Base64.NO_WRAP | Base64.NO_PADDING
             } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored2) {
                 throw new NoClassDefFoundError("Base64 not available");
@@ -345,12 +354,12 @@ public final class Utils {
 
     @NotNull
     public static String toBase64NoPadding(@NotNull byte[] bytes) {
-        return toBase64(bytes, false);
+        return toBase64(bytes, false, false);
     }
 
     @NotNull
     public static String toBase64(@NotNull byte[] bytes) {
-        return toBase64(bytes, true);
+        return toBase64(bytes,false, true);
     }
 
     @NotNull
