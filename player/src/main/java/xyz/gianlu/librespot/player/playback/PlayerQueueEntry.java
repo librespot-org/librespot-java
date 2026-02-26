@@ -180,6 +180,19 @@ class PlayerQueueEntry extends PlayerQueue.Entry implements Closeable, Runnable,
     }
 
     /**
+     * Returns the current seek position. This might not be the real player position if it's called right after a seek.
+     *
+     * @return The current seek position of the player or {@code -1} if not ready.
+     * @throws Decoder.CannotGetTimeException If the time is unavailable for the codec being used.
+     */
+    int getSeekTime() throws Decoder.CannotGetTimeException {
+        int seekTime = this.seekTime;
+        if (seekTime != -1) return seekTime;
+        if (decoder != null) return decoder.time();
+        return -1;
+    }
+
+    /**
      * Returns the current position.
      *
      * @return The current position of the player or {@code -1} if not available.

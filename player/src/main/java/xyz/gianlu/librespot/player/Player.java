@@ -837,6 +837,17 @@ public class Player implements Closeable {
         }
     }
 
+    /**
+     * @return The current seek position of the player or {@code -1} if unavailable (most likely if it's playing an episode).
+     */
+    public int seekTime() {
+        try {
+            return playerSession == null ? -1 : playerSession.currentSeekTime();
+        } catch (Decoder.CannotGetTimeException ex) {
+            return -1;
+        }
+    }
+
 
     // ================================ //
     // ============ Close! ============ //
